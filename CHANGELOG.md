@@ -1,5 +1,18 @@
 # Current changes
 
+## Unreleased
+
+- Add `apexrest build webapp`: a standalone Node.js application for an APEXlang application that renders the pages with Universal Theme and runs their SQL and PL/SQL in an existing Oracle database through `node-oracledb`, with real sign-in, login-required pages and enforced authorization. A first version: session state protection is not implemented and one process serves one request at a time. See [build a web application](docs/webapp.md).
+- Word errors with the application's error handling function in a built web application and the connected preview: an error that carries an ORA code is passed to the function in Oracle (needs the APEX error API in the database) and its message replaces the database error stack.
+- Load the interactive grid model once: a page with a popup LOV and an interactive grid loaded Oracle's model script twice and raised a JavaScript error on load.
+- Apply item defaults to a new form row in the preview: form initialization cleared them.
+- Draw map layers whose geometry column is an Oracle `SDO_GEOMETRY` in a built web application (points, straight-edged lines and polygons, rectangles and their multi forms), and treat a layer without `geometryColumnDataType` as SDO_GEOMETRY, the APEX default, unless it maps longitude/latitude or GeoJSON columns.
+- Fix the unit-aware capacity summary pattern recipe: its report query used the Oracle reserved word `RESOURCE` as a column alias and failed with ORA-00923; the column is now `RESOURCE_NAME`.
+- Run the application's database code in the local preview: packages (specification, body, package variables, initialization, overloads), standalone functions and procedures and anonymous blocks of the install scripts, called from PL/SQL and from SQL; BEFORE row triggers that fill keys and audit columns; supporting-object install scripts in their declared order; and Oracle-only install statements skipped or translated instead of failing. See [local preview](docs/local-preview.md#application-database-code).
+- Run region and item plug-ins written in PL/SQL in the local preview: render and ajax callbacks, custom attributes, `apex_plugin_util.get_data2`, `apex_javascript`, `apex_css`, `apex_json` and the plug-in's own files.
+- Translate more Oracle SQL locally: `(+)` outer joins, hierarchical queries in every statement, `#OWNER#`, `sys.` prefixes, `SELECT UNIQUE`, interval literals, `ora_hash`, `numtodsinterval`; add Oracle dictionary views (`USER_TABLES`, `USER_SOURCE`, `ALL_OBJECTS`, …) and APEX `SOURCE_TYPE` values in the APEX dictionary.
+- Add `npm run preview:corpus`, which renders every page of Oracle's 33 public APEX 26.2 applications in the preview and counts what it cannot run. On that corpus, pages that failed to render went from 20 to 0, plug-in placeholders from 249 to 2 and application package calls not run from 3,066 to 30.
+
 ## 2.7.0
 
 - Deploy a changed application in about half the time. On a local APEX 26.2 database with SQLcl 26.3, adding one page through `apexrest_apex_validate` and `apexrest_ship mode:apply` (full import) took 23.8 s instead of 51.4 s at 7-9 pages and 28.7 s instead of 56.6 s at 23-28 pages. The identity checks, the three exports, the backup, the SQLcl restriction level and the outcome classification are unchanged. See [architecture](docs/architecture.md#persistent-sqlcl-engine).

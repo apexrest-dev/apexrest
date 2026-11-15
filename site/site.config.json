@@ -109,6 +109,14 @@
       "group": "Application work"
     },
     {
+      "slug": "webapp",
+      "title": "Build a web application",
+      "source": "docs/webapp.md",
+      "lang": "en",
+      "key": "webapp",
+      "group": "Application work"
+    },
+    {
       "slug": "plugin-qualification-harness",
       "title": "Plugin qualification harness",
       "source": "docs/plugin-qualification-harness.md",

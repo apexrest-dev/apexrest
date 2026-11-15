@@ -32,7 +32,7 @@ wwv_flow_imp_shared.create_template(
 ,p_static_id=>'standard'
 ,p_header_template=>${join('<!DOCTYPE html>', '<html><head><title>#TITLE#</title>#APEX_CSS##THEME_CSS##THEME_STYLE_CSS#</head>', '<body class="t-PageBody #PAGE_CSS_CLASSES#">#FORM_OPEN#')}
 ,p_box=>${join('<main>#SUCCESS_MESSAGE##NOTIFICATION_MESSAGE#<div class="t-Body-title">#REGION_POSITION_01#</div>#BODY#</main>')}
-,p_footer_template=>${join('#FORM_CLOSE##APEX_JAVASCRIPT##THEME_JAVASCRIPT##GENERATED_JAVASCRIPT#</body></html>')}
+,p_footer_template=>${join('#FORM_CLOSE##APEX_JAVASCRIPT##THEME_JAVASCRIPT##TEMPLATE_JAVASCRIPT##GENERATED_JAVASCRIPT#</body></html>')}
 ,p_success_message=>'<div class="t-Alert--success">#SUCCESS_MESSAGE#</div>'
 ,p_notification_message=>'<div class="t-Alert--warning">#MESSAGE#</div>'
 ,p_default_template_options=>'t-PageBody--contain'

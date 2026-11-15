@@ -220,6 +220,11 @@ async function dispatchObserved(
       );
       return { ...result, operation };
     }
+    if (operation === 'build.webapp') {
+      // Writes files only: no database connection, no SQLcl.
+      const { buildWebappOperation } = await import('./preview/service.ts');
+      return success(operation, await buildWebappOperation(root, parsed));
+    }
     if (operation === 'preview' || operation.startsWith('preview.')) {
       const { previewDispatch } = await import('./preview/service.ts');
       return success(operation, await previewDispatch(operation, parsed, root));

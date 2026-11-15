@@ -133,8 +133,10 @@ export type Expr = Token[];
 
 export type Target =
   | { kind: 'bind'; name: string }
+  /** `:new.column` / `:old.column` in a row trigger. */
+  | { kind: 'row'; row: 'new' | 'old'; column: string }
   | { kind: 'var'; name: string; field?: string; index?: Expr }
-  | { kind: 'global'; name: string };
+  | { kind: 'global'; name: string; index?: Expr };
 
 export interface Arg {
   name?: string;
@@ -343,9 +345,10 @@ export class Parser {
     return { decls, body, handlers, ...(label ? { label } : {}) };
   }
 
-  declarations(): Decl[] {
+  /** Declarations up to BEGIN, or also up to END in a package specification or body. */
+  declarations(untilEnd = false): Decl[] {
     const decls: Decl[] = [];
-    while (this.peek() && !isWord(this.peek(), 'begin')) {
+    while (this.peek() && !isWord(this.peek(), 'begin') && !(untilEnd && isWord(this.peek(), 'end'))) {
       const token = this.next();
       const line = token.line;
       if (isWord(token, 'pragma', 'subtype')) {
@@ -707,6 +710,8 @@ export class Parser {
   target(tokens: Token[]): Target {
     const [first, second, third] = tokens;
     if (first?.kind === 'bind' && tokens.length === 1) return { kind: 'bind', name: first.value };
+    if (first?.kind === 'bind' && ['NEW', 'OLD'].includes(first.value) && isOp(second, '.') && third)
+      return { kind: 'row', row: first.value === 'NEW' ? 'new' : 'old', column: third.value.toLowerCase() };
     if (first?.kind === 'word') {
       if (tokens.length === 1) return { kind: 'var', name: first.value };
       if (isOp(second, '.') && third && tokens.length === 3) {
@@ -716,6 +721,14 @@ export class Parser {
       }
       if (isOp(second, '(') && matchParen(tokens, 1) === tokens.length - 1)
         return { kind: 'var', name: first.value, index: tokens.slice(2, -1) };
+      // package collection element: apex_application.g_f01(i) := ...
+      if (
+        isOp(second, '.') &&
+        third?.kind === 'word' &&
+        isOp(tokens[3], '(') &&
+        matchParen(tokens, 3) === tokens.length - 1
+      )
+        return { kind: 'global', name: `${first.value}.${third.value}`, index: tokens.slice(4, -1) };
     }
     throw new PlsqlSyntaxError(`Unsupported assignment target "${tokenText(tokens)}"`, first?.line ?? 0);
   }
@@ -728,12 +741,15 @@ export class Parser {
       if (isOp(token, '(')) depth += 1;
       else if (isOp(token, ')')) depth -= 1;
       else if (depth === 0 && isOp(token, ':=')) {
-        return {
-          k: 'assign',
-          target: this.target(tokens.slice(0, index)),
-          expr: tokens.slice(index + 1),
-          line,
-        };
+        let target: Target;
+        try {
+          target = this.target(tokens.slice(0, index));
+        } catch (error) {
+          // One assignment the interpreter cannot express must not lose the whole unit.
+          if (!(error instanceof PlsqlSyntaxError)) throw error;
+          return { k: 'unsupported', what: `assignments to ${tokenText(tokens.slice(0, index))}`, line };
+        }
+        return { k: 'assign', target, expr: tokens.slice(index + 1), line };
       }
     }
     const name: string[] = [];
@@ -753,7 +769,7 @@ export class Parser {
       index = close + 1;
     }
     if (index < tokens.length)
-      throw new PlsqlSyntaxError(`Unsupported statement "${tokenText(tokens).slice(0, 60)}"`, line);
+      return { k: 'unsupported', what: `statements like "${tokenText(tokens).slice(0, 60)}"`, line };
     return { k: 'call', name, args, line };
   }
 }

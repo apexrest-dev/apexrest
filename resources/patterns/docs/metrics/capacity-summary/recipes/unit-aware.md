@@ -169,7 +169,7 @@ page 1 (
             type: sqlQuery
             sqlQuery:
                 ```sql
-                select 'Assigned seats' RESOURCE, 7 USED, 12 CAPACITY, 'Seats' UNIT from dual union all select 'Queue utilization' RESOURCE, 65 USED, 100 CAPACITY, 'Percent' UNIT from dual union all select 'Allocated budget' RESOURCE, 720 USED, 1000 CAPACITY, 'Currency units' UNIT from dual
+                select 'Assigned seats' RESOURCE_NAME, 7 USED, 12 CAPACITY, 'Seats' UNIT from dual union all select 'Queue utilization' RESOURCE_NAME, 65 USED, 100 CAPACITY, 'Percent' UNIT from dual union all select 'Allocated budget' RESOURCE_NAME, 720 USED, 1000 CAPACITY, 'Currency units' UNIT from dual
                 ```
         }
         layout {
@@ -184,7 +184,7 @@ page 1 (
             template: @/standard
             templateOptions: #DEFAULT#
         }
-        column RESOURCE (
+        column RESOURCE_NAME (
             reportColumnQueryId: 1
             derivedColumn: N
             heading {
@@ -236,7 +236,7 @@ page 1 (
   "compiler": {
     "status": "passed",
     "evidence": "recipes/compiler-evidence.json",
-    "sourceSha256": "efc4ebd097f1492c68053fb395f2d68e30175a883522d34dfc4cb8eaf45682fb",
+    "sourceSha256": "83420dfe94e725db3a443d3f466bf3f97839543685a2ffb03eb7afb1d1fe1006",
     "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
     "mmdVersion": "26.1.0+3102"
   },

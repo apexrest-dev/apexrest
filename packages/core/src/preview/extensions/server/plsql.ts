@@ -3,6 +3,7 @@ import type { ApexError, ApexRenderer, RenderContext } from '../../render.ts';
 import { RESERVED_BUILTINS } from '../../render.ts';
 import { findStub, stubArgs, withRuntime, type Runtime } from './apex-api.ts';
 import { commitWork, rollbackWork, savepoint } from './transaction.ts';
+import { buildLibrary, pickOverload, type PlsqlLibrary, type PlsqlPackage } from './packages.ts';
 import {
   isOp,
   isWord,
@@ -10,6 +11,7 @@ import {
   parseArgs,
   parseExpression,
   parseProgram,
+  Parser,
   PlsqlSyntaxError,
   type Arg,
   type Block,
@@ -70,6 +72,8 @@ class Scope {
   readonly cursors = new Map<string, CursorDef>();
   readonly exceptions = new Set<string>();
   readonly routines = new Map<string, { routine: Routine; scope: Scope }>();
+  /** All routines of a name declared in this scope (package overloads). */
+  readonly overloads = new Map<string, Routine[]>();
   readonly collectionTypes = new Set<string>();
   readonly parent: Scope | undefined;
   constructor(parent?: Scope) {
@@ -147,6 +151,10 @@ const COLLECTION_TYPES = new Set([
   'odcinumberlist',
   'dbms_sql.varchar2_table',
   'dbms_sql.number_table',
+  'apex_plugin_util.t_column_value_list',
+  'apex_plugin_util.t_column_value_list2',
+  'apex_plugin_util.t_column_list',
+  'apex_t_string_pairs',
 ]);
 
 const COMPARISON = new Set(['=', '<', '>', '<=', '>=', '<>', '!=', '~=', '^=']);
@@ -251,6 +259,61 @@ function parsed(code: string): Stmt[] {
   return entry;
 }
 
+const libraries = new WeakMap<ApexRenderer, PlsqlLibrary>();
+/**
+ * The application's PL/SQL units from the local database (see packages.ts). Connected previews
+ * run the application's packages in Oracle, so they have none locally.
+ */
+export function plsqlLibrary(renderer: ApexRenderer): PlsqlLibrary {
+  let library = libraries.get(renderer);
+  if (!library) {
+    library = renderer.oracle
+      ? buildLibrary([])
+      : buildLibrary(typeof renderer.db.plsqlUnits === 'function' ? renderer.db.plsqlUnits() : []);
+    libraries.set(renderer, library);
+    for (const problem of library.problems) renderer.diagnose('warning', `PL/SQL unit: ${problem}`);
+  }
+  return library;
+}
+
+/** Package state lives for one request, like a pooled APEX database session that was reset. */
+const packageStates = new WeakMap<RenderContext, Map<string, Scope>>();
+
+/** `[schema.]package.member` or `[schema.]routine` in a call chain of lower-case names. */
+function libraryTarget(
+  library: PlsqlLibrary,
+  names: string[],
+):
+  | { pkg?: PlsqlPackage; member: string; rest: string[] }
+  | { routine: Routine[]; rest: string[] }
+  | undefined {
+  for (const offset of names.length > 2 ? [0, 1] : [0]) {
+    const pkg = library.packages.get(names[offset]!);
+    if (pkg && names[offset + 1]) return { pkg, member: names[offset + 1]!, rest: names.slice(offset + 2) };
+  }
+  const standalone = library.routines.get(names.at(-1)!);
+  if (standalone && names.length <= 2 && (names.length === 1 || !library.packages.has(names[0]!)))
+    return { routine: standalone, rest: [] };
+  return undefined;
+}
+
+const declarationCache = new Map<string, Decl[] | PlsqlSyntaxError>();
+function declarations(code: string): Decl[] {
+  let entry = declarationCache.get(code);
+  if (!entry) {
+    try {
+      entry = new Parser(code).declarations();
+    } catch (error) {
+      if (!(error instanceof PlsqlSyntaxError)) throw error;
+      entry = error;
+    }
+    if (declarationCache.size > 200) declarationCache.clear();
+    declarationCache.set(code, entry);
+  }
+  if (entry instanceof PlsqlSyntaxError) throw entry;
+  return entry;
+}
+
 export class Interpreter implements Runtime {
   readonly renderer: ApexRenderer;
   readonly ctx: RenderContext;
@@ -324,6 +387,69 @@ export class Interpreter implements Runtime {
     return result;
   }
 
+  /**
+   * Runs routine `name` declared in `code` (a plug-in's PL/SQL: declarations without a body) with
+   * argument values by parameter name. Parameters without a value get their default, or an empty
+   * record; OUT and IN OUT values come back in `outs`.
+   */
+  runDeclared(
+    code: string,
+    name: string,
+    values: Record<string, Value>,
+  ): ExecResult & { outs: Record<string, Value> } {
+    const result: ExecResult & { outs: Record<string, Value> } = {
+      ok: true,
+      value: null,
+      output: '',
+      errors: this.errors,
+      outs: {},
+    };
+    try {
+      withRuntime(this, () => {
+        const scope = new Scope();
+        this.declare(declarations(code), scope);
+        const routine = scope.overloads.get(name.toLowerCase())?.[0];
+        if (!routine) throw new PlsqlUnsupported(`the plug-in code declares no ${name}`, 0);
+        const local = new Scope(scope);
+        for (const param of routine.params) {
+          const type = typeOf(param.type, scope);
+          const given = Object.hasOwn(values, param.name) ? values[param.name]! : undefined;
+          const value =
+            given !== undefined
+              ? given
+              : param.init
+                ? this.evaluate(param.init, local)
+                : /\.t_|%rowtype$/iu.test(param.type)
+                  ? new RecordValue()
+                  : null;
+          local.vars.set(param.name, {
+            value: value instanceof RecordValue ? value : this.coerce(value, type),
+            type: value instanceof RecordValue ? 'record' : type,
+            constant: false,
+          });
+        }
+        result.value = this.runRoutine(routine, local);
+        for (const param of routine.params)
+          if (param.mode !== 'in') result.outs[param.name] = local.vars.get(param.name)?.value ?? null;
+      });
+    } catch (error) {
+      result.ok = false;
+      if (error instanceof PlsqlException)
+        result.failure = { message: error.message, kind: error.kind, line: this.line };
+      else if (error instanceof PlsqlSyntaxError || error instanceof PlsqlUnsupported)
+        result.failure = { message: error.message, kind: 'unsupported', line: error.line || this.line };
+      else
+        result.failure = {
+          message: (error as Error).message ?? String(error),
+          kind: 'engine',
+          line: this.line,
+        };
+    }
+    result.output = this.output.join('');
+    if (this.redirectURL) result.redirectURL = this.redirectURL;
+    return result;
+  }
+
   /** COMMIT, ROLLBACK [TO SAVEPOINT name] and SAVEPOINT name act on the page transaction. */
   transactionControl(op: 'commit' | 'rollback' | 'savepoint', name?: string): void {
     const db = this.renderer.db.db;
@@ -365,9 +491,19 @@ export class Interpreter implements Runtime {
         case 'type':
           if (decl.collection) scope.collectionTypes.add(decl.name);
           break;
-        case 'routine':
+        case 'routine': {
           scope.routines.set(decl.routine.name, { routine: decl.routine, scope });
+          const list = scope.overloads.get(decl.routine.name) ?? [];
+          const same = list.findIndex(
+            (entry) =>
+              entry.params.length === decl.routine.params.length &&
+              entry.params.every((param, at) => param.name === decl.routine.params[at]!.name),
+          );
+          if (same >= 0) list[same] = decl.routine;
+          else list.push(decl.routine);
+          scope.overloads.set(decl.routine.name, list);
           break;
+        }
       }
     }
   }
@@ -574,6 +710,8 @@ export class Interpreter implements Runtime {
       case 'bind':
         this.ctx.session.items[target.name] = itemText(value);
         return;
+      case 'row':
+        throw new PlsqlUnsupported(`:${target.row}.${target.column} outside a row trigger`, this.line);
       case 'global':
         if (target.name === 'apex_application.g_print_success_message') {
           this.ctx.session.success = itemText(value) || undefined;
@@ -584,6 +722,13 @@ export class Interpreter implements Runtime {
       case 'var': {
         const variable = scope.variable(target.name);
         if (!variable) {
+          const global = target.field ? this.packageVariable([target.name, target.field]) : undefined;
+          if (global) {
+            if (global.constant)
+              throw new PlsqlUnsupported(`assignment to constant ${target.name}.${target.field}`, this.line);
+            global.value = this.coerce(value, global.type);
+            return;
+          }
           if (target.field) {
             this.note(
               'info',
@@ -718,6 +863,74 @@ export class Interpreter implements Runtime {
     }
   }
 
+  // ------------------------------------------------------------ packages
+
+  get library(): PlsqlLibrary {
+    return plsqlLibrary(this.renderer);
+  }
+
+  /** The package's state for this request, initialized on first use. */
+  packageScope(pkg: PlsqlPackage): Scope {
+    let states = packageStates.get(this.ctx);
+    if (!states) packageStates.set(this.ctx, (states = new Map()));
+    let scope = states.get(pkg.name);
+    if (scope) return scope;
+    scope = new Scope();
+    // Registered first: a routine called from the initialization finds the package itself.
+    states.set(pkg.name, scope);
+    const line = this.line;
+    try {
+      this.declare(pkg.decls, scope);
+      if (pkg.init) this.execBlock(pkg.init, scope);
+    } finally {
+      this.line = line;
+    }
+    return scope;
+  }
+
+  /** A package variable or constant (`pkg.g_x`), when the chain names one. */
+  packageVariable(names: string[]): Variable | undefined {
+    const target = libraryTarget(this.library, names);
+    if (!target || !('pkg' in target) || !target.pkg) return undefined;
+    if (target.pkg.routines.has(target.member)) return undefined;
+    return this.packageScope(target.pkg).vars.get(target.member);
+  }
+
+  /** Calls an application routine by chain; undefined when the chain names none. */
+  callLibrary(names: string[], args: Arg[], scope: Scope): { value: Value } | undefined {
+    const target = libraryTarget(this.library, names);
+    if (!target || target.rest.length) return undefined;
+    const positional = args.filter((arg) => !arg.name).length;
+    const named = args.filter((arg) => arg.name).map((arg) => arg.name!);
+    if ('routine' in target) {
+      const routine = pickOverload(target.routine, positional, named);
+      return routine ? { value: this.invoke(routine, new Scope(), args, scope) } : undefined;
+    }
+    const overloads = target.pkg!.routines.get(target.member);
+    if (!overloads) return undefined;
+    const routine = pickOverload(overloads, positional, named);
+    if (!routine) return undefined;
+    return { value: this.invoke(routine, this.packageScope(target.pkg!), args, scope) };
+  }
+
+  /** Calls an application routine with values (from SQL); undefined when it does not exist. */
+  callWithValues(names: string[], values: Value[]): { value: Value } | undefined {
+    const target = libraryTarget(this.library, names);
+    if (!target || target.rest.length) return undefined;
+    const overloads = 'routine' in target ? target.routine : target.pkg!.routines.get(target.member);
+    const routine = overloads && pickOverload(overloads, values.length, []);
+    if (!routine) return undefined;
+    const defining = 'routine' in target ? new Scope() : this.packageScope(target.pkg!);
+    const local = new Scope(defining);
+    routine.params.forEach((param, index) => {
+      const type = typeOf(param.type, defining);
+      const value =
+        index < values.length ? values[index]! : param.init ? this.evaluate(param.init, local) : null;
+      local.vars.set(param.name, { value: this.coerce(value, type), type, constant: param.mode === 'in' });
+    });
+    return { value: this.runRoutine(routine, local) };
+  }
+
   // ------------------------------------------------------------ calls
 
   evalArgs(args: Arg[], scope: Scope): { positional: Value[]; named: Record<string, Value> } {
@@ -735,8 +948,16 @@ export class Interpreter implements Runtime {
     const names = chain[0] === 'sys' && chain.length > 1 ? chain.slice(1) : chain;
     const name = names.join('.');
     if (names.length === 1) {
-      const local = scope.find((s) => s.routines.get(name));
-      if (local) return this.invoke(local.routine, local.scope, args, scope);
+      const local = scope.find((s) => (s.overloads.has(name) ? s : undefined));
+      if (local) {
+        const routine =
+          pickOverload(
+            local.overloads.get(name)!,
+            args.filter((arg) => !arg.name).length,
+            args.filter((arg) => arg.name).map((arg) => arg.name!),
+          ) ?? local.routines.get(name)!.routine;
+        return this.invoke(routine, local, args, scope);
+      }
       if (name === 'raise_application_error') {
         const { positional, named } = this.evalArgs(args, scope);
         const code = Number(positional[0] ?? named.num ?? -20000);
@@ -749,6 +970,8 @@ export class Interpreter implements Runtime {
     if (COLLECTION_TYPES.has(name)) return Collection.of(this.evalArgs(args, scope).positional);
     const variable = names.length === 2 ? scope.variable(names[0]!) : undefined;
     if (variable?.value instanceof Collection) return this.collectionMethod(variable, names[1]!, args, scope);
+    const application = this.callLibrary(names, args, scope);
+    if (application) return application.value;
     const stub = findStub(name);
     if (!stub) {
       this.note('info', `${name} is not simulated locally; ${asFunction ? 'returned NULL' : 'skipped'}`);
@@ -756,7 +979,13 @@ export class Interpreter implements Runtime {
     }
     const { positional, named } = this.evalArgs(args, scope);
     const plain = (value: Value): unknown =>
-      value instanceof Collection ? value.values().map(plain) : value instanceof RecordValue ? null : value;
+      stub.raw
+        ? value
+        : value instanceof Collection
+          ? value.values().map(plain)
+          : value instanceof RecordValue
+            ? null
+            : value;
     const result = stub.fn(
       stubArgs(
         stub,
@@ -767,6 +996,54 @@ export class Interpreter implements Runtime {
     );
     if (Array.isArray(result)) return Collection.of(result as Value[]);
     return (result ?? null) as Value;
+  }
+
+  /**
+   * Reads a variable through its element and field accessors, as far as they go:
+   * `rec.field`, `list(i)`, `list(i).value_list(j).varchar2_value`, `list(i).value_list.count`.
+   * `start` is the index of the variable's token; returns the value and the last token consumed.
+   */
+  walkPath(variable: Variable, tokens: Expr, start: number, scope: Scope): { value: Value; end: number } {
+    let current = variable.value;
+    let holder = variable;
+    let at = start;
+    for (;;) {
+      if (current instanceof Collection && isOp(tokens[at + 1], '(')) {
+        const close = matchParen(tokens, at + 1);
+        const key = this.collectionKey(this.evaluate(tokens.slice(at + 2, close), scope));
+        if (!current.items.has(key))
+          throw new PlsqlException('no_data_found', 100, PREDEFINED_TEXT.no_data_found!, 'app');
+        current = current.items.get(key) ?? null;
+        holder = { value: current, type: 'any', constant: true };
+        at = close;
+        continue;
+      }
+      if (
+        isOp(tokens[at + 1], '.') &&
+        (tokens[at + 2]?.kind === 'word' || tokens[at + 2]?.kind === 'qident')
+      ) {
+        const member = tokens[at + 2]!.value.toLowerCase();
+        if (current instanceof RecordValue) {
+          current = current.fields[member.toUpperCase()] ?? null;
+          holder = { value: current, type: 'any', constant: true };
+          at += 2;
+          continue;
+        }
+        if (current instanceof Collection) {
+          let args: Arg[] = [];
+          let end = at + 2;
+          if (isOp(tokens[at + 3], '(')) {
+            end = matchParen(tokens, at + 3);
+            args = parseArgs(tokens.slice(at + 4, end));
+          }
+          current = this.collectionMethod(holder, member, args, scope);
+          holder = { value: current, type: 'any', constant: true };
+          at = end;
+          continue;
+        }
+      }
+      return { value: current, end: at };
+    }
   }
 
   collectionMethod(variable: Variable, method: string, args: Arg[], scope: Scope): Value {
@@ -827,11 +1104,18 @@ export class Interpreter implements Runtime {
         outs.push({ target: targetOf(arg.expr), name: param.name });
       }
     });
+    const value = this.runRoutine(routine, local);
+    for (const out of outs) this.assign(out.target, local.vars.get(out.name)?.value ?? null, caller);
+    return value;
+  }
+
+  /** Runs a routine body in its parameter scope; a function must return a value. */
+  runRoutine(routine: Routine, local: Scope): Value {
+    if (this.#depth >= MAX_CALL_DEPTH) throw new PlsqlUnsupported('recursion depth exceeded', this.line);
     this.#depth += 1;
     const line = this.line;
     try {
       const signal = this.execBlock(routine.block, local);
-      for (const out of outs) this.assign(out.target, local.vars.get(out.name)?.value ?? null, caller);
       if (routine.isFunction) {
         if (signal?.kind !== 'return')
           throw new PlsqlException(
@@ -946,33 +1230,19 @@ export class Interpreter implements Runtime {
         throw new PlsqlUnsupported(`attribute ${head}%${attribute}`, token.line);
       }
 
-      if (variable && names.length === 1) {
-        if (variable.value instanceof Collection && callOpen >= 0) {
-          const key = this.collectionKey(this.evaluate(tokens.slice(callOpen + 1, callClose), scope));
-          if (!variable.value.items.has(key))
-            throw new PlsqlException('no_data_found', 100, PREDEFINED_TEXT.no_data_found!, 'app');
-          bind(pre, variable.value.items.get(key) ?? null);
-          index = callClose;
-          continue;
-        }
-        bind(pre, variable.value);
-        index = end;
+      if (
+        variable &&
+        (names.length === 1 || variable.value instanceof RecordValue || variable.value instanceof Collection)
+      ) {
+        const walked = this.walkPath(variable, tokens, index, scope);
+        bind(pre, walked.value);
+        index = walked.end;
         continue;
       }
-      if (variable && names.length >= 2) {
-        if (variable.value instanceof RecordValue) {
-          bind(pre, variable.value.fields[names[1]!.toUpperCase()] ?? null);
-          index = end;
-          continue;
-        }
-        if (variable.value instanceof Collection) {
-          bind(pre, this.collectionMethod(variable, names[1]!, callArgs, scope));
-          index = callOpen >= 0 ? callClose : end;
-          continue;
-        }
-      }
       if (names.length === 1) {
-        const routine = scope.find((s) => s.routines.get(head));
+        const routine =
+          scope.find((s) => s.routines.get(head)) ??
+          (mode === 'expr' ? this.library.routines.get(head) : undefined);
         const isCollectionType =
           COLLECTION_TYPES.has(head) || scope.find((s) => (s.collectionTypes.has(head) ? true : undefined));
         if (routine || isCollectionType || head === 'raise_application_error') {
@@ -988,6 +1258,26 @@ export class Interpreter implements Runtime {
         continue;
       }
 
+      // the application's own package: a variable, or a routine (called here outside SQL; in SQL the
+      // call stays in the statement and runs per row through the database's function hook)
+      const libraryChain = head === 'sys' ? names.slice(1) : names;
+      const own = libraryTarget(this.library, libraryChain);
+      if (own) {
+        const global = this.packageVariable(libraryChain);
+        if (global) {
+          bind(pre, global.value);
+          index = end;
+          continue;
+        }
+        if (mode === 'expr' || callOpen < 0) {
+          const result = this.callLibrary(libraryChain, callArgs, scope);
+          if (result) {
+            bind(pre, result.value);
+            index = callOpen >= 0 ? callClose : end;
+            continue;
+          }
+        }
+      }
       // package member, possibly followed by a collection attribute (apex_application.g_f01.count)
       const dropped = head === 'sys' ? names.slice(1) : names;
       const full = dropped.join('.');

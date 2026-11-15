@@ -440,3 +440,17 @@ export async function previewDispatch(operation: string, parsed: Record<string, 
       throw new Fault('INVALID_INPUT', `Unknown preview action: ${selected}`, 2);
   }
 }
+
+/** `apexrest build webapp`: a standalone Node.js application for the project's APEXlang sources. */
+export async function buildWebappOperation(root: string, input: Record<string, unknown>) {
+  const { buildWebapp } = await import('../webapp/build.ts');
+  const sourceDir = await resolveSource(root, input.sourceDir as string | undefined);
+  return buildWebapp({
+    sourceDir,
+    out: path.resolve(root, String(input.out)),
+    ...(input.auth ? { auth: input.auth as 'users' | 'plsql' | 'database' | 'open' } : {}),
+    ...(input.authFunction ? { authFunction: String(input.authFunction) } : {}),
+    ...(input.includeAssets ? { includeAssets: true } : {}),
+    ...(input.assetsDir ? { assetsDir: String(input.assetsDir) } : {}),
+  });
+}

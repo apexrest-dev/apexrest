@@ -48,6 +48,59 @@ const esc = escapeHtml;
 const fixed = (value: number) => Number(value.toFixed(2));
 
 /** Flattens GeoJSON geometry into point/line/polygon parts (lon, lat). */
+interface SdoGeometry {
+  SDO_GTYPE?: number | null;
+  SDO_POINT?: { X?: number | null; Y?: number | null } | null;
+  SDO_ELEM_INFO?: number[] | null;
+  SDO_ORDINATES?: number[] | null;
+}
+
+/**
+ * An Oracle SDO_GEOMETRY object (as node-oracledb returns it) as GeoJSON. Points, lines, polygons with
+ * straight edges, optimized rectangles and their multi forms are converted; arcs and compound elements are not.
+ */
+function sdoToGeoJson(sdo: SdoGeometry): unknown {
+  const gtype = Number(sdo.SDO_GTYPE ?? 0);
+  const dimensions = Math.max(2, Math.floor(gtype / 1000));
+  const point = sdo.SDO_POINT;
+  if (point && point.X !== null && point.X !== undefined && point.Y !== null && point.Y !== undefined)
+    return { type: 'Point', coordinates: [Number(point.X), Number(point.Y)] };
+  const info = sdo.SDO_ELEM_INFO ?? [];
+  const ordinates = sdo.SDO_ORDINATES ?? [];
+  const points: Position[] = [];
+  const lines: Position[][] = [];
+  const polygons: Position[][][] = [];
+  for (let index = 0; index + 2 < info.length; index += 3) {
+    const start = Number(info[index]) - 1;
+    const etype = Number(info[index + 1]);
+    const interpretation = Number(info[index + 2]);
+    const end = index + 3 < info.length ? Number(info[index + 3]) - 1 : ordinates.length;
+    const positions: Position[] = [];
+    for (let at = start; at + 1 < end; at += dimensions)
+      positions.push([Number(ordinates[at]), Number(ordinates[at + 1])]);
+    if (etype === 1) points.push(...positions);
+    else if (etype === 2 && interpretation === 1) lines.push(positions);
+    else if ((etype === 1003 || etype === 2003) && (interpretation === 1 || interpretation === 3)) {
+      const [low, high] = positions;
+      const ring =
+        interpretation === 3 && low && high
+          ? ([low, [high[0], low[1]], high, [low[0], high[1]], low] as Position[])
+          : positions;
+      // An exterior ring starts a polygon; interior rings are its holes.
+      if (etype === 1003 || !polygons.length) polygons.push([ring]);
+      else polygons.at(-1)!.push(ring);
+    }
+  }
+  return {
+    type: 'GeometryCollection',
+    geometries: [
+      ...(points.length ? [{ type: 'MultiPoint', coordinates: points }] : []),
+      ...(lines.length ? [{ type: 'MultiLineString', coordinates: lines }] : []),
+      ...(polygons.length ? [{ type: 'MultiPolygon', coordinates: polygons }] : []),
+    ],
+  };
+}
+
 function geometry(value: unknown): { kind: Feature['kind']; parts: Position[][] }[] {
   let json: unknown = value;
   if (typeof value === 'string') {
@@ -58,6 +111,7 @@ function geometry(value: unknown): { kind: Feature['kind']; parts: Position[][] 
     }
   }
   if (!json || typeof json !== 'object') return [];
+  if ('SDO_GTYPE' in json) return geometry(sdoToGeoJson(json as SdoGeometry));
   const object = json as {
     type?: string;
     coordinates?: unknown;
@@ -185,9 +239,14 @@ export function renderMap(renderer: ApexRenderer, ctx: RenderContext, region: Ap
       continue;
     }
     const column = (key: string) => str(props, `columnMapping.${key}`).toUpperCase();
-    const dataType = str(props, 'columnMapping.geometryColumnDataType', 'longitudeLatitude');
     const lon = column('longitudeColumn');
     const lat = column('latitudeColumn');
+    // APEX omits the data type when it is the default, SDO_GEOMETRY; older sources map only the columns.
+    const dataType = str(
+      props,
+      'columnMapping.geometryColumnDataType',
+      lon || lat ? 'longitudeLatitude' : column('geojsonColumn') ? 'geojson' : 'sdoGeometry',
+    );
     const geometryColumn = column('geojsonColumn') || column('geometryColumn');
     const tooltipColumn = str(props, 'tooltip.column').toUpperCase();
     const tooltipHtml = bool(props, 'tooltip.advancedFormatting', false)
@@ -204,13 +263,7 @@ export function renderMap(renderer: ApexRenderer, ctx: RenderContext, region: Ap
     const assignColumn = fromRegion ? str(props, 'rowAssignment.column').toUpperCase() : '';
     const assignValue = str(props, 'rowAssignment.valueForThisLayer');
     const target = get(props, 'link.target');
-    if (dataType === 'sdoGeometry')
-      renderer.diagnose(
-        'warning',
-        `Map layer ${definition.id} uses SDO_GEOMETRY; only GeoJSON text in that column can be drawn locally`,
-        ctx.pageId,
-        region.id,
-      );
+    const drawnBefore = features.length;
     for (const row of result.rows) {
       if (assignColumn && String(row[assignColumn] ?? '') !== assignValue) continue;
       const shapes =
@@ -244,6 +297,13 @@ export function renderMap(renderer: ApexRenderer, ctx: RenderContext, region: Ap
       for (const shape of shapes) features.push({ layer: index, ...shape, label, info, link, style, weight });
       layer.count += 1;
     }
+    if (dataType === 'sdoGeometry' && result.rows.length && features.length === drawnBefore)
+      renderer.diagnose(
+        'warning',
+        `Map layer ${definition.id} uses SDO_GEOMETRY; it is drawn from an Oracle connection that returns the object, or from GeoJSON text in that column`,
+        ctx.pageId,
+        region.id,
+      );
   }
   renderer.diagnose(
     'info',

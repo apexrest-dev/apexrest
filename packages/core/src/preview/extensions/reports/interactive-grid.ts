@@ -661,13 +661,9 @@ export function interactiveGrid(renderer: ApexRenderer, ctx: RenderContext, regi
   const { domId, state, cells } = model;
   const id = escapeHtml(domId);
   ctx.clientConfig.regions.push({ id: domId, kind: 'interactiveGrid' });
-  for (const file of [
-    'model',
-    'tooltipManager',
-    'widget.toolbar',
-    'widget.tableModelViewBase',
-    'widget.grid',
-  ])
+  // `modelViewBase` is Oracle's bundle of the model and the table model views. Popup LOV items load
+  // the same file, so a page with both defines the model once.
+  for (const file of ['modelViewBase', 'tooltipManager', 'widget.toolbar', 'widget.grid'])
     ctx.jsFiles.add(`#APEX_FILES#libraries/apex/#MIN_DIRECTORY#${file}#MIN#.js?v=#APEX_VERSION#`);
 
   const trigger = `apex.jQuery('#${domId}')`;

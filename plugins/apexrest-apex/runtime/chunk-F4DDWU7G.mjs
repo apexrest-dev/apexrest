@@ -1,5 +1,8 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  VERSION
+} from "./chunk-64FD5OTX.mjs";
+import {
   isProductionTarget,
   managedHome,
   parse,
@@ -43,38 +46,6 @@ import {
   Fault,
   __export
 } from "./chunk-IFFZXFNO.mjs";
-
-// plugins/metadata.json
-var metadata_default = {
-  name: "apexrest-apex",
-  version: "2.7.0",
-  description: "Develop, deploy and test Oracle APEX applications from Codex or Claude Code.",
-  author: {
-    name: "APEXREST",
-    url: "https://apexrest-dev.github.io/apexrest/"
-  },
-  license: "Apache-2.0",
-  interface: {
-    displayName: "APEXREST for Codex and Claude Code",
-    shortDescription: "Oracle APEX development workflows",
-    longDescription: "Oracle APEX development, controlled deployment and testing directly in your current Codex or Claude Code session.",
-    developerName: "APEXREST",
-    websiteURL: "https://apexrest-dev.github.io/apexrest/",
-    composerIcon: "./assets/apexrest-icon.svg",
-    logo: "./assets/apexrest-logo.svg",
-    logoDark: "./assets/apexrest-logo.svg",
-    category: "Productivity",
-    capabilities: ["Read", "Write"],
-    defaultPrompt: [
-      "Use $apexrest-work to build or change my Oracle APEX application in this session.",
-      "Use $apexrest-setup to check my tools and connection references.",
-      "Use $apexrest-safety to explain what blocked my APEX deployment or test."
-    ]
-  }
-};
-
-// packages/core/src/version.ts
-var VERSION = metadata_default.version;
 
 // packages/core/src/project.ts
 import path13 from "node:path";
@@ -3697,7 +3668,6 @@ export {
   configureConnection,
   coordination,
   LocalDeploymentControl,
-  VERSION,
   syncPath,
   privateCopy,
   checkSnapshot,

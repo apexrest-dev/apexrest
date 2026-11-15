@@ -6,17 +6,22 @@ APEXREST develops and deploys Oracle APEX applications. Application verification
 
 These commands verify the repository implementation, not applications through the plugin:
 
-| Command                   | What it establishes                                            |
-| ------------------------- | -------------------------------------------------------------- |
-| `npm run lint`            | Formatting and source conventions                              |
-| `npm run typecheck`       | TypeScript consistency                                         |
-| `npm run test:unit`       | Core and failure/concurrency fixtures                          |
-| `npm run test:contracts`  | CLI/MCP contracts, both host manifest launches and tool parity |
-| `npm run test:installers` | Download, archive, integrity and platform fixtures             |
-| `npm run test:packaging`  | Package schemas, containment, manifests and site checks        |
-| `npm run docs:check`      | Links, anchors and documented commands                         |
-| `npm run plugin:check`    | Checked-in bundle matches a fresh build                        |
-| `npm run site:build`      | Local documentation site generation                            |
+| Command                                    | What it establishes                                            |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| `npm run lint`                             | Formatting and source conventions                              |
+| `npm run typecheck`                        | TypeScript consistency                                         |
+| `npm run test:unit`                        | Core and failure/concurrency fixtures                          |
+| `npm run test:contracts`                   | CLI/MCP contracts, both host manifest launches and tool parity |
+| `npm run test:installers`                  | Download, archive, integrity and platform fixtures             |
+| `npm run test:packaging`                   | Package schemas, containment, manifests and site checks        |
+| `npm run docs:check`                       | Links, anchors and documented commands                         |
+| `npm run plugin:check`                     | Checked-in bundle matches a fresh build                        |
+| `npm run site:build`                       | Local documentation site generation                            |
+| `npm run preview:corpus -- --archive PATH` | Local preview over Oracle's public 26.2 applications           |
+
+`preview:corpus` renders every page of the 33 public Oracle APEX 26.2 applications in the [local preview](local-preview.md) and counts what it could not run by kind (placeholders, application calls, seed and SQL failures). Pass the pinned `oracle/apex` source archive that the public template catalog uses; the script checks its SHA-256 and writes the scorecard to `docs/evidence/preview-corpus/`. It measures the preview, not Oracle behavior.
+
+`node tests/webapp/e2e.mjs` checks a running [built web application](webapp.md) end to end against an Oracle database that holds the Bitcoin Price Monitor schema (sign-in, reports, a committed form insert, sign-out); its header lists the environment variables. It needs a local DEV or TEST database and is not part of the automatic checks.
 
 Build with `npm run build` before checks that consume `dist/`. Packaging validates Claude Code manifests when its CLI is available. The host-parity contract resolves each manifest launcher from a relocated payload, compares the scoped ship/tool contracts and references, and checks shared managed connection state. Installer fixtures check both Node/home bindings and payload integrity. These do not start model sessions or import an application. GitHub local quality gates run only on pushes to `main`; release and Oracle integration workflows remain disabled.
 

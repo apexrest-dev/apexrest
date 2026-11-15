@@ -58,6 +58,7 @@
     "plugin:sync": "npm run build && node scripts/sync-repository-plugin.mjs",
     "plugin:check": "node scripts/sync-repository-plugin.mjs --check",
     "test:repository-plugin": "node scripts/repository-plugin-smoke.mjs",
+    "preview:corpus": "node scripts/preview-corpus.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "composer:catalog": "node scripts/build-composer-catalog.mjs",
     "composer:check": "node scripts/build-composer-catalog.mjs --check",
@@ -79,6 +80,7 @@
     "esbuild": "0.28.2",
     "fflate": "0.8.3",
     "marked": "18.0.7",
+    "oracledb": "6.10.0",
     "prettier": "3.9.6",
     "typescript": "7.0.2"
   }

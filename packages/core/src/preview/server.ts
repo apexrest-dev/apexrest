@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -22,6 +22,8 @@ import {
 } from './extensions.ts';
 import { parseBody } from './extensions/files/multipart.ts';
 import { transaction } from './extensions/server/transaction.ts';
+import { setUpRenderer } from './extensions.ts';
+import './oracle-dictionary.ts';
 import {
   ApexRenderer,
   LOCAL_PREFIX,
@@ -31,6 +33,9 @@ import {
   type Diagnostic,
   type Session,
 } from './render.ts';
+
+/** Developer tool routes; a deployed application (application mode) does not serve them. */
+const DEVELOPER_ROUTES = new Set(['debug-log', 'session-state', 'view-as', 'reset-data', 'outbox']);
 
 /** Preview Ajax routes that change data; they commit or roll back like a page submit. */
 const TRANSACTIONAL_ROUTES = new Set(['ig-save', 'set-value']);
@@ -67,6 +72,23 @@ export interface PreviewOptions {
    * rolled back, or committed when it succeeds and the session is in commit mode.
    */
   oracle?: ConnectedOracle;
+  /**
+   * Application mode (webapp/server.ts): the server is a deployed application, not a developer
+   * preview. Sign-in is real, pages that are not public need it, authorization schemes are
+   * enforced, and the developer surface (diagnostics, hot reload, live socket) is off.
+   */
+  application?: ApplicationMode;
+}
+
+export interface ApplicationMode {
+  /** Checks credentials; returns the user's roles on success, undefined on failure. */
+  authenticate(username: string, password: string): { roles?: string[] } | undefined;
+  /** `host[:port]` values the application is reached by, besides loopback. */
+  publicHosts?: string[];
+  /** Mark the session cookie Secure (served over HTTPS). */
+  secureCookies?: boolean;
+  /** Idle time after which a session ends; defaults to 8 hours. */
+  sessionTimeoutMs?: number;
 }
 
 export interface PreviewPage {
@@ -151,17 +173,21 @@ export function previewRequestRefusal(
   method: string | undefined,
   port: number,
   bindHost?: string,
+  /** Application mode: `host[:port]` names the server is published under (behind a proxy, HTTPS). */
+  publicHosts: string[] = [],
 ): string | undefined {
   const names = [...LOOPBACK_NAMES];
   if (bindHost && !WILDCARD_HOSTS.has(bindHost) && !names.includes(bindHost))
     names.push(bindHost.includes(':') && !bindHost.startsWith('[') ? `[${bindHost}]` : bindHost);
   const allowed = new Set(names.map((name) => `${name}:${port}`.toLowerCase()));
+  for (const name of publicHosts) allowed.add(name.trim().toLowerCase());
   const host = headers.host?.trim().toLowerCase();
   if (!host || !allowed.has(host)) return 'Host is not this preview server';
   const safe = method === 'GET' || method === 'HEAD';
   const origin = headers.origin?.trim().toLowerCase();
-  if (origin !== undefined && !safe && origin !== `http://${host}`)
-    return 'Cross-origin requests are not accepted';
+  // A published host may be served over HTTPS by a proxy in front of the application.
+  const sameOrigin = origin === `http://${host}` || (publicHosts.length > 0 && origin === `https://${host}`);
+  if (origin !== undefined && !safe && !sameOrigin) return 'Cross-origin requests are not accepted';
   const site = String(headers['sec-fetch-site'] ?? '').toLowerCase();
   if (site === 'cross-site' || site === 'same-site') {
     const navigation = headers['sec-fetch-mode'] === 'navigate' && safe;
@@ -179,6 +205,8 @@ export class PreviewServer {
   /** WebSocket pages: data changes, source reloads and presence (live.ts). */
   readonly live: LiveHub;
   renderer: ApexRenderer;
+  /** Application mode: receives errors that are not shown to the user. */
+  onError?: (error: unknown) => void;
   #server?: http.Server | undefined;
   #sessions = new Map<string, Session>();
   #loadedAt = 0;
@@ -218,6 +246,7 @@ export class PreviewServer {
       ...(this.options.oracle ? { oracle: this.options.oracle } : {}),
     });
     for (const problem of this.seedProblems) renderer.diagnose('warning', `Seed script: ${problem}`);
+    setUpRenderer(renderer);
     for (const warning of this.options.oracle?.warnings ?? [])
       renderer.diagnose('warning', `Connected preview: ${warning}`);
     // Unknown APEXlang properties and values would otherwise be ignored silently, and so would
@@ -270,7 +299,11 @@ export class PreviewServer {
       this.#handle(request, response)
         .catch((error: unknown) => {
           if (!response.headersSent) response.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
-          response.end(`APEX preview error: ${(error as Error).message}`);
+          // A deployed application does not show internal messages to its users.
+          if (this.options.application) {
+            this.onError?.(error);
+            response.end('The request could not be processed.');
+          } else response.end(`APEX preview error: ${(error as Error).message}`);
         })
         .finally(() => {
           this.#endRequest(response);
@@ -283,6 +316,8 @@ export class PreviewServer {
         return rejectUpgrade(socket, 404, 'Not Found');
       // The same Host and cross-site checks as HTTP requests; the hub also requires a same-origin page.
       const port = (this.#server?.address() as AddressInfo | null)?.port ?? 0;
+      // The live socket is a developer feature; a deployed application has none.
+      if (this.options.application) return rejectUpgrade(socket, 404, 'Not Found');
       if (previewRequestRefusal(request.headers, request.method, port, this.options.host))
         return rejectUpgrade(socket, 403, 'Forbidden');
       this.live.upgrade(request, socket, head, this.#existingSession(request));
@@ -366,13 +401,96 @@ export class PreviewServer {
   }
 
   session(request: http.IncomingMessage, response: http.ServerResponse): Session {
-    const existing = this.#existingSession(request);
-    if (existing) return existing;
-    const id = String(Math.floor(Math.random() * 9e15) + 1e15);
-    const session: Session = { id, user: this.options.user ?? 'DEVELOPER', items: {}, pagination: {} };
+    // The host header passed the request guard (local host names and the preview port only).
+    const host = typeof request.headers.host === 'string' ? request.headers.host.trim() : '';
+    const origin = /^[\w.:[\]-]+$/u.test(host) ? `http://${host}` : undefined;
+    const application = this.options.application;
+    let existing = this.#existingSession(request);
+    if (existing && application) {
+      // An idle session ends; the browser gets a new, signed-out one.
+      const idle = Date.now() - (existing.lastSeen ?? Date.now());
+      if (idle > (application.sessionTimeoutMs ?? 8 * 3_600_000)) {
+        this.#sessions.delete(existing.id);
+        existing = undefined;
+      }
+    }
+    if (existing) {
+      if (origin) existing.origin = origin;
+      existing.lastSeen = Date.now();
+      return existing;
+    }
+    return this.#newSession(response, origin);
+  }
+
+  /** A new session with an unguessable numeric id (APEX session ids are numbers). */
+  #newSession(response: http.ServerResponse, origin?: string): Session {
+    const application = this.options.application;
+    const id = BigInt(`0x${randomBytes(8).toString('hex')}`)
+      .toString()
+      .padStart(20, '1');
+    const session: Session = {
+      id,
+      // Application mode starts signed out, with authorization enforced for a user without roles.
+      user: application ? 'nobody' : (this.options.user ?? 'DEVELOPER'),
+      items: {},
+      pagination: {},
+      lastSeen: Date.now(),
+      ...(application ? { viewAs: { roles: [], deny: [] } } : {}),
+      ...(origin ? { origin } : {}),
+    };
+    // Idle and never-used sessions (clients without cookies) must not accumulate.
+    if (application && this.#sessions.size >= 5000) {
+      const limit = Date.now() - (application.sessionTimeoutMs ?? 8 * 3_600_000);
+      for (const [key, entry] of this.#sessions)
+        if (
+          (entry.lastSeen ?? 0) < limit ||
+          (!entry.authenticated && (entry.lastSeen ?? 0) < Date.now() - 600_000)
+        )
+          this.#sessions.delete(key);
+    }
     this.#sessions.set(id, session);
-    response.setHeader('set-cookie', `APEX_LOCAL_SESSION=${id}; Path=/; HttpOnly; SameSite=Lax`);
+    response.setHeader(
+      'set-cookie',
+      `APEX_LOCAL_SESSION=${id}; Path=/; HttpOnly; SameSite=Lax${application?.secureCookies ? '; Secure' : ''}`,
+    );
     return session;
+  }
+
+  /** Whether a page can be opened without signing in (application mode). */
+  #publicPage(pageKey: string): boolean {
+    const page = this.renderer.findPage(pageKey);
+    if (!page) return false;
+    return (
+      this.renderer.isLoginPage(page.id) ||
+      /^(?:publicPage|pageIsPublic)$/u.test(str(page.props, 'security.authentication'))
+    );
+  }
+
+  /** URL of the application's login page, or the built-in sign-in form. */
+  #loginUrl(): string {
+    const renderer = this.renderer;
+    const configured = str(renderer.app.app.props, 'navigation.loginUrl.page');
+    const page =
+      (configured && renderer.findPage(configured)) ||
+      [...renderer.app.pages.values()].find((candidate) => renderer.isLoginPage(candidate.id));
+    return page ? renderer.pagePath(page) : `${renderer.baseUrl}/__login`;
+  }
+
+  /** Signs the session in; the session id changes so a pre-login id cannot be reused. */
+  #signIn(
+    response: http.ServerResponse,
+    session: Session,
+    username: string,
+    password: string,
+  ): Session | undefined {
+    const granted = this.options.application?.authenticate(username, password);
+    if (!granted) return undefined;
+    this.#sessions.delete(session.id);
+    const next = this.#newSession(response, session.origin);
+    next.user = username.toUpperCase();
+    next.authenticated = true;
+    next.viewAs = { roles: granted.roles ?? [], deny: [] };
+    return next;
   }
 
   /**
@@ -447,10 +565,24 @@ export class PreviewServer {
 
   async #handle(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
     const port = (this.#server?.address() as AddressInfo | null)?.port ?? 0;
-    const refusal = previewRequestRefusal(request.headers, request.method, port, this.options.host);
+    const application = this.options.application;
+    // Liveness for load balancers and containers: no session, no database call.
+    if (application && request.url === '/healthz') return this.#send(response, 200, 'text/plain', 'ok');
+    const refusal = previewRequestRefusal(
+      request.headers,
+      request.method,
+      port,
+      this.options.host,
+      application?.publicHosts,
+    );
     if (refusal) {
       request.resume();
-      return this.#send(response, 403, 'text/plain; charset=utf-8', `APEX preview: ${refusal}.`);
+      return this.#send(
+        response,
+        403,
+        'text/plain; charset=utf-8',
+        application ? 'Forbidden' : `APEX preview: ${refusal}.`,
+      );
     }
     const url = new URL(request.url ?? '/', 'http://localhost');
     const pathname = url.pathname;
@@ -464,10 +596,11 @@ export class PreviewServer {
       if (name === 'runtime.css')
         return this.#send(response, 200, TYPES['.css']!, RUNTIME_CSS + extensionCss());
       if (name === 'messages.js') return this.#send(response, 200, TYPES['.js']!, messagesScript(MESSAGES));
-      if (name === 'diagnostics')
+      if (name === 'diagnostics' && !application)
         return this.#send(response, 200, TYPES['.json']!, JSON.stringify(this.diagnostics(), null, 2));
     }
-    this.#refresh();
+    // A deployed application serves the sources it was built from; only the preview hot-reloads.
+    if (!application) this.#refresh();
     if (this.#loadError)
       return this.#send(
         response,
@@ -523,6 +656,22 @@ export class PreviewServer {
       if (!themeDir) return this.#send(response, 404, 'text/plain', 'Not found');
       return this.#static(response, themeDir, rest.slice(15), false);
     }
+    // A plug-in's own files (#PLUGIN_FILES#): shared-components/plugins/<kind>/<name>/static-files.
+    const pluginFiles = /^files\/plugin\/([\w-]+)\/([\w-]+)\/(.+)$/u.exec(rest);
+    if (pluginFiles)
+      return this.#static(
+        response,
+        path.join(
+          this.options.sourceDir,
+          'shared-components',
+          'plugins',
+          pluginFiles[1]!,
+          pluginFiles[2]!,
+          'static-files',
+        ),
+        pluginFiles[3]!,
+        false,
+      );
     if (rest.startsWith('files/workspace/'))
       return this.#static(
         response,
@@ -531,7 +680,43 @@ export class PreviewServer {
         false,
       );
 
-    const session = this.session(request, response);
+    let session = this.session(request, response);
+    if (application) {
+      // Built-in sign-in form for applications without a login page.
+      if (rest === '__login') {
+        if (request.method === 'POST') {
+          const form = new URLSearchParams(await body(request, 65_536));
+          const signed = this.#signIn(
+            response,
+            session,
+            form.get('username') ?? '',
+            form.get('password') ?? '',
+          );
+          if (signed) {
+            response.writeHead(302, { location: renderer.baseUrl }).end();
+            return;
+          }
+        }
+        return this.#send(
+          response,
+          request.method === 'POST' ? 401 : 200,
+          TYPES['.html']!,
+          `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in</title><style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f5f5f5}form{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);display:grid;gap:.75rem;min-width:18rem}input,button{font:inherit;padding:.5rem}.error{color:#b00020}</style></head><body><form method="post" action="${renderer.baseUrl}/__login"><h1>Sign in</h1>${request.method === 'POST' ? '<p class="error" role="alert">Invalid username or password.</p>' : ''}<label>Username <input name="username" autocomplete="username" required autofocus></label><label>Password <input name="password" type="password" autocomplete="current-password" required></label><button type="submit">Sign in</button></form></body></html>`,
+        );
+      }
+      // Everything else needs a signed-in session unless it belongs to a public page.
+      if (!session.authenticated && rest !== '__logout') {
+        const posted = rest === 'wwv_flow.accept' || rest.startsWith(`${LOCAL_PREFIX.slice(1)}/`);
+        const pageKey = posted ? (url.searchParams.get('page') ?? '') : decodeURIComponent(rest);
+        // A submit names its page in the body; it is checked where the body is read below.
+        if (rest !== 'wwv_flow.accept' && !(pageKey && this.#publicPage(pageKey))) {
+          if (posted)
+            return this.#send(response, 401, TYPES['.json']!, JSON.stringify({ error: 'Sign in required' }));
+          response.writeHead(302, { location: this.#loginUrl() }).end();
+          return;
+        }
+      }
+    }
     if (rest === 'wwv_flow.accept' && request.method === 'POST') {
       // apex.page.submit sends multipart/form-data (p_json first, then p_files) when file items have files.
       const { form, files } = await formBody(request);
@@ -546,6 +731,38 @@ export class PreviewServer {
       );
       const page = form.get('p_flow_step_id') ?? '';
       const requestValue = form.get('p_request') ?? '';
+      if (application && !session.authenticated) {
+        if (!this.#publicPage(page))
+          return this.#send(response, 401, TYPES['.json']!, JSON.stringify({ error: 'Sign in required' }));
+        if (renderer.isLoginPage(page)) {
+          const find = (pattern: RegExp) =>
+            Object.entries(values).find(([name]) => pattern.test(name.toUpperCase()))?.[1] ?? '';
+          const signed = this.#signIn(response, session, find(/USERNAME$|USER_NAME$/u), find(/PASSWORD$/u));
+          if (!signed)
+            return this.#send(
+              response,
+              200,
+              TYPES['.json']!,
+              JSON.stringify({
+                errors: [
+                  { type: 'error', location: ['page'], message: 'Invalid Login Credentials', unsafe: false },
+                ],
+                pageSubmissionId: String(Date.now()),
+              }),
+            );
+          session = signed;
+          const home = renderer.findPage(renderer.homePage());
+          return this.#send(
+            response,
+            200,
+            TYPES['.json']!,
+            JSON.stringify({
+              redirectURL: home ? renderer.pagePath(home) : renderer.baseUrl,
+              pageSubmissionId: String(Date.now()),
+            }),
+          );
+        }
+      }
       const finish = runSubmitExtensions(renderer, session, {
         pageId: page,
         request: requestValue,
@@ -562,7 +779,8 @@ export class PreviewServer {
             ? renderer.login(session, values)
             : renderer.accept(session, page, requestValue, values);
           for (const step of finish) accepted = step(accepted);
-          return accepted;
+          const failed = (accepted as { errors?: ApexError[] }).errors;
+          return failed?.length ? { ...accepted, errors: renderer.userErrors(failed) } : accepted;
         },
         this.#failure(response, (accepted) => Boolean((accepted as { errors?: unknown[] }).errors?.length)),
       );
@@ -578,7 +796,9 @@ export class PreviewServer {
       return this.#send(response, 200, TYPES['.json']!, '{}');
     }
     if (rest.startsWith(`${LOCAL_PREFIX.slice(1)}/x/`)) {
-      const handler = routeHandler(rest.slice(LOCAL_PREFIX.length + 2));
+      const routeName = rest.slice(LOCAL_PREFIX.length + 2);
+      // Developer tools (session state editor, view as, data reset, debug log, outbox) are preview-only.
+      const handler = application && DEVELOPER_ROUTES.has(routeName) ? undefined : routeHandler(routeName);
       if (!handler) return this.#send(response, 404, 'text/plain', 'Unknown preview route');
       const posted =
         request.method === 'POST'
@@ -607,6 +827,12 @@ export class PreviewServer {
       return this.#respond(response, result);
     }
     if (rest === '__logout') {
+      if (application) {
+        // The signed-in session ends; the next request starts a new, signed-out one.
+        this.#sessions.delete(session.id);
+        response.writeHead(302, { location: this.#loginUrl() }).end();
+        return;
+      }
       session.items = {};
       session.user = this.options.user ?? 'DEVELOPER';
       response.writeHead(302, { location: renderer.baseUrl }).end();
@@ -675,7 +901,7 @@ export class PreviewServer {
         response,
         200,
         TYPES['.json']!,
-        JSON.stringify(errors.length ? { ...values, errors } : values),
+        JSON.stringify(errors.length ? { ...values, errors: renderer.userErrors(errors) } : values),
       );
     }
     if (rest === `${LOCAL_PREFIX.slice(1)}/close-dialog`) {
@@ -694,6 +920,7 @@ export class PreviewServer {
     }
 
     const page = renderer.findPage(decodeURIComponent(rest));
+    if (!page && application) return this.#send(response, 404, 'text/plain', 'Not found');
     if (!page) {
       const links = this.pages()
         .map((entry) => `<li><a href="${entry.url}">${entry.id} · ${entry.name}</a></li>`)

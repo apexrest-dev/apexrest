@@ -1,5 +1,29 @@
 # Next actions and verification limits
 
+## Built web applications
+
+`apexrest build webapp` ([guide](webapp.md)) is a first working version. Before calling a built application deployable:
+
+- **Security.** Implement session state protection (URL checksums, item restrictions) and review every renderer path that puts application or database text into HTML or SQL; write a threat model; run a security review. Verify `plsql` and `database` sign-in against real accounts.
+- **Concurrency and state.** One process serves one request at a time and keeps sessions, collections and uploaded files in memory. Add a render worker pool or several processes with a shared session store; per-session state in the renderer is keyed by the session object and must move to that store first. Load-test with concurrent users and check that no session reads another's values.
+- **Fidelity.** Compare pages rendered by real APEX and by a built application on the local Docker database (normalized DOM diff), starting with one sample application, and have a person check a built application in a browser (a scripted headless session passed on the Trade application).
+- **Database.** Serve BLOB columns from Oracle, move uploads and collections out of memory, and test the APEX session path with an imported application. Decide on an optional compatibility package (`v`, `nv`, common `apex_util` calls) for databases without APEX; it is database DDL and needs explicit authorization.
+- **Identity.** Make the signed-in user visible to database code without an APEX session (for example as the session's client identifier) and document how application code reads it; decide whether a denied page should answer 403.
+- **Breadth.** Dynamic action and process plug-ins, REST data sources against real endpoints, and a support matrix generated from the 26.2 component inventory that the build checks.
+- **Oracle browser files.** Whether built applications may use or ship them depends on the user's Oracle license; keep the build's default (not included) and the notice in the generated README.
+
+## Local preview as an alternative APEX runtime
+
+The goal is that a page renders and behaves locally as it would on APEX with the application's database. Measure each step with `npm run preview:corpus` (33 public Oracle 26.2 applications); the 2026-11-15 scorecard is in [implementation status](implementation-status.md). Remaining work, in order of how much of the corpus it affects:
+
+- **SQL failures (299).** Remaining causes include Oracle syntax inside larger expressions, `references` and other SQLite keywords used as column names, tables the install scripts create with JSON or duality syntax, and columns that live only in Oracle dictionary views. Group the scorecard samples and translate the next largest cause.
+- **Seed script failures (213).** AFTER and statement-level triggers, DML and loops inside BEFORE triggers (history tables, tag synchronization), JSON relational duality views and JSON collection tables.
+- **Authorization schemes that deny (341).** Most read application tables the sample data leaves empty (access control lists); consider letting a project mark its seed users.
+- **APEX APIs (102).** Add the next most called APIs from the scorecard samples (`apex_util.host_url` and the session time zone were the largest).
+- **PL/SQL interpreter.** `EXECUTE IMMEDIATE` with binds, explicit cursors (OPEN/FETCH/CLOSE), `FORALL`, records declared with `TYPE … IS RECORD`, and running the skipped trigger statements through the interpreter when DML comes from PL/SQL.
+- **Plug-ins.** Dynamic action and process plug-ins (render returns JavaScript; execution runs PL/SQL), application-scope plug-in settings, and APEX's own built-in plug-in files that some sample plug-ins load.
+- **Dictionary fidelity.** Region static IDs keep the APEXlang identifier's lower case, so code comparing `static_id` with a mixed-case value finds nothing; template option and theme metadata views used by the Universal Theme reference application.
+
 ## Oracle skill and source maintenance
 
 - The 2026-11-05 check found no newer APEXlang skill content: all 13 APEX entrypoints, 389 bundled 26.2 definitions and 659 bundled 26.1 source files match the reviewed sources. Keep the existing upstream pins; review future skill/router changes separately from inventory changes using the maintainer skill map.
@@ -55,7 +79,7 @@
   The 2026-11-01 run covered data, binds, APEX session, HTP, rollback and the skip rule for anonymous code. Afterwards, consider `apex_error.add_error` read-back, LOB/BLOB columns and an ORDS transport that keeps one transaction.
 
 - Exercise the database-only (`importMode: none`) plan in recovery (`mode: recover`) after an interrupted script. The plan, apply and tamper checks are unit-tested, and one plan was applied to the demo TEST database on 2026-11-01; recovery of an interrupted database-only run has not been exercised.
-- Extend the [local preview](local-preview.md) where design iteration needs it: facet charts, interactive grid pivot/group by, `EXECUTE IMMEDIATE`/package bodies/explicit cursors in the PL/SQL interpreter, calendar drag-and-drop saves, view-as on report column authorization and submit, BLOB images in cards and grid columns, map color schemes/clustering/icon styles, property checks for processes, saved report views, facets and filters and minimum child counts (template component columns, chart axes), and a per-page (not per-session) lost-update snapshot. Record repeatable rendering checks against the real 26.2 assets; keep the preview separate from Oracle evidence.
+- Extend the [local preview](local-preview.md) where design iteration needs it: facet charts, interactive grid pivot/group by, `EXECUTE IMMEDIATE`/explicit cursors in the PL/SQL interpreter, calendar drag-and-drop saves, view-as on report column authorization and submit, BLOB images in cards and grid columns, map color schemes/clustering/icon styles, property checks for processes, saved report views, facets and filters and minimum child counts (template component columns, chart axes), and a per-page (not per-session) lost-update snapshot. Record repeatable rendering checks against the real 26.2 assets; keep the preview separate from Oracle evidence.
 - Extend local chart AJAX qualification to overlapping refresh responses and dynamic series changes; the crypto comparison currently verifies serial peer changes and a width redraw. Review item-default re-evaluation when an AJAX request explicitly clears a defaulted item; the comparison requires an asset choice and hides its null option.
 - Exercise `apexrest_peer_review` from fresh native Claude Code and Codex sessions on a real saved ship plan: host detection, job waiting, verdict recording and the `required` apply gate. Check a real npm-installed `codex.cmd` and `claude.cmd` on Windows (the shim resolution is covered by CI with a cmd-shim-format fixture), and recheck Anthropic's current terms for headless `claude -p` usage on subscription plans before documenting it as subscription-covered.
 - Exercise the shared six-skill/twelve-tool bundle in fresh Codex and Claude Code sessions: skill/tool discovery and the one-call scoped ship/job flow. Manifest-driven subprocess parity and managed binding checks are local evidence only; request browser verification separately when needed. Confirm a shared managed home or externally serialize independent homes.

@@ -21,6 +21,8 @@ export interface Stub {
   fn: (args: StubArgs, rt: Runtime | undefined) => unknown;
   /** Also callable from SQL (registered as a SQLite function). */
   sql?: boolean;
+  /** Receives PL/SQL records and collections as they are, instead of their text. */
+  raw?: boolean;
 }
 
 /** The runtime of the innermost running PL/SQL unit; SQL functions read session state through it. */
@@ -539,9 +541,34 @@ export function setAuthorizer(fn: (rt: Runtime | undefined, name: string | null)
   authorize = fn;
 }
 
+/** Earlier names of APEX packages that applications still call; each member maps to its APEX_ name. */
+const LEGACY_PACKAGES: Record<string, string> = {
+  htmldb_lang: 'apex_lang',
+  wwv_flow_lang: 'apex_lang',
+  htmldb_util: 'apex_util',
+  wwv_flow_utilities: 'apex_util',
+  wwv_flow_collection: 'apex_collection',
+  htmldb_collection: 'apex_collection',
+  htmldb_application: 'apex_application',
+  wwv_flow: 'apex_application',
+  htmldb_item: 'apex_item',
+  wwv_flow_item: 'apex_item',
+  htmldb_mail: 'apex_mail',
+  wwv_flow_mail: 'apex_mail',
+  wwv_flow_escape: 'apex_escape',
+  wwv_flow_custom_auth_std: 'apex_custom_auth',
+  wwv_flow_plugin_util: 'apex_plugin_util',
+  wwv_flow_api: 'apex_util',
+};
+
 export function findStub(name: string): Stub | undefined {
   if (Object.hasOwn(STUBS, name)) return STUBS[name];
   const pkg = name.split('.')[0]!;
+  const current = LEGACY_PACKAGES[pkg];
+  if (current) {
+    const mapped = `${current}${name.slice(pkg.length)}`;
+    if (Object.hasOwn(STUBS, mapped)) return STUBS[mapped];
+  }
   if (NOOP_PACKAGES.has(pkg)) return { params: [], fn: noop };
   return undefined;
 }
@@ -557,8 +584,25 @@ export function stubArgs(stub: Stub, positional: unknown[], named: Record<string
   return args;
 }
 
+/** SQL names of a stub: its own and the earlier package names that map to it. */
+function sqlNames(name: string): string[] {
+  const pkg = name.split('.')[0]!;
+  const member = name.slice(pkg.length);
+  return [
+    name,
+    ...Object.entries(LEGACY_PACKAGES)
+      .filter(([, current]) => current === pkg)
+      .map(([legacy]) => `${legacy}${member}`),
+  ];
+}
+
 for (const [name, stub] of Object.entries(STUBS)) {
   if (!stub.sql) continue;
+  for (const alias of sqlNames(name).slice(1))
+    registerOracleFunction(alias, stub.params, (values) => {
+      const result = stub.fn(stubArgs(stub, values, {}), active);
+      return Array.isArray(result) ? JSON.stringify(result) : (result as string | number | null);
+    });
   registerOracleFunction(name, stub.params, (values) => {
     const result = stub.fn(stubArgs(stub, values, {}), active);
     return Array.isArray(result) ? JSON.stringify(result) : (result as string | number | null);
@@ -573,10 +617,11 @@ export function registerStubs(stubs: Record<string, Stub>): void {
   for (const [name, stub] of Object.entries(stubs)) {
     STUBS[name] = stub;
     if (!stub.sql) continue;
-    registerOracleFunction(name, stub.params, (values) => {
-      const result = stub.fn(stubArgs(stub, values, {}), active);
-      return Array.isArray(result) ? JSON.stringify(result) : (result as string | number | null);
-    });
+    for (const alias of sqlNames(name))
+      registerOracleFunction(alias, stub.params, (values) => {
+        const result = stub.fn(stubArgs(stub, values, {}), active);
+        return Array.isArray(result) ? JSON.stringify(result) : (result as string | number | null);
+      });
   }
 }
 

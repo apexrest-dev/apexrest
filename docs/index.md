@@ -29,6 +29,7 @@ APEXREST is a plugin for Codex and Claude Code that builds, ships and verifies O
 | Deploy without service tables                                  | [Clean APEX deployment](clean-apex-deployment.md) |
 | Select the checks appropriate to a change, verify in a browser | [Testing](testing.md)                             |
 | See and click through pages without an Oracle database         | [Local preview](local-preview.md)                 |
+| Build a standalone Node.js application for an Oracle database  | [Build a web application](webapp.md)              |
 | Resolve setup, compiler, ship or job failures                  | [Troubleshooting](troubleshooting.md)             |
 | Compose source from experimental blocks (CLI only)             | [Composer](composer.md)                           |
 

@@ -52,6 +52,9 @@ await build({
     mcp: 'packages/mcp/src/main.ts',
     // Worker thread of the connected preview (preview/oracle/bridge.ts resolves it beside the chunks).
     'preview-oracle-worker': 'packages/core/src/preview/oracle/worker.ts',
+    // The web application runtime and its Oracle driver worker (apexrest build webapp copies them).
+    webapp: 'packages/core/src/webapp/runtime.ts',
+    'webapp-driver-worker': 'packages/core/src/webapp/driver-worker.ts',
   },
   outdir: 'dist/runtime',
   outExtension: { '.js': '.mjs' },
@@ -59,6 +62,8 @@ await build({
   chunkNames: 'chunk-[hash]',
   splitting: true,
   bundle: true,
+  // node-oracledb is a dependency of the built web application, never of the plug-in runtime.
+  external: ['oracledb'],
   platform: 'node',
   format: 'esm',
   target: 'node24',

@@ -14,6 +14,7 @@ Source version 2.7.0. See implementation status for verification limits.
 - [Deployment safety](https://apexrest-dev.github.io/apexrest/deployment/)
 - [Testing](https://apexrest-dev.github.io/apexrest/testing/)
 - [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/)
+- [Build a web application](https://apexrest-dev.github.io/apexrest/webapp/)
 - [Plugin qualification harness](https://apexrest-dev.github.io/apexrest/plugin-qualification-harness/)
 - [Troubleshooting](https://apexrest-dev.github.io/apexrest/troubleshooting/)
 - [Work in a conversation](https://apexrest-dev.github.io/apexrest/chat-workflow/)

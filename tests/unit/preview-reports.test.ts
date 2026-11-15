@@ -524,3 +524,18 @@ test('grid without row processing refuses to save and unsupported features are d
   );
   assert.equal(server.db.scalar('select count(*) from emp'), 12);
 });
+
+test('an interactive grid page loads the model once, from the bundle popup LOVs also use', async (t) => {
+  const { html } = await start(t);
+  const scripts = [...html.matchAll(/<script src="([^"]+)"/gu)].map((match) => match[1]!);
+  assert.equal(scripts.filter((src) => /\/modelViewBase\.min\.js/u.test(src)).length, 1);
+  // modelViewBase.min.js already holds the model and the table model view base.
+  assert.deepEqual(
+    scripts.filter((src) => /\/(model|widget\.tableModelViewBase)\.min\.js/u.test(src)),
+    [],
+  );
+  assert.ok(
+    scripts.findIndex((src) => /modelViewBase/u.test(src)) <
+      scripts.findIndex((src) => /widget\.grid/u.test(src)),
+  );
+});

@@ -7064,7 +7064,7 @@
         "compiler": {
           "status": "passed",
           "evidence": "recipes/compiler-evidence.json",
-          "sourceSha256": "efc4ebd097f1492c68053fb395f2d68e30175a883522d34dfc4cb8eaf45682fb",
+          "sourceSha256": "83420dfe94e725db3a443d3f466bf3f97839543685a2ffb03eb7afb1d1fe1006",
           "scaffoldSha256": "a7570417d18c1e496e702fa199d3055cec72d5caf7539db71ca300992c1ce7c8",
           "mmdVersion": "26.1.0+3102"
         },

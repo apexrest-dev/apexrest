@@ -1,7 +1,81 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Implementation status · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/implementation-status/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/implementation-status/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features and videos</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/" aria-current="page">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Project / Implementation status</div><h1 id="implementation-status">Implementation status</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#implemented">Implemented</a></li><li><a href="#verification">Verification</a></li><li><a href="#repository-automation">Repository automation</a></li><li><a href="#documentation-website">Documentation website</a></li></ul></details>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Implementation status · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/implementation-status/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/implementation-status/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features and videos</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/webapp/">Build a web application</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/" aria-current="page">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Project / Implementation status</div><h1 id="implementation-status">Implementation status</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#implemented">Implemented</a></li><li><a href="#verification">Verification</a></li><li><a href="#repository-automation">Repository automation</a></li><li><a href="#documentation-website">Documentation website</a></li></ul></details>
 <p>The current source and bundled plugin version is <strong>2.7.0</strong>. The current contract is described in <a href="/apexrest/architecture/">architecture</a>, <a href="/apexrest/testing/">testing</a> and the <a href="/apexrest/acceptance.json">acceptance matrix</a>.</p>
 <h2 id="implemented">Implemented</h2>
 <ul>
+<li><p><code>apexrest build webapp</code> (2026-11-15): writes a standalone Node.js application for an APEXlang application: the sources, the preview&#39;s renderer in application mode and a <code>node-oracledb</code> driver. Application mode adds real sign-in (accounts file, PL/SQL function or database accounts), login-required pages, enforced authorization, unguessable session ids, a host allowlist and no developer surface. See <a href="/apexrest/webapp/">build a web application</a>.</p>
+<ul>
+<li><strong>Checked on local Docker.</strong> A built application started from a clean environment; <code>tests/webapp/e2e.mjs</code> passed nine steps including a committed form insert read back on a separate connection. Sample Dynamic Actions (27 pages) and Sample Charts (49 pages) rendered against Oracle without a failure; Customers rendered 126 pages without a page error and 37 failing statements after a partly failed install-script run. A 119-page trading application (Trade) passed a 23-step scripted session in headless Chromium, including a posted and unposted document read back on a separate connection, and answered all 118 pages for five accounts with role denials enforced; the script and its results are in <code>docs/evidence/webapp-build/trade-demo-run/</code>.</li>
+<li><strong>Recipe catalogs on local Docker (2026-11-15).</strong> One application assembled from the 338 ready component and pattern recipes (376 demo pages) was built and every page requested once after sign-in: no HTTP error, Oracle error, error alert or placeholder remained once the recipes&#39; example tables were installed. Page loads only; no submit, dynamic action or browser check, and no import into APEX. It found the SDO_GEOMETRY map layer and the <code>RESOURCE</code> alias fixed in this change.</li>
+<li><strong>Unit tests</strong> cover the build output and refusals, password hashing and application mode without a database.</li>
+<li><strong>Not checked.</strong> A browser session, concurrent users, a remote database, HTTPS behind a proxy, <code>plsql</code>/<code>database</code> sign-in against real accounts, an APEX session with an imported application. Session state protection is not implemented, one process serves one request at a time, and sessions are in memory.</li>
+</ul>
+</li>
+<li><p>Local preview runs the application&#39;s database code (2026-11-15): packages, standalone routines, install blocks and BEFORE row triggers from the install scripts, PL/SQL region and item plug-ins (render and ajax callbacks), Oracle outer joins, hierarchical queries in every statement and Oracle dictionary views over the local schema. See <a href="/apexrest/local-preview/#application-database-code">local preview</a>. <code>npm run preview:corpus</code> renders every page of the 33 public Oracle APEX 26.2 applications without a database; the same scorecard before and after the change (same rules, same pinned archive):</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Measure (1,483 pages, 33 applications)</th>
+<th align="right">Before</th>
+<th align="right">After</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Pages that failed to render</td>
+<td align="right">20</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Regions shown as a placeholder</td>
+<td align="right">249</td>
+<td align="right">2</td>
+</tr>
+<tr>
+<td>Application package calls not run</td>
+<td align="right">3,066</td>
+<td align="right">30</td>
+</tr>
+<tr>
+<td>APEX API calls not run</td>
+<td align="right">355</td>
+<td align="right">102</td>
+</tr>
+<tr>
+<td>Seed script failures</td>
+<td align="right">1,737</td>
+<td align="right">213</td>
+</tr>
+<tr>
+<td>SQL failures</td>
+<td align="right">868</td>
+<td align="right">299</td>
+</tr>
+<tr>
+<td>Authorization schemes denying for want of data</td>
+<td align="right">938</td>
+<td align="right">341</td>
+</tr>
+<tr>
+<td>Tables invented with sample rows</td>
+<td align="right">103</td>
+<td align="right">10</td>
+</tr>
+<tr>
+<td>Computations and conditions not evaluated</td>
+<td align="right">150</td>
+<td align="right">21</td>
+</tr>
+<tr>
+<td>Error diagnostics</td>
+<td align="right">312</td>
+<td align="right">160</td>
+</tr>
+</tbody></table>
+</div>
+<ul>
+<li><strong>Checks.</strong> Unit tests cover seed rules, install order, identity keys, trigger translation, outer joins, the dictionary views, SQL shims, overload resolution, and one application end to end (package state and initialization, package and standalone functions in region SQL, an install block, a region plug-in with attributes, region data, page code and an ajax callback, and an item plug-in). Lint, typecheck and the unit suite pass.</li>
+<li><strong>Limits.</strong> Counts are local preview diagnostics, not Oracle behavior: the preview still interprets a subset of PL/SQL and translates SQL to SQLite. Remaining gaps are listed in <a href="/apexrest/next-actions/">next actions</a>. The scorecards are in <code>docs/evidence/preview-corpus/</code> (not in Git).</li>
+</ul>
+</li>
 <li><p>Optional project-scoped OpenAI Decisions component selection through <code>apexrest_reference mode:select</code> / <code>docs select</code>: one bounded batch, compatible local shortlist, private ENV credentials and explicit local fallback. The current host model composes final APEXlang. Repository tests cover transport fixtures and CLI/MCP contracts; live fixed-case API selection, latency and usage are recorded below. Native-host application authoring remains separate.</p>
 </li>
 <li><p>Six skills and twelve composite MCP tools for Codex and Claude Code, backed by one canonical work skill and CLI/runtime. Managed payloads include both marketplaces and bind both MCP adapters to the same Node executable and managed home; Claude retains cache-root expansion.</p>

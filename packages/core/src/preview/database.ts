@@ -2,6 +2,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { constants as sqliteConstants, DatabaseSync, type SQLInputValue } from 'node:sqlite';
+import { applyTrigger } from './triggers.ts';
+import { rewriteOuterJoins } from './sql-outer-join.ts';
+import { translateHierarchy } from './extensions/structure/hierarchy.ts';
+import { cleanTableDdl, describeUnit, oracleSeedStatements, type PlsqlUnitKind } from './seed.ts';
 
 export type Binds = Record<string, string | number | null | undefined>;
 export type Row = Record<string, string | number | null>;
@@ -847,17 +851,21 @@ function topLevelCommas(text: string): string[] {
 }
 
 /** `pkg.fn(p_b => 1, p_a => 2)` → `pkg__fn(2, 1)` for registered package functions. */
-function rewritePackageCalls(text: string): string {
+/** Functions of one database (the application's own packages), consulted after the built-in ones. */
+export type LocalFunctions = ReadonlyMap<string, { sqlName: string; params: string[] }>;
+
+function rewritePackageCalls(text: string, local?: LocalFunctions): string {
   const pattern = /\b(?:sys\s*\.\s*)?([A-Za-z_][\w$#]*)\s*\.\s*([A-Za-z_][\w$#]*)\s*\(/gu;
   let out = '';
   let last = 0;
   for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
-    const fn = oracleFunctions.get(`${match[1]!.toLowerCase()}.${match[2]!.toLowerCase()}`);
+    const key = `${match[1]!.toLowerCase()}.${match[2]!.toLowerCase()}`;
+    const fn = oracleFunctions.get(key) ?? local?.get(key);
     if (!fn) continue;
     const open = match.index + match[0].length - 1;
     const close = closingParen(text, open);
     if (close < 0) continue;
-    const args = topLevelCommas(rewritePackageCalls(text.slice(open + 1, close)));
+    const args = topLevelCommas(rewritePackageCalls(text.slice(open + 1, close), local));
     const positional: string[] = [];
     for (const arg of args) {
       const named = /^\s*([A-Za-z_][\w$#]*)\s*=>\s*([\s\S]*)$/u.exec(arg);
@@ -871,8 +879,31 @@ function rewritePackageCalls(text: string): string {
     last = close + 1;
     pattern.lastIndex = close + 1;
   }
-  return out + text.slice(last);
+  return rewriteBareCalls(out + text.slice(last), local);
 }
+
+/** `order by dbms_random.value`: a registered function referenced without parentheses is a call. */
+function rewriteBareCalls(text: string, local?: LocalFunctions): string {
+  return text.replace(
+    /\b(?:sys\s*\.\s*)?([A-Za-z_][\w$#]*)\s*\.\s*([A-Za-z_][\w$#]*)\b(?!\s*[(.])/gu,
+    (whole, pkg: string, member: string) => {
+      const key = `${pkg.toLowerCase()}.${member.toLowerCase()}`;
+      const fn = oracleFunctions.get(key) ?? local?.get(key);
+      return fn && BARE_CALLS.has(key) ? `${fn.sqlName}()` : whole;
+    },
+  );
+}
+
+/** Package functions Oracle lets SQL call without an argument list. */
+const BARE_CALLS = new Set([
+  'dbms_random.value',
+  'dbms_random.normal',
+  'dbms_random.random',
+  'apex_util.get_session_time_zone',
+  'apex_custom_auth.get_username',
+  'apex_application.get_nls_decimal_separator',
+  'apex_application.get_nls_group_separator',
+]);
 
 /** Built-in APEX table functions without arguments, inlined as row sets. */
 const TABLE_FUNCTIONS: Record<string, string> = {
@@ -1392,7 +1423,10 @@ export const IDENTITY_MARKER = '/*apex_local_identity*/';
 const PLAIN_DDL = /^\s*(?:create|alter)\s+(?:global\s+temporary\s+)?(?:table|(?:unique\s+)?index)\b/iu;
 
 /** Rewrites the most common Oracle-only syntax into SQLite. Function differences are covered by UDFs. */
-export function translateOracleSql(sql: string): string {
+export function translateOracleSql(sql: string, local?: LocalFunctions): string {
+  // Hierarchical queries (START WITH ... CONNECT BY PRIOR) in any statement: regions, lists,
+  // LOVs and PL/SQL cursors alike. `connect by level <= n` generators are handled below.
+  if (/\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.test(sql)) sql = translateHierarchy(sql).sql;
   const trimmed = sql
     .trim()
     .replace(/;\s*\/?\s*$/u, '')
@@ -1404,8 +1438,22 @@ export function translateOracleSql(sql: string): string {
   };
   const uncommented = masked.text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//gu, ' ');
   const ddl = PLAIN_DDL.test(uncommented) && !/\bas\s*\(?\s*select\b/iu.test(uncommented);
-  let text = uncommented
+  let text = rewriteOuterJoins(uncommented)
+    // #OWNER# is the parsing schema; locally every table is in the one schema.
+    .replace(/#OWNER#\s*\.\s*/gu, '')
+    .replace(/#OWNER#/gu, "'APEX_LOCAL'")
+    .replace(/\b(?:sys|public)\s*\.\s*dual\b/giu, 'dual')
+    // sys.user_tables, sys.all_objects ...: a schema-qualified object, not a package call
+    .replace(/\b(?:sys|public)\s*\.\s*(?=[A-Za-z_][\w$#]*\b(?!\s*[.(]))/giu, '')
     .replace(/\bfrom\s+dual\b/giu, '')
+    // SELECT UNIQUE is Oracle's older spelling of SELECT DISTINCT.
+    .replace(/\bselect\s+unique\b/giu, 'select distinct')
+    // INTERVAL '2' HOUR literals: intervals are days locally (date arithmetic).
+    .replace(
+      /\binterval\s+(\u0000\d+\u0000)\s+(day|hour|minute|second)s?\b(?:\s*\(\s*\d+\s*\))?/giu,
+      (_whole, value: string, unit: string) =>
+        `(cast(${value} as real) / ${{ day: 1, hour: 24, minute: 1440, second: 86400 }[unit.toLowerCase() as 'day']})`,
+    )
     // DEFAULT expressions must be parenthesized in SQLite; DEFAULT ON NULL is a plain default.
     .replace(/\bdefault\s+on\s+null\b/giu, 'default')
     .replace(
@@ -1469,16 +1517,18 @@ export function translateOracleSql(sql: string): string {
     // Oracle `/` is always real division; SQLite truncates integer operands.
     .replace(/(?<!\*\s*1\.0\s*|\*)\/(?!\*)/gu, '* 1.0 /');
   text = rewriteJsonFunctions(
-    rewriteListagg(rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text))))),
+    rewriteListagg(
+      rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text, local)))),
+    ),
   );
-  if (!ddl)
-    text = rewriteExpressions(rewriteExpressions(text, rewriteConcatTokens), rewriteDateArithmeticTokens);
+  if (ddl) text = cleanTableDdl(text);
+  else text = rewriteExpressions(rewriteExpressions(text, rewriteConcatTokens), rewriteDateArithmeticTokens);
   return unmask(text, masked.literals);
 }
 
 /** MERGE is not SQLite: an UPDATE of matched rows followed by an INSERT of unmatched ones. */
-export function translateMerge(sql: string): string[] | undefined {
-  const masked = maskLiterals(translateOracleSql(sql));
+export function translateMerge(sql: string, local?: LocalFunctions): string[] | undefined {
+  const masked = maskLiterals(translateOracleSql(sql, local));
   const text = masked.text;
   const head = /^\s*merge\s+into\s+([\w$#."]+)(?:\s+(?:as\s+)?(?!using\b)([\w$#]+))?\s+using\s+/iu.exec(text);
   if (!head) return undefined;
@@ -1541,41 +1591,59 @@ export function bindNames(sql: string): string[] {
   return [...names];
 }
 
-/** Splits a SQL*Plus style script into executable statements, skipping PL/SQL units. */
-export function splitScript(script: string): string[] {
-  const statements: string[] = [];
+/** One unit of a SQL*Plus style script: a SQL statement, or a PL/SQL block or stored unit up to its `/`. */
+export interface ScriptUnit {
+  kind: 'sql' | 'plsql';
+  text: string;
+}
+
+/** SQL*Plus commands that only affect the client session; they never reach the database. */
+const SQLPLUS_COMMAND =
+  /^(?:prompt|set|spool|whenever|exec|@|rem\b|--|show(?:\s|$)|sho\s|define\s|undefine\s|exit\b|quit\b|pause\b|col(?:umn)?\s|clear\s|ttitle\b|btitle\b|timing\b)/iu;
+const PLSQL_UNIT =
+  /^(?:\/\*[\s\S]*?\*\/\s*)*(?:begin|declare|create\s+(?:or\s+replace\s+)?(?:editionable\s+|noneditionable\s+)?(?:package|procedure|function|trigger|type)\b)/iu;
+
+/**
+ * Splits a SQL*Plus style script into SQL statements and PL/SQL units. A PL/SQL unit starts with
+ * BEGIN, DECLARE or CREATE PACKAGE/PROCEDURE/FUNCTION/TRIGGER/TYPE and ends at a line holding `/`;
+ * SQL statements end with `;`. SQL*Plus commands (PROMPT, SET, SHOW ERRORS, ...) are dropped.
+ */
+export function splitScriptUnits(script: string): ScriptUnit[] {
+  const units: ScriptUnit[] = [];
   let current = '';
   let plsql = false;
+  const push = () => {
+    const text = plsql ? current.trim() : current.trim().replace(/;\s*$/u, '');
+    if (text) units.push({ kind: plsql ? 'plsql' : 'sql', text });
+    current = '';
+    plsql = false;
+  };
   for (const line of script.replace(/\r\n?/gu, '\n').split('\n')) {
     const trimmed = line.trim();
-    if (!current.trim() && /^(?:prompt|set|spool|whenever|exec|@|rem\b|--)/iu.test(trimmed)) continue;
+    if (!current.trim() && SQLPLUS_COMMAND.test(trimmed)) continue;
     // a comment line never ends a statement, even when it ends with `;`
     if (!plsql && trimmed.startsWith('--')) {
       current += `${line}\n`;
       continue;
     }
-    if (
-      !current.trim() &&
-      /^(?:begin|declare|create\s+(?:or\s+replace\s+)?(?:editionable\s+)?(?:package|procedure|function|trigger|type)\b)/iu.test(
-        trimmed,
-      )
-    ) {
-      plsql = true;
-    }
+    if (!plsql && PLSQL_UNIT.test(`${current.replace(/--[^\n]*/gu, '')}${trimmed}`.trim())) plsql = true;
     if (trimmed === '/') {
-      if (!plsql && current.trim()) statements.push(current);
-      current = '';
-      plsql = false;
+      push();
       continue;
     }
     current += `${line}\n`;
-    if (!plsql && /;\s*(?:--.*)?$/u.test(trimmed)) {
-      statements.push(current);
-      current = '';
-    }
+    if (!plsql && /;\s*(?:--.*)?$/u.test(trimmed)) push();
   }
-  if (current.trim() && !plsql) statements.push(current);
-  return statements.map((statement) => statement.trim().replace(/;\s*$/u, '')).filter(Boolean);
+  // A unit without its closing `/` at the end of the script still runs, as in SQL*Plus.
+  if (current.trim()) push();
+  return units;
+}
+
+/** Splits a SQL*Plus style script into executable statements, skipping PL/SQL units. */
+export function splitScript(script: string): string[] {
+  return splitScriptUnits(script)
+    .filter((unit) => unit.kind === 'sql')
+    .map((unit) => unit.text);
 }
 
 /** `[blob 1234 bytes #0123456789abcdef]`: how BLOB values travel through text-only session state and PL/SQL. */
@@ -1593,6 +1661,7 @@ export class LocalDatabase implements AppData {
   #sequences = new Map<string, { value: number | null; increment: number; start: number }>();
   #dirtySequences = new Set<string>();
   #writes?: Set<string> | undefined;
+  #localFunctions = new Map<string, { sqlName: string; params: string[] }>();
 
   constructor(file: string) {
     this.file = file;
@@ -1668,7 +1737,18 @@ export class LocalDatabase implements AppData {
       const matches = jsonMatches(doc, pathText);
       return matches === undefined ? null : matches.length ? 1 : 0;
     });
-    fn('to_number', (value) => (value === null || value === '' ? null : Number(value)));
+    fn('to_number', (value, format) => {
+      if (value === null || value === '') return null;
+      // to_number(sys_guid(), 'XXXX...'): a hexadecimal key. A 128-bit GUID does not fit a SQLite
+      // integer, so it becomes a stable 53-bit integer derived from its digits.
+      if (typeof format === 'string' && /^x+$/iu.test(format) && /^[0-9a-f]+$/iu.test(String(value))) {
+        const hex = String(value);
+        if (hex.length <= 13) return Number.parseInt(hex, 16);
+        const digest = crypto.createHash('sha256').update(hex.toUpperCase()).digest();
+        return Number(digest.readBigUInt64BE(0) & 0x1f_ffff_ffff_ffffn);
+      }
+      return Number(value);
+    });
     fn('to_date', (value, mask) => {
       const date = parseOracleDate(value, typeof mask === 'string' ? mask : undefined);
       return date ? isoDate(date) : null;
@@ -1902,6 +1982,58 @@ export class LocalDatabase implements AppData {
     fn('apex_local_nextval', (name) => this.#nextval(String(name)));
     fn('apex_local_currval', (name) => this.#sequences.get(String(name))?.value ?? null);
     fn('sys_guid', () => crypto.randomUUID().replaceAll('-', '').toUpperCase());
+    fn('ora_hash', (value, bucket, seed) => {
+      if (value === null || value === undefined) return null;
+      const digest = crypto
+        .createHash('md5')
+        .update(`${String(seed ?? 0)}|${String(value)}`)
+        .digest()
+        .readUInt32BE(0);
+      const max = bucket === null || bucket === undefined ? 4294967295 : Number(bucket);
+      return digest % (max + 1);
+    });
+    // Intervals are days locally, so date + numtodsinterval(n, 'HOUR') stays date arithmetic.
+    fn('numtodsinterval', (value, unit) => {
+      if (value === null || value === undefined) return null;
+      const per: Record<string, number> = { DAY: 1, HOUR: 24, MINUTE: 1440, SECOND: 86400 };
+      return Number(value) / (per[String(unit ?? 'DAY').toUpperCase()] ?? 1);
+    });
+    fn('numtoyminterval', (value, unit) => {
+      if (value === null || value === undefined) return null;
+      return Number(value) * (String(unit ?? 'MONTH').toUpperCase() === 'YEAR' ? 365.25 : 30.4375);
+    });
+    fn('rawtohex', (value) =>
+      value === null || value === undefined
+        ? null
+        : Buffer.from(String(value), 'utf8').toString('hex').toUpperCase(),
+    );
+    fn('hextoraw', (value) =>
+      value === null || value === undefined ? null : Buffer.from(String(value), 'hex').toString('utf8'),
+    );
+  }
+
+  /**
+   * Makes an application function callable from SQL: `pkg.fn(...)` or a standalone `fn(...)`.
+   * The implementation may run statements on this database; session binds are restored after it.
+   * A standalone name that SQLite or an Oracle shim already defines is not replaced.
+   */
+  registerLocalFunction(name: string, params: string[], impl: (args: SqlValue[]) => SqlValue): boolean {
+    const key = name.toLowerCase();
+    const sqlName = key.includes('.') ? `apex_local_fn__${key.replaceAll('.', '__')}` : key;
+    if (!key.includes('.')) {
+      const existing = this.db.prepare('select 1 from pragma_function_list where name = ?').get(sqlName);
+      if (existing) return false;
+    }
+    this.db.function(sqlName, { varargs: true, deterministic: false }, (...args) => {
+      const binds = this.#binds;
+      try {
+        return this.#sqlValue(impl(args.map((arg) => this.#sqlValue(arg) as SqlValue))) as SQLInputValue;
+      } finally {
+        this.#binds = binds;
+      }
+    });
+    if (key.includes('.')) this.#localFunctions.set(key, { sqlName, params });
+    return true;
   }
 
   /** Package functions registered after this database was opened. */
@@ -1982,7 +2114,7 @@ export class LocalDatabase implements AppData {
   #prepare(sql: string, binds: Binds) {
     this.#binds = Object.fromEntries(Object.entries(binds).map(([key, value]) => [key.toUpperCase(), value]));
     this.#syncFunctions();
-    const translated = translateOracleSql(sql);
+    const translated = translateOracleSql(sql, this.#localFunctions);
     if (/\bapex_local_(?:nextval|currval)\(/u.test(translated)) this.#loadSequences();
     const values: Record<string, SQLInputValue> = {};
     for (const name of bindNames(translated)) {
@@ -2043,6 +2175,9 @@ export class LocalDatabase implements AppData {
 
   execute(sql: string, binds: Binds = {}): { changes: number; lastInsertRowid: number } {
     if (this.#sequenceDdl(sql)) return { changes: 0, lastInsertRowid: 0 };
+    const created =
+      /^\s*create\s+(?:global\s+temporary\s+)?table\s+(?:"?[\w$#]+"?\s*\.\s*)?"?([\w$#]+)"?/iu.exec(sql);
+    const identityTable = created && /\bas\s+identity\b/iu.test(sql) ? created[1]! : undefined;
     // SQLite has no CREATE OR REPLACE VIEW; Oracle's FORCE and EDITIONABLE do not apply locally.
     const view =
       /^\s*create\s+or\s+replace\s+(?:(?:no\s*)?force\s+)?(?:editionable\s+|noneditionable\s+)?view\s+((?:"?[\w$#]+"?\.)?"?[\w$#]+"?)/iu.exec(
@@ -2056,7 +2191,7 @@ export class LocalDatabase implements AppData {
       );
     }
     if (/^\s*merge\s+into\b/iu.test(sql)) {
-      const statements = translateMerge(sql);
+      const statements = translateMerge(sql, this.#localFunctions);
       if (!statements) throw new Error('MERGE statement form is not supported locally');
       let changes = 0;
       let lastInsertRowid = 0;
@@ -2070,7 +2205,29 @@ export class LocalDatabase implements AppData {
     const { statement, values } = this.#prepare(sql, binds);
     const result = statement.run(values);
     this.#flushSequences();
+    if (identityTable) this.#numberIdentities(identityTable);
     return { changes: Number(result.changes), lastInsertRowid: Number(result.lastInsertRowid) };
+  }
+
+  /**
+   * Identity columns that did not become the INTEGER PRIMARY KEY get the next number after an
+   * insert that left them empty, as Oracle's GENERATED BY DEFAULT ON NULL does.
+   */
+  #numberIdentities(table: string): void {
+    const row = this.db
+      .prepare("select name, sql from sqlite_master where type = 'table' and upper(name) = upper(?)")
+      .get(table) as { name: string; sql: string } | undefined;
+    if (!row) return;
+    for (const match of row.sql.matchAll(
+      // A column definition follows `(` or `,`; its type may carry a precision such as NUMBER(10).
+      /[(,]\s*"?([\w$#]+)"?\s+[^,(]*(?:\([^)]*\)[^,(]*)?\/\*apex_local_identity\*\/(?!\s+primary\s+key)/giu,
+    )) {
+      const column = match[1]!;
+      const name = `apex_local_identity_${row.name}_${column}`.replace(/[^\w$#]/gu, '_');
+      this.db.exec(
+        `create trigger if not exists "${name}" after insert on "${row.name}" for each row when NEW."${column}" is null begin update "${row.name}" set "${column}" = (select coalesce(max("${column}"), 0) + 1 from "${row.name}") where rowid = NEW.rowid; end`,
+      );
+    }
   }
 
   scalar(sql: string, binds: Binds = {}): string | number | null {
@@ -2142,18 +2299,50 @@ export class LocalDatabase implements AppData {
       const insert = this.db.prepare('insert or ignore into apex_local_insert_triggers values (?)');
       for (const table of triggers) insert.run(table);
     }
-    for (const statement of splitScript(script)) {
+    for (const unit of splitScriptUnits(script)) {
+      if (unit.kind === 'plsql') {
+        problems.push(...this.storeUnit(unit.text, source));
+        continue;
+      }
       // Seed scripts written for Oracle end with COMMIT; the local seed is one implicit transaction.
-      if (/^\s*(?:commit|rollback)(?:\s+work)?\s*;?\s*$/iu.test(statement)) continue;
-      try {
-        this.execute(statement);
-      } catch (error) {
-        problems.push(
-          `${source}: ${(error as Error).message} — ${statement.replace(/\s+/gu, ' ').slice(0, 140)}`,
-        );
+      if (/^\s*(?:commit|rollback)(?:\s+work)?\s*;?\s*$/iu.test(unit.text)) continue;
+      for (const statement of oracleSeedStatements(unit.text)) {
+        try {
+          this.execute(statement);
+        } catch (error) {
+          problems.push(
+            `${source}: ${(error as Error).message} — ${statement.replace(/\s+/gu, ' ').slice(0, 140)}`,
+          );
+        }
       }
     }
     return problems;
+  }
+
+  /**
+   * Keeps a PL/SQL unit of a seed script (package, package body, function, procedure, trigger,
+   * type or anonymous block) in `apex_local_plsql_units`, in script order, for the local PL/SQL
+   * runtime (extensions/server/packages.ts). Row triggers are also applied to SQLite (triggers.ts).
+   */
+  storeUnit(source: string, script: string): string[] {
+    this.db.exec(
+      'create table if not exists apex_local_plsql_units (seq integer primary key, kind text, name text, source text, script text)',
+    );
+    const unit = describeUnit(source);
+    this.db
+      .prepare('insert into apex_local_plsql_units (kind, name, source, script) values (?, ?, ?, ?)')
+      .run(unit.kind, unit.name, source, script);
+    return unit.kind === 'trigger'
+      ? applyTrigger(this, source).map((problem) => `${script}: ${problem}`)
+      : [];
+  }
+
+  /** The stored PL/SQL units in script order. */
+  plsqlUnits(): { kind: PlsqlUnitKind; name: string; source: string; script: string }[] {
+    if (!this.tableExists('apex_local_plsql_units')) return [];
+    return this.db
+      .prepare('select kind, name, source, script from apex_local_plsql_units order by seq')
+      .all() as { kind: PlsqlUnitKind; name: string; source: string; script: string }[];
   }
 
   /**

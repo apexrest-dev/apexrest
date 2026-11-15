@@ -215,6 +215,33 @@ ${sql('select id, title, start_date, end_date, css from events')}
             slot: body
         }
     )
+    region sdo-map (
+        name: Oracle geometry
+        type: map
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                \`\`\`sql
+                select 'Berlin' title, '{"SDO_GTYPE":2001,"SDO_SRID":4326,"SDO_POINT":{"X":13.4,"Y":52.5,"Z":null},"SDO_ELEM_INFO":null,"SDO_ORDINATES":null}' geometry from dual
+                union all
+                select 'Area', '{"SDO_GTYPE":2003,"SDO_POINT":null,"SDO_ELEM_INFO":[1,1003,3],"SDO_ORDINATES":[10,50,12,52]}' from dual
+                \`\`\`
+        }
+        layout {
+            sequence: 30
+            slot: body
+        }
+        layer places (
+            name: Places
+            source {
+                location: regionSource
+            }
+            columnMapping {
+                geometryColumn: GEOMETRY
+            }
+        )
+    )
 )
 `,
 };
@@ -422,7 +449,9 @@ test('calendar regions feed FullCalendar from SQL and maps draw offline', async 
 
   const map = await (await fetch(`${server.url}/r/demo/offices`)).text();
   assert.match(map, /Offline map preview/);
-  assert.equal((map.match(/class="apex-local-map-point"/g) ?? []).length, 2);
+  // Two longitude/latitude points and one SDO_GEOMETRY point; the SDO rectangle is a shape.
+  assert.equal((map.match(/class="apex-local-map-point"/g) ?? []).length, 3);
+  assert.equal((map.match(/class="apex-local-map-shape"/g) ?? []).length, 1);
   assert.match(map, /data-tip="Cities\tAustin"/);
   assert.match(map, /No mappable rows \(the map has no layers\)/);
 

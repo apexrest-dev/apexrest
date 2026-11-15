@@ -55,6 +55,7 @@ const booleans = new Set([
   'includeUnresolved',
   'reset',
   'all',
+  'includeAssets',
 ]);
 const numbers = new Set(['appId', 'offset', 'limit', 'waitSeconds', 'port', 'sampleRows']);
 const BANNER = 'APEXREST for Codex and Claude Code — independent Oracle APEX developer tools';

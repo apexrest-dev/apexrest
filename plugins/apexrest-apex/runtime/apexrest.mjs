@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  setPreviewOwner
+} from "./chunk-N43MMRVF.mjs";
+import {
   dispatch,
   executeJob,
   failQueuedJob,
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-GY2BTOHO.mjs";
+} from "./chunk-SVAO2263.mjs";
 import "./chunk-L7BXOT7W.mjs";
-import {
-  setPreviewOwner
-} from "./chunk-N43MMRVF.mjs";
-import "./chunk-B3XQMZTL.mjs";
-import "./chunk-5MAXHXR5.mjs";
+import "./chunk-GCYH7STV.mjs";
+import "./chunk-F4DDWU7G.mjs";
+import "./chunk-64FD5OTX.mjs";
 import {
   loadProject
 } from "./chunk-PWI5SWBA.mjs";
@@ -67,7 +68,8 @@ var booleans = /* @__PURE__ */ new Set([
   "workingCopy",
   "includeUnresolved",
   "reset",
-  "all"
+  "all",
+  "includeAssets"
 ]);
 var numbers = /* @__PURE__ */ new Set(["appId", "offset", "limit", "waitSeconds", "port", "sampleRows"]);
 var BANNER = "APEXREST for Codex and Claude Code \u2014 independent Oracle APEX developer tools";
@@ -266,7 +268,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-46RINVCX.mjs");
+    const { startMcp } = await import("./chunk-6D4UPV6B.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

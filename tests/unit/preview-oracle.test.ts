@@ -802,3 +802,56 @@ test('commit mode sends committing code, commits successful requests and rolls b
   assert.match(inputs.filter((input) => /^(commit|rollback);/u.test(input)).at(-1)!, /^commit;/u);
   assert.ok(inputs.some((input) => /insert into tasks/u.test(input) && /:P1_TITLE := 'Good'/u.test(input)));
 });
+
+test('errors with an ORA code are worded by the application error handling function', async (t) => {
+  const { server, oracle } = await oraclePreview(t, () => '');
+  const renderer = server.renderer;
+  const stack =
+    'ORA-20100: [IBAN_FORMAT] Wrong IBAN.\nORA-06512: at "DEMO.CORE", line 10\nORA-04088: error during execution of trigger';
+  const errors = [
+    { type: 'error' as const, location: ['page'], message: stack, unsafe: false },
+    { type: 'error' as const, location: ['page'], message: 'Title is required', unsafe: false },
+  ];
+  // No function declared: the database text stays.
+  assert.deepEqual(renderer.userErrors(errors), errors);
+
+  (renderer.app.app.props as Record<string, unknown>).errorHandling = {
+    errorHandlingFunctionName: 'core.apex_error_handler',
+  };
+  const calls: { block: string; binds: Record<string, string | number | null> }[] = [];
+  let fail = false;
+  oracle.data.plsql = (call) => {
+    calls.push(call);
+    return fail
+      ? {
+          error: new OracleError(-6550, 'PLS-00201: identifier APEX_ERROR.T_ERROR must be declared'),
+          values: {},
+          output: '',
+          htp: '',
+        }
+      : { values: { EH_RESULT: 'Wrong IBAN.' }, output: '', htp: '' };
+  };
+  const worded = renderer.userErrors(errors);
+  assert.equal(worded[0]!.message, 'Wrong IBAN.');
+  assert.equal(worded[1]!.message, 'Title is required', 'an error without an ORA code is not sent to Oracle');
+  assert.equal(calls.length, 1);
+  assert.match(calls[0]!.block, /l_result := core\.apex_error_handler\(l_error\);/u);
+  assert.deepEqual(
+    { code: calls[0]!.binds.EH_CODE, sqlerrm: calls[0]!.binds.EH_SQLERRM },
+    { code: 20100, sqlerrm: stack },
+  );
+
+  // A database without the APEX error API: the text stays and the function is not tried again.
+  fail = true;
+  assert.equal(renderer.userErrors(errors)[0]!.message, stack);
+  assert.equal(renderer.userErrors(errors)[0]!.message, stack);
+  assert.equal(calls.length, 2);
+  assert.ok(renderer.diagnostics.some((entry) => /could not be called/u.test(entry.message)));
+
+  // A name that is not a plain function reference is never put into PL/SQL.
+  const other = (await oraclePreview(t, () => '')).server.renderer;
+  (other.app.app.props as Record<string, unknown>).errorHandling = {
+    errorHandlingFunctionName: 'x; drop table t; --',
+  };
+  assert.deepEqual(other.userErrors(errors), errors);
+});

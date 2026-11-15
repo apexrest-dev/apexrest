@@ -1,11 +1,19 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
-  onPreviewShutdown,
-  otherPreviews,
-  registerPreview,
-  stopOtherPreview,
-  unregisterPreview
-} from "./chunk-N43MMRVF.mjs";
+  APEX_FULL_VERSION,
+  ZipReader,
+  bool,
+  get,
+  isObject,
+  isRef,
+  list,
+  loadApplication,
+  loadAssets,
+  num,
+  parseApexLang,
+  ref,
+  str
+} from "./chunk-SYFWCGMZ.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -30,638 +38,6 @@ import {
   selectBindsSegment,
   sqlText
 } from "./chunk-N3KQBIVW.mjs";
-import {
-  OracleAdapter,
-  resolveConnection,
-  targetIdentitySql
-} from "./chunk-5MAXHXR5.mjs";
-import {
-  environment,
-  isProductionTarget,
-  loadProject,
-  managedHome
-} from "./chunk-PWI5SWBA.mjs";
-import "./chunk-EGLAN56W.mjs";
-import "./chunk-H2VLYI5A.mjs";
-import "./chunk-A5P52BZT.mjs";
-import "./chunk-SBZ36R7Y.mjs";
-import {
-  Fault
-} from "./chunk-IFFZXFNO.mjs";
-
-// packages/core/src/preview/service.ts
-import fs13 from "node:fs";
-import path14 from "node:path";
-
-// packages/core/src/preview/assets.ts
-import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import zlib from "node:zlib";
-
-// packages/core/src/preview/theme-sql.ts
-var FUNCTIONS = {
-  "wwv_flow_string.join": (args) => Array.isArray(args[0]) ? args[0].map((item2) => item2 ?? "").join("\n") : args[0],
-  wwv_flow_t_varchar2: (args) => args,
-  "wwv_flow_imp.id": (args) => args[0] === void 0 || args[0] === null ? void 0 : String(args[0]),
-  nvl: (args) => args[0] ?? args[1]
-};
-var Parser = class {
-  #text;
-  #index = 0;
-  constructor(text10) {
-    this.#text = text10;
-  }
-  get done() {
-    return this.#index >= this.#text.length;
-  }
-  skipSpace() {
-    while (!this.done) {
-      const char = this.#text[this.#index];
-      if (/\s/u.test(char)) this.#index += 1;
-      else if (this.#text.startsWith("--", this.#index)) {
-        const end = this.#text.indexOf("\n", this.#index);
-        this.#index = end === -1 ? this.#text.length : end + 1;
-      } else break;
-    }
-  }
-  peek(token) {
-    this.skipSpace();
-    return this.#text.startsWith(token, this.#index);
-  }
-  take(token) {
-    if (!this.peek(token)) return false;
-    this.#index += token.length;
-    return true;
-  }
-  expect(token) {
-    if (!this.take(token)) throw new Error(`Expected "${token}" at offset ${this.#index}`);
-  }
-  identifier() {
-    this.skipSpace();
-    const match = /^[A-Za-z_][\w$#.]*/u.exec(this.#text.slice(this.#index, this.#index + 200));
-    if (!match) throw new Error(`Expected identifier at offset ${this.#index}`);
-    this.#index += match[0].length;
-    return match[0];
-  }
-  string() {
-    this.expect("'");
-    let value2 = "";
-    for (; ; ) {
-      const end = this.#text.indexOf("'", this.#index);
-      if (end === -1) throw new Error("Unterminated SQL string");
-      value2 += this.#text.slice(this.#index, end);
-      this.#index = end + 1;
-      if (this.#text[this.#index] === "'") {
-        value2 += "'";
-        this.#index += 1;
-      } else return value2;
-    }
-  }
-  primary() {
-    this.skipSpace();
-    if (this.peek("'")) return this.string();
-    const numberMatch = /^-?\d+(?:\.\d+)?/u.exec(this.#text.slice(this.#index, this.#index + 64));
-    if (numberMatch) {
-      this.#index += numberMatch[0].length;
-      const value2 = Number(numberMatch[0]);
-      return Number.isSafeInteger(value2) || numberMatch[0].includes(".") ? value2 : numberMatch[0];
-    }
-    if (this.take("(")) {
-      const value2 = this.expression();
-      this.expect(")");
-      return value2;
-    }
-    const name = this.identifier();
-    const lower2 = name.toLowerCase();
-    if (lower2 === "true") return true;
-    if (lower2 === "false") return false;
-    if (lower2 === "null") return null;
-    if (!this.take("(")) return void 0;
-    const args = [];
-    if (!this.take(")")) {
-      do {
-        if (/^\s*[A-Za-z_]\w*\s*=>/u.test(this.#text.slice(this.#index, this.#index + 80))) {
-          this.identifier();
-          this.expect("=>");
-        }
-        args.push(this.expression());
-      } while (this.take(","));
-      this.expect(")");
-    }
-    return FUNCTIONS[lower2]?.(args);
-  }
-  expression() {
-    let value2 = this.primary();
-    while (this.take("||")) {
-      const right = this.primary();
-      value2 = `${value2 ?? ""}${right ?? ""}`;
-    }
-    return value2;
-  }
-  /** `p_a=>expr, p_b=>expr )` */
-  namedArguments() {
-    const params2 = {};
-    if (this.take(")")) return params2;
-    do {
-      const name = this.identifier().toLowerCase().replace(/^p_/u, "");
-      this.expect("=>");
-      params2[name] = this.expression();
-    } while (this.take(","));
-    this.expect(")");
-    return params2;
-  }
-  seek(pattern) {
-    pattern.lastIndex = this.#index;
-    const match = pattern.exec(this.#text);
-    if (match) this.#index = match.index + match[0].length;
-    else this.#index = this.#text.length;
-    return match;
-  }
-};
-function parseThemeSql(sql) {
-  const parser = new Parser(sql);
-  const calls = [];
-  const start = /wwv_flow_imp_shared\.(create_\w+)\s*\(/gu;
-  for (; ; ) {
-    const match = parser.seek(start);
-    if (!match) break;
-    try {
-      calls.push({ kind: match[1].replace(/^create_/u, ""), params: parser.namedArguments() });
-    } catch {
-    }
-  }
-  return calls;
-}
-
-// packages/core/src/preview/assets.ts
-var APEX_VERSION = "26.2";
-var APEX_FULL_VERSION = "26.2.0";
-var APEX_DOWNLOAD_URL = `https://download.oracle.com/otn_software/apex/apex_${APEX_VERSION}_en.zip`;
-var APEX_ASSETS_ENV = "APEXREST_PREVIEW_ASSETS";
-var IMAGE_PREFIXES = [
-  "libraries/apex/",
-  "libraries/jquery/",
-  "libraries/jquery-ui/",
-  "libraries/jquery-migrate/",
-  "libraries/font-apex/",
-  "libraries/oracle-fonts/",
-  "libraries/apex-utility-css/",
-  "libraries/purify/",
-  "libraries/hammer/",
-  "libraries/fullcalendar/",
-  "libraries/markedjs/",
-  "libraries/cropperjs/",
-  "libraries/jointplus/",
-  "plugins/com.oracle.apex.carousel/",
-  `themes/theme_42/${APEX_VERSION}/`,
-  "app_ui/",
-  "css/"
-];
-var THEME_SQL = `apex/core/themes/f8842.${APEX_VERSION.replace(".", "")}.sql`;
-function defaultAssetsDir(environment2 = process.env) {
-  const configured2 = environment2[APEX_ASSETS_ENV];
-  return configured2 ? path.resolve(configured2) : path.join(managedHome(), "preview", APEX_VERSION);
-}
-var ZipReader = class {
-  #fd;
-  #buffer;
-  entries = [];
-  /** A zip file on disk, or an in-memory archive (an uploaded XLSX workbook). */
-  constructor(file) {
-    const label = typeof file === "string" ? file : "archive";
-    if (typeof file === "string") this.#fd = fs.openSync(file, "r");
-    else {
-      this.#fd = -1;
-      this.#buffer = Buffer.from(file.buffer, file.byteOffset, file.byteLength);
-    }
-    const size = this.#buffer ? this.#buffer.length : fs.fstatSync(this.#fd).size;
-    const tailSize = Math.min(size, 65557);
-    const tail = this.#read(size - tailSize, tailSize);
-    const eocd = tail.lastIndexOf(Buffer.from([80, 75, 5, 6]));
-    if (eocd === -1) throw new Error(`${label} is not a zip archive`);
-    const count = tail.readUInt16LE(eocd + 10);
-    const directorySize = tail.readUInt32LE(eocd + 12);
-    const directoryOffset = tail.readUInt32LE(eocd + 16);
-    if (directoryOffset === 4294967295 || count === 65535)
-      throw new Error("ZIP64 archives are not supported");
-    const directory = this.#read(directoryOffset, directorySize);
-    let offset = 0;
-    for (let index = 0; index < count; index += 1) {
-      if (directory.readUInt32LE(offset) !== 33639248) throw new Error("Corrupt zip central directory");
-      const nameLength = directory.readUInt16LE(offset + 28);
-      const extraLength = directory.readUInt16LE(offset + 30);
-      const commentLength = directory.readUInt16LE(offset + 32);
-      this.entries.push({
-        method: directory.readUInt16LE(offset + 10),
-        compressedSize: directory.readUInt32LE(offset + 20),
-        size: directory.readUInt32LE(offset + 24),
-        localHeaderOffset: directory.readUInt32LE(offset + 42),
-        name: directory.toString("utf8", offset + 46, offset + 46 + nameLength)
-      });
-      offset += 46 + nameLength + extraLength + commentLength;
-    }
-  }
-  #read(position2, length) {
-    if (this.#buffer) {
-      if (position2 < 0 || position2 + length > this.#buffer.length)
-        throw new Error("Unexpected end of zip archive");
-      return this.#buffer.subarray(position2, position2 + length);
-    }
-    const buffer = Buffer.alloc(length);
-    let done = 0;
-    while (done < length) {
-      const read = fs.readSync(this.#fd, buffer, done, length - done, position2 + done);
-      if (read === 0) throw new Error("Unexpected end of zip archive");
-      done += read;
-    }
-    return buffer;
-  }
-  read(entry) {
-    const header2 = this.#read(entry.localHeaderOffset, 30);
-    if (header2.readUInt32LE(0) !== 67324752) throw new Error(`Corrupt local header for ${entry.name}`);
-    const start = entry.localHeaderOffset + 30 + header2.readUInt16LE(26) + header2.readUInt16LE(28);
-    const data = this.#read(start, entry.compressedSize);
-    if (entry.method === 0) return data;
-    if (entry.method === 8) return zlib.inflateRawSync(data);
-    throw new Error(`Unsupported zip compression method ${entry.method} for ${entry.name}`);
-  }
-  close() {
-    if (this.#fd >= 0) fs.closeSync(this.#fd);
-  }
-};
-async function sha256(file) {
-  const hash = crypto.createHash("sha256");
-  await pipeline(fs.createReadStream(file), hash);
-  return hash.digest("hex");
-}
-async function download(url2, target2, onProgress) {
-  const response = await fetch(url2);
-  if (!response.ok || !response.body)
-    throw new Error(`Download failed: ${response.status} ${response.statusText} (${url2})`);
-  const total = Number(response.headers.get("content-length")) || 0;
-  let received = 0;
-  let reported = 0;
-  const body4 = Readable.fromWeb(response.body);
-  body4.on("data", (chunk) => {
-    received += chunk.length;
-    if (onProgress && received - reported > 25 * 1048576) {
-      reported = received;
-      onProgress(
-        `downloaded ${(received / 1048576).toFixed(0)}${total ? ` / ${(total / 1048576).toFixed(0)}` : ""} MB`
-      );
-    }
-  });
-  await pipeline(body4, fs.createWriteStream(target2, { mode: 384 }));
-}
-async function setupAssets(options3 = {}) {
-  const dir = path.resolve(options3.assetsDir ?? defaultAssetsDir());
-  const progress = options3.onProgress ?? (() => void 0);
-  fs.mkdirSync(dir, { recursive: true });
-  let zipPath = options3.zipPath ? path.resolve(options3.zipPath) : void 0;
-  let downloaded = false;
-  if (!zipPath) {
-    const url2 = options3.url ?? APEX_DOWNLOAD_URL;
-    zipPath = path.join(dir, `apex_${APEX_VERSION}.zip`);
-    if (!fs.existsSync(zipPath)) {
-      progress(`downloading ${url2}`);
-      const partial = `${zipPath}.part`;
-      await download(url2, partial, progress);
-      fs.renameSync(partial, zipPath);
-    }
-    downloaded = true;
-  }
-  const digest = await sha256(zipPath);
-  if (options3.expectedSha256 && digest !== options3.expectedSha256.toLowerCase()) {
-    throw new Error(`SHA-256 mismatch for ${zipPath}: ${digest}`);
-  }
-  const imagesDir = path.join(dir, "images");
-  const staging = `${imagesDir}.staging`;
-  fs.rmSync(staging, { recursive: true, force: true });
-  const zip2 = new ZipReader(zipPath);
-  let files = 0;
-  let themeSql;
-  try {
-    for (const entry of zip2.entries) {
-      if (entry.name.endsWith("/")) continue;
-      if (entry.name === THEME_SQL) {
-        themeSql = zip2.read(entry).toString("utf8");
-        continue;
-      }
-      if (!entry.name.startsWith("apex/images/") || entry.name.endsWith(".map")) continue;
-      const relative = entry.name.slice("apex/images/".length);
-      if (!IMAGE_PREFIXES.some((prefix) => relative.startsWith(prefix))) continue;
-      const target2 = path.resolve(staging, relative);
-      if (!target2.startsWith(`${staging}${path.sep}`)) throw new Error(`Unsafe zip entry ${entry.name}`);
-      fs.mkdirSync(path.dirname(target2), { recursive: true });
-      fs.writeFileSync(target2, zip2.read(entry));
-      files += 1;
-      if (files % 2e3 === 0) progress(`extracted ${files} files`);
-    }
-  } finally {
-    zip2.close();
-  }
-  if (!themeSql)
-    throw new Error(`${zipPath} does not contain ${THEME_SQL}; is it an APEX ${APEX_VERSION} distribution?`);
-  if (files === 0) throw new Error(`${zipPath} contains no apex/images runtime files`);
-  const theme = parseThemeSql(themeSql);
-  fs.writeFileSync(path.join(dir, "theme.json"), JSON.stringify(theme));
-  fs.rmSync(imagesDir, { recursive: true, force: true });
-  fs.renameSync(staging, imagesDir);
-  const manifest = {
-    apexVersion: APEX_FULL_VERSION,
-    source: options3.zipPath ? zipPath : options3.url ?? APEX_DOWNLOAD_URL,
-    sha256: digest,
-    extractedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    files
-  };
-  fs.writeFileSync(path.join(dir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}
-`);
-  if (downloaded && !options3.keepZip) fs.rmSync(zipPath, { force: true });
-  progress(`ready: ${files} files in ${imagesDir}`);
-  return { dir, imagesDir, manifest, theme };
-}
-function loadAssets(assetsDir = defaultAssetsDir()) {
-  const dir = path.resolve(assetsDir);
-  const manifestFile = path.join(dir, "manifest.json");
-  if (!fs.existsSync(manifestFile)) {
-    throw new Error(
-      `APEX ${APEX_VERSION} assets are not installed in ${dir}. Run: apexrest preview setup (or apexrest_preview action:setup).`
-    );
-  }
-  return {
-    dir,
-    imagesDir: path.join(dir, "images"),
-    manifest: JSON.parse(fs.readFileSync(manifestFile, "utf8")),
-    theme: JSON.parse(fs.readFileSync(path.join(dir, "theme.json"), "utf8"))
-  };
-}
-
-// packages/core/src/preview/apexlang.ts
-import fs2 from "node:fs";
-import path2 from "node:path";
-var ApexLangError = class extends Error {
-  file;
-  line;
-  constructor(message, file, line) {
-    super(`${file}:${line}: ${message}`);
-    this.file = file;
-    this.line = line;
-  }
-};
-var PROPERTY = /^("(?:[^"\\]|\\.)*"|[A-Za-z0-9_$.#-]+)\s*:(?:\s+(.*))?$/u;
-var GROUP = /^([A-Za-z][\w-]*)\s*\{$/u;
-var COMPONENT = /^([A-Za-z][\w]*)(?:\s+(.+?))?\s*\($/u;
-function isRef(value2) {
-  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) && typeof value2.ref === "string" && Object.keys(value2).length === 2 && "global" in value2;
-}
-function isObject(value2) {
-  return typeof value2 === "object" && value2 !== null && !Array.isArray(value2) && !isRef(value2);
-}
-function unquote(raw2) {
-  if (raw2.startsWith('"') && raw2.endsWith('"') && raw2.length >= 2) {
-    try {
-      return JSON.parse(raw2);
-    } catch {
-      return raw2.slice(1, -1);
-    }
-  }
-  return raw2;
-}
-function scalar(raw2) {
-  const text10 = raw2.trim();
-  if (text10 === "true") return true;
-  if (text10 === "false") return false;
-  if (text10.startsWith('"') && text10.endsWith('"') && text10.length >= 2) return unquote(text10);
-  if (text10.length >= 2 && text10.startsWith("\\") && text10.endsWith("\\")) return text10.slice(1, -1);
-  if (/^@\S+$/u.test(text10) && !text10.endsWith("@")) {
-    return text10.startsWith("@/") ? { ref: text10.slice(2), global: true } : { ref: text10.slice(1), global: false };
-  }
-  return text10;
-}
-function inlineArray(text10) {
-  const body4 = text10.slice(1, -1).trim();
-  if (!body4) return [];
-  const values = [];
-  for (const match of body4.matchAll(/"(?:[^"\\]|\\.)*"|\S+/gu)) values.push(scalar(match[0]));
-  return values;
-}
-function stripComments(lines) {
-  let block = false;
-  let fence = false;
-  return lines.map((line) => {
-    const trimmed = line.trim();
-    if (fence) {
-      if (trimmed === "```") fence = false;
-      return line;
-    }
-    if (trimmed.startsWith("```")) {
-      fence = !(trimmed.length >= 6 && trimmed.endsWith("```"));
-      return line;
-    }
-    if (block) {
-      const end = line.indexOf("*/");
-      if (end === -1) return "";
-      block = false;
-      return line.slice(end + 2);
-    }
-    if (trimmed.startsWith("//")) return "";
-    if (trimmed.startsWith("/*")) {
-      const end = line.indexOf("*/", line.indexOf("/*") + 2);
-      if (end === -1) {
-        block = true;
-        return "";
-      }
-      return line.slice(0, line.indexOf("/*")) + line.slice(end + 2);
-    }
-    return line;
-  });
-}
-function parseApexLang(source, file = "<memory>") {
-  const lines = stripComments(source.replace(/\r\n?/gu, "\n").split("\n"));
-  let index = 0;
-  const fail = (message) => {
-    throw new ApexLangError(message, file, index + 1);
-  };
-  const readFence = () => {
-    const opening = lines[index] ?? "";
-    const indent = opening.length - opening.trimStart().length;
-    const body4 = [];
-    index += 1;
-    while (index < lines.length && (lines[index] ?? "").trim() !== "```") {
-      const line = lines[index] ?? "";
-      const leading = line.length - line.trimStart().length;
-      body4.push(line.slice(Math.min(indent, leading)));
-      index += 1;
-    }
-    if (index >= lines.length) fail("unterminated ``` block");
-    index += 1;
-    return body4.join("\n");
-  };
-  const readValue = (raw2) => {
-    const text10 = (raw2 ?? "").trim();
-    if (text10 === "") {
-      const next = (lines[index] ?? "").trim();
-      if (next.startsWith("```")) return readFence();
-      return "";
-    }
-    if (text10 === "{") return readBlock("}");
-    if (text10 === "[") return readArray();
-    if (text10.startsWith("[") && text10.endsWith("]")) return inlineArray(text10);
-    if (text10.startsWith("```") && text10.endsWith("```") && text10.length >= 6) return text10.slice(3, -3);
-    return scalar(text10);
-  };
-  const readArray = () => {
-    const values = [];
-    while (index < lines.length) {
-      const text10 = (lines[index] ?? "").trim();
-      index += 1;
-      if (!text10) continue;
-      if (text10 === "]") return values;
-      if (text10 === "{") values.push(readBlock("}"));
-      else if (text10.startsWith("```")) {
-        index -= 1;
-        values.push(readFence());
-      } else values.push(scalar(text10));
-    }
-    return fail("unterminated array");
-  };
-  function readBlock(close2, children2) {
-    const props = {};
-    while (index < lines.length) {
-      const text10 = (lines[index] ?? "").trim();
-      const lineNumber = index + 1;
-      index += 1;
-      if (!text10) continue;
-      if (text10 === close2) return props;
-      const property2 = PROPERTY.exec(text10);
-      if (property2) {
-        props[unquote(property2[1])] = readValue(property2[2]);
-        continue;
-      }
-      const group2 = GROUP.exec(text10);
-      if (group2) {
-        const nested = readBlock("}", children2);
-        const existing = props[group2[1]];
-        props[group2[1]] = isObject(existing) ? { ...existing, ...nested } : nested;
-        continue;
-      }
-      const component = COMPONENT.exec(text10);
-      if (component && children2) {
-        children2.push(readComponent(component[1], component[2] ?? "", lineNumber));
-        continue;
-      }
-      index -= 1;
-      fail(`unexpected line: ${text10.slice(0, 120)}`);
-    }
-    if (close2 === "") return props;
-    return fail(`missing closing "${close2}"`);
-  }
-  function readComponent(type, rawId, line) {
-    const children2 = [];
-    const props = readBlock(")", children2);
-    return { type, id: unquote(rawId.trim()), props, children: children2, file, line };
-  }
-  const components = [];
-  while (index < lines.length) {
-    const text10 = (lines[index] ?? "").trim();
-    const lineNumber = index + 1;
-    index += 1;
-    if (!text10) continue;
-    const component = COMPONENT.exec(text10);
-    if (!component) {
-      index -= 1;
-      fail(`expected a component declaration, found: ${text10.slice(0, 120)}`);
-    }
-    components.push(readComponent(component[1], component[2] ?? "", lineNumber));
-  }
-  return components;
-}
-function get(props, dotted) {
-  let value2 = props;
-  for (const part2 of dotted.split(".")) {
-    if (!isObject(value2)) return void 0;
-    value2 = value2[part2];
-  }
-  return value2;
-}
-function str(props, dotted, fallback = "") {
-  const value2 = get(props, dotted);
-  if (typeof value2 === "string") return value2;
-  if (typeof value2 === "boolean") return String(value2);
-  if (isRef(value2)) return value2.ref;
-  return fallback;
-}
-function num(props, dotted, fallback) {
-  const value2 = Number(str(props, dotted, ""));
-  return str(props, dotted, "") !== "" && Number.isFinite(value2) ? value2 : fallback;
-}
-function bool(props, dotted, fallback) {
-  const value2 = get(props, dotted);
-  return typeof value2 === "boolean" ? value2 : fallback;
-}
-function ref(props, dotted) {
-  const value2 = get(props, dotted);
-  if (isRef(value2)) return value2.ref;
-  return typeof value2 === "string" && value2 ? value2 : void 0;
-}
-function list(props, dotted) {
-  const value2 = get(props, dotted);
-  if (Array.isArray(value2)) return value2;
-  return value2 === void 0 || value2 === "" ? [] : [value2];
-}
-function walk(directory) {
-  if (!fs2.existsSync(directory)) return [];
-  return fs2.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const full = path2.join(directory, entry.name);
-    if (entry.isDirectory()) return entry.name === "static-files" ? [] : walk(full);
-    return entry.name.endsWith(".apx") ? [full] : [];
-  });
-}
-function deploymentSubstitutions(root, deployment) {
-  const file = path2.join(root, "deployments", `${deployment}.json`);
-  if (!fs2.existsSync(file)) return {};
-  const values = {};
-  const collect2 = (value2) => {
-    if (!value2 || typeof value2 !== "object") return;
-    for (const [key, nested] of Object.entries(value2)) {
-      if (typeof nested === "string" || typeof nested === "number")
-        values[key.toUpperCase()] = String(nested);
-      else collect2(nested);
-    }
-  };
-  try {
-    collect2(JSON.parse(fs2.readFileSync(file, "utf8")));
-  } catch {
-    return {};
-  }
-  return values;
-}
-function loadApplication(root, deployment = "default") {
-  const appFile = path2.join(root, "application.apx");
-  if (!fs2.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
-  const substitutions = deploymentSubstitutions(root, deployment);
-  const files = walk(root).sort();
-  const pages2 = /* @__PURE__ */ new Map();
-  const shared3 = [];
-  let app;
-  for (const file of files) {
-    const relative = path2.relative(root, file);
-    const text10 = fs2.readFileSync(file, "utf8").replace(
-      /@([A-Z][A-Z0-9_]*)@/gu,
-      (whole, name) => substitutions[name] ?? (name === "APP_ALIAS" ? path2.basename(root).toLowerCase() : name === "APP_NAME" ? path2.basename(root) : whole)
-    );
-    for (const component of parseApexLang(text10, relative)) {
-      if (component.type === "app") app = component;
-      else if (component.type === "page") pages2.set(component.id, component);
-      else shared3.push(component);
-    }
-  }
-  if (!app) throw new Error(`${appFile} does not declare an app component`);
-  return { root, app, pages: pages2, shared: shared3, substitutions, files };
-}
 
 // packages/core/src/preview/gaps.ts
 var NOT_APPLIED = /* @__PURE__ */ new Set(["initJavaScriptFunction"]);
@@ -694,2322 +70,11 @@ function initFunction(region) {
   return str(region.props, "componentAdvanced.initJavaScriptFunction") || str(region.props, "advanced.initJavaScriptFunction");
 }
 
-// packages/core/src/preview/oracle/connect.ts
-import fs5 from "node:fs";
-import os from "node:os";
-import path4 from "node:path";
-
-// packages/core/src/preview/database.ts
-import crypto2 from "node:crypto";
-import fs3 from "node:fs";
-import path3 from "node:path";
-import { constants as sqliteConstants, DatabaseSync } from "node:sqlite";
-var MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December"
-];
-var DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-function oracleDate(value2) {
-  if (value2 === null || value2 === void 0 || value2 === "") return void 0;
-  if (typeof value2 === "number") {
-    const date2 = new Date(value2);
-    return Number.isNaN(date2.getTime()) ? void 0 : date2;
-  }
-  const raw2 = String(value2).trim();
-  const oracle = /^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/u.exec(raw2);
-  if (oracle) {
-    const month = MONTH_NAMES.findIndex(
-      (name) => name.slice(0, 3).toUpperCase() === oracle[2].toUpperCase()
-    );
-    const year = Number(oracle[3].length === 2 ? `20${oracle[3]}` : oracle[3]);
-    if (month >= 0)
-      return new Date(
-        year,
-        month,
-        Number(oracle[1]),
-        Number(oracle[4] ?? 0),
-        Number(oracle[5] ?? 0),
-        Number(oracle[6] ?? 0)
-      );
-  }
-  const date = new Date(/^\d{4}-\d{2}-\d{2}$/u.test(raw2) ? `${raw2}T00:00:00` : raw2.replace(" ", "T"));
-  return Number.isNaN(date.getTime()) ? void 0 : date;
-}
-var pad = (value2, size = 2) => String(value2).padStart(size, "0");
-function isoDate(date, time = true) {
-  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  return time ? `${day} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` : day;
-}
-var DATE_TOKENS = [
-  "SSSSS",
-  "SYYYY",
-  "MONTH",
-  "A.M.",
-  "P.M.",
-  "HH24",
-  "HH12",
-  "RRRR",
-  "YYYY",
-  "IYYY",
-  "YYY",
-  "DDD",
-  "DAY",
-  "MON",
-  "TZR",
-  "TZH",
-  "TZM",
-  "FF1",
-  "FF2",
-  "FF3",
-  "FF4",
-  "FF5",
-  "FF6",
-  "FF7",
-  "FF8",
-  "FF9",
-  "FF",
-  "YY",
-  "RR",
-  "MM",
-  "DD",
-  "DY",
-  "HH",
-  "MI",
-  "SS",
-  "AM",
-  "PM",
-  "FM",
-  "WW",
-  "IW",
-  "Y",
-  "D",
-  "Q",
-  "W",
-  "J"
-];
-function isoWeek(date) {
-  const target2 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = (target2.getDay() + 6) % 7;
-  target2.setDate(target2.getDate() - day + 3);
-  const first = new Date(target2.getFullYear(), 0, 4);
-  return 1 + Math.round(((target2.getTime() - first.getTime()) / 864e5 - 3 + (first.getDay() + 6) % 7) / 7);
-}
-var dayOfYear = (date) => Math.floor(
-  (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 1)) / 864e5
-) + 1;
-function formatDate(date, mask2) {
-  let out = "";
-  let fm = false;
-  for (let index = 0; index < mask2.length; ) {
-    if (mask2[index] === '"') {
-      const end = mask2.indexOf('"', index + 1);
-      out += mask2.slice(index + 1, end < 0 ? mask2.length : end);
-      index = end < 0 ? mask2.length : end + 1;
-      continue;
-    }
-    const token = DATE_TOKENS.find(
-      (candidate) => mask2.slice(index, index + candidate.length).toUpperCase() === candidate
-    );
-    if (!token) {
-      out += mask2[index];
-      index += 1;
-      continue;
-    }
-    const raw2 = mask2.slice(index, index + token.length);
-    index += token.length;
-    const number2 = (value2, width) => fm ? String(value2) : pad(value2, width);
-    const cased = (word) => raw2 === raw2.toUpperCase() ? word.toUpperCase() : raw2[0] === raw2[0].toUpperCase() ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word.toLowerCase();
-    const hours12 = date.getHours() % 12 || 12;
-    switch (token) {
-      case "FM":
-        fm = !fm;
-        break;
-      case "YYYY":
-      case "SYYYY":
-      case "RRRR":
-      case "IYYY":
-        out += String(date.getFullYear());
-        break;
-      case "YYY":
-        out += pad(date.getFullYear() % 1e3, 3);
-        break;
-      case "YY":
-      case "RR":
-        out += pad(date.getFullYear() % 100);
-        break;
-      case "Y":
-        out += String(date.getFullYear() % 10);
-        break;
-      case "MONTH":
-        out += cased(MONTH_NAMES[date.getMonth()]);
-        break;
-      case "MON":
-        out += cased(MONTH_NAMES[date.getMonth()].slice(0, 3));
-        break;
-      case "MM":
-        out += number2(date.getMonth() + 1, 2);
-        break;
-      case "DDD":
-        out += number2(dayOfYear(date), 3);
-        break;
-      case "DD":
-        out += number2(date.getDate(), 2);
-        break;
-      case "DAY":
-        out += cased(DAY_NAMES[date.getDay()]);
-        break;
-      case "DY":
-        out += cased(DAY_NAMES[date.getDay()].slice(0, 3));
-        break;
-      case "D":
-        out += String(date.getDay() + 1);
-        break;
-      case "HH24":
-        out += number2(date.getHours(), 2);
-        break;
-      case "HH12":
-      case "HH":
-        out += number2(hours12, 2);
-        break;
-      case "MI":
-        out += number2(date.getMinutes(), 2);
-        break;
-      case "SS":
-        out += number2(date.getSeconds(), 2);
-        break;
-      case "SSSSS":
-        out += String(date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds());
-        break;
-      case "AM":
-      case "PM":
-        out += cased(date.getHours() < 12 ? "AM" : "PM");
-        break;
-      case "A.M.":
-      case "P.M.":
-        out += cased(date.getHours() < 12 ? "A.M." : "P.M.");
-        break;
-      case "Q":
-        out += String(Math.floor(date.getMonth() / 3) + 1);
-        break;
-      case "WW":
-        out += number2(Math.floor((dayOfYear(date) - 1) / 7) + 1, 2);
-        break;
-      case "IW":
-        out += number2(isoWeek(date), 2);
-        break;
-      case "W":
-        out += String(Math.floor((date.getDate() - 1) / 7) + 1);
-        break;
-      case "J":
-        out += String(Math.floor(date.getTime() / 864e5 + 24405875e-1));
-        break;
-      case "TZR":
-      case "TZH":
-      case "TZM":
-        break;
-      default:
-        out += pad(date.getMilliseconds(), 3).padEnd(9, "0").slice(0, Number(token.slice(2) || 6));
-    }
-  }
-  return out;
-}
-function formatNumber(value2, upper4) {
-  const number2 = Number(value2);
-  if (!Number.isFinite(number2)) return String(value2);
-  if (/X/u.test(upper4))
-    return Math.round(number2).toString(16)[upper4.includes("x") ? "toLowerCase" : "toUpperCase"]();
-  const body4 = upper4.replace(/^FM/u, "").replace(/^[L$S]/u, "").replace(/(MI|PR|S)$/u, "");
-  const [whole = "", fraction = ""] = body4.split(/[D.]/u);
-  const decimals = fraction.replace(/[^09]/gu, "").length;
-  const zeros = whole.includes("0") ? whole.slice(whole.indexOf("0")).replace(/[^09]/gu, "").length : 0;
-  let text10 = Math.abs(number2).toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-    minimumIntegerDigits: Math.max(1, zeros),
-    useGrouping: /[G,]/u.test(whole)
-  });
-  if (!zeros && !decimals && text10 === "0" && whole && !whole.includes("0")) text10 = "0";
-  if (!zeros && text10.startsWith("0.") && !whole.includes("0") && whole) text10 = text10.slice(1);
-  if (/^FM?[L$]|^[L$]/u.test(upper4.replace(/^FM/u, "F"))) text10 = `$${text10}`;
-  if (number2 < 0) return upper4.endsWith("MI") ? `${text10}-` : upper4.endsWith("PR") ? `<${text10}>` : `-${text10}`;
-  return upper4.endsWith("S") && upper4.startsWith("S") ? `+${text10}` : text10;
-}
-function oracleNumberText(value2) {
-  if (Number.isNaN(value2)) return "NaN";
-  if (!Number.isFinite(value2)) return value2 > 0 ? "~" : "-~";
-  if (Number.isInteger(value2)) return Math.abs(value2) < 1e21 ? String(value2 || 0) : BigInt(value2).toString();
-  const rounded = Number(value2.toPrecision(15));
-  if (Number.isInteger(rounded)) return String(rounded || 0);
-  let text10 = String(rounded);
-  if (/e/iu.test(text10)) {
-    const exponent = Number(text10.split(/e/iu)[1]);
-    text10 = rounded.toFixed(Math.min(100, Math.max(0, 15 - exponent))).replace(/\.?0+$/u, "");
-  }
-  return text10.replace(/^(-?)0\./u, "$1.");
-}
-function oracleText(value2) {
-  if (value2 === null || value2 === void 0) return null;
-  if (typeof value2 === "number") return oracleNumberText(value2);
-  if (typeof value2 === "bigint") return value2.toString();
-  return String(value2);
-}
-function decimalNumber(value2) {
-  return Number.isFinite(value2) && !Number.isInteger(value2) ? Number(value2.toPrecision(15)) : value2;
-}
-var DATE_TEXT = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/u;
-function arithmeticNumber(value2) {
-  if (typeof value2 === "number") return value2;
-  if (typeof value2 === "bigint") return Number(value2);
-  if (typeof value2 !== "string" || value2.trim() === "") return void 0;
-  const number2 = Number(value2.trim());
-  return Number.isFinite(number2) ? number2 : void 0;
-}
-function arithmeticDate(value2) {
-  if (typeof value2 !== "string" || arithmeticNumber(value2) !== void 0) return void 0;
-  const text10 = value2.trim();
-  return DATE_TEXT.test(text10) || /^\d{1,2}-[A-Za-z]{3}-\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/u.test(text10) ? oracleDate(text10) : void 0;
-}
-var sqlNumber = (value2) => Number.isSafeInteger(value2) ? BigInt(value2) : decimalNumber(value2);
-function sqlArithmetic(left, operator, right) {
-  if (left === null || left === void 0 || right === null || right === void 0) return null;
-  const leftDate = arithmeticDate(left);
-  const rightDate = arithmeticDate(right);
-  if (leftDate && rightDate && operator === "-") {
-    const utc = (date2) => Date.UTC(
-      date2.getFullYear(),
-      date2.getMonth(),
-      date2.getDate(),
-      date2.getHours(),
-      date2.getMinutes(),
-      date2.getSeconds()
-    );
-    return sqlNumber((utc(leftDate) - utc(rightDate)) / 864e5);
-  }
-  const date = leftDate ?? (operator === "+" ? rightDate : void 0);
-  if (date) {
-    const days = arithmeticNumber(leftDate ? right : left);
-    if (days === void 0) return null;
-    const signed = operator === "-" ? -days : days;
-    const whole = Math.trunc(signed);
-    const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + whole);
-    result.setHours(date.getHours(), date.getMinutes(), date.getSeconds());
-    result.setTime(result.getTime() + Math.round((signed - whole) * 86400) * 1e3);
-    const source = String(leftDate ? left : right);
-    const timed = /\d:\d/u.test(source) || result.getHours() || result.getMinutes() || result.getSeconds();
-    return isoDate(result, Boolean(timed));
-  }
-  const a = arithmeticNumber(left);
-  const b = arithmeticNumber(right);
-  if (a === void 0 || b === void 0) return null;
-  return sqlNumber(operator === "-" ? a - b : a + b);
-}
-function parseJsonPath(path15) {
-  const text10 = path15.trim().replace(/^(?:lax|strict)\s+/iu, "");
-  if (!text10.startsWith("$")) return void 0;
-  const steps = [];
-  let index = 1;
-  while (index < text10.length) {
-    const rest = text10.slice(index);
-    let match;
-    if (match = /^\.\*/u.exec(rest)) steps.push({ kind: "any" });
-    else if (match = /^\.([A-Za-z_$][\w$]*)/u.exec(rest)) steps.push({ kind: "field", name: match[1] });
-    else if (match = /^\."((?:[^"\\]|\\.)*)"/u.exec(rest))
-      steps.push({ kind: "field", name: match[1].replace(/\\(.)/gu, "$1") });
-    else if (match = /^\[\s*\*\s*\]/u.exec(rest)) steps.push({ kind: "all" });
-    else if (match = /^\[([^\]]*)\]/u.exec(rest)) {
-      const position2 = (part2) => part2.trim().toLowerCase() === "last" ? "last" : Number(part2);
-      const indexes = match[1].split(",").map((part2) => {
-        const range = /^(.+?)\s+to\s+(.+)$/iu.exec(part2.trim());
-        return range ? [position2(range[1]), position2(range[2])] : position2(part2);
-      });
-      if (indexes.some((entry) => typeof entry === "number" && !Number.isInteger(entry))) return void 0;
-      steps.push({ kind: "index", indexes });
-    } else return void 0;
-    index += match[0].length;
-  }
-  return steps;
-}
-function jsonMatches(doc, pathText) {
-  if (doc === null || doc === void 0 || pathText === null || pathText === void 0) return void 0;
-  const steps = parseJsonPath(String(pathText));
-  if (!steps) return void 0;
-  let data;
-  try {
-    data = typeof doc === "string" ? JSON.parse(doc) : doc;
-  } catch {
-    return void 0;
-  }
-  let current3 = [data];
-  for (const step of steps) {
-    const next = [];
-    for (const value2 of current3) {
-      if (step.kind === "field" || step.kind === "any") {
-        for (const target2 of Array.isArray(value2) ? value2 : [value2]) {
-          if (!target2 || typeof target2 !== "object" || Array.isArray(target2)) continue;
-          if (step.kind === "any") next.push(...Object.values(target2));
-          else if (Object.hasOwn(target2, step.name))
-            next.push(target2[step.name]);
-        }
-      } else {
-        const array = Array.isArray(value2) ? value2 : [value2];
-        if (step.kind === "all") {
-          next.push(...array);
-          continue;
-        }
-        const resolve = (entry) => entry === "last" ? array.length - 1 : entry;
-        for (const entry of step.indexes) {
-          if (Array.isArray(entry)) {
-            for (let cursor = resolve(entry[0]); cursor <= resolve(entry[1]); cursor += 1)
-              if (cursor >= 0 && cursor < array.length) next.push(array[cursor]);
-          } else {
-            const at = resolve(entry);
-            if (at >= 0 && at < array.length) next.push(array[at]);
-          }
-        }
-      }
-    }
-    current3 = next;
-  }
-  return current3;
-}
-function jsonValue(doc, pathText, returning) {
-  const matches3 = jsonMatches(doc, pathText);
-  if (!matches3 || matches3.length !== 1) return null;
-  const value2 = matches3[0];
-  if (value2 === null || typeof value2 === "object") return null;
-  if (returning === "number" || returning === "integer" || returning === "float" || returning === "binary_double") {
-    const number2 = Number(value2);
-    return Number.isFinite(number2) ? number2 : null;
-  }
-  if (typeof value2 === "number") return oracleNumberText(value2);
-  return String(value2);
-}
-function jsonQuery(doc, pathText, wrapper) {
-  const matches3 = jsonMatches(doc, pathText);
-  if (!matches3?.length) return null;
-  if (wrapper) return JSON.stringify(matches3);
-  if (matches3.length !== 1 || matches3[0] === null || typeof matches3[0] !== "object") return null;
-  return JSON.stringify(matches3[0]);
-}
-var POSIX_CLASSES = {
-  alpha: "a-zA-Z",
-  digit: "0-9",
-  alnum: "a-zA-Z0-9",
-  upper: "A-Z",
-  lower: "a-z",
-  space: "\\s",
-  blank: " \\t",
-  punct: "!\"#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]\\^_`{|}~",
-  xdigit: "0-9A-Fa-f",
-  cntrl: "\\x00-\\x1f\\x7f",
-  print: "\\x20-\\x7e",
-  graph: "\\x21-\\x7e",
-  word: "\\w"
-};
-function oracleRegExp(pattern, matchParameter = "", global = false) {
-  let ignoreCase = false;
-  let dotAll = false;
-  let multiline = false;
-  let extended = false;
-  for (const flag3 of matchParameter) {
-    if (flag3 === "i") ignoreCase = true;
-    else if (flag3 === "c") ignoreCase = false;
-    else if (flag3 === "n") dotAll = true;
-    else if (flag3 === "m") multiline = true;
-    else if (flag3 === "x") extended = true;
-  }
-  let source = "";
-  let inClass = false;
-  for (let index = 0; index < pattern.length; index += 1) {
-    const char = pattern[index];
-    if (char === "\\") {
-      source += pattern.slice(index, index + 2);
-      index += 1;
-      continue;
-    }
-    if (inClass) {
-      const posix = /^\[:([a-z]+):\]/u.exec(pattern.slice(index));
-      if (posix && POSIX_CLASSES[posix[1]] !== void 0) {
-        source += POSIX_CLASSES[posix[1]];
-        index += posix[0].length - 1;
-        continue;
-      }
-      const equivalence = /^\[[=.](.)[=.]\]/u.exec(pattern.slice(index));
-      if (equivalence) {
-        source += equivalence[1].replace(/[\\\]^-]/u, "\\$&");
-        index += equivalence[0].length - 1;
-        continue;
-      }
-      if (char === "]") inClass = false;
-      else if (char === "[") {
-        source += "\\[";
-        continue;
-      }
-      source += char;
-      continue;
-    }
-    if (char === "[") {
-      inClass = true;
-      source += char;
-      if (pattern[index + 1] === "^") {
-        source += "^";
-        index += 1;
-      }
-      if (pattern[index + 1] === "]") {
-        source += "\\]";
-        index += 1;
-      }
-      continue;
-    }
-    if (extended && /\s/u.test(char)) continue;
-    source += char;
-  }
-  const flags = `${global ? "g" : ""}${ignoreCase ? "i" : ""}${dotAll ? "s" : ""}${multiline ? "m" : ""}`;
-  try {
-    return new RegExp(source, `${flags}u`);
-  } catch {
-    return new RegExp(source, flags);
-  }
-}
-function formatOracle(value2, mask2) {
-  if (value2 === null || value2 === void 0) return null;
-  if (!mask2) return oracleText(value2);
-  const upper4 = mask2.trim().toUpperCase();
-  if (upper4 === "TM" || upper4 === "TM9" || upper4 === "TME")
-    return value2 === "" ? null : oracleNumberText(Number(value2));
-  if (/[90X]/u.test(upper4) && /^(?:FM)?[L$S]?[09GD,.X]+(?:MI|PR|S)?$/u.test(upper4))
-    return formatNumber(value2, upper4);
-  if (upper4 === "DS" || upper4 === "DL") {
-    const date2 = oracleDate(value2);
-    if (!date2) return String(value2);
-    return upper4 === "DS" ? date2.toLocaleDateString("en-US") : date2.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-  }
-  const date = oracleDate(value2);
-  return date ? formatDate(date, mask2) : String(value2);
-}
-function parseOracleDate(value2, mask2) {
-  if (value2 === null || value2 === void 0 || value2 === "") return void 0;
-  if (!mask2) return oracleDate(value2);
-  const source = String(value2).trim();
-  const parts = {
-    year: (/* @__PURE__ */ new Date()).getFullYear(),
-    month: 0,
-    day: 1,
-    hour: 0,
-    minute: 0,
-    second: 0,
-    pm: false
-  };
-  let position2 = 0;
-  const digits = (max) => {
-    const match = new RegExp(`^\\d{1,${max}}`, "u").exec(source.slice(position2));
-    if (!match) throw new Error("mismatch");
-    position2 += match[0].length;
-    return Number(match[0]);
-  };
-  try {
-    for (let index = 0; index < mask2.length; ) {
-      const token = DATE_TOKENS.find(
-        (candidate) => mask2.slice(index, index + candidate.length).toUpperCase() === candidate
-      );
-      if (!token) {
-        index += 1;
-        if (/[^\w]/u.test(source[position2] ?? "")) position2 += 1;
-        continue;
-      }
-      index += token.length;
-      switch (token) {
-        case "YYYY":
-        case "RRRR":
-        case "SYYYY":
-          parts.year = digits(4);
-          break;
-        case "YY":
-        case "RR": {
-          const year = digits(2);
-          parts.year = year < 50 ? 2e3 + year : 1900 + year;
-          break;
-        }
-        case "MM":
-          parts.month = digits(2) - 1;
-          break;
-        case "MON":
-        case "MONTH": {
-          const word = /^[A-Za-z]+/u.exec(source.slice(position2))?.[0] ?? "";
-          position2 += word.length;
-          parts.month = MONTH_NAMES.findIndex(
-            (name) => name.slice(0, 3).toUpperCase() === word.slice(0, 3).toUpperCase()
-          );
-          if (parts.month < 0) throw new Error("mismatch");
-          break;
-        }
-        case "DD":
-          parts.day = digits(2);
-          break;
-        case "HH24":
-        case "HH":
-        case "HH12":
-          parts.hour = digits(2);
-          break;
-        case "MI":
-          parts.minute = digits(2);
-          break;
-        case "SS":
-          parts.second = digits(2);
-          break;
-        case "AM":
-        case "PM":
-          parts.pm = /^p/iu.test(source.slice(position2));
-          position2 += 2;
-          break;
-        default:
-          break;
-      }
-    }
-  } catch {
-    return oracleDate(value2);
-  }
-  const hour = parts.pm && parts.hour < 12 ? parts.hour + 12 : parts.hour;
-  const date = new Date(parts.year, parts.month, parts.day, hour, parts.minute, parts.second);
-  return Number.isNaN(date.getTime()) ? void 0 : date;
-}
-function canonicalDate(value2, mask2) {
-  const text10 = value2.trim();
-  if (text10 === "") return value2;
-  const date = DATE_TEXT.test(text10) ? oracleDate(text10) : parseOracleDate(text10, mask2);
-  return date ? isoDate(date) : value2;
-}
-function truncDate(date, unit = "DD") {
-  const upper4 = unit.toUpperCase();
-  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  if (["YYYY", "YEAR", "SYYYY", "YYY", "YY", "Y", "RRRR", "RR", "IYYY"].includes(upper4))
-    result.setMonth(0, 1);
-  else if (["MM", "MON", "MONTH", "RM"].includes(upper4)) result.setDate(1);
-  else if (upper4 === "Q") result.setMonth(Math.floor(date.getMonth() / 3) * 3, 1);
-  else if (upper4 === "IW") result.setDate(result.getDate() - (result.getDay() + 6) % 7);
-  else if (["DAY", "DY", "D"].includes(upper4)) result.setDate(result.getDate() - result.getDay());
-  else if (["HH", "HH24", "HH12"].includes(upper4)) {
-    result.setHours(date.getHours());
-    return isoDate(result);
-  } else if (upper4 === "MI") {
-    result.setHours(date.getHours(), date.getMinutes());
-    return isoDate(result);
-  }
-  return isoDate(result, false);
-}
-var oracleFunctions = /* @__PURE__ */ new Map();
-function registerOracleFunction(name, params2, impl, options3) {
-  const key = name.toLowerCase();
-  oracleFunctions.set(key, {
-    sqlName: key.replaceAll(".", "__"),
-    params: params2,
-    impl,
-    blobs: options3?.blobs ?? false
-  });
-}
-var tableFunctions = /* @__PURE__ */ new Map();
-function registerTableFunction(name, params2, columns, impl) {
-  const key = name.toLowerCase();
-  const upper4 = columns.map((column2) => column2.toUpperCase());
-  registerOracleFunction(
-    name,
-    params2,
-    (args) => JSON.stringify(impl(args).map((row) => upper4.map((column2) => row[column2] ?? null))),
-    { blobs: true }
-  );
-  tableFunctions.set(key.replaceAll(".", "__"), { columns: upper4 });
-}
-var databaseSetups = [];
-function registerDatabaseSetup(setup) {
-  databaseSetups.push(setup);
-}
-var MASK = /\u0000(\d+)\u0000/gu;
-function maskLiterals(sql) {
-  const literals = [];
-  const text10 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
-    literals.push(literal2);
-    return `\0${literals.length - 1}\0`;
-  });
-  return { text: text10, literals };
-}
-var unmask = (text10, literals) => text10.replace(MASK, (_match, index) => literals[Number(index)]);
-function closingParen(text10, open2) {
-  let depth = 0;
-  for (let index = open2; index < text10.length; index += 1) {
-    if (text10[index] === "(") depth += 1;
-    else if (text10[index] === ")") {
-      depth -= 1;
-      if (depth === 0) return index;
-    }
-  }
-  return -1;
-}
-function topLevelCommas(text10) {
-  const parts = [];
-  let depth = 0;
-  let current3 = "";
-  for (const char of text10) {
-    if (char === "(") depth += 1;
-    if (char === ")") depth -= 1;
-    if (char === "," && depth === 0) {
-      parts.push(current3);
-      current3 = "";
-    } else current3 += char;
-  }
-  if (current3.trim() || parts.length) parts.push(current3);
-  return parts;
-}
-function rewritePackageCalls(text10) {
-  const pattern = /\b(?:sys\s*\.\s*)?([A-Za-z_][\w$#]*)\s*\.\s*([A-Za-z_][\w$#]*)\s*\(/gu;
-  let out = "";
-  let last = 0;
-  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
-    const fn = oracleFunctions.get(`${match[1].toLowerCase()}.${match[2].toLowerCase()}`);
-    if (!fn) continue;
-    const open2 = match.index + match[0].length - 1;
-    const close2 = closingParen(text10, open2);
-    if (close2 < 0) continue;
-    const args = topLevelCommas(rewritePackageCalls(text10.slice(open2 + 1, close2)));
-    const positional = [];
-    for (const arg of args) {
-      const named2 = /^\s*([A-Za-z_][\w$#]*)\s*=>\s*([\s\S]*)$/u.exec(arg);
-      if (!named2) positional.push(arg.trim());
-      else {
-        const index = fn.params.indexOf(named2[1].toLowerCase());
-        if (index >= 0) positional[index] = named2[2].trim();
-      }
-    }
-    out += `${text10.slice(last, match.index)}${fn.sqlName}(${Array.from(positional, (arg) => arg ?? "null").join(", ")})`;
-    last = close2 + 1;
-    pattern.lastIndex = close2 + 1;
-  }
-  return out + text10.slice(last);
-}
-var TABLE_FUNCTIONS = {
-  "apex_util.get_timeframe_lov_data": [
-    ["Last 15 Minutes", 900],
-    ["Last Hour", 3600],
-    ["Last 2 Hours", 7200],
-    ["Last 4 Hours", 14400],
-    ["Last 8 Hours", 28800],
-    ["Last 16 Hours", 57600],
-    ["Last Day", 86400],
-    ["Last 2 Days", 172800],
-    ["Last 3 Days", 259200],
-    ["Last 4 Days", 345600],
-    ["Last 5 Days", 432e3],
-    ["Last Week", 604800],
-    ["Last 2 Weeks", 1209600],
-    ["Last 4 Weeks", 2419200]
-  ].map(([disp, val], index) => `select '${disp}' as disp, ${val} as val, ${index + 1} as insert_order`).join(" union all ")
-};
-function rewriteTableCollections(text10) {
-  const pattern = /\btable\s*\(/giu;
-  const lateral = [];
-  let out = "";
-  let last = 0;
-  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
-    const open2 = match.index + match[0].length - 1;
-    const close2 = closingParen(text10, open2);
-    if (close2 < 0) continue;
-    const inner = text10.slice(open2 + 1, close2).trim();
-    const builtin = TABLE_FUNCTIONS[inner.toLowerCase().replace(/^sys\./u, "")];
-    const registered = tableFunctions.get(/^([\w$#]+)\s*\(/u.exec(inner)?.[1]?.toLowerCase() ?? "");
-    if (registered) {
-      const alias = /^\s*(?:as\s+)?(?!(?:where|on|join|left|inner|cross|group|order|union|connect|start)\b)([A-Za-z_][\w$#]*)/iu.exec(
-        text10.slice(close2 + 1)
-      );
-      const columns = registered.columns.map((column2, index) => `json_extract(value, '$[${index}]') as ${column2.toLowerCase()}`).join(", ");
-      const args = inner.slice(inner.indexOf("(") + 1, -1);
-      if (alias && /\b[A-Za-z_][\w$#]*\s*\.\s*[A-Za-z_"]/u.test(args)) {
-        out += `${text10.slice(last, match.index)}json_each(${inner})`;
-        last = close2 + 1;
-        lateral.push({ alias: alias[1], columns: registered.columns });
-      } else {
-        out += `${text10.slice(last, match.index)}(select ${columns} from json_each(${inner}))`;
-        last = close2 + 1;
-      }
-      pattern.lastIndex = close2 + 1;
-      continue;
-    }
-    out += builtin ? `${text10.slice(last, match.index)}(${builtin})` : `${text10.slice(last, match.index)}(select value as column_value from json_each(${inner}))`;
-    last = close2 + 1;
-    pattern.lastIndex = close2 + 1;
-  }
-  out += text10.slice(last);
-  for (const { alias, columns } of lateral) {
-    out = out.replace(
-      new RegExp(
-        `(\\bselect\\s+(?:distinct\\s+)?|,\\s*)(${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*))(?=\\s*(?:,|\\bfrom\\b))`,
-        "giu"
-      ),
-      (whole, lead, reference, column2) => columns.includes(column2.toUpperCase()) ? `${lead}${reference} as ${column2}` : whole
-    );
-    out = out.replace(
-      new RegExp(`\\b${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*)\\b`, "giu"),
-      (whole, column2) => {
-        const index = columns.indexOf(column2.toUpperCase());
-        return index < 0 ? whole : `json_extract(${alias}.value, '$[${index}]')`;
-      }
-    );
-  }
-  return out;
-}
-function rewriteRownum(text10) {
-  if (!/\brownum\b/iu.test(text10)) return text10;
-  const predicate2 = /\b(where|and)\s+rownum\s*(<=|<|=)\s*(\d+|:\w+)\s*(and\b)?/giu;
-  for (const match of [...text10.matchAll(predicate2)].reverse()) {
-    let depth = 0;
-    let scopeEnd = text10.length;
-    for (let index = match.index + match[0].length; index < text10.length; index += 1) {
-      if (text10[index] === "(") depth += 1;
-      else if (text10[index] === ")") {
-        if (depth === 0) {
-          scopeEnd = index;
-          break;
-        }
-        depth -= 1;
-      }
-    }
-    const tail = text10.slice(match.index + match[0].length, scopeEnd);
-    if (/\blimit\b/iu.test(tail)) continue;
-    const [, keyword, op, bound, trailingAnd] = match;
-    const limit = op === "<" ? /^\d+$/u.test(bound) ? String(Number(bound) - 1) : `${bound} - 1` : op === "=" ? "1" : bound;
-    const replacement = keyword.toLowerCase() === "where" ? trailingAnd ? "where " : "" : trailingAnd ? "and " : "";
-    text10 = `${text10.slice(0, match.index)}${`${replacement}${tail.trimStart()}`.trimEnd()} limit ${limit}${text10.slice(scopeEnd)}`;
-  }
-  return text10.replace(/\brownum\b/giu, "row_number() over ()");
-}
-function rewriteConnectBy(text10) {
-  const pattern = /(\bfrom\s+[\w$#.]+(?:\s+(?!connect\b)[\w$#]+)?\s+)?\bconnect\s+by\s+(?:level|rownum)\s*(<=|<)\s*/giu;
-  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
-    let depth = 0;
-    let end = match.index + match[0].length;
-    for (; end < text10.length; end += 1) {
-      const char = text10[end];
-      if (char === "(") depth += 1;
-      else if (char === ")") {
-        if (depth === 0) break;
-        depth -= 1;
-      } else if (depth === 0 && /^\s(?:order|union|group|minus|intersect)\b/iu.test(text10.slice(end, end + 12)))
-        break;
-    }
-    const bound = text10.slice(match.index + match[0].length, end).trim();
-    const generator = `(with recursive apex_local_levels(level) as (select 1 union all select level + 1 from apex_local_levels where level < (${bound})${match[2] === "<" ? " - 1" : ""}) select level from apex_local_levels)`;
-    const replacement = match[1] ? `${match[1].trimEnd()}, ${generator} ` : `from ${generator} `;
-    text10 = text10.slice(0, match.index) + replacement + text10.slice(end);
-    pattern.lastIndex = match.index + replacement.length;
-  }
-  return text10;
-}
-var SQL_TOKEN = /(\s*)(\u0000\d+\u0000|"[^"]*"|(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|:[A-Za-z_][\w$#]*|:\d+|[A-Za-z_][\w$#]*|\|\||<=|>=|<>|!=|\^=|~=|->>|->|=>|:=|[\s\S])/uy;
-function tokenizeSql(text10) {
-  const tokens = [];
-  SQL_TOKEN.lastIndex = 0;
-  let position2 = 0;
-  for (let match = SQL_TOKEN.exec(text10); match && match[2]; match = SQL_TOKEN.exec(text10)) {
-    const value2 = match[2];
-    const kind = value2.startsWith("\0") ? "literal" : /^[\d.]/u.test(value2) && value2 !== "." ? "number" : /^:[\w]/u.test(value2) ? "bind" : /^[A-Za-z_"]/u.test(value2) ? "word" : "op";
-    tokens.push({ pre: match[1], text: value2, kind });
-    position2 = SQL_TOKEN.lastIndex;
-  }
-  return { tokens, tail: text10.slice(position2) };
-}
-var renderTokens = (tokens) => tokens.map((token, index) => (index === 0 ? "" : token.pre) + token.text).join("");
-var SQL_KEYWORDS = new Set(
-  "select from where and or not when then else end as on by group order having union all intersect minus except in is like between escape asc desc nulls limit offset join left right inner outer cross natural into values set distinct exists over within partition using with recursive returning default collate glob regexp isnull notnull prior connect interval return".split(" ")
-);
-var isOpToken = (token, ...values) => token?.kind === "op" && values.includes(token.text);
-var isWordToken = (token, ...values) => token?.kind === "word" && values.includes(token.text.toLowerCase());
-function matchForward(tokens, open2) {
-  let depth = 0;
-  for (let index = open2; index < tokens.length; index += 1) {
-    if (isOpToken(tokens[index], "(")) depth += 1;
-    else if (isOpToken(tokens[index], ")")) {
-      depth -= 1;
-      if (depth === 0) return index;
-    }
-  }
-  return -1;
-}
-function matchBackward(tokens, close2) {
-  let depth = 0;
-  for (let index = close2; index >= 0; index -= 1) {
-    if (isOpToken(tokens[index], ")")) depth += 1;
-    else if (isOpToken(tokens[index], "(")) {
-      depth -= 1;
-      if (depth === 0) return index;
-    }
-  }
-  return -1;
-}
-function callSuffix(tokens, end) {
-  for (; ; ) {
-    const next = tokens[end + 1];
-    if (isWordToken(next, "over", "keep", "filter") && isOpToken(tokens[end + 2], "(")) {
-      const close2 = matchForward(tokens, end + 2);
-      if (close2 < 0) return end;
-      end = close2;
-    } else if (isWordToken(next, "within") && isWordToken(tokens[end + 2], "group") && isOpToken(tokens[end + 3], "(")) {
-      const close2 = matchForward(tokens, end + 3);
-      if (close2 < 0) return end;
-      end = close2;
-    } else return end;
-  }
-}
-function operandEnd(tokens, index) {
-  const token = tokens[index];
-  if (!token) return -1;
-  if (isOpToken(token, "+", "-")) return operandEnd(tokens, index + 1);
-  if (isOpToken(token, "(")) {
-    const close2 = matchForward(tokens, index);
-    return close2 < 0 ? -1 : close2;
-  }
-  if (token.kind === "word") {
-    const lower2 = token.text.toLowerCase();
-    if (lower2 === "case") {
-      let depth = 0;
-      for (let cursor = index; cursor < tokens.length; cursor += 1) {
-        if (isWordToken(tokens[cursor], "case")) depth += 1;
-        else if (isWordToken(tokens[cursor], "end")) {
-          depth -= 1;
-          if (depth === 0) return cursor;
-        }
-      }
-      return -1;
-    }
-    if (SQL_KEYWORDS.has(lower2)) return -1;
-    let end = index;
-    while (isOpToken(tokens[end + 1], ".") && tokens[end + 2]?.kind === "word") end += 2;
-    if (isOpToken(tokens[end + 1], "(")) {
-      const close2 = matchForward(tokens, end + 1);
-      if (close2 < 0) return -1;
-      end = callSuffix(tokens, close2);
-    }
-    return end;
-  }
-  return token.kind === "op" ? -1 : index;
-}
-function operandStart(tokens, index) {
-  const token = tokens[index];
-  if (!token) return -1;
-  if (isOpToken(token, ")")) {
-    let open2 = matchBackward(tokens, index);
-    if (open2 < 0) return -1;
-    if (isWordToken(tokens[open2 - 1], "over", "keep", "filter")) return operandStart(tokens, open2 - 2);
-    if (isWordToken(tokens[open2 - 1], "group") && isWordToken(tokens[open2 - 2], "within"))
-      return operandStart(tokens, open2 - 3);
-    const name = tokens[open2 - 1];
-    if (name?.kind === "word" && !SQL_KEYWORDS.has(name.text.toLowerCase())) {
-      open2 -= 1;
-      while (isOpToken(tokens[open2 - 1], ".") && tokens[open2 - 2]?.kind === "word") open2 -= 2;
-    }
-    return open2;
-  }
-  if (isWordToken(token, "end")) {
-    let depth = 0;
-    for (let cursor = index; cursor >= 0; cursor -= 1) {
-      if (isWordToken(tokens[cursor], "end")) depth += 1;
-      else if (isWordToken(tokens[cursor], "case")) {
-        depth -= 1;
-        if (depth === 0) return cursor;
-      }
-    }
-    return -1;
-  }
-  if (token.kind === "word") {
-    if (SQL_KEYWORDS.has(token.text.toLowerCase())) return -1;
-    let start = index;
-    while (isOpToken(tokens[start - 1], ".") && tokens[start - 2]?.kind === "word") start -= 2;
-    return start;
-  }
-  return token.kind === "op" ? -1 : index;
-}
-function isBinaryAt(tokens, index) {
-  const previous = tokens[index - 1];
-  if (!previous) return false;
-  if (isOpToken(previous, ")")) return true;
-  if (previous.kind === "word")
-    return isWordToken(previous, "end") || !SQL_KEYWORDS.has(previous.text.toLowerCase());
-  return previous.kind !== "op";
-}
-function leftOperand(tokens, operator) {
-  let start = operandStart(tokens, operator - 1);
-  while (start > 0) {
-    const previous = start - 1;
-    if (isOpToken(tokens[previous], "*", "/", "%", "+", "-") && isBinaryAt(tokens, previous)) {
-      const earlier = operandStart(tokens, previous - 1);
-      if (earlier < 0) break;
-      start = earlier;
-    } else if (isOpToken(tokens[previous], "+", "-")) {
-      start = previous;
-      break;
-    } else break;
-  }
-  return start;
-}
-function rightOperand(tokens, operator) {
-  let end = operandEnd(tokens, operator + 1);
-  while (end >= 0 && isOpToken(tokens[end + 1], "*", "/", "%")) {
-    const later = operandEnd(tokens, end + 2);
-    if (later < 0) break;
-    end = later;
-  }
-  return end;
-}
-function rewriteConcatTokens(tokens) {
-  const out = [...tokens];
-  for (let index = 0; index < out.length; index += 1) {
-    if (!isOpToken(out[index], "||")) continue;
-    const start = leftOperand(out, index);
-    if (start < 0) continue;
-    const operands = [renderTokens(out.slice(start, index))];
-    let cursor = index;
-    let end = index;
-    while (isOpToken(out[cursor], "||")) {
-      const last = rightOperand(out, cursor);
-      if (last < 0) break;
-      operands.push(renderTokens(rewriteConcatTokens(out.slice(cursor + 1, last + 1))));
-      end = last;
-      cursor = last + 1;
-    }
-    if (end === index) continue;
-    out.splice(start, end - start + 1, {
-      pre: out[start].pre,
-      text: `concat(${operands.join(", ")})`,
-      kind: "atom"
-    });
-    index = start;
-  }
-  return out;
-}
-var DATE_CAPABLE_CALLS = /* @__PURE__ */ new Set([
-  "trunc",
-  "round",
-  "to_date",
-  "to_timestamp",
-  "last_day",
-  "next_day",
-  "add_months",
-  "datetime",
-  "date",
-  "nvl",
-  "coalesce",
-  "greatest",
-  "least",
-  "max",
-  "min",
-  "decode",
-  "nullif",
-  "new_time",
-  "from_tz",
-  "cast",
-  "apex_local_arith"
-]);
-function dateCapable(tokens) {
-  if (!tokens.length || operandEnd(tokens, 0) !== tokens.length - 1) return false;
-  const first = tokens[0];
-  if (first.kind === "bind") return true;
-  if (first.kind === "atom") return /^apex_local_arith\(/u.test(first.text);
-  if (isOpToken(first, "(")) return dateCapable(tokens.slice(1, -1));
-  if (first.kind !== "word" || isWordToken(first, "case", "null")) return false;
-  const open2 = tokens.findIndex((token) => isOpToken(token, "("));
-  if (open2 < 0) return !isWordToken(tokens.at(-1), "level", "rownum");
-  return DATE_CAPABLE_CALLS.has(tokens[open2 - 1].text.toLowerCase());
-}
-function rewriteDateArithmeticTokens(tokens) {
-  const out = [...tokens];
-  for (let index = 1; index < out.length; index += 1) {
-    if (!isOpToken(out[index], "+", "-") || !isBinaryAt(out, index)) continue;
-    const start = leftOperand(out, index);
-    if (start < 0 || !dateCapable(out.slice(start, index))) continue;
-    const end = rightOperand(out, index);
-    if (end < 0) continue;
-    const right = renderTokens(rewriteDateArithmeticTokens(out.slice(index + 1, end + 1)));
-    out.splice(start, end - start + 1, {
-      pre: out[start].pre,
-      text: `apex_local_arith(${renderTokens(out.slice(start, index))}, '${out[index].text}', ${right})`,
-      kind: "atom"
-    });
-    index = start;
-  }
-  return out;
-}
-function rewriteExpressions(text10, rewrite) {
-  const { tokens, tail } = tokenizeSql(text10);
-  if (!tokens.length) return text10;
-  const lead = tokens[0].pre;
-  return lead + renderTokens(rewrite(tokens)) + tail;
-}
-function rewriteListagg(text10) {
-  const pattern = /\blistagg\s*\(/giu;
-  let out = "";
-  let last = 0;
-  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
-    const open2 = match.index + match[0].length - 1;
-    const close2 = closingParen(text10, open2);
-    if (close2 < 0) continue;
-    const within = /^\s*within\s+group\s*\(/iu.exec(text10.slice(close2 + 1));
-    const orderOpen = within ? close2 + within[0].length : -1;
-    const orderClose = within ? closingParen(text10, orderOpen) : -1;
-    let inner = rewriteListagg(text10.slice(open2 + 1, close2)).replace(/\s+on\s+overflow\s+\w+(?:\s+\u0000\d+\u0000)?(?:\s+(?:with|without)\s+count)?\s*$/iu, "").trim();
-    const distinct = /^distinct\s+/iu.exec(inner);
-    if (distinct) inner = inner.slice(distinct[0].length);
-    const [value2 = "null", separator2] = topLevelCommas(inner).map((part2) => part2.trim());
-    const order = orderClose > 0 ? text10.slice(orderOpen + 1, orderClose).trim() : "";
-    const measure = `apex_local_text(${value2})`;
-    out += text10.slice(last, match.index);
-    out += distinct ? `group_concat(distinct ${measure})` : `group_concat(${measure}, ${separator2 || "''"}${order ? ` ${order}` : ""})`;
-    last = orderClose > 0 ? orderClose + 1 : close2 + 1;
-    pattern.lastIndex = last;
-  }
-  return out + text10.slice(last);
-}
-function rewriteJsonFunctions(text10) {
-  const pattern = /\bjson_(value|query|exists)\s*\(/giu;
-  let out = "";
-  let last = 0;
-  for (let match = pattern.exec(text10); match; match = pattern.exec(text10)) {
-    const open2 = match.index + match[0].length - 1;
-    const close2 = closingParen(text10, open2);
-    if (close2 < 0) continue;
-    const args = topLevelCommas(rewriteJsonFunctions(text10.slice(open2 + 1, close2)));
-    if (args.length < 2) continue;
-    const doc = args[0].replace(/\s+format\s+json\s*$/iu, "").trim();
-    const rest = args.slice(1).join(",").trim();
-    const path15 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
-    if (!path15) continue;
-    const clauses = rest.slice(path15.length);
-    const kind = match[1].toLowerCase();
-    const option = kind === "value" ? /\breturning\s+(number|integer|float|binary_double|date|timestamp)/iu.exec(clauses)?.[1]?.toLowerCase() ?? "" : kind === "query" && /\bwith\s+(?:(?:un)?conditional\s+)?(?:array\s+)?wrapper\b/iu.test(clauses) ? "wrapper" : "";
-    out += `${text10.slice(last, match.index)}json_${kind}(${doc}, ${path15}${option ? `, '${option}'` : ""})`;
-    last = close2 + 1;
-    pattern.lastIndex = last;
-  }
-  return out + text10.slice(last);
-}
-var IDENTITY_MARKER = "/*apex_local_identity*/";
-var PLAIN_DDL = /^\s*(?:create|alter)\s+(?:global\s+temporary\s+)?(?:table|(?:unique\s+)?index)\b/iu;
-function translateOracleSql(sql) {
-  const trimmed = sql.trim().replace(/;\s*\/?\s*$/u, "").replace(/\n\/\s*$/u, "");
-  const masked = maskLiterals(trimmed);
-  const literal2 = (value2) => {
-    masked.literals.push(value2);
-    return `\0${masked.literals.length - 1}\0`;
-  };
-  const uncommented = masked.text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
-  const ddl = PLAIN_DDL.test(uncommented) && !/\bas\s*\(?\s*select\b/iu.test(uncommented);
-  let text10 = uncommented.replace(/\bfrom\s+dual\b/giu, "").replace(/\bdefault\s+on\s+null\b/giu, "default").replace(
-    /\bdefault\s+(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\b/giu,
-    "default (datetime('now','localtime'))"
-  ).replace(/\bdefault\s+(?:date|timestamp)\s+(\u0000\d+\u0000)/giu, "default $1").replace(/\bdefault\s+(sys_guid\s*\(\s*\))/giu, "default ($1)").replace(/\bdate\s+(\u0000\d+\u0000)/giu, "to_date($1)").replace(/\btimestamp\s+(\u0000\d+\u0000)/giu, "to_timestamp($1)").replace(
-    /\bsys(?:date|timestamp)\s*([+-])\s*(\d+(?:\.\d+)?)\b(?!\s*[/*])/giu,
-    (_whole, sign, days) => `datetime('now','localtime',${literal2(`'${sign}${days} days'`)})`
-  ).replace(
-    /\bsys(?:date|timestamp)\b|\bcurrent_(?:date|timestamp)\b|\blocaltimestamp\b/giu,
-    "datetime('now','localtime')"
-  ).replace(
-    /\boffset\s+(\d+|:\w+)\s+rows?\s+fetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu,
-    "limit $2 offset $1"
-  ).replace(/\bfetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu, "limit $1").replace(/\bextract\s*\(\s*(year|month|day|hour|minute|second)\s+from\s+/giu, "apex_local_extract('$1', ").replace(
-    /\btrim\s*\(\s*(both|leading|trailing)\s+(\u0000\d+\u0000)\s+from\s+([^()]*?(?:\([^()]*\)[^()]*?)*)\)/giu,
-    (_whole, side, chars, value2) => `${{ both: "trim", leading: "ltrim", trailing: "rtrim" }[side.toLowerCase()]}(${value2.trim()}, ${chars})`
-  ).replace(
-    /\bcast\s*\(([^()]*(?:\([^()]*\)[^()]*)*?)\s+as\s+(?:date|timestamp(?:\s*\(\s*\d\s*\))?(?:\s+with(?:\s+local)?\s+time\s+zone)?)\s*\)/giu,
-    "($1)"
-  ).replace(/\s+at\s+(?:local\b|time\s+zone\s+(?:\u0000\d+\u0000|[\w$#.:+-]+))/giu, "").replace(
-    /\b(?:[A-Za-z_][\w$#]*\.)?([A-Za-z_][\w$#]*)\.(nextval|currval)\b/giu,
-    (_whole, name, kind) => `apex_local_${kind.toLowerCase()}('${name.toUpperCase()}')`
-  ).replace(/\bdefault\s+(apex_local_(?:nextval|currval)\('[\w$#]+'\))/giu, "default ($1)").replace(
-    /\bdefault\s+(?!\()((?:[A-Za-z_][\w$#]*\.)?[A-Za-z_][\w$#]*\s*\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\))/giu,
-    "default ($1)"
-  ).replace(
-    /\bgenerated\s+(?:always|by\s+default(?:\s+on\s+null)?)\s+as\s+identity(?:\s*\([^)]*\))?/giu,
-    IDENTITY_MARKER
-  ).replace(
-    /\b(?:number|integer|int)(?:\s*\(\s*\d+\s*\))?(\s+\/\*apex_local_identity\*\/(?:\s+not\s+null)?\s+(?:constraint\s+[\w$#"]+\s+)?primary\s+key)\b/giu,
-    "integer$1"
-  ).replace(/\bvarchar2\s*\((\d+)\s*(?:char|byte)\)/giu, "varchar2($1)").replace(/\busing\s+index\b(?:\s+\w+)?/giu, "").replace(/\benable\b|\bnovalidate\b/giu, "").replace(/(?<!\*\s*1\.0\s*|\*)\/(?!\*)/gu, "* 1.0 /");
-  text10 = rewriteJsonFunctions(
-    rewriteListagg(rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text10)))))
-  );
-  if (!ddl)
-    text10 = rewriteExpressions(rewriteExpressions(text10, rewriteConcatTokens), rewriteDateArithmeticTokens);
-  return unmask(text10, masked.literals);
-}
-function translateMerge(sql) {
-  const masked = maskLiterals(translateOracleSql(sql));
-  const text10 = masked.text;
-  const head = /^\s*merge\s+into\s+([\w$#."]+)(?:\s+(?:as\s+)?(?!using\b)([\w$#]+))?\s+using\s+/iu.exec(text10);
-  if (!head) return void 0;
-  const table = head[1];
-  const alias = head[2] ?? table;
-  let position2 = head[0].length;
-  let source;
-  if (text10[position2] === "(") {
-    const close3 = closingParen(text10, position2);
-    if (close3 < 0) return void 0;
-    source = text10.slice(position2 + 1, close3);
-    position2 = close3 + 1;
-  } else {
-    const name = /^[\w$#."]+/u.exec(text10.slice(position2))[0];
-    source = name.toLowerCase() === "dual" ? "select 1 as dummy" : `select * from ${name}`;
-    position2 += name.length;
-  }
-  const sourceAlias = /^\s*(?:as\s+)?(?!on\b)([\w$#]+)/iu.exec(text10.slice(position2));
-  const sAlias = sourceAlias ? sourceAlias[1] : "apex_local_src";
-  if (sourceAlias) position2 += sourceAlias[0].length;
-  const on = /^\s*on\s*\(/iu.exec(text10.slice(position2));
-  if (!on) return void 0;
-  const open2 = position2 + on[0].length - 1;
-  const close2 = closingParen(text10, open2);
-  const condition = text10.slice(open2 + 1, close2);
-  const rest = text10.slice(close2 + 1);
-  const from = `from (${source}) as ${sAlias}`;
-  const statements = [];
-  const matched = /\bwhen\s+matched\s+then\s+update\s+set\s+([\s\S]*?)(?=\bwhen\s+not\s+matched\b|$)/iu.exec(
-    rest
-  );
-  if (matched) {
-    const [assignments, where2] = matched[1].split(/\bwhere\b/iu);
-    const sets = topLevelCommas(assignments.replace(/\bdelete\s+where[\s\S]*$/iu, "")).map((assignment) => {
-      const [column2, ...value2] = assignment.split("=");
-      const name = column2.trim().replace(/^[\w$#]+\./u, "");
-      return `${name} = (select ${value2.join("=").trim()} ${from} where ${condition})`;
-    });
-    statements.push(
-      `update ${table} as ${alias} set ${sets.join(", ")} where exists (select 1 ${from} where ${condition}${where2 ? ` and (${where2})` : ""})`
-    );
-  }
-  const insert = /\bwhen\s+not\s+matched\s+then\s+insert\s*(\([^)]*\))?\s*values\s*\(([\s\S]*)\)\s*(?:where\s+([\s\S]*))?$/iu.exec(
-    rest.replace(/\bwhen\s+matched\s+then\s+update[\s\S]*?(?=\bwhen\s+not\s+matched\b)/iu, "")
-  );
-  if (insert) {
-    statements.push(
-      `insert into ${table} ${insert[1] ?? ""} select ${insert[2]} ${from} where not exists (select 1 from ${table} as ${alias} where ${condition})${insert[3] ? ` and (${insert[3]})` : ""}`
-    );
-  }
-  return statements.length ? statements.map((statement) => unmask(statement, masked.literals)) : void 0;
-}
-function bindNames(sql) {
-  const names = /* @__PURE__ */ new Set();
-  const stripped = sql.replace(/'(?:[^']|'')*'|"[^"]*"|--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
-  for (const match of stripped.matchAll(/(?<![:\w]):([A-Za-z][\w$#]*)/gu)) names.add(match[1]);
-  return [...names];
-}
-function splitScript(script) {
-  const statements = [];
-  let current3 = "";
-  let plsql = false;
-  for (const line of script.replace(/\r\n?/gu, "\n").split("\n")) {
-    const trimmed = line.trim();
-    if (!current3.trim() && /^(?:prompt|set|spool|whenever|exec|@|rem\b|--)/iu.test(trimmed)) continue;
-    if (!plsql && trimmed.startsWith("--")) {
-      current3 += `${line}
-`;
-      continue;
-    }
-    if (!current3.trim() && /^(?:begin|declare|create\s+(?:or\s+replace\s+)?(?:editionable\s+)?(?:package|procedure|function|trigger|type)\b)/iu.test(
-      trimmed
-    )) {
-      plsql = true;
-    }
-    if (trimmed === "/") {
-      if (!plsql && current3.trim()) statements.push(current3);
-      current3 = "";
-      plsql = false;
-      continue;
-    }
-    current3 += `${line}
-`;
-    if (!plsql && /;\s*(?:--.*)?$/u.test(trimmed)) {
-      statements.push(current3);
-      current3 = "";
-    }
-  }
-  if (current3.trim() && !plsql) statements.push(current3);
-  return statements.map((statement) => statement.trim().replace(/;\s*$/u, "")).filter(Boolean);
-}
-var BLOB_TOKEN = /^\[blob (\d+) bytes #([0-9a-f]{16})\]$/u;
-var BLOB_CACHE_BYTES = 128 * 1048576;
-var LocalDatabase = class {
-  dialect = "sqlite";
-  db;
-  file;
-  #binds = {};
-  #blobs = /* @__PURE__ */ new Map();
-  #blobBytes = 0;
-  #functions = /* @__PURE__ */ new Set();
-  #sequences = /* @__PURE__ */ new Map();
-  #dirtySequences = /* @__PURE__ */ new Set();
-  #writes;
-  constructor(file) {
-    this.file = file;
-    if (file !== ":memory:") fs3.mkdirSync(path3.dirname(file), { recursive: true });
-    this.db = new DatabaseSync(file);
-    this.#registerOracleFunctions();
-    for (const setup of databaseSetups) setup(this);
-  }
-  /**
-   * Query results carry BLOBs as tokens (`[blob N bytes #hash]`) so they fit session state,
-   * PL/SQL variables and bind values; binding a token, or passing it to a blob-aware function,
-   * restores the bytes. Recently seen BLOBs are kept in memory for that.
-   */
-  blobToken(bytes2) {
-    const key = crypto2.createHash("sha1").update(bytes2).digest("hex").slice(0, 16);
-    const token = `[blob ${bytes2.length} bytes #${key}]`;
-    if (this.#blobs.has(token)) this.#blobs.delete(token);
-    else this.#blobBytes += bytes2.length;
-    this.#blobs.set(token, bytes2);
-    for (const [oldest, value2] of this.#blobs) {
-      if (this.#blobBytes <= BLOB_CACHE_BYTES || oldest === token) break;
-      this.#blobs.delete(oldest);
-      this.#blobBytes -= value2.length;
-    }
-    return token;
-  }
-  /** Bytes of a BLOB value or token; undefined for anything else. */
-  blob(value2) {
-    if (value2 instanceof Uint8Array) return value2;
-    if (typeof value2 !== "string" || !BLOB_TOKEN.test(value2)) return void 0;
-    return this.#blobs.get(value2);
-  }
-  static isBlobToken(value2) {
-    return typeof value2 === "string" && BLOB_TOKEN.test(value2);
-  }
-  #sqlValue(value2) {
-    if (typeof value2 === "bigint") return Number(value2);
-    if (typeof value2 === "number") return decimalNumber(value2);
-    if (value2 instanceof Uint8Array) return this.blobToken(value2);
-    return value2 ?? null;
-  }
-  #registerOracleFunctions() {
-    const fn = (name, implementation, varargs = true) => this.db.function(name, { varargs, deterministic: false }, implementation);
-    fn("nvl", (value2, fallback) => value2 ?? fallback ?? null);
-    fn(
-      "nvl2",
-      (value2, whenSet, whenNull) => value2 !== null && value2 !== void 0 ? whenSet ?? null : whenNull ?? null
-    );
-    fn("decode", (...args) => {
-      const [expression, ...pairs] = args;
-      for (let index = 0; index + 1 < pairs.length; index += 2) {
-        if (pairs[index] === expression || pairs[index] === null && expression === null)
-          return pairs[index + 1] ?? null;
-      }
-      return pairs.length % 2 === 1 ? pairs.at(-1) ?? null : null;
-    });
-    fn("to_char", (value2, mask2) => formatOracle(value2, typeof mask2 === "string" ? mask2 : void 0));
-    fn("concat", (...args) => {
-      if (args.every((arg) => arg === null || arg === void 0)) return null;
-      return args.map((arg) => oracleText(arg) ?? "").join("");
-    });
-    fn("apex_local_text", (value2) => oracleText(value2));
-    fn("apex_local_arith", (left, operator, right) => sqlArithmetic(left, String(operator), right));
-    fn("json_value", (doc, pathText, returning) => jsonValue(doc, pathText, returning));
-    fn("json_query", (doc, pathText, wrapper) => jsonQuery(doc, pathText, wrapper === "wrapper"));
-    fn("json_exists", (doc, pathText) => {
-      const matches3 = jsonMatches(doc, pathText);
-      return matches3 === void 0 ? null : matches3.length ? 1 : 0;
-    });
-    fn("to_number", (value2) => value2 === null || value2 === "" ? null : Number(value2));
-    fn("to_date", (value2, mask2) => {
-      const date = parseOracleDate(value2, typeof mask2 === "string" ? mask2 : void 0);
-      return date ? isoDate(date) : null;
-    });
-    fn("to_timestamp", (value2, mask2) => {
-      const date = parseOracleDate(value2, typeof mask2 === "string" ? mask2 : void 0);
-      return date ? isoDate(date) : null;
-    });
-    fn("trunc", (value2, unit) => {
-      if (typeof value2 === "number")
-        return Math.trunc(value2 * 10 ** Number(unit ?? 0)) / 10 ** Number(unit ?? 0);
-      if (typeof value2 === "string" && /^\s*-?\d+(\.\d+)?\s*$/u.test(value2)) return Math.trunc(Number(value2));
-      const date = oracleDate(value2);
-      return date ? truncDate(date, typeof unit === "string" ? unit : "DD") : value2 ?? null;
-    });
-    fn(
-      "initcap",
-      (value2) => value2 === null ? null : String(value2).toLowerCase().replace(/\b\w/gu, (char) => char.toUpperCase())
-    );
-    fn(
-      "lpad",
-      (value2, size, fill2) => value2 === null ? null : String(value2).padStart(Number(size), String(fill2 ?? " ")).slice(0, Number(size))
-    );
-    fn(
-      "rpad",
-      (value2, size, fill2) => value2 === null ? null : String(value2).padEnd(Number(size), String(fill2 ?? " ")).slice(0, Number(size))
-    );
-    fn("add_months", (value2, months) => {
-      const date = oracleDate(value2);
-      if (!date) return null;
-      const lastDay = (year, month) => new Date(year, month + 1, 0).getDate();
-      const day = date.getDate();
-      const monthEnd = day === lastDay(date.getFullYear(), date.getMonth());
-      date.setDate(1);
-      date.setMonth(date.getMonth() + Math.trunc(Number(months)));
-      const target2 = lastDay(date.getFullYear(), date.getMonth());
-      date.setDate(monthEnd ? target2 : Math.min(day, target2));
-      return isoDate(date);
-    });
-    fn("months_between", (left, right) => {
-      const a = oracleDate(left);
-      const b = oracleDate(right);
-      return a && b ? (a.getFullYear() - b.getFullYear()) * 12 + (a.getMonth() - b.getMonth()) + (a.getDate() - b.getDate()) / 31 : null;
-    });
-    fn(
-      "greatest",
-      (...args) => args.some((arg) => arg === null) ? null : args.reduce((a, b) => (a ?? 0) > (b ?? 0) ? a : b)
-    );
-    fn(
-      "least",
-      (...args) => args.some((arg) => arg === null) ? null : args.reduce((a, b) => (a ?? 0) < (b ?? 0) ? a : b)
-    );
-    const flagText = (flags) => typeof flags === "string" ? flags : "";
-    fn(
-      "regexp_like",
-      (value2, pattern, flags) => value2 === null || pattern === null || value2 === void 0 || pattern === void 0 ? null : oracleRegExp(String(pattern), flagText(flags)).test(String(oracleText(value2))) ? 1 : 0
-    );
-    fn("regexp_replace", (value2, pattern, replacement, position2, occurrence, flags) => {
-      if (value2 === null) return null;
-      const text10 = String(value2);
-      const offset = Number(position2 ?? 1) - 1;
-      const nth = Number(occurrence ?? 0);
-      const regex = oracleRegExp(String(pattern ?? ""), flagText(flags), true);
-      const single = oracleRegExp(String(pattern ?? ""), flagText(flags));
-      const replace = String(replacement ?? "").replace(/\\(\d)/gu, "$$$1");
-      let count = 0;
-      return text10.slice(0, offset) + text10.slice(offset).replace(regex, (...match) => {
-        count += 1;
-        if (nth && count !== nth) return match[0];
-        return match[0].replace(single, replace);
-      });
-    });
-    fn(
-      "replace",
-      (value2, search, replacement) => value2 === null || value2 === void 0 ? null : search === null || search === void 0 || search === "" ? String(value2) : String(value2).split(String(search)).join(replacement === null || replacement === void 0 ? "" : String(replacement))
-    );
-    fn("v", (name) => {
-      const value2 = this.#binds[String(name).toUpperCase()];
-      return value2 === void 0 || value2 === "" ? null : value2;
-    });
-    fn("nv", (name) => {
-      const value2 = this.#binds[String(name).toUpperCase()];
-      return value2 === null || value2 === void 0 || value2 === "" ? null : Number(value2);
-    });
-    fn("sys_context", (namespace, parameter2) => {
-      const key = String(parameter2 ?? "").toUpperCase();
-      if (String(namespace).toUpperCase() === "APEX$SESSION")
-        return this.#binds[key === "APP_SESSION" ? "APP_SESSION" : key] ?? null;
-      if (key === "SESSION_USER" || key === "CURRENT_USER" || key === "CURRENT_SCHEMA") return "APEX_LOCAL";
-      if (key === "LANG" || key === "LANGUAGE") return "US";
-      return null;
-    });
-    fn("instr", (value2, search, start, occurrence) => {
-      if (value2 === null || search === null) return null;
-      const text10 = String(value2);
-      const needle = String(search);
-      let from = Number(start ?? 1);
-      let count = Number(occurrence ?? 1);
-      if (from > 0) {
-        let index2 = from - 2;
-        while (count > 0) {
-          index2 = text10.indexOf(needle, index2 + 1);
-          if (index2 < 0) return 0;
-          count -= 1;
-        }
-        return index2 + 1;
-      }
-      let index = text10.length + from + 1;
-      while (count > 0) {
-        index = text10.lastIndexOf(needle, index - 1);
-        if (index < 0) return 0;
-        count -= 1;
-      }
-      from = index + 1;
-      return from;
-    });
-    fn("chr", (code) => code === null ? null : String.fromCharCode(Number(code)));
-    fn("ascii", (value2) => value2 === null || value2 === "" ? null : String(value2).charCodeAt(0));
-    fn("bitand", (left, right) => left === null || right === null ? null : Number(left) & Number(right));
-    fn("translate", (value2, from, to) => {
-      if (value2 === null || from === null) return null;
-      const source = String(from);
-      const target2 = String(to ?? "");
-      return [...String(value2)].map((char) => {
-        const index = source.indexOf(char);
-        return index < 0 ? char : target2[index] ?? "";
-      }).join("");
-    });
-    fn("regexp_substr", (value2, pattern, position2, occurrence, flags, group2) => {
-      if (value2 === null || pattern === null) return null;
-      const regex = oracleRegExp(String(pattern), flagText(flags), true);
-      const matches3 = [
-        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(regex)
-      ];
-      const match = matches3[Number(occurrence ?? 1) - 1];
-      return match ? match[Number(group2 ?? 0)] ?? null : null;
-    });
-    fn("regexp_instr", (value2, pattern, position2, occurrence, returnOption, flags) => {
-      if (value2 === null || pattern === null) return null;
-      const offset = Number(position2 ?? 1) - 1;
-      const matches3 = [
-        ...String(value2).slice(offset).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
-      ];
-      const match = matches3[Number(occurrence ?? 1) - 1];
-      if (!match) return 0;
-      return match.index + offset + 1 + (Number(returnOption ?? 0) ? match[0].length : 0);
-    });
-    fn(
-      "regexp_count",
-      (value2, pattern, position2, flags) => value2 === null || pattern === null ? null : [
-        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
-      ].length
-    );
-    fn("last_day", (value2) => {
-      const date = oracleDate(value2);
-      return date ? isoDate(new Date(date.getFullYear(), date.getMonth() + 1, 0), false) : null;
-    });
-    fn("next_day", (value2, day) => {
-      const date = oracleDate(value2);
-      if (!date) return null;
-      const target2 = DAY_NAMES.findIndex(
-        (name) => name.slice(0, 3).toUpperCase() === String(day).slice(0, 3).toUpperCase()
-      );
-      const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
-      while (target2 >= 0 && result.getDay() !== target2) result.setDate(result.getDate() + 1);
-      return isoDate(result, false);
-    });
-    fn("to_clob", (value2) => value2 ?? null);
-    fn("from_tz", (value2) => value2 ?? null);
-    fn("to_nchar", (value2) => value2 === null || value2 === void 0 ? null : String(value2));
-    fn("empty_clob", () => null);
-    fn("empty_blob", () => new Uint8Array());
-    fn("to_blob", (value2) => typeof value2 === "string" ? this.blob(value2) ?? value2 : value2 ?? null);
-    fn("apex_local_num", (value2) => {
-      if (typeof value2 !== "string") return value2 ?? null;
-      const trimmed = value2.trim();
-      return trimmed !== "" && Number.isFinite(Number(trimmed)) ? Number(trimmed) : value2;
-    });
-    fn("apex_local_extract", (unit, value2) => {
-      const date = oracleDate(value2);
-      if (!date) return null;
-      switch (String(unit).toLowerCase()) {
-        case "year":
-          return date.getFullYear();
-        case "month":
-          return date.getMonth() + 1;
-        case "day":
-          return date.getDate();
-        case "hour":
-          return date.getHours();
-        case "minute":
-          return date.getMinutes();
-        default:
-          return date.getSeconds();
-      }
-    });
-    fn("apex_local_nextval", (name) => this.#nextval(String(name)));
-    fn("apex_local_currval", (name) => this.#sequences.get(String(name))?.value ?? null);
-    fn("sys_guid", () => crypto2.randomUUID().replaceAll("-", "").toUpperCase());
-  }
-  /** Package functions registered after this database was opened. */
-  #syncFunctions() {
-    if (this.#functions.size === oracleFunctions.size) return;
-    for (const [name, fn] of oracleFunctions) {
-      if (this.#functions.has(name)) continue;
-      this.#functions.add(name);
-      this.db.function(fn.sqlName, { varargs: true, deterministic: false }, (...args) => {
-        if (!fn.blobs) return fn.impl(args.map((arg) => this.#sqlValue(arg)));
-        const values = args.map(
-          (arg) => typeof arg === "bigint" ? Number(arg) : this.blob(arg) ?? arg ?? null
-        );
-        return fn.impl(values);
-      });
-    }
-  }
-  #loadSequences() {
-    this.db.exec(
-      "create table if not exists apex_local_sequences (name text primary key, value integer, increment integer, start integer)"
-    );
-    for (const row of this.db.prepare("select name, value, increment, start from apex_local_sequences").all())
-      if (!this.#dirtySequences.has(row.name))
-        this.#sequences.set(row.name, { value: row.value, increment: row.increment, start: row.start });
-  }
-  #nextval(name) {
-    const sequence4 = this.#sequences.get(name) ?? { value: null, increment: 1, start: 1 };
-    sequence4.value = sequence4.value === null ? sequence4.start : sequence4.value + sequence4.increment;
-    this.#sequences.set(name, sequence4);
-    this.#dirtySequences.add(name);
-    return sequence4.value;
-  }
-  #flushSequences() {
-    if (!this.#dirtySequences.size) return;
-    const upsert = this.db.prepare(
-      "insert into apex_local_sequences (name, value, increment, start) values (?, ?, ?, ?) on conflict(name) do update set value = excluded.value"
-    );
-    for (const name of this.#dirtySequences) {
-      const sequence4 = this.#sequences.get(name);
-      upsert.run(name, sequence4.value, sequence4.increment, sequence4.start);
-    }
-    this.#dirtySequences.clear();
-  }
-  /** `create sequence` / `drop sequence` DDL, kept in a bookkeeping table. */
-  #sequenceDdl(statement) {
-    const sql = statement.replace(/^(?:\s+|--[^\n]*|\/\*[\s\S]*?\*\/)+/u, "");
-    const create2 = /^\s*create\s+(?:or\s+replace\s+)?sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?([\s\S]*)$/iu.exec(sql);
-    const drop = /^\s*drop\s+sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/iu.exec(sql);
-    if (!create2 && !drop) return false;
-    this.#loadSequences();
-    const name = (create2 ?? drop)[1].toUpperCase();
-    if (drop) {
-      this.#sequences.delete(name);
-      this.db.prepare("delete from apex_local_sequences where name = ?").run(name);
-      return true;
-    }
-    const options3 = create2[2] ?? "";
-    const start = Number(/\bstart\s+with\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
-    const increment = Number(/\bincrement\s+by\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
-    this.#sequences.set(name, { value: null, increment, start });
-    this.#dirtySequences.add(name);
-    this.#flushSequences();
-    return true;
-  }
-  #prepare(sql, binds) {
-    this.#binds = Object.fromEntries(Object.entries(binds).map(([key, value2]) => [key.toUpperCase(), value2]));
-    this.#syncFunctions();
-    const translated = translateOracleSql(sql);
-    if (/\bapex_local_(?:nextval|currval)\(/u.test(translated)) this.#loadSequences();
-    const values = {};
-    for (const name of bindNames(translated)) {
-      const bound = this.#binds[name.toUpperCase()] ?? null;
-      const value2 = bound === "" ? null : bound;
-      values[name] = typeof value2 === "number" && Number.isSafeInteger(value2) ? BigInt(value2) : this.blob(value2) ?? value2;
-    }
-    const statement = this.db.prepare(translated);
-    statement.setAllowUnknownNamedParameters(true);
-    return { statement, values };
-  }
-  query(sql, binds = {}, maxRows = 1e4) {
-    const { statement, values } = this.#prepare(sql, binds);
-    const columns = statement.columns().map((column2) => column2.name.toUpperCase());
-    const rows = [];
-    for (const raw2 of statement.iterate(values)) {
-      const row = {};
-      for (const [key, value2] of Object.entries(raw2))
-        row[key.toUpperCase()] = this.#sqlValue(value2);
-      rows.push(row);
-      if (rows.length >= maxRows) break;
-    }
-    this.#flushSequences();
-    return { columns, rows };
-  }
-  /** Like query, with BLOB columns as bytes and columns in select order. */
-  rawQuery(sql, binds = {}, maxRows = 1e4) {
-    const { statement, values } = this.#prepare(sql, binds);
-    statement.setReturnArrays(true);
-    const columns = statement.columns().map((column2) => column2.name.toUpperCase());
-    const rows = [];
-    for (const raw2 of statement.iterate(values)) {
-      rows.push(
-        raw2.map(
-          (value2) => typeof value2 === "bigint" ? Number(value2) : typeof value2 === "number" ? decimalNumber(value2) : value2
-        )
-      );
-      if (rows.length >= maxRows) break;
-    }
-    this.#flushSequences();
-    return { columns, rows };
-  }
-  execute(sql, binds = {}) {
-    if (this.#sequenceDdl(sql)) return { changes: 0, lastInsertRowid: 0 };
-    const view = /^\s*create\s+or\s+replace\s+(?:(?:no\s*)?force\s+)?(?:editionable\s+|noneditionable\s+)?view\s+((?:"?[\w$#]+"?\.)?"?[\w$#]+"?)/iu.exec(
-      sql
-    );
-    if (view) {
-      this.db.exec(`drop view if exists ${view[1].replace(/^"?[\w$#]+"?\./u, "")}`);
-      sql = sql.replace(
-        /^\s*create\s+or\s+replace\s+(?:(?:no\s*)?force\s+)?(?:editionable\s+|noneditionable\s+)?view/iu,
-        "create view"
-      );
-    }
-    if (/^\s*merge\s+into\b/iu.test(sql)) {
-      const statements = translateMerge(sql);
-      if (!statements) throw new Error("MERGE statement form is not supported locally");
-      let changes = 0;
-      let lastInsertRowid = 0;
-      for (const statement2 of statements) {
-        const result2 = this.execute(statement2, binds);
-        changes += result2.changes;
-        lastInsertRowid = result2.lastInsertRowid || lastInsertRowid;
-      }
-      return { changes, lastInsertRowid };
-    }
-    const { statement, values } = this.#prepare(sql, binds);
-    const result = statement.run(values);
-    this.#flushSequences();
-    return { changes: Number(result.changes), lastInsertRowid: Number(result.lastInsertRowid) };
-  }
-  scalar(sql, binds = {}) {
-    const result = this.query(sql, binds, 1);
-    const row = result.rows[0];
-    return row ? row[result.columns[0]] ?? null : null;
-  }
-  tableExists(table) {
-    return this.db.prepare("select 1 from sqlite_master where type in ('table','view') and upper(name) = upper(?)").get(table) !== void 0;
-  }
-  tableColumns(table) {
-    return this.db.prepare(`pragma table_info("${table.replaceAll('"', "")}")`).all().map((column2) => ({
-      name: column2.name.toUpperCase(),
-      pk: column2.pk > 0,
-      type: column2.type.toUpperCase()
-    }));
-  }
-  /**
-   * How a missing primary key value is filled on insert: an identity column, a column default
-   * (`default seq.nextval`), a `before insert` trigger from a seed script, or nothing.
-   */
-  keySource(table, column2) {
-    const name = table.replaceAll('"', "").toUpperCase();
-    const ddl = this.db.prepare("select sql from sqlite_master where type = 'table' and upper(name) = ?").get(name)?.sql;
-    const definition = ddl ? new RegExp(`[(,]\\s*"?${column2.replace(/[^\w$#]/gu, "")}"?\\s[^,]*`, "iu").exec(ddl)?.[0] : void 0;
-    if (definition?.includes(IDENTITY_MARKER)) return "identity";
-    const info = this.db.prepare(`pragma table_info("${name}")`).all().find((entry) => entry.name.toUpperCase() === column2.toUpperCase());
-    if (info && info.dflt_value !== null && info.dflt_value !== void 0) return "default";
-    if (this.tableExists("apex_local_insert_triggers")) {
-      const trigger = this.db.prepare("select 1 from apex_local_insert_triggers where table_name = ?").get(name.replace(/^.*\./u, ""));
-      if (trigger) return "trigger";
-    }
-    return "none";
-  }
-  /** Runs a script statement by statement; failures are reported, not fatal. */
-  runScript(script, source) {
-    const problems = [];
-    const triggers = [
-      ...script.matchAll(
-        /\bcreate\s+(?:or\s+replace\s+)?(?:editionable\s+)?trigger\s+[\w$#."]+\s+before\s+insert\b[\s\S]*?\bon\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/giu
-      )
-    ].map((match) => match[1].toUpperCase());
-    if (triggers.length) {
-      this.db.exec("create table if not exists apex_local_insert_triggers (table_name text primary key)");
-      const insert = this.db.prepare("insert or ignore into apex_local_insert_triggers values (?)");
-      for (const table of triggers) insert.run(table);
-    }
-    for (const statement of splitScript(script)) {
-      if (/^\s*(?:commit|rollback)(?:\s+work)?\s*;?\s*$/iu.test(statement)) continue;
-      try {
-        this.execute(statement);
-      } catch (error) {
-        problems.push(
-          `${source}: ${error.message} \u2014 ${statement.replace(/\s+/gu, " ").slice(0, 140)}`
-        );
-      }
-    }
-    return problems;
-  }
-  /**
-   * Starts recording the tables that statements prepared from now on write: INSERT, UPDATE and
-   * DELETE, including the writes of triggers they fire. SQLite authorizes when a statement is
-   * prepared, so a statement that was rolled back still counts. Returns false when this Node.js
-   * build has no authorizer API.
-   */
-  trackWrites() {
-    if (this.#writes) return true;
-    const database = this.db;
-    if (typeof database.setAuthorizer !== "function") return false;
-    const writes = /* @__PURE__ */ new Set();
-    const actions = /* @__PURE__ */ new Set([
-      sqliteConstants.SQLITE_INSERT,
-      sqliteConstants.SQLITE_UPDATE,
-      sqliteConstants.SQLITE_DELETE
-    ]);
-    database.setAuthorizer((action, table, _column, schema) => {
-      if (actions.has(action) && table && schema !== "temp") this.#writes?.add(table.toUpperCase());
-      return sqliteConstants.SQLITE_OK;
-    });
-    this.#writes = writes;
-    return true;
-  }
-  /** Runs preview bookkeeping (e.g. rebuilding generated tables) without recording its writes. */
-  untracked(work) {
-    const writes = this.#writes;
-    this.#writes = void 0;
-    try {
-      return work();
-    } finally {
-      this.#writes = writes;
-    }
-  }
-  /** The tables written since the last call (see trackWrites). */
-  takeWrites() {
-    const tables = [...this.#writes ?? []];
-    this.#writes?.clear();
-    return tables;
-  }
-  close() {
-    if (this.db.isOpen) this.db.close();
-  }
-};
-
-// packages/core/src/preview/oracle/app-data.ts
-var TX_BEFORE = "APEXREST_TX_BEFORE";
-var TX_AFTER = "APEXREST_TX_AFTER";
-var DDL = /^\s*(create|alter|drop|truncate|rename|comment|grant|revoke|flashback|purge|analyze)\b/iu;
-function text(value2) {
-  return value2 === null || value2 === void 0 ? null : String(value2);
-}
-var OracleAppData = class {
-  dialect = "oracle";
-  link;
-  schema;
-  #columns = /* @__PURE__ */ new Map();
-  #keys = /* @__PURE__ */ new Map();
-  #dirty = false;
-  #prefetched = false;
-  /** Commit mode: endRequest(true) commits, and units that end the transaction are not errors. */
-  commit;
-  constructor(link, schema, options3 = {}) {
-    this.link = link;
-    this.schema = schema.toUpperCase();
-    this.commit = options3.commit === true;
-  }
-  /** Runs segments; the failing segment's error is returned, transport failures throw. */
-  #run(parts, dirty = true) {
-    if (dirty) this.#dirty = true;
-    const { text: input, markers } = batch(parts);
-    const texts = segments(this.link.run(input), markers);
-    return { texts, errors: texts.map(segmentError) };
-  }
-  #binds(sql, binds) {
-    return referencedBinds(bindNames(sql), binds);
-  }
-  query(sql, binds = {}, maxRows = 1e4) {
-    const values = this.#binds(sql, binds);
-    const parts = [declareBinds(values), querySegment(sql, maxRows)];
-    const { texts, errors } = this.#run(parts);
-    const error = errors[0] ?? errors[1];
-    if (error) throw error;
-    return jsonRows(texts[1]);
-  }
-  rawQuery(sql, binds = {}, maxRows = 1e4) {
-    const result = this.query(sql, binds, maxRows);
-    return {
-      columns: result.columns,
-      rows: result.rows.map((row) => result.columns.map((column2) => row[column2] ?? null))
-    };
-  }
-  scalar(sql, binds = {}) {
-    const result = this.query(sql, binds, 1);
-    const row = result.rows[0];
-    return row ? row[result.columns[0]] ?? null : null;
-  }
-  execute(sql, binds = {}) {
-    if (DDL.test(sql))
-      throw new OracleError(-20996, "DDL is not run in the connected preview because Oracle commits it");
-    if (/^\s*release\s+savepoint\b/iu.test(sql)) return { changes: 0, lastInsertRowid: 0 };
-    const control2 = /^\s*(savepoint\s+[\w$#]+|rollback\s+to\s+(?:savepoint\s+)?[\w$#]+)\s*;?\s*$/iu.exec(sql);
-    const values = { ...this.#binds(sql, binds), [ROWS_BIND]: null, [ROWID_BIND]: null };
-    const block = control2 ? `begin
-${control2[1]};
-end;` : dmlBlock(sql, true);
-    const { texts, errors } = this.#run([
-      declareBinds(values),
-      plsqlSegment(block),
-      selectBindsSegment([ROWS_BIND, ROWID_BIND])
-    ]);
-    const error = errors[0] ?? errors[1] ?? errors[2];
-    if (error) throw error;
-    const row = jsonRows(texts[2]).rows[0] ?? {};
-    return { changes: Number(row[ROWS_BIND] ?? 0), lastInsertRowid: text(row[ROWID_BIND]) ?? 0 };
-  }
-  #owned(table) {
-    const parts = table.replaceAll('"', "").toUpperCase().split(".");
-    return parts.length > 1 ? { owner: parts[0], name: parts[1] } : { owner: this.schema, name: parts[0] };
-  }
-  tableColumns(table) {
-    const { owner: owner2, name } = this.#owned(table);
-    const key = `${owner2}.${name}`;
-    let columns = this.#columns.get(key);
-    if (!columns && this.#prefetched && owner2 === this.schema) return [];
-    if (!columns) {
-      const own = owner2 === this.schema;
-      const dictionary = (view) => own ? `user_${view}` : `all_${view}`;
-      const ownedBy = (alias) => own ? "" : ` and ${alias}.owner = :APEXREST_OWNER`;
-      const result = this.query(
-        `select c.column_name, c.data_type, nvl2(p.column_name, 'Y', 'N') is_pk
-           from ${dictionary("tab_columns")} c
-           left join (select kc.column_name
-                        from ${dictionary("constraints")} k
-                        join ${dictionary("cons_columns")} kc on kc.constraint_name = k.constraint_name${own ? "" : " and kc.owner = k.owner"}
-                       where k.table_name = :APEXREST_TABLE and k.constraint_type = 'P'${ownedBy("k")}) p
-             on p.column_name = c.column_name
-          where c.table_name = :APEXREST_TABLE${ownedBy("c")}
-          order by c.column_id`,
-        { APEXREST_OWNER: owner2, APEXREST_TABLE: name }
-      );
-      columns = result.rows.map((row) => ({
-        name: String(row.COLUMN_NAME),
-        pk: row.IS_PK === "Y",
-        type: String(row.DATA_TYPE)
-      }));
-      this.#columns.set(key, columns);
-    }
-    return columns;
-  }
-  /**
-   * Reads column and key metadata for every table and view of the session
-   * schema in two dictionary queries, so the first page does not pay one
-   * dictionary round trip per table. A complete prefetch also answers absent
-   * schema tables; a truncated one leaves the per-table lookups in place.
-   */
-  prefetchSchema(limit = 2e4) {
-    const columns = this.query(
-      `select c.table_name, c.column_name, c.data_type, nvl2(p.column_name, 'Y', 'N') is_pk,
-              case when c.identity_column = 'YES' or c.default_length > 0 then 'Y' else 'N' end has_default
-         from user_tab_columns c
-         left join (select kc.table_name, kc.column_name
-                      from user_constraints k
-                      join user_cons_columns kc on kc.constraint_name = k.constraint_name
-                     where k.constraint_type = 'P') p
-           on p.table_name = c.table_name and p.column_name = c.column_name
-        order by c.table_name, c.column_id`,
-      {},
-      limit
-    );
-    if (columns.rows.length >= limit) return { tables: 0, complete: false };
-    const triggered = new Set(
-      this.query(
-        `select distinct table_name from user_triggers
-          where triggering_event like '%INSERT%' and status = 'ENABLED' and table_name is not null`,
-        {},
-        limit
-      ).rows.map((row) => String(row.TABLE_NAME))
-    );
-    const tables = /* @__PURE__ */ new Map();
-    for (const row of columns.rows) {
-      const table = String(row.TABLE_NAME);
-      const column2 = String(row.COLUMN_NAME);
-      let list4 = tables.get(table);
-      if (!list4) tables.set(table, list4 = []);
-      list4.push({ name: column2, pk: row.IS_PK === "Y", type: String(row.DATA_TYPE) });
-      this.#keys.set(
-        `${this.schema}.${table}.${column2}`,
-        row.HAS_DEFAULT === "Y" || triggered.has(table) ? "default" : "none"
-      );
-    }
-    for (const [table, list4] of tables) this.#columns.set(`${this.schema}.${table}`, list4);
-    this.#prefetched = true;
-    return { tables: tables.size, complete: true };
-  }
-  tableExists(table) {
-    return this.tableColumns(table).length > 0;
-  }
-  /** Oracle fills a key from an identity column, a default or an insert trigger; never max + 1. */
-  keySource(table, column2) {
-    const { owner: owner2, name } = this.#owned(table);
-    const key = `${owner2}.${name}.${column2.toUpperCase()}`;
-    let source = this.#keys.get(key);
-    if (!source && this.#prefetched && owner2 === this.schema) return "none";
-    if (!source) {
-      const own = owner2 === this.schema;
-      const found = this.scalar(
-        `select count(*) from ${own ? "user_tab_columns" : "all_tab_columns"}
-          where table_name = :APEXREST_TABLE and column_name = :APEXREST_COLUMN${own ? "" : " and owner = :APEXREST_OWNER"}
-            and (identity_column = 'YES' or default_length > 0)
-         union all
-         select count(*) from ${own ? "user_triggers" : "all_triggers"}
-          where table_name = :APEXREST_TABLE${own ? "" : " and table_owner = :APEXREST_OWNER"}
-            and triggering_event like '%INSERT%' and status = 'ENABLED'
-         order by 1 desc`,
-        { APEXREST_OWNER: owner2, APEXREST_TABLE: name, APEXREST_COLUMN: column2.toUpperCase() }
-      );
-      source = Number(found) > 0 ? "default" : "none";
-      this.#keys.set(key, source);
-    }
-    return source;
-  }
-  /** One PL/SQL unit with IN OUT binds, optional APEX session context and HTP capture. */
-  plsql(call) {
-    const after = call.after ?? {};
-    const declared = {
-      ...Object.fromEntries(Object.keys(after).map((name) => [name, null])),
-      ...call.binds,
-      [OUTPUT_BIND]: null,
-      ...call.htp ? { [HTP_BIND]: null } : {}
-    };
-    const parts = [declareBinds({ ...declared, [TX_BEFORE]: null, [TX_AFTER]: null })];
-    if (call.apex) parts.push(plsqlSegment(apexContextBlock(call.apex, call.binds)));
-    if (call.htp) parts.push(plsqlSegment(HTP_INIT_BLOCK));
-    parts.push(plsqlSegment(`begin
-  :${TX_BEFORE} := dbms_transaction.local_transaction_id(true);
-end;`));
-    const unit = parts.push(plsqlSegment(call.block)) - 1;
-    parts.push(plsqlSegment(`begin
-  :${TX_AFTER} := dbms_transaction.local_transaction_id;
-end;`));
-    if (Object.keys(after).length)
-      parts.push(
-        plsqlSegment(
-          `begin
-${Object.entries(after).map(([name, expression]) => `  :${bindName(name)} := ${expression};`).join("\n")}
-end;`
-        )
-      );
-    parts.push(plsqlSegment(DBMS_OUTPUT_BLOCK));
-    if (call.htp) parts.push(plsqlSegment(HTP_READ_BLOCK));
-    if (call.apex && this.commit) parts.push(plsqlSegment("begin\n  apex_session.delete_session;\nend;"));
-    const names = [...Object.keys(declared), TX_BEFORE, TX_AFTER].map(bindName);
-    parts.push(selectBindsSegment(names));
-    const { texts, errors } = this.#run(parts);
-    const setup = errors.slice(0, unit).find(Boolean);
-    if (setup) throw setup;
-    const read = errors.at(-1);
-    if (read) throw read;
-    const row = jsonRows(texts.at(-1)).rows[0] ?? {};
-    const values = Object.fromEntries(names.map((name) => [name, text(row[name])]));
-    const ended = !this.commit && values[TX_BEFORE] !== values[TX_AFTER];
-    delete values[TX_BEFORE];
-    delete values[TX_AFTER];
-    const error = ended ? new OracleError(
-      -20997,
-      "The code ended the Oracle transaction (COMMIT, ROLLBACK or DDL); work done before that point may be committed"
-    ) : errors[unit];
-    return {
-      ...error ? { error } : {},
-      values,
-      output: values[OUTPUT_BIND] ?? "",
-      // owa.get_page starts with the CGI header block; dynamic content needs only the body.
-      htp: (values[HTP_BIND] ?? "").replace(/^(?:[\w-]+:[^\n]*\n)+\n/u, "")
-    };
-  }
-  /**
-   * Whether this session holds a transaction. Under JDBC auto-commit every statement commits at
-   * once and a rollback fails with ORA-17274; the preview must then not run at all.
-   */
-  transactional() {
-    const { errors } = this.#run(["rollback;"], false);
-    if (errors[0]?.code === -17274) return false;
-    if (errors[0]) throw errors[0];
-    return true;
-  }
-  /**
-   * Ends the preview request. Its Oracle work is rolled back, unless the data is in commit mode
-   * and `succeeded` is true: then it is committed, as APEX commits a page request without errors.
-   */
-  endRequest(succeeded = false) {
-    if (!this.#dirty) return;
-    this.#dirty = false;
-    const { errors } = this.#run([this.commit && succeeded ? "commit;" : "rollback;"], false);
-    if (errors[0]) throw errors[0];
-  }
-  close() {
-    try {
-      this.endRequest();
-    } finally {
-      this.link.close();
-    }
-  }
-};
-function apexContextBlock(apex, binds) {
-  const items = Object.entries(binds).filter(([name]) => apex.items.has(name.toUpperCase())).map(([name]) => `  apex_util.set_session_state(${sqlText(name.toUpperCase())}, :${bindName(name)});`);
-  return `begin
-  apex_session.create_session(p_app_id => ${apex.applicationId}, p_page_id => ${apex.pageId}, p_username => ${sqlText(apex.user)});
-${items.join("\n")}
-end;`;
-}
-
-// packages/core/src/preview/oracle/bridge.ts
-import fs4 from "node:fs";
-import { fileURLToPath } from "node:url";
-import { MessageChannel, Worker, receiveMessageOnPort } from "node:worker_threads";
-function defaultWorker() {
-  const source = new URL("./worker.ts", import.meta.url);
-  if (fs4.existsSync(fileURLToPath(source))) return source;
-  return new URL("./preview-oracle-worker.mjs", import.meta.url);
-}
-var WorkerBridge = class {
-  #options;
-  #worker;
-  #port;
-  #flag = new Int32Array(new SharedArrayBuffer(4));
-  #id = 0;
-  constructor(options3) {
-    this.#options = options3;
-  }
-  #start() {
-    if (this.#worker && this.#port) return { worker: this.#worker, port: this.#port };
-    const channel = new MessageChannel();
-    const entry = this.#options.worker ?? defaultWorker();
-    const data = { settings: this.#options.settings, flag: this.#flag.buffer, port: channel.port2 };
-    const worker = entry instanceof URL ? new Worker(entry, { workerData: data, transferList: [channel.port2] }) : new Worker(entry.source, { eval: true, workerData: data, transferList: [channel.port2] });
-    worker.unref();
-    worker.on("error", () => this.#reset());
-    this.#worker = worker;
-    this.#port = channel.port1;
-    return { worker, port: channel.port1 };
-  }
-  #reset() {
-    void this.#worker?.terminate();
-    this.#port?.close();
-    this.#worker = void 0;
-    this.#port = void 0;
-  }
-  #call(request) {
-    const timeoutMs = this.#options.timeoutMs ?? 3e4;
-    const { worker, port } = this.#start();
-    const id = ++this.#id;
-    Atomics.store(this.#flag, 0, 0);
-    worker.postMessage({ id, input: request.input, timeoutMs, ...request.close ? { close: true } : {} });
-    const deadline = Date.now() + timeoutMs + (this.#options.graceMs ?? 15e3);
-    for (; ; ) {
-      const remaining = deadline - Date.now();
-      if (remaining <= 0 || Atomics.wait(this.#flag, 0, 0, remaining) === "timed-out") {
-        this.#reset();
-        throw new OracleError(
-          -20994,
-          `Oracle did not answer within ${Math.round(timeoutMs / 1e3)} s; the session was reset and its work rolled back`
-        );
-      }
-      let reply2 = receiveMessageOnPort(port)?.message;
-      while (reply2 && reply2.id !== id) reply2 = receiveMessageOnPort(port)?.message;
-      if (!reply2) {
-        Atomics.store(this.#flag, 0, 0);
-        continue;
-      }
-      if (!reply2.ok)
-        throw new OracleError(-20995, `Oracle session failed: ${reply2.error ?? "unknown error"}`);
-      return reply2.output ?? "";
-    }
-  }
-  run(input) {
-    return this.#call({ input });
-  }
-  close() {
-    if (!this.#worker) return;
-    try {
-      this.#call({ input: "", close: true });
-    } catch {
-    }
-    this.#reset();
-  }
-};
-
-// packages/core/src/preview/oracle/connect.ts
-async function workerSettings(connectionName) {
-  const adapter = new OracleAdapter();
-  const settings2 = await adapter.settings();
-  const env = {};
-  for (const [key, value2] of Object.entries({
-    ...process.env,
-    SQLPATH: "",
-    ORACLE_PATH: "",
-    JAVA_HOME: settings2.javaHome
-  }))
-    if (value2 !== void 0 && !["NODE_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS"].includes(key))
-      env[key] = value2;
-  return {
-    executable: settings2.executable,
-    args: settings2.mode === "mcp" && settings2.mcpRestrictLevel === "4" ? ["-mcp"] : ["-R", "1", "-mcp"],
-    cwd: await adapter.sessionHome(),
-    env,
-    connectionName
-  };
-}
-function warmUp(data, apex) {
-  const started2 = performance.now();
-  const steps = {
-    tables: "skipped"
-  };
-  try {
-    const prefetched = data.prefetchSchema();
-    steps.tables = prefetched.complete ? prefetched.tables : "partial";
-  } catch {
-    steps.tables = "skipped";
-  }
-  if (apex)
-    try {
-      data.plsql({
-        block: "begin\n  null;\nend;",
-        binds: {},
-        apex: {
-          ...apex,
-          pageId: apex.pages.find((id) => id > 0) ?? apex.pages[0] ?? 1,
-          user: "APEXREST_PREVIEW",
-          items: /* @__PURE__ */ new Set()
-        }
-      });
-      steps.apexSession = "ready";
-    } catch {
-      steps.apexSession = "skipped";
-    }
-  return { ms: Math.round(performance.now() - started2), ...steps };
-}
-function savedConnectionProperties(name, home = os.homedir()) {
-  const store = path4.join(home, ".dbtools", "connections");
-  let entries;
-  try {
-    entries = fs5.readdirSync(store);
-  } catch {
-    return void 0;
-  }
-  for (const entry of entries) {
-    try {
-      const text10 = fs5.readFileSync(path4.join(store, entry, "dbtools.properties"), "utf8");
-      if (text10.split(/\r?\n/u).some((line) => line.trim() === `name=${name}`))
-        return path4.join(store, entry, "ojdbc.properties");
-    } catch {
-    }
-  }
-  return void 0;
-}
-async function connectOracle(root, name, link, options3 = {}) {
-  const commit = options3.commit === true;
-  const ctx = await loadProject(root);
-  const env = environment(ctx, name);
-  if (await isProductionTarget(env))
-    throw new Fault(
-      "PREVIEW_PRODUCTION_REFUSED",
-      `Environment ${name} is production; the connected preview runs only against DEV, QA or TEST targets.`,
-      4,
-      "blocked"
-    );
-  const connection = await resolveConnection(env.readConnectionRef);
-  if (!connection.name)
-    throw new Fault(
-      "PREVIEW_SQLCL_CONNECTION_REQUIRED",
-      `Connection ${env.readConnectionRef} has no SQLcl saved connection. The connected preview needs one session that holds a transaction; ORDS-only connections are not supported.`,
-      3,
-      "blocked"
-    );
-  if (commit) {
-    let locality;
-    try {
-      locality = await (options3.locality ?? ((target2) => new OracleAdapter().connectionLocality(target2)))(
-        connection
-      );
-    } catch (error) {
-      locality = { local: false, evidence: `unconfirmed (${error.message})` };
-    }
-    if (!locality.local)
-      throw new Fault(
-        "PREVIEW_COMMIT_REMOTE_REFUSED",
-        `Commit mode writes application data permanently and runs only against a database on this computer; connection ${connection.name} of ${name} is not confirmed local (${locality.evidence}). Start the connected preview without commit; every request is then rolled back.`,
-        4,
-        "blocked"
-      );
-  }
-  const settings2 = { ...await workerSettings(connection.name), ...commit ? { commit } : {} };
-  const data = new OracleAppData(link ? link(settings2) : new WorkerBridge({ settings: settings2 }), env.parsingSchema, {
-    commit
-  });
-  try {
-    const rows = data.query(targetIdentitySql, {
-      P_WORKSPACE: env.workspace,
-      P_APP_ID: env.applicationId
-    }).rows;
-    const identity = rows.filter((row) => row.TARGET_RECORD === "identity");
-    if (identity.length !== 1 || identity[0].DB_UNIQUE_NAME !== env.databaseIdentity.dbUniqueName || identity[0].SERVICE_NAME !== env.databaseIdentity.serviceName || identity[0].PARSING_SCHEMA !== env.parsingSchema)
-      throw new Fault(
-        "TARGET_MISMATCH",
-        `Connection ${env.readConnectionRef} does not match the database, service and parsing schema configured for ${name}.`,
-        5,
-        "conflict"
-      );
-    if (!data.transactional()) {
-      const properties2 = savedConnectionProperties(connection.name);
-      throw new Fault(
-        "PREVIEW_AUTOCOMMIT_ON",
-        `SQLcl saved connection ${connection.name} commits every statement (JDBC auto-commit), so the connected preview could not roll its requests back and did not start. ` + (properties2 ? `Add the line autoCommit=false to ${properties2} (create the file if needed), then start the preview again.` : `Add autoCommit=false to the ojdbc.properties file of that saved connection, then start the preview again.`) + " The offline preview (without env) is unaffected.",
-        3,
-        "blocked"
-      );
-    }
-    if (rows.filter((row) => row.TARGET_RECORD === "workspace").length !== 1)
-      throw new Fault(
-        "WORKSPACE_UNCONFIRMED",
-        `Workspace ${env.workspace} is absent or inaccessible.`,
-        4,
-        "blocked"
-      );
-    const application = rows.find(
-      (row) => row.TARGET_RECORD === "application" && row.WORKSPACE === env.workspace
-    );
-    const warnings = [];
-    let apex;
-    if (application) {
-      const items = data.query(
-        `select item_name from apex_application_page_items where application_id = :P_APP_ID
-         union
-         select item_name from apex_application_items where application_id = :P_APP_ID`,
-        { P_APP_ID: env.applicationId },
-        2e4
-      );
-      const pages2 = data.query(
-        "select page_id from apex_application_pages where application_id = :P_APP_ID order by page_id",
-        { P_APP_ID: env.applicationId },
-        2e4
-      );
-      apex = {
-        applicationId: env.applicationId,
-        items: new Set(items.rows.map((row) => String(row.ITEM_NAME).toUpperCase())),
-        pages: pages2.rows.map((row) => Number(row.PAGE_ID))
-      };
-    } else
-      warnings.push(
-        `Application ${env.applicationId} is not installed in workspace ${env.workspace}; database code runs without an APEX session, so v() returns NULL`
-      );
-    const autonomous = data.query(
-      `select distinct type || ' ' || name unit from all_source
-        where owner = :APEXREST_OWNER and upper(text) like '%AUTONOMOUS\\_TRANSACTION%' escape '\\'`,
-      { APEXREST_OWNER: env.parsingSchema },
-      200
-    );
-    if (commit)
-      warnings.push(
-        `Commit mode: every successful request is committed to ${env.databaseIdentity.dbUniqueName}/${env.databaseIdentity.serviceName}; a failed request is rolled back`
-      );
-    else {
-      if (autonomous.rows.length)
-        warnings.push(
-          `Autonomous transactions commit even in the connected preview: ${autonomous.rows.map((row) => row.UNIT).join(", ")}`
-        );
-      warnings.push(
-        "Sequences advance and calls outside the database (mail, HTTP, jobs) are not undone by the rollback"
-      );
-    }
-    warmUp(data, apex);
-    data.endRequest();
-    return {
-      data,
-      environment: name,
-      target: `${env.databaseIdentity.dbUniqueName}/${env.databaseIdentity.serviceName}`,
-      ...apex ? { apex } : {},
-      ...commit ? { commit } : {},
-      warnings
-    };
-  } catch (error) {
-    try {
-      data.close();
-    } catch {
-    }
-    throw error;
-  }
-}
-
 // packages/core/src/preview/server.ts
-import { randomUUID } from "node:crypto";
-import fs12 from "node:fs";
+import { randomBytes, randomUUID } from "node:crypto";
+import fs9 from "node:fs";
 import http from "node:http";
-import path13 from "node:path";
+import path11 from "node:path";
 
 // packages/core/src/preview/websocket.ts
 import { createHash } from "node:crypto";
@@ -3094,17 +159,17 @@ function acceptWebSocket(request, socket, head, handlers) {
       ""
     ].join("\r\n")
   );
-  let open2 = true;
+  let open3 = true;
   const reader = new FrameReader();
   let fragments = [];
   const finish = () => {
-    if (!open2) return;
-    open2 = false;
+    if (!open3) return;
+    open3 = false;
     handlers.close?.();
   };
   const connection = {
     get open() {
-      return open2 && !socket.destroyed;
+      return open3 && !socket.destroyed;
     },
     send(message) {
       if (!connection.open) return;
@@ -3134,9 +199,9 @@ function acceptWebSocket(request, socket, head, handlers) {
       if (fragments.reduce((total, part2) => total + part2.length, 0) > MAX_MESSAGE)
         return connection.close(1009);
       if (!frame.fin) continue;
-      const text10 = Buffer.concat(fragments).toString("utf8");
+      const text12 = Buffer.concat(fragments).toString("utf8");
       fragments = [];
-      handlers.message?.(text10);
+      handlers.message?.(text12);
     }
   };
   socket.on("data", receive);
@@ -3531,8 +596,8 @@ window.apexLocal = (function ($) {
 `;
 
 // packages/core/src/preview/live.ts
-import fs6 from "node:fs";
-import path5 from "node:path";
+import fs from "node:fs";
+import path from "node:path";
 var internal = (table) => /^(?:SQLITE_|APEX_LOCAL_)/u.test(table);
 var LiveHub = class {
   #clients = /* @__PURE__ */ new Set();
@@ -3553,8 +618,8 @@ var LiveHub = class {
   }
   /** Accepts an upgrade on the live route for an existing preview session. */
   upgrade(request, socket, head, session) {
-    const origin = request.headers.origin;
-    if (origin && URL.parse(origin)?.host !== request.headers.host)
+    const origin2 = request.headers.origin;
+    if (origin2 && URL.parse(origin2)?.host !== request.headers.host)
       return rejectUpgrade(socket, 403, "Forbidden");
     if (!session) {
       acceptWebSocket(request, socket, head, {})?.send({ type: "expired" });
@@ -3613,9 +678,9 @@ var LiveHub = class {
   #watch() {
     if (this.#watcher) return;
     try {
-      this.#watcher = fs6.watch(this.#sourceDir, { recursive: true }, (_event, file) => {
+      this.#watcher = fs.watch(this.#sourceDir, { recursive: true }, (_event, file) => {
         const name = String(file ?? "");
-        const parts = name.split(path5.sep);
+        const parts = name.split(path.sep);
         const relevant = !name || name.endsWith(".apx") || parts.includes("static-files");
         if (!relevant || parts.some((part2) => part2.startsWith("."))) return;
         clearTimeout(this.#timer);
@@ -3629,7 +694,7 @@ var LiveHub = class {
   #sourceChanged(file) {
     const error = this.#onSource();
     if (error) this.broadcast({ type: "source-error", message: error });
-    else this.broadcast({ type: "reload", file: file.split(path5.sep).join("/") });
+    else this.broadcast({ type: "reload", file: file.split(path.sep).join("/") });
   }
   #unwatch() {
     clearTimeout(this.#timer);
@@ -3645,9 +710,9 @@ var LiveHub = class {
 };
 
 // packages/core/src/preview/properties.ts
-import fs7 from "node:fs";
-import path6 from "node:path";
-import { fileURLToPath as fileURLToPath2 } from "node:url";
+import fs2 from "node:fs";
+import path2 from "node:path";
+import { fileURLToPath } from "node:url";
 var CHECKED = {
   page: ["app"],
   region: ["page"],
@@ -3700,15 +765,15 @@ var TEMPLATE_COMPONENT = /^(?:themeTemplateComponent|appTemplateComponent|templa
 var OPEN_GROUPS = /* @__PURE__ */ new Set(["action"]);
 var cached;
 function catalogFile() {
-  const here = path6.dirname(fileURLToPath2(import.meta.url));
+  const here = path2.dirname(fileURLToPath(import.meta.url));
   const candidates = [
     process.env.APEXREST_RESOURCES,
-    path6.resolve(here, "../resources"),
-    path6.resolve(here, "../../../../resources")
+    path2.resolve(here, "../resources"),
+    path2.resolve(here, "../../../../resources")
   ].filter((entry) => Boolean(entry));
   for (const root of candidates) {
-    const file = path6.join(root, "components", "source", "parameters.json");
-    if (fs7.existsSync(file)) return file;
+    const file = path2.join(root, "components", "source", "parameters.json");
+    if (fs2.existsSync(file)) return file;
   }
   return void 0;
 }
@@ -3815,7 +880,7 @@ function loadCatalog() {
   if (cached !== void 0) return cached;
   const file = catalogFile();
   try {
-    cached = file ? buildCatalog(JSON.parse(fs7.readFileSync(file, "utf8"))) : null;
+    cached = file ? buildCatalog(JSON.parse(fs2.readFileSync(file, "utf8"))) : null;
   } catch {
     cached = null;
   }
@@ -3823,7 +888,7 @@ function loadCatalog() {
 }
 function applicationMmdVersion(sourceDir) {
   try {
-    const json5 = JSON.parse(fs7.readFileSync(path6.join(sourceDir, ".apex", "apexlang.json"), "utf8"));
+    const json5 = JSON.parse(fs2.readFileSync(path2.join(sourceDir, ".apex", "apexlang.json"), "utf8"));
     return typeof json5.mmdVersion === "string" ? json5.mmdVersion : void 0;
   } catch {
     return void 0;
@@ -3831,7 +896,7 @@ function applicationMmdVersion(sourceDir) {
 }
 function atLeast(version, since3) {
   if (!version) return true;
-  const parts = (text10) => text10.split(/[.+]/u).map((part2) => Number(part2) || 0);
+  const parts = (text12) => text12.split(/[.+]/u).map((part2) => Number(part2) || 0);
   const [a, b] = [parts(version), parts(since3)];
   for (let index = 0; index < b.length; index++) {
     if ((a[index] ?? 0) !== b[index]) return (a[index] ?? 0) > b[index];
@@ -4062,7 +1127,7 @@ var Checker = class {
     for (const dotted of extraPaths) if (!paths.has(dotted)) typedGroups.add(dotted.split(".")[0]);
     const report2 = this.reporter(component);
     const typeRejected = type ? this.checkValue(scope2, "type", type, paths.get("type") ?? [], report2) : false;
-    const walk3 = (props, prefix) => {
+    const walk2 = (props, prefix) => {
       for (const [key, value2] of Object.entries(props)) {
         const dotted = prefix ? `${prefix}.${key}` : key;
         if (dotted === "type") continue;
@@ -4070,7 +1135,7 @@ var Checker = class {
         if (extra.has(group2)) continue;
         if (group2 === "settings" && typeRejected) {
           if (isObject(value2)) {
-            walk3(value2, dotted);
+            walk2(value2, dotted);
           } else report2(`unknown property "${dotted}" (type ${type} is not valid here)`);
           continue;
         }
@@ -4087,7 +1152,7 @@ var Checker = class {
           continue;
         }
         if (isObject(value2) && !entries.length) {
-          walk3(value2, dotted);
+          walk2(value2, dotted);
           continue;
         }
         if (!entries.length) {
@@ -4105,7 +1170,7 @@ var Checker = class {
         this.checkValue(scope2, dotted, value2, entries, report2);
       }
     };
-    walk3(component.props, "");
+    walk2(component.props, "");
     this.checkRules(scope2, report2);
   }
   reporter(component) {
@@ -4228,7 +1293,7 @@ var SHARED_FOLDERS = [
 function checkSharedComponentFiles(root, files) {
   const findings = [];
   for (const file of files) {
-    const relative = path6.relative(root, file).split(path6.sep).join("/");
+    const relative = path2.relative(root, file).split(path2.sep).join("/");
     const match = /^shared-components\/(.+)-[^/-]+\.apx$/u.exec(relative);
     if (!match || match[1].includes("/")) continue;
     if (SHARED_FILES.includes(relative.slice("shared-components/".length, -".apx".length))) continue;
@@ -4242,8 +1307,3267 @@ function checkSharedComponentFiles(root, files) {
   return findings;
 }
 
+// packages/core/src/preview/database.ts
+import crypto from "node:crypto";
+import fs3 from "node:fs";
+import path3 from "node:path";
+import { constants as sqliteConstants, DatabaseSync } from "node:sqlite";
+
+// packages/core/src/preview/seed.ts
+var Q = String.raw`"?[\w$#]+"?`;
+var NAME = String.raw`(?:${Q}\s*\.\s*)?(${Q})`;
+var unquote = (name) => name.replaceAll('"', "");
+var NO_LOCAL_EFFECT = [
+  /^comment\s+on\s+(?:table|column|materialized\s+view|view)\b/iu,
+  /^alter\s+(?:trigger|session|system|index|package|procedure|function|view|type|sequence|user)\b/iu,
+  /^(?:grant|revoke|analyze|purge|audit|noaudit|truncate\s+cluster|associate\s+statistics)\b/iu,
+  /^create\s+(?:or\s+replace\s+)?(?:public\s+)?synonym\b/iu,
+  /^create\s+(?:or\s+replace\s+)?(?:context|directory|database\s+link|role|user|profile|tablespace)\b/iu,
+  /^(?:drop|create)\s+(?:materialized\s+view\s+log|search\s+index)\b/iu,
+  // Oracle Text, spatial and other domain indexes
+  /^create\s+(?:unique\s+|bitmap\s+)?index\b[\s\S]*\bindextype\s+is\b/iu,
+  /^create\s+(?:or\s+replace\s+)?(?:json\s+)?(?:relational\s+)?duality\s+view\b/iu,
+  // constraint state changes and constraints SQLite does not enforce after creation
+  /^alter\s+table\s+\S+\s+(?:enable|disable|modify|rename|drop)\s+(?:constraint|primary|unique|novalidate|validate)\b/iu,
+  /^alter\s+table\s+\S+\s+add\s+(?:constraint\s+\S+\s+)?(?:foreign\s+key|check)\b/iu,
+  /^alter\s+table\s+\S+\s+(?:move|shrink|parallel|noparallel|logging|nologging|cache|nocache|compress|nocompress)\b/iu
+];
+function oracleSeedStatements(sql) {
+  const text12 = sql.replace(/^(?:\s|--[^\n]*\n|\/\*[\s\S]*?\*\/)*/u, "").trim();
+  if (!text12) return [];
+  if (NO_LOCAL_EFFECT.some((rule) => rule.test(text12))) return [];
+  const drop = new RegExp(
+    String.raw`^drop\s+(table|view|index|trigger)\s+(?:if\s+exists\s+)?${NAME}`,
+    "iu"
+  ).exec(text12);
+  if (drop) return [`drop ${drop[1].toLowerCase()} if exists "${unquote(drop[2])}"`];
+  const key = new RegExp(
+    String.raw`^alter\s+table\s+${NAME}\s+add\s+(?:constraint\s+(${Q})\s+)?(primary\s+key|unique)\s*\(([^)]*)\)`,
+    "iu"
+  ).exec(text12);
+  if (key) {
+    const table = unquote(key[1]);
+    const index = unquote(key[2] ?? `${table}_${key[3].toLowerCase().startsWith("primary") ? "pk" : "uk"}`);
+    return [`create unique index if not exists "${index}" on "${table}" (${key[4]})`];
+  }
+  const columns = new RegExp(String.raw`^alter\s+table\s+${NAME}\s+add\s*\(([\s\S]*)\)\s*$`, "iu").exec(text12);
+  if (columns && !/^\s*(?:constraint|primary|unique|foreign|check)\b/iu.test(columns[2])) {
+    return splitColumns(columns[2]).map(
+      (column2) => `alter table "${unquote(columns[1])}" add column ${column2}`
+    );
+  }
+  return [text12];
+}
+function splitColumns(list4) {
+  const parts = [];
+  let depth = 0;
+  let current3 = "";
+  for (const char of list4) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (char === "," && depth === 0) {
+      parts.push(current3.trim());
+      current3 = "";
+      continue;
+    }
+    current3 += char;
+  }
+  if (current3.trim()) parts.push(current3.trim());
+  return parts;
+}
+function cleanTableDdl(text12) {
+  return identityKeys(
+    withoutTableOptions(
+      text12.replace(
+        /(\/\*apex_local_identity\*\/)((?:\s+(?:(?:minvalue|maxvalue|cache)\s+-?\d+|(?:increment\s+by|start\s+with)\s+-?\d+|no(?:minvalue|maxvalue|cache|order|cycle|keep|scale)|order|cycle|keep|scale|extend|noextend))*)/giu,
+        "$1"
+      ).replace(/\btimestamp\s*(?:\(\s*\d\s*\))?\s+with\s+(?:local\s+)?time\s+zone\b/giu, "timestamp").replace(
+        /\binterval\s+(?:day|year)\s*(?:\(\s*\d+\s*\))?\s+to\s+(?:second|month)\s*(?:\(\s*\d+\s*\))?/giu,
+        "text"
+      ).replace(/\bnumber\s*\(\s*\*\s*(?:,\s*-?\d+\s*)?\)/giu, "number").replace(/\b(?:mdsys\s*\.\s*)?sdo_geometry\b/giu, "blob").replace(/\b(?:sys\s*\.\s*)?(?:xmltype|anydata|uritype|sdo_topo_geometry)\b/giu, "text").replace(/\bvector\s*\([^)]*\)/giu, "blob").replace(/\bcollate\s+\w+/giu, "").replace(/\bvisible\b|\binvisible\b/giu, "")
+    )
+  );
+}
+var MARKER = "/*apex_local_identity*/";
+function identityKeys(text12) {
+  if (!text12.includes(MARKER)) return text12;
+  const tableKey = /,\s*(?:constraint\s+"?[\w$#]+"?\s+)?primary\s+key\s*\(\s*"?([\w$#]+)"?\s*\)/iu.exec(text12);
+  if (tableKey) {
+    const column2 = tableKey[1].replace(/[^\w$#]/gu, "");
+    const definition = new RegExp(
+      `("?${column2.replaceAll("$", "\\$")}"?\\s+)(?:number|integer|int)(?:\\s*\\(\\s*\\d+\\s*\\))?(\\s+\\/\\*apex_local_identity\\*\\/)`,
+      "iu"
+    );
+    if (definition.test(text12))
+      text12 = text12.slice(0, tableKey.index) + text12.slice(tableKey.index + tableKey[0].length);
+    text12 = text12.replace(definition, "$1integer$2 primary key");
+  }
+  return text12.replace(
+    /(\/\*apex_local_identity\*\/)(?!\s+primary\s+key)([^,()]*?)\s+not\s+null\b/giu,
+    "$1$2"
+  );
+}
+function withoutTableOptions(text12) {
+  if (!/^\s*create\s+(?:global\s+temporary\s+)?table\b/iu.test(text12)) return text12;
+  const open3 = text12.indexOf("(");
+  if (open3 < 0) return text12;
+  let depth = 0;
+  for (let index = open3; index < text12.length; index += 1) {
+    if (text12[index] === "(") depth += 1;
+    else if (text12[index] === ")" && --depth === 0) {
+      const rest = text12.slice(index + 1);
+      const keep = /^\s*(?:without\s+rowid|strict)(?:\s*,\s*(?:without\s+rowid|strict))?\s*$/iu.test(rest);
+      return keep ? text12 : text12.slice(0, index + 1);
+    }
+  }
+  return text12;
+}
+var UNIT_HEADER = /^(?:\s|--[^\n]*\n|\/\*[\s\S]*?\*\/)*create\s+(?:or\s+replace\s+)?(?:editionable\s+|noneditionable\s+)?(package\s+body|package|function|procedure|trigger|type\s+body|type)\s+(?:"?[\w$#]+"?\s*\.\s*)?"?([\w$#]+)"?/iu;
+function describeUnit(source) {
+  const header2 = UNIT_HEADER.exec(source);
+  if (!header2) return { kind: "block", name: "" };
+  return {
+    kind: header2[1].toLowerCase().replace(/\s+/gu, " "),
+    name: header2[2].toLowerCase()
+  };
+}
+function unitBody(source) {
+  const header2 = UNIT_HEADER.exec(source);
+  return header2 ? source.slice(header2.index + header2[0].length) : source;
+}
+
+// packages/core/src/preview/extensions/server/parser.ts
+var PlsqlSyntaxError = class extends Error {
+  line;
+  constructor(message, line) {
+    super(message);
+    this.line = line;
+  }
+};
+var TWO_CHAR_OPS = /* @__PURE__ */ new Set([":=", "=>", "..", "||", "<=", ">=", "<>", "!=", "<<", ">>", "**", "~=", "^="]);
+var Q_CLOSE = { "[": "]", "{": "}", "(": ")", "<": ">" };
+function lex(src) {
+  const tokens = [];
+  let index = 0;
+  let line = 1;
+  let gapStart = 0;
+  const push2 = (kind, text12, value2, start, end) => {
+    tokens.push({ kind, text: text12, value: value2, pre: src.slice(gapStart, start), line });
+    for (const char of src.slice(start, end)) if (char === "\n") line += 1;
+    index = end;
+    gapStart = end;
+  };
+  while (index < src.length) {
+    const char = src[index];
+    const next = src[index + 1] ?? "";
+    if (char === "\n") {
+      line += 1;
+      index += 1;
+      continue;
+    }
+    if (/\s/u.test(char)) {
+      index += 1;
+      continue;
+    }
+    if (char === "-" && next === "-") {
+      const end = src.indexOf("\n", index);
+      index = end < 0 ? src.length : end;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      const end = src.indexOf("*/", index + 2);
+      const stop = end < 0 ? src.length : end + 2;
+      for (const c of src.slice(index, stop)) if (c === "\n") line += 1;
+      index = stop;
+      continue;
+    }
+    const start = index;
+    if ((char === "q" || char === "Q") && next === "'") {
+      const open3 = src[index + 2] ?? "";
+      const close3 = Q_CLOSE[open3] ?? open3;
+      const end = src.indexOf(`${close3}'`, index + 3);
+      if (end < 0) throw new PlsqlSyntaxError("Unterminated q-quoted string", line);
+      const value2 = src.slice(index + 3, end);
+      push2("string", `'${value2.replaceAll("'", "''")}'`, value2, start, end + 2);
+      continue;
+    }
+    if (char === "'") {
+      let cursor = index + 1;
+      let value2 = "";
+      for (; ; ) {
+        if (cursor >= src.length) throw new PlsqlSyntaxError("Unterminated string literal", line);
+        if (src[cursor] === "'") {
+          if (src[cursor + 1] === "'") {
+            value2 += "'";
+            cursor += 2;
+            continue;
+          }
+          break;
+        }
+        value2 += src[cursor];
+        cursor += 1;
+      }
+      push2("string", src.slice(start, cursor + 1), value2, start, cursor + 1);
+      continue;
+    }
+    if (char === '"') {
+      const end = src.indexOf('"', index + 1);
+      if (end < 0) throw new PlsqlSyntaxError("Unterminated quoted identifier", line);
+      push2("qident", src.slice(start, end + 1), src.slice(start + 1, end), start, end + 1);
+      continue;
+    }
+    if (/\d/u.test(char) || char === "." && /\d/u.test(next)) {
+      const match = /^(?:\d+(?:\.(?!\.)\d*)?|\.\d+)(?:[eE][+-]?\d+)?[fFdD]?/u.exec(src.slice(index));
+      const text12 = match[0].replace(/[fFdD]$/u, "");
+      push2("number", text12, text12, start, start + match[0].length);
+      continue;
+    }
+    if (char === ":" && /[A-Za-z]/u.test(next)) {
+      const match = /^:[A-Za-z][\w$#]*/u.exec(src.slice(index));
+      push2("bind", match[0], match[0].slice(1).toUpperCase(), start, start + match[0].length);
+      continue;
+    }
+    if (/[A-Za-z_]/u.test(char)) {
+      const match = /^[A-Za-z_][\w$#]*/u.exec(src.slice(index));
+      push2("word", match[0], match[0].toLowerCase(), start, start + match[0].length);
+      continue;
+    }
+    const two = src.slice(index, index + 2);
+    if (TWO_CHAR_OPS.has(two)) {
+      push2("op", two, two, start, start + 2);
+      continue;
+    }
+    push2("op", char, char, start, start + 1);
+  }
+  return tokens;
+}
+var tokenText = (tokens) => tokens.map((token, index) => (index === 0 ? "" : token.pre) + token.text).join("").trim();
+var BLOCK_END = /* @__PURE__ */ new Set(["end", "elsif", "else", "when", "exception"]);
+var isWord = (token, ...words) => token?.kind === "word" && words.includes(token.value);
+var isOp = (token, ...ops) => token?.kind === "op" && ops.includes(token.value);
+function splitTopLevel(tokens, separator2 = ",") {
+  const parts = [[]];
+  let depth = 0;
+  for (const token of tokens) {
+    if (isOp(token, "(")) depth += 1;
+    if (isOp(token, ")")) depth -= 1;
+    if (depth === 0 && isOp(token, separator2)) parts.push([]);
+    else parts.at(-1).push(token);
+  }
+  return parts.filter((part2, index) => part2.length || index < parts.length - 1);
+}
+function parseArgs(tokens) {
+  if (!tokens.length) return [];
+  return splitTopLevel(tokens).map(
+    (part2) => part2[0]?.kind === "word" && isOp(part2[1], "=>") ? { name: part2[0].value, expr: part2.slice(2) } : { expr: part2 }
+  );
+}
+function matchParen(tokens, open3) {
+  let depth = 0;
+  for (let index = open3; index < tokens.length; index += 1) {
+    if (isOp(tokens[index], "(")) depth += 1;
+    else if (isOp(tokens[index], ")")) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  throw new PlsqlSyntaxError("Unbalanced parentheses", tokens[open3]?.line ?? 0);
+}
+var Parser = class {
+  tokens;
+  pos = 0;
+  constructor(source) {
+    this.tokens = lex(source.replace(/\n\s*\/\s*$/u, "\n"));
+  }
+  get line() {
+    return this.peek()?.line ?? this.tokens.at(-1)?.line ?? 0;
+  }
+  peek(offset = 0) {
+    return this.tokens[this.pos + offset];
+  }
+  next() {
+    const token = this.tokens[this.pos];
+    if (!token) throw new PlsqlSyntaxError("Unexpected end of code", this.line);
+    this.pos += 1;
+    return token;
+  }
+  expectWord(...words) {
+    const token = this.next();
+    if (!isWord(token, ...words))
+      throw new PlsqlSyntaxError(`Expected ${words.join("/")} but found "${token.text}"`, token.line);
+    return token;
+  }
+  expectOp(op) {
+    const token = this.next();
+    if (!isOp(token, op))
+      throw new PlsqlSyntaxError(`Expected "${op}" but found "${token.text}"`, token.line);
+  }
+  acceptWord(...words) {
+    if (!isWord(this.peek(), ...words)) return false;
+    this.pos += 1;
+    return true;
+  }
+  acceptOp(op) {
+    if (!isOp(this.peek(), op)) return false;
+    this.pos += 1;
+    return true;
+  }
+  /** Reads an expression until `stop` matches at depth 0 (outside parentheses and CASE). */
+  readUntil(stop) {
+    const out = [];
+    let depth = 0;
+    let cases = 0;
+    for (; ; ) {
+      const token = this.peek();
+      if (!token) {
+        if (depth || cases) throw new PlsqlSyntaxError("Unexpected end of code in expression", this.line);
+        return out;
+      }
+      if (depth === 0 && cases === 0 && stop(token)) return out;
+      if (isOp(token, "(")) depth += 1;
+      else if (isOp(token, ")")) depth -= 1;
+      else if (isWord(token, "case")) cases += 1;
+      else if (isWord(token, "end") && cases > 0) cases -= 1;
+      out.push(token);
+      this.pos += 1;
+    }
+  }
+  untilWord(...words) {
+    const expr = this.readUntil((token) => isWord(token, ...words) || isOp(token, ";"));
+    if (!isWord(this.peek(), ...words)) throw new PlsqlSyntaxError(`Expected ${words.join("/")}`, this.line);
+    return expr;
+  }
+  untilSemicolon() {
+    const expr = this.readUntil((token) => isOp(token, ";"));
+    this.expectOp(";");
+    return expr;
+  }
+  /** Whole program: a statement list (APEX accepts bodies without BEGIN/END). */
+  program() {
+    const body4 = this.statements(/* @__PURE__ */ new Set());
+    if (this.peek()) throw new PlsqlSyntaxError(`Unexpected "${this.peek().text}"`, this.line);
+    return body4;
+  }
+  block(label) {
+    const decls = this.acceptWord("declare") ? this.declarations() : [];
+    this.expectWord("begin");
+    const body4 = this.statements(BLOCK_END);
+    const handlers = [];
+    if (this.acceptWord("exception")) {
+      while (this.acceptWord("when")) {
+        const names = [this.next().value];
+        while (this.acceptWord("or")) names.push(this.next().value);
+        this.expectWord("then");
+        handlers.push({ names, body: this.statements(BLOCK_END) });
+      }
+    }
+    this.expectWord("end");
+    if (this.peek()?.kind === "word" && !isOp(this.peek(), ";")) this.pos += 1;
+    return { decls, body: body4, handlers, ...label ? { label } : {} };
+  }
+  /** Declarations up to BEGIN, or also up to END in a package specification or body. */
+  declarations(untilEnd = false) {
+    const decls = [];
+    while (this.peek() && !isWord(this.peek(), "begin") && !(untilEnd && isWord(this.peek(), "end"))) {
+      const token = this.next();
+      const line = token.line;
+      if (isWord(token, "pragma", "subtype")) {
+        this.untilSemicolon();
+        continue;
+      }
+      if (isWord(token, "cursor")) {
+        const name2 = this.next().value;
+        const params2 = isOp(this.peek(), "(") ? this.params() : [];
+        if (this.acceptWord("return")) this.untilWord("is");
+        this.expectWord("is");
+        decls.push({ kind: "cursor", name: name2, params: params2, sql: this.untilSemicolon(), line });
+        continue;
+      }
+      if (isWord(token, "type")) {
+        const name2 = this.next().value;
+        const body4 = this.untilSemicolon();
+        decls.push({
+          kind: "type",
+          name: name2,
+          collection: body4.some((part2) => isWord(part2, "table", "varray", "varying"))
+        });
+        continue;
+      }
+      if (isWord(token, "function", "procedure")) {
+        const routine = this.routine(token.value === "function");
+        if (routine) decls.push({ kind: "routine", routine });
+        continue;
+      }
+      const name = token.value;
+      if (this.acceptWord("exception")) {
+        this.expectOp(";");
+        decls.push({ kind: "exception", name });
+        continue;
+      }
+      const constant = this.acceptWord("constant");
+      const type = tokenText(this.readUntil((part2) => isOp(part2, ":=", ";") || isWord(part2, "default")));
+      const init = this.acceptOp(":=") || this.acceptWord("default") ? this.untilSemicolon() : void 0;
+      if (!init) this.expectOp(";");
+      decls.push({ kind: "var", name, type, constant, ...init ? { init } : {}, line });
+    }
+    return decls;
+  }
+  params() {
+    this.expectOp("(");
+    const start = this.pos;
+    const close3 = matchParen(this.tokens, start - 1);
+    const inner = this.tokens.slice(start, close3);
+    this.pos = close3 + 1;
+    return splitTopLevel(inner).map((part2) => {
+      let index = 1;
+      let mode = "in";
+      if (isWord(part2[index], "in")) index += 1;
+      if (isWord(part2[index], "out")) {
+        mode = index === 2 ? "in out" : "out";
+        index += 1;
+      }
+      if (isWord(part2[index], "nocopy")) index += 1;
+      const rest = part2.slice(index);
+      const split2 = rest.findIndex((item2) => isOp(item2, ":=") || isWord(item2, "default"));
+      const type = tokenText(split2 < 0 ? rest : rest.slice(0, split2));
+      return {
+        name: part2[0].value,
+        mode,
+        type,
+        ...split2 >= 0 ? { init: rest.slice(split2 + 1) } : {}
+      };
+    });
+  }
+  routine(isFunction) {
+    const name = this.next().value;
+    const params2 = isOp(this.peek(), "(") ? this.params() : [];
+    if (isFunction) {
+      this.expectWord("return");
+      this.readUntil((token) => isWord(token, "is", "as") || isOp(token, ";"));
+    }
+    if (this.acceptOp(";")) return void 0;
+    this.expectWord("is", "as");
+    const decls = this.declarations();
+    this.expectWord("begin");
+    this.pos -= 1;
+    const block = this.block();
+    block.decls = decls;
+    this.expectOp(";");
+    return { name, params: params2, isFunction, block };
+  }
+  statements(terminators) {
+    const list4 = [];
+    for (; ; ) {
+      const token = this.peek();
+      if (!token) return list4;
+      if (token.kind === "word" && terminators.has(token.value)) return list4;
+      list4.push(this.statement());
+    }
+  }
+  label() {
+    if (!isOp(this.peek(), "<<")) return void 0;
+    this.pos += 1;
+    const name = this.next().value;
+    this.expectOp(">>");
+    return name;
+  }
+  endLoop() {
+    this.expectWord("end");
+    this.expectWord("loop");
+    if (this.peek()?.kind === "word") this.pos += 1;
+    this.expectOp(";");
+  }
+  statement() {
+    const label = this.label();
+    const token = this.peek();
+    const line = token.line;
+    if (isOp(token, ";")) {
+      this.pos += 1;
+      return { k: "noop", line };
+    }
+    if (token.kind === "word") {
+      switch (token.value) {
+        case "declare":
+        case "begin": {
+          const block = this.block(label);
+          this.expectOp(";");
+          return { k: "block", block, line };
+        }
+        case "null":
+          if (isOp(this.peek(1), ";")) {
+            this.pos += 2;
+            return { k: "null", line };
+          }
+          break;
+        case "if": {
+          this.pos += 1;
+          const branches = [];
+          let otherwise;
+          const ends = /* @__PURE__ */ new Set(["elsif", "else", "end"]);
+          let cond = this.untilWord("then");
+          this.expectWord("then");
+          branches.push({ cond, body: this.statements(ends) });
+          while (this.acceptWord("elsif")) {
+            cond = this.untilWord("then");
+            this.expectWord("then");
+            branches.push({ cond, body: this.statements(ends) });
+          }
+          if (this.acceptWord("else")) otherwise = this.statements(/* @__PURE__ */ new Set(["end"]));
+          this.expectWord("end");
+          this.expectWord("if");
+          this.expectOp(";");
+          return { k: "if", branches, ...otherwise ? { otherwise } : {}, line };
+        }
+        case "case": {
+          this.pos += 1;
+          const selector = isWord(this.peek(), "when") ? void 0 : this.untilWord("when");
+          const whens = [];
+          const ends = /* @__PURE__ */ new Set(["when", "else", "end"]);
+          while (this.acceptWord("when")) {
+            const expr = this.untilWord("then");
+            this.expectWord("then");
+            whens.push({ expr, body: this.statements(ends) });
+          }
+          const otherwise = this.acceptWord("else") ? this.statements(/* @__PURE__ */ new Set(["end"])) : void 0;
+          this.expectWord("end");
+          this.expectWord("case");
+          if (this.peek()?.kind === "word") this.pos += 1;
+          this.expectOp(";");
+          return {
+            k: "case",
+            ...selector ? { selector } : {},
+            whens,
+            ...otherwise ? { otherwise } : {},
+            line
+          };
+        }
+        case "loop": {
+          this.pos += 1;
+          const body4 = this.statements(/* @__PURE__ */ new Set(["end"]));
+          this.endLoop();
+          return { k: "loop", body: body4, ...label ? { label } : {}, line };
+        }
+        case "while": {
+          this.pos += 1;
+          const cond = this.untilWord("loop");
+          this.expectWord("loop");
+          const body4 = this.statements(/* @__PURE__ */ new Set(["end"]));
+          this.endLoop();
+          return { k: "while", cond, body: body4, ...label ? { label } : {}, line };
+        }
+        case "for":
+          return this.forLoop(label, line);
+        case "exit":
+        case "continue": {
+          this.pos += 1;
+          const name = this.peek()?.kind === "word" && !isWord(this.peek(), "when") ? this.next().value : void 0;
+          const when = this.acceptWord("when") ? this.untilSemicolon() : void 0;
+          if (!when) this.expectOp(";");
+          return {
+            k: token.value,
+            ...when ? { when } : {},
+            ...name ? { label: name } : {},
+            line
+          };
+        }
+        case "return": {
+          this.pos += 1;
+          const expr = this.untilSemicolon();
+          return { k: "return", ...expr.length ? { expr } : {}, line };
+        }
+        case "raise": {
+          this.pos += 1;
+          const name = this.untilSemicolon();
+          return {
+            k: "raise",
+            ...name.length ? { name: name.map((part2) => part2.value).join(".") } : {},
+            line
+          };
+        }
+        case "select":
+        case "with":
+          return this.selectInto(line);
+        case "insert":
+        case "update":
+        case "delete":
+        case "merge":
+          return this.dml(line);
+        case "commit":
+        case "rollback":
+        case "savepoint": {
+          this.pos += 1;
+          const words = this.untilSemicolon().filter((part2) => part2.kind === "word" || part2.kind === "qident").map((part2) => part2.value);
+          const op = token.value;
+          const to = words.indexOf("to");
+          const name = op === "savepoint" ? words[0] : op === "rollback" && to >= 0 ? words.slice(to + 1).find((word) => word !== "savepoint") : void 0;
+          return { k: "tx", op, ...name ? { savepoint: name } : {}, line };
+        }
+        case "lock":
+          this.untilSemicolon();
+          return { k: "noop", line };
+        case "set":
+          if (isWord(this.peek(1), "transaction")) {
+            this.untilSemicolon();
+            return { k: "noop", line };
+          }
+          break;
+        case "execute":
+        case "open":
+        case "fetch":
+        case "close":
+        case "goto":
+        case "forall":
+        case "pipe": {
+          this.untilSemicolon();
+          return { k: "unsupported", what: `${token.value.toUpperCase()} statements`, line };
+        }
+        default:
+          break;
+      }
+    }
+    return this.assignmentOrCall(line);
+  }
+  forLoop(label, line) {
+    this.expectWord("for");
+    const name = this.next().value;
+    this.expectWord("in");
+    const reverse = this.acceptWord("reverse");
+    const tag = label ? { label } : {};
+    if (isOp(this.peek(), "(") && isWord(this.peek(1), "select", "with")) {
+      const close3 = matchParen(this.tokens, this.pos);
+      const sql = this.tokens.slice(this.pos + 1, close3);
+      this.pos = close3 + 1;
+      this.expectWord("loop");
+      const body5 = this.statements(/* @__PURE__ */ new Set(["end"]));
+      this.endLoop();
+      return { k: "forQuery", name, sql, body: body5, ...tag, line };
+    }
+    const from = this.readUntil((token) => isOp(token, "..") || isWord(token, "loop"));
+    if (this.acceptOp("..")) {
+      const to = this.untilWord("loop");
+      this.expectWord("loop");
+      const body5 = this.statements(/* @__PURE__ */ new Set(["end"]));
+      this.endLoop();
+      return { k: "forRange", name, reverse, from, to, body: body5, ...tag, line };
+    }
+    this.expectWord("loop");
+    const cursor = from[0]?.value ?? "";
+    const args = isOp(from[1], "(") ? parseArgs(from.slice(2, matchParen(from, 1))) : [];
+    const body4 = this.statements(/* @__PURE__ */ new Set(["end"]));
+    this.endLoop();
+    return { k: "forQuery", name, cursor, args, body: body4, ...tag, line };
+  }
+  /** `select ... into a, b from ...` — the INTO clause is removed from the SQL. */
+  selectInto(line) {
+    const tokens = this.untilSemicolon();
+    let depth = 0;
+    let into = -1;
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      if (isOp(token, "(")) depth += 1;
+      else if (isOp(token, ")")) depth -= 1;
+      else if (depth === 0 && isWord(token, "into")) {
+        into = index;
+        break;
+      }
+    }
+    if (into < 0) throw new PlsqlSyntaxError("SELECT without INTO in PL/SQL", line);
+    const bulk = isWord(tokens[into - 1], "collect") && isWord(tokens[into - 2], "bulk");
+    let end = into + 1;
+    depth = 0;
+    while (end < tokens.length && !(depth === 0 && isWord(tokens[end], "from"))) {
+      if (isOp(tokens[end], "(")) depth += 1;
+      if (isOp(tokens[end], ")")) depth -= 1;
+      end += 1;
+    }
+    const targets = splitTopLevel(tokens.slice(into + 1, end)).map((part2) => this.target(part2));
+    const head = tokens.slice(0, bulk ? into - 2 : into);
+    const tail = tokens.slice(end);
+    return { k: "selectInto", sql: [...head, ...tail], targets, bulk, line };
+  }
+  dml(line) {
+    const tokens = this.untilSemicolon();
+    let depth = 0;
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      if (isOp(token, "(")) depth += 1;
+      else if (isOp(token, ")")) depth -= 1;
+      else if (depth === 0 && isWord(token, "returning", "return")) {
+        const rest = tokens.slice(index + 1);
+        const into = rest.findIndex((part2) => isWord(part2, "into"));
+        if (into < 0) break;
+        const targets = splitTopLevel(rest.slice(into + 1)).map((part2) => this.target(part2));
+        const returning = { ...token, text: "returning", value: "returning" };
+        return {
+          k: "dml",
+          sql: [...tokens.slice(0, index), returning, ...rest.slice(0, into)],
+          targets,
+          line
+        };
+      }
+    }
+    return { k: "dml", sql: tokens, line };
+  }
+  target(tokens) {
+    const [first, second, third] = tokens;
+    if (first?.kind === "bind" && tokens.length === 1) return { kind: "bind", name: first.value };
+    if (first?.kind === "bind" && ["NEW", "OLD"].includes(first.value) && isOp(second, ".") && third)
+      return { kind: "row", row: first.value === "NEW" ? "new" : "old", column: third.value.toLowerCase() };
+    if (first?.kind === "word") {
+      if (tokens.length === 1) return { kind: "var", name: first.value };
+      if (isOp(second, ".") && third && tokens.length === 3) {
+        if (first.value === "apex_application")
+          return { kind: "global", name: `${first.value}.${third.value}` };
+        return { kind: "var", name: first.value, field: third.value };
+      }
+      if (isOp(second, "(") && matchParen(tokens, 1) === tokens.length - 1)
+        return { kind: "var", name: first.value, index: tokens.slice(2, -1) };
+      if (isOp(second, ".") && third?.kind === "word" && isOp(tokens[3], "(") && matchParen(tokens, 3) === tokens.length - 1)
+        return { kind: "global", name: `${first.value}.${third.value}`, index: tokens.slice(4, -1) };
+    }
+    throw new PlsqlSyntaxError(`Unsupported assignment target "${tokenText(tokens)}"`, first?.line ?? 0);
+  }
+  assignmentOrCall(line) {
+    const tokens = this.untilSemicolon();
+    let depth = 0;
+    for (let index2 = 0; index2 < tokens.length; index2 += 1) {
+      const token = tokens[index2];
+      if (isOp(token, "(")) depth += 1;
+      else if (isOp(token, ")")) depth -= 1;
+      else if (depth === 0 && isOp(token, ":=")) {
+        let target2;
+        try {
+          target2 = this.target(tokens.slice(0, index2));
+        } catch (error) {
+          if (!(error instanceof PlsqlSyntaxError)) throw error;
+          return { k: "unsupported", what: `assignments to ${tokenText(tokens.slice(0, index2))}`, line };
+        }
+        return { k: "assign", target: target2, expr: tokens.slice(index2 + 1), line };
+      }
+    }
+    const name = [];
+    let index = 0;
+    while (tokens[index]?.kind === "word" || tokens[index]?.kind === "qident") {
+      name.push(tokens[index].value.toLowerCase());
+      index += 1;
+      if (!isOp(tokens[index], ".")) break;
+      index += 1;
+    }
+    if (!name.length)
+      throw new PlsqlSyntaxError(`Unsupported statement "${tokenText(tokens).slice(0, 60)}"`, line);
+    let args = [];
+    if (isOp(tokens[index], "(")) {
+      const close3 = matchParen(tokens, index);
+      args = parseArgs(tokens.slice(index + 1, close3));
+      index = close3 + 1;
+    }
+    if (index < tokens.length)
+      return { k: "unsupported", what: `statements like "${tokenText(tokens).slice(0, 60)}"`, line };
+    return { k: "call", name, args, line };
+  }
+};
+function parseProgram(source) {
+  return new Parser(source).program();
+}
+function parseExpression(source) {
+  return lex(source.trim().replace(/;\s*$/u, ""));
+}
+
+// packages/core/src/preview/triggers.ts
+var PREDICATE = { insert: "inserting", update: "updating", delete: "deleting" };
+var APEX_GLOBALS = {
+  "wwv_flow.g_user": "v('APP_USER')",
+  "apex_application.g_user": "v('APP_USER')",
+  "wwv_flow.g_flow_id": "v('APP_ID')",
+  "apex_application.g_flow_id": "v('APP_ID')",
+  "wwv_flow.g_instance": "v('APP_SESSION')",
+  "apex_application.g_instance": "v('APP_SESSION')",
+  "wwv_flow_security.g_security_group_id": "v('WORKSPACE_ID')"
+};
+var and2 = (...parts) => parts.filter(Boolean).join(" and ") || void 0;
+var HEADER = /^()\s*(before|after|instead\s+of)\s+((?:insert|update(?:\s+of\s+[\w$#",\s]+?)?|delete)(?:\s+or\s+(?:insert|update(?:\s+of\s+[\w$#",\s]+?)?|delete))*)\s+on\s+(?:"?[\w$#]+"?\s*\.\s*)?"?([\w$#]+)"?((?:\s+referencing\s+(?:(?:new|old|parent)\s+as\s+\w+\s*)+)?)(\s+for\s+each\s+row)?(?:\s+(?:enable|disable|follows\s+\S+|precedes\s+\S+))*(?:\s+when\s*\(([\s\S]*?)\))?\s+((?:declare|begin|compound\b)[\s\S]*)$/iu;
+function parseTriggerHeader(source) {
+  const match = HEADER.exec(unitBody(source).replace(/--[^\n]*/gu, " "));
+  if (!match) return void 0;
+  const events = match[3].toLowerCase();
+  const of = /update\s+of\s+([\w$#",\s]+?)(?=\s+or\b|$)/iu.exec(events);
+  return {
+    name: describeUnit(source).name,
+    timing: match[2].toLowerCase().replace(/\s+/gu, " "),
+    events: ["insert", "update", "delete"].filter(
+      (event) => new RegExp(`\\b${event}\\b`, "u").test(events)
+    ),
+    updateColumns: of ? of[1].split(",").map((column2) => column2.replaceAll('"', "").trim().toLowerCase()) : [],
+    table: match[4],
+    row: Boolean(match[6]),
+    ...match[7] ? { when: match[7] } : {},
+    body: match[8]
+  };
+}
+var Untranslatable = class extends Error {
+};
+var Translation = class {
+  constructor(event) {
+    this.event = event;
+  }
+  event;
+  assigned = /* @__PURE__ */ new Map();
+  variables = /* @__PURE__ */ new Map();
+  skipped = /* @__PURE__ */ new Set();
+  /** Current SQL value of `:new.column`. */
+  newValue(column2) {
+    return this.assigned.get(column2) ?? `NEW."${column2.toUpperCase()}"`;
+  }
+  expression(tokens) {
+    let text12 = "";
+    for (let index = 0; index < tokens.length; index += 1) {
+      const token = tokens[index];
+      const pre = index === 0 ? "" : token.pre.replace(/\s+/gu, " ");
+      if (token.kind === "bind" && ["NEW", "OLD"].includes(token.value) && isOp(tokens[index + 1], ".")) {
+        const column2 = tokens[index + 2].value.toLowerCase();
+        text12 += pre + (token.value === "NEW" ? `(${this.newValue(column2)})` : this.event === "insert" ? "null" : `OLD."${column2.toUpperCase()}"`);
+        index += 2;
+        continue;
+      }
+      if (token.kind === "word") {
+        if (["inserting", "updating", "deleting"].includes(token.value)) {
+          if (isOp(tokens[index + 1], "(")) {
+            let depth = 0;
+            for (index += 1; index < tokens.length; index += 1) {
+              if (isOp(tokens[index], "(")) depth += 1;
+              if (isOp(tokens[index], ")") && --depth === 0) break;
+            }
+          }
+          text12 += pre + (token.value === PREDICATE[this.event] ? "1" : "0");
+          continue;
+        }
+        const global = isOp(tokens[index + 1], ".") && tokens[index + 2]?.kind === "word" ? APEX_GLOBALS[`${token.value}.${tokens[index + 2].value}`] : void 0;
+        if (global) {
+          text12 += pre + global;
+          index += 2;
+          continue;
+        }
+        if (token.value === "user" && !isOp(tokens[index + 1], ".")) {
+          text12 += `${pre}coalesce(v('APP_USER'), 'APEX_LOCAL')`;
+          continue;
+        }
+        const variable = this.variables.get(token.value);
+        if (variable !== void 0 && !isOp(tokens[index + 1], ".") && !isOp(tokens[index - 1], ".")) {
+          text12 += `${pre}(${variable})`;
+          continue;
+        }
+        if (isWord(token, "true")) {
+          text12 += `${pre}1`;
+          continue;
+        }
+        if (isWord(token, "false")) {
+          text12 += `${pre}0`;
+          continue;
+        }
+      }
+      if (token.kind === "bind") throw new Untranslatable(`bind :${token.value}`);
+      text12 += pre + token.text;
+    }
+    const translated = translateOracleSql(`select ${text12}`).replace(/^\s*select\s+/iu, "");
+    return translated;
+  }
+  run(statements, condition) {
+    for (const statement of statements) this.statement(statement, condition);
+  }
+  assign(column2, value2, condition) {
+    this.assigned.set(
+      column2,
+      condition ? `case when ${condition} then ${value2} else ${this.newValue(column2)} end` : value2
+    );
+  }
+  statement(statement, condition) {
+    try {
+      switch (statement.k) {
+        case "null":
+        case "noop":
+          return;
+        case "assign": {
+          const value2 = this.expression(statement.expr);
+          if (statement.target.kind === "row" && statement.target.row === "new")
+            return this.assign(statement.target.column, value2, condition);
+          if (statement.target.kind === "var" && !statement.target.field && !statement.target.index) {
+            const name = statement.target.name;
+            const previous = this.variables.get(name) ?? "null";
+            this.variables.set(
+              name,
+              condition ? `case when ${condition} then ${value2} else ${previous} end` : value2
+            );
+            return;
+          }
+          throw new Untranslatable("assignment");
+        }
+        case "if": {
+          const previous = [];
+          for (const branch of statement.branches) {
+            const test = this.expression(branch.cond);
+            const constant = /^\(*\s*([01])\s*\)*$/u.exec(test.trim())?.[1];
+            if (constant === "0") continue;
+            const guard2 = and2(
+              condition,
+              ...previous.map((other) => `not coalesce(${other}, 0)`),
+              constant === "1" ? void 0 : `coalesce(${test}, 0)`
+            );
+            this.run(branch.body, guard2);
+            if (constant === "1") return;
+            previous.push(test);
+          }
+          if (statement.otherwise)
+            this.run(
+              statement.otherwise,
+              and2(condition, ...previous.map((other) => `not coalesce(${other}, 0)`))
+            );
+          return;
+        }
+        case "selectInto": {
+          if (statement.targets.length !== 1 || statement.bulk) throw new Untranslatable("select into");
+          const target2 = statement.targets[0];
+          const value2 = `(${this.expression(statement.sql)})`;
+          if (target2.kind === "row" && target2.row === "new")
+            return this.assign(target2.column, value2, condition);
+          if (target2.kind === "var" && !target2.field) {
+            this.variables.set(target2.name, value2);
+            return;
+          }
+          throw new Untranslatable("select into");
+        }
+        case "block":
+          this.declare(statement.block.decls);
+          this.run(statement.block.body, condition);
+          return;
+        case "call":
+          throw new Untranslatable(`call to ${statement.name.join(".")}`);
+        default:
+          throw new Untranslatable(statement.k);
+      }
+    } catch (error) {
+      if (!(error instanceof Untranslatable)) throw error;
+      this.skipped.add(`${error.message} (line ${statement.line})`);
+    }
+  }
+  declare(decls) {
+    for (const decl of decls)
+      if (decl.kind === "var") this.variables.set(decl.name, decl.init ? this.expression(decl.init) : "null");
+  }
+};
+function relaxNotNull(ddl, columns) {
+  const open3 = ddl.indexOf("(");
+  const close3 = ddl.lastIndexOf(")");
+  if (open3 < 0 || close3 < open3) return ddl;
+  const parts = [];
+  let depth = 0;
+  let current3 = "";
+  for (const char of ddl.slice(open3 + 1, close3)) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (char === "," && depth === 0) {
+      parts.push(current3);
+      current3 = "";
+      continue;
+    }
+    current3 += char;
+  }
+  parts.push(current3);
+  const wanted = new Set(columns.map((column2) => column2.toLowerCase()));
+  const rewritten = parts.map((part2) => {
+    const name = /^\s*"?([\w$#]+)"?/u.exec(part2)?.[1]?.toLowerCase();
+    if (!name || !wanted.has(name)) return part2;
+    return part2.replace(/\s+not\s+null\b/giu, "").replace(/\s+constraint\s+"?[\w$#]+"?\s*(?=,|$)/giu, "");
+  });
+  return `${ddl.slice(0, open3 + 1)}${rewritten.join(",")}${ddl.slice(close3)}`;
+}
+function applyTrigger(db2, source) {
+  const header2 = parseTriggerHeader(source);
+  if (!header2) return [`trigger: the trigger header is not understood locally; the trigger does not run`];
+  const label = `trigger ${header2.name}`;
+  if (!header2.row || header2.timing !== "before" || /^compound\b/iu.test(header2.body))
+    return [`${label}: ${header2.timing} ${header2.row ? "row" : "statement"} triggers do not run locally`];
+  if (!db2.tableExists(header2.table)) return [`${label}: table ${header2.table} does not exist`];
+  let block;
+  try {
+    const parser = new Parser(header2.body);
+    block = parser.block();
+  } catch (error) {
+    return [
+      `${label}: ${error instanceof PlsqlSyntaxError ? error.message : String(error)}; the trigger does not run`
+    ];
+  }
+  const problems = [];
+  const created = [];
+  const relax = /* @__PURE__ */ new Set();
+  const table = header2.table.replaceAll('"', "");
+  for (const event of header2.events.filter((entry) => entry !== "delete")) {
+    const translation = new Translation(event);
+    try {
+      translation.declare(block.decls);
+      translation.run(block.body);
+    } catch (error) {
+      problems.push(`${label}: ${error.message}`);
+      continue;
+    }
+    for (const [column2, value2] of [...translation.assigned]) {
+      try {
+        db2.db.prepare(`select ${value2} from "${table}" as NEW, "${table}" as OLD`);
+      } catch (error) {
+        translation.assigned.delete(column2);
+        translation.skipped.add(`:new.${column2} (${error.message})`);
+      }
+    }
+    if (translation.skipped.size)
+      problems.push(`${label} (${event}): not run locally: ${[...translation.skipped].join(", ")}`);
+    if (!translation.assigned.size) continue;
+    if (event === "insert") for (const column2 of translation.assigned.keys()) relax.add(column2);
+    const when = header2.when ? ` when ${new Translation(event).expression(lex2(header2.when.replace(/\b(new|old)\s*\./giu, ":$1.")))}` : "";
+    const of = event === "update" && header2.updateColumns.length ? ` of ${header2.updateColumns.map((c) => `"${c.toUpperCase()}"`).join(", ")}` : "";
+    const sets = [...translation.assigned].map(([column2, value2]) => `"${column2.toUpperCase()}" = ${value2}`).join(", ");
+    created.push(
+      `create trigger "apex_local_${header2.name}_${event}" after ${event}${of} on "${table}" for each row${when} begin update "${table}" set ${sets} where rowid = NEW.rowid; end`
+    );
+  }
+  if (relax.size) relaxColumns(db2, table, [...relax]);
+  for (const statement of created) {
+    try {
+      db2.db.exec(`drop trigger if exists ${/"apex_local_[^"]+"/u.exec(statement)[0]}`);
+      db2.db.exec(statement);
+    } catch (error) {
+      problems.push(`${label}: ${error.message}; the trigger does not run`);
+    }
+  }
+  return problems;
+}
+function lex2(text12) {
+  return new Parser(text12).tokens;
+}
+function relaxColumns(db2, table, columns) {
+  const row = db2.db.prepare("select name, sql from sqlite_master where type = 'table' and upper(name) = upper(?)").get(table);
+  if (!row) return;
+  const relaxed = relaxNotNull(row.sql, columns);
+  if (relaxed === row.sql) return;
+  const database = db2.db;
+  if (typeof database.enableDefensive !== "function") return;
+  const version = db2.db.prepare("pragma schema_version").get().schema_version;
+  database.enableDefensive(false);
+  try {
+    db2.db.exec("pragma writable_schema = on");
+    db2.db.prepare("update sqlite_master set sql = ? where type = 'table' and name = ?").run(relaxed, row.name);
+    db2.db.exec(`pragma schema_version = ${version + 1}`);
+  } finally {
+    db2.db.exec("pragma writable_schema = off");
+    database.enableDefensive(true);
+  }
+}
+
+// packages/core/src/preview/sql-outer-join.ts
+var BOUNDARY = /^(?:group\s+by|order\s+by|having|union|intersect|minus|except|connect\s+by|start\s+with|fetch|offset|window|limit|for\s+update|model)\b/iu;
+function topLevel(text12, pattern) {
+  const found = [];
+  const word = /^\^?[a-z(]/iu.test(pattern.source.replace(/^\^\(\?:/u, "^"));
+  let depth = 0;
+  for (let index = 0; index < text12.length; index += 1) {
+    const char = text12[index];
+    if (char === "(") depth += 1;
+    else if (char === ")") depth -= 1;
+    else if (depth === 0 && (!word || index === 0 || /[\s,)]/u.test(text12[index - 1]))) {
+      const match = pattern.exec(text12.slice(index));
+      if (match && match.index === 0) {
+        found.push({ index, length: match[0].length });
+        index += match[0].length - 1;
+      }
+    }
+  }
+  return found;
+}
+function splitTop(text12, separator2) {
+  const parts = [];
+  let last = 0;
+  for (const hit of topLevel(text12, separator2)) {
+    parts.push(text12.slice(last, hit.index));
+    last = hit.index + hit.length;
+  }
+  parts.push(text12.slice(last));
+  return parts.map((part2) => part2.trim()).filter(Boolean);
+}
+function conjuncts(where2) {
+  const raw2 = splitTop(where2, /^and\b/iu);
+  const out = [];
+  for (const part2 of raw2) {
+    const previous = out.at(-1);
+    if (previous && /\bbetween\s+[^]*$/iu.test(previous) && !/\bbetween\s+[^]*\band\b/iu.test(previous))
+      out[out.length - 1] = `${previous} and ${part2}`;
+    else out.push(part2);
+  }
+  return out;
+}
+function aliasOf(item2) {
+  const words = item2.replace(/\s+as\s+/iu, " ").trim().split(/\s+/u);
+  const last = words.at(-1);
+  if (!last) return void 0;
+  if (words.length === 1) return last.replace(/^.*\./u, "").replaceAll('"', "").toLowerCase();
+  return last.replaceAll('"', "").toLowerCase();
+}
+function rewriteBlock(block) {
+  if (!block.includes("(+)")) return block;
+  const froms = topLevel(block, /^from\b/iu);
+  if (froms.length !== 1) return block;
+  const from = froms[0];
+  const afterFrom = block.slice(from.index + from.length);
+  const where2 = topLevel(afterFrom, /^where\b/iu)[0];
+  const boundary = topLevel(afterFrom, BOUNDARY)[0];
+  const fromEnd = where2?.index ?? boundary?.index ?? afterFrom.length;
+  const items = splitTop(afterFrom.slice(0, fromEnd), /^,/u);
+  if (!where2 || items.some((item2) => /\bjoin\b/iu.test(item2))) return block;
+  const whereEnd = boundary && boundary.index > where2.index ? boundary.index : afterFrom.length;
+  const conditions2 = conjuncts(afterFrom.slice(where2.index + where2.length, whereEnd));
+  const aliases = items.map(aliasOf);
+  const outer = /* @__PURE__ */ new Map();
+  const kept = [];
+  for (const condition of conditions2) {
+    if (!condition.includes("(+)")) {
+      kept.push(condition);
+      continue;
+    }
+    const marked = [...condition.matchAll(/(?:"?([\w$#]+)"?\s*\.\s*)?"?[\w$#]+"?\s*\(\+\)/gu)].map(
+      (match) => match[1]?.toLowerCase()
+    );
+    const owners = new Set(marked);
+    if (owners.size !== 1 || owners.has(void 0)) return block;
+    const owner2 = [...owners][0];
+    if (!aliases.includes(owner2)) return block;
+    outer.set(owner2, [...outer.get(owner2) ?? [], condition.replaceAll(/\s*\(\+\)/gu, "")]);
+  }
+  const inner = items.filter((_item, index) => !outer.has(aliases[index]));
+  if (!inner.length) return block;
+  const joined = [
+    inner.join(", "),
+    ...items.map((item2, index) => ({ item: item2, alias: aliases[index] })).filter((entry) => outer.has(entry.alias)).map((entry) => `left join ${entry.item} on ${outer.get(entry.alias).join(" and ")}`)
+  ].join(" ");
+  const rest = afterFrom.slice(whereEnd);
+  return `${block.slice(0, from.index + from.length)} ${joined}${kept.length ? ` where ${kept.join(" and ")}` : ""}${rest ? ` ${rest.trimStart()}` : ""}`;
+}
+function rewriteOuterJoins(text12) {
+  if (!text12.includes("(+)")) return text12;
+  let out = "";
+  let index = 0;
+  while (index < text12.length) {
+    const char = text12[index];
+    if (char !== "(") {
+      out += char;
+      index += 1;
+      continue;
+    }
+    let depth = 0;
+    let close3 = index;
+    for (; close3 < text12.length; close3 += 1) {
+      if (text12[close3] === "(") depth += 1;
+      else if (text12[close3] === ")" && --depth === 0) break;
+    }
+    const inner = text12.slice(index + 1, close3);
+    out += `(${/^\s*(?:select|with)\b/iu.test(inner) ? rewriteOuterJoins(inner) : inner})`;
+    index = close3 + 1;
+  }
+  const branches = topLevel(out, /^(?:union\s+all|union|intersect|minus|except)\b/iu);
+  if (!branches.length) return rewriteBlock(out);
+  let result = "";
+  let last = 0;
+  for (const branch of branches) {
+    result += `${rewriteBlock(out.slice(last, branch.index))} ${out.slice(branch.index, branch.index + branch.length)} `;
+    last = branch.index + branch.length;
+  }
+  return result + rewriteBlock(out.slice(last));
+}
+
+// packages/core/src/preview/extensions/structure/hierarchy.ts
+var LITERAL = "";
+function mask(sql) {
+  const literals = [];
+  const text12 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
+    literals.push(literal2);
+    return `${LITERAL}${literals.length - 1}${LITERAL}`;
+  });
+  return { text: text12, literals };
+}
+function unmask(text12, literals) {
+  return text12.replace(
+    new RegExp(`${LITERAL}(\\d+)${LITERAL}`, "gu"),
+    (_whole, index) => String(literals[Number(index)])
+  );
+}
+function depths(text12) {
+  const result = [];
+  let depth = 0;
+  for (const char of text12) {
+    if (char === ")") depth -= 1;
+    result.push(depth);
+    if (char === "(") depth += 1;
+  }
+  return result;
+}
+function find(text12, level, pattern, depth) {
+  const found = [];
+  const regex = new RegExp(pattern.source, "giu");
+  for (let match = regex.exec(text12); match; match = regex.exec(text12)) {
+    if (level[match.index] === depth) found.push({ index: match.index, end: match.index + match[0].length });
+  }
+  return found;
+}
+function splitTop2(fragment) {
+  const parts = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < fragment.length; index += 1) {
+    const char = fragment[index];
+    if (char === "(") depth += 1;
+    else if (char === ")") depth -= 1;
+    else if (char === "," && depth === 0) {
+      parts.push(fragment.slice(start, index));
+      start = index + 1;
+    }
+  }
+  parts.push(fragment.slice(start));
+  return parts;
+}
+var CLAUSES = [
+  ["select", /\bselect\b/],
+  ["from", /\bfrom\b/],
+  ["where", /\bwhere\b/],
+  ["start", /\bstart\s+with\b/],
+  ["connect", /\bconnect\s+by\b/],
+  ["siblings", /\border\s+siblings\s+by\b/],
+  ["order", /\border\s+by\b(?<!siblings\s+by)/],
+  ["group", /\bgroup\s+by\b/],
+  ["set", /\b(?:union|intersect|minus|except)\b/]
+];
+function rewriteSelect(text12, level, depth) {
+  const marks = [];
+  for (const [name, pattern] of CLAUSES) {
+    for (const hit of find(text12, level, pattern, depth)) marks.push({ name, ...hit });
+  }
+  const siblings = marks.filter((mark) => mark.name === "siblings");
+  const clauses = marks.filter(
+    (mark) => !(mark.name === "order" && siblings.some((entry) => entry.index === mark.index)) && !(mark.name === "select" && mark.index !== marks.find((entry) => entry.name === "select")?.index)
+  ).sort((a, b) => a.index - b.index);
+  const has = (name) => clauses.some((mark) => mark.name === name);
+  if (has("set")) return { unsupported: "set operators around a hierarchical query" };
+  if (has("group")) return { unsupported: "GROUP BY in a hierarchical query" };
+  if (!has("select") || !has("from")) return { unsupported: "missing SELECT or FROM" };
+  const body4 = (name) => {
+    const index = clauses.findIndex((mark2) => mark2.name === name);
+    if (index < 0) return void 0;
+    const mark = clauses[index];
+    const next = clauses[index + 1];
+    return text12.slice(mark.end, next ? next.index : text12.length).trim();
+  };
+  const selectList2 = body4("select");
+  const fromClause = body4("from");
+  const whereClause = body4("where");
+  const startWith = body4("start");
+  let connect = body4("connect");
+  const orderSiblings = body4("siblings");
+  if (/^distinct\b/iu.test(selectList2)) return { unsupported: "SELECT DISTINCT in a hierarchical query" };
+  if (splitTop2(fromClause).length > 1 || /\bjoin\b/iu.test(fromClause.replace(/\([^]*\)/gu, "")))
+    return { unsupported: "joins in a hierarchical query" };
+  const fromMatch = /^(\([^]*\)|"[^"]+"(?:\."[^"]+")?|[\w$#]+(?:\.[\w$#]+)?)(?:\s+(?:as\s+)?("?[\w$#]+"?))?$/iu.exec(
+    fromClause
+  );
+  if (!fromMatch) return { unsupported: `FROM clause "${fromClause}"` };
+  const source = fromMatch[1];
+  const alias = fromMatch[2] ?? (source.startsWith("(") ? '"__T"' : source.split(".").at(-1));
+  connect = connect.replace(/^nocycle\s+/iu, "");
+  const prior = /^prior\s+([^=]+?)\s*=\s*([^=]+)$/iu.exec(connect) ?? void 0;
+  const reverse = prior ? void 0 : /^([^=]+?)\s*=\s*prior\s+([^=]+)$/iu.exec(connect);
+  if (!prior && !reverse) return { unsupported: `CONNECT BY condition "${connect}"` };
+  const parentKey = (prior ? prior[1] : reverse[2]).trim();
+  const childKey = (prior ? prior[2] : reverse[1]).trim();
+  if (/\b(?:and|or|prior)\b/iu.test(parentKey) || /\b(?:and|or|prior)\b/iu.test(childKey))
+    return { unsupported: `CONNECT BY condition "${connect}"` };
+  const extras = [];
+  const carried = [];
+  const extra = (expression) => {
+    extras.push(expression);
+    return `"__X${extras.length}"`;
+  };
+  const replacePseudo = (fragment) => fragment.replace(
+    /\bsys_connect_by_path\s*\(\s*((?:[^(),]|\([^()]*\))+?)\s*,\s*(\u0001\d+\u0001)\s*\)/giu,
+    (_whole, expression, separator2) => {
+      const column2 = extra(expression);
+      const name = `"__CP${carried.length + 1}"`;
+      carried.push({
+        column: name,
+        anchor: `${separator2} || coalesce(s.${column2}, '')`,
+        step: `h.${name} || ${separator2} || coalesce(c.${column2}, '')`
+      });
+      return `"__H".${name}`;
+    }
+  ).replace(
+    /\bconnect_by_root\s+((?:"[^"]+"|[\w$#]+)(?:\.(?:"[^"]+"|[\w$#]+))?)/giu,
+    (_whole, expression) => {
+      const column2 = extra(expression);
+      const name = `"__CR${carried.length + 1}"`;
+      carried.push({ column: name, anchor: `s.${column2}`, step: `h.${name}` });
+      return `"__H".${name}`;
+    }
+  ).replace(
+    /(?<![.\w$#"])connect_by_isleaf\b/giu,
+    `(case when exists (select 1 from "__SRC" "__K" where "__K"."__C" = "__H"."__P") then 0 else 1 end)`
+  ).replace(/\bconnect_by_iscycle\b/giu, "0").replace(/(?<![.\w$#"])level\b(?!\s*\()/giu, '"__H"."__LVL"');
+  if (/\bprior\b/iu.test(selectList2)) return { unsupported: "PRIOR in the select list" };
+  const columns = splitTop2(selectList2).map((item2) => {
+    const trimmed = item2.trim();
+    const bare = /^(level|connect_by_isleaf)$/iu.exec(trimmed)?.[1];
+    const replaced = replacePseudo(trimmed);
+    if (bare) return `${replaced} as "${bare.toUpperCase()}"`;
+    if (trimmed === "*") return `${alias}.*`;
+    return replaced;
+  }).join(", ");
+  const where2 = whereClause ? replacePseudo(whereClause) : "";
+  const siblingOrder = orderSiblings || "(select null)";
+  const startCondition = startWith ? `case when (${startWith}) then 1 else 0 end` : "1";
+  const extraColumns = extras.map((expression, index) => `, (${expression}) as "__X${index + 1}"`).join("");
+  const carriedColumns = carried.map((entry) => `, ${entry.column}`).join("");
+  const segment = (rank, row) => `printf('%08d%08d', ${rank}, ${row})`;
+  const sql = `with recursive "__SRC" as materialized (select ${alias}.*, row_number() over () as "__RID", (${parentKey}) as "__P", (${childKey}) as "__C", ${startCondition} as "__S", row_number() over (partition by (${childKey}) order by ${siblingOrder}) as "__SIB"${extraColumns} from ${source} ${alias}), "__H" ("__RID", "__P", "__LVL", "__PATH"${carriedColumns}) as (select s."__RID", s."__P", 1, ${segment(`row_number() over (order by ${siblingOrder})`, 's."__RID"')}${carried.map((entry) => `, ${entry.anchor}`).join("")} from "__SRC" s where s."__S" = 1 union all select c."__RID", c."__P", h."__LVL" + 1, h."__PATH" || '.' || ${segment('c."__SIB"', 'c."__RID"')}${carried.map((entry) => `, ${entry.step}`).join("")} from "__SRC" c join "__H" h on c."__C" = h."__P" where h."__LVL" < 64) select ${columns} from "__SRC" ${alias} join "__H" on "__H"."__RID" = ${alias}."__RID"${where2 ? ` where ${where2}` : ""} order by "__H"."__PATH"`;
+  return sql.replaceAll(
+    `over (order by ${siblingOrder})`,
+    `over (order by ${requalify(siblingOrder, alias, "s")})`
+  );
+}
+function requalify(expression, alias, to) {
+  const bare = alias.replaceAll('"', "");
+  return expression.replace(new RegExp(`(^|[^\\w$#."])"?${bare}"?\\.`, "giu"), `$1${to}.`);
+}
+function translateHierarchy(sql) {
+  const masked = mask(sql);
+  let text12 = masked.text;
+  if (!/\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.test(text12)) return { sql };
+  for (let guard2 = 0; guard2 < 8; guard2 += 1) {
+    const level = depths(text12);
+    const match = /\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.exec(text12);
+    if (!match) break;
+    const depth = level[match.index];
+    let start = 0;
+    let end = text12.length;
+    if (depth > 0) {
+      for (let index = match.index; index >= 0; index -= 1) {
+        if (text12[index] === "(" && level[index] === depth - 1) {
+          start = index + 1;
+          break;
+        }
+      }
+      for (let index = match.index; index < text12.length; index += 1) {
+        if (text12[index] === ")" && level[index] === depth - 1) {
+          end = index;
+          break;
+        }
+      }
+    }
+    const fragment = text12.slice(start, end);
+    const fragmentLevel = level.slice(start, end);
+    const rewritten = rewriteSelect(fragment, fragmentLevel, depth);
+    if (typeof rewritten !== "string") return { sql, unsupported: rewritten.unsupported };
+    text12 = text12.slice(0, start) + rewritten + text12.slice(end);
+  }
+  return { sql: unmask(text12, masked.literals) };
+}
+
+// packages/core/src/preview/database.ts
+var MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+];
+var DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+function oracleDate(value2) {
+  if (value2 === null || value2 === void 0 || value2 === "") return void 0;
+  if (typeof value2 === "number") {
+    const date2 = new Date(value2);
+    return Number.isNaN(date2.getTime()) ? void 0 : date2;
+  }
+  const raw2 = String(value2).trim();
+  const oracle = /^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/u.exec(raw2);
+  if (oracle) {
+    const month = MONTH_NAMES.findIndex(
+      (name) => name.slice(0, 3).toUpperCase() === oracle[2].toUpperCase()
+    );
+    const year = Number(oracle[3].length === 2 ? `20${oracle[3]}` : oracle[3]);
+    if (month >= 0)
+      return new Date(
+        year,
+        month,
+        Number(oracle[1]),
+        Number(oracle[4] ?? 0),
+        Number(oracle[5] ?? 0),
+        Number(oracle[6] ?? 0)
+      );
+  }
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/u.test(raw2) ? `${raw2}T00:00:00` : raw2.replace(" ", "T"));
+  return Number.isNaN(date.getTime()) ? void 0 : date;
+}
+var pad = (value2, size = 2) => String(value2).padStart(size, "0");
+function isoDate(date, time = true) {
+  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return time ? `${day} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` : day;
+}
+var DATE_TOKENS = [
+  "SSSSS",
+  "SYYYY",
+  "MONTH",
+  "A.M.",
+  "P.M.",
+  "HH24",
+  "HH12",
+  "RRRR",
+  "YYYY",
+  "IYYY",
+  "YYY",
+  "DDD",
+  "DAY",
+  "MON",
+  "TZR",
+  "TZH",
+  "TZM",
+  "FF1",
+  "FF2",
+  "FF3",
+  "FF4",
+  "FF5",
+  "FF6",
+  "FF7",
+  "FF8",
+  "FF9",
+  "FF",
+  "YY",
+  "RR",
+  "MM",
+  "DD",
+  "DY",
+  "HH",
+  "MI",
+  "SS",
+  "AM",
+  "PM",
+  "FM",
+  "WW",
+  "IW",
+  "Y",
+  "D",
+  "Q",
+  "W",
+  "J"
+];
+function isoWeek(date) {
+  const target2 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = (target2.getDay() + 6) % 7;
+  target2.setDate(target2.getDate() - day + 3);
+  const first = new Date(target2.getFullYear(), 0, 4);
+  return 1 + Math.round(((target2.getTime() - first.getTime()) / 864e5 - 3 + (first.getDay() + 6) % 7) / 7);
+}
+var dayOfYear = (date) => Math.floor(
+  (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 1)) / 864e5
+) + 1;
+function formatDate(date, mask2) {
+  let out = "";
+  let fm = false;
+  for (let index = 0; index < mask2.length; ) {
+    if (mask2[index] === '"') {
+      const end = mask2.indexOf('"', index + 1);
+      out += mask2.slice(index + 1, end < 0 ? mask2.length : end);
+      index = end < 0 ? mask2.length : end + 1;
+      continue;
+    }
+    const token = DATE_TOKENS.find(
+      (candidate) => mask2.slice(index, index + candidate.length).toUpperCase() === candidate
+    );
+    if (!token) {
+      out += mask2[index];
+      index += 1;
+      continue;
+    }
+    const raw2 = mask2.slice(index, index + token.length);
+    index += token.length;
+    const number2 = (value2, width) => fm ? String(value2) : pad(value2, width);
+    const cased = (word) => raw2 === raw2.toUpperCase() ? word.toUpperCase() : raw2[0] === raw2[0].toUpperCase() ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word.toLowerCase();
+    const hours12 = date.getHours() % 12 || 12;
+    switch (token) {
+      case "FM":
+        fm = !fm;
+        break;
+      case "YYYY":
+      case "SYYYY":
+      case "RRRR":
+      case "IYYY":
+        out += String(date.getFullYear());
+        break;
+      case "YYY":
+        out += pad(date.getFullYear() % 1e3, 3);
+        break;
+      case "YY":
+      case "RR":
+        out += pad(date.getFullYear() % 100);
+        break;
+      case "Y":
+        out += String(date.getFullYear() % 10);
+        break;
+      case "MONTH":
+        out += cased(MONTH_NAMES[date.getMonth()]);
+        break;
+      case "MON":
+        out += cased(MONTH_NAMES[date.getMonth()].slice(0, 3));
+        break;
+      case "MM":
+        out += number2(date.getMonth() + 1, 2);
+        break;
+      case "DDD":
+        out += number2(dayOfYear(date), 3);
+        break;
+      case "DD":
+        out += number2(date.getDate(), 2);
+        break;
+      case "DAY":
+        out += cased(DAY_NAMES[date.getDay()]);
+        break;
+      case "DY":
+        out += cased(DAY_NAMES[date.getDay()].slice(0, 3));
+        break;
+      case "D":
+        out += String(date.getDay() + 1);
+        break;
+      case "HH24":
+        out += number2(date.getHours(), 2);
+        break;
+      case "HH12":
+      case "HH":
+        out += number2(hours12, 2);
+        break;
+      case "MI":
+        out += number2(date.getMinutes(), 2);
+        break;
+      case "SS":
+        out += number2(date.getSeconds(), 2);
+        break;
+      case "SSSSS":
+        out += String(date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds());
+        break;
+      case "AM":
+      case "PM":
+        out += cased(date.getHours() < 12 ? "AM" : "PM");
+        break;
+      case "A.M.":
+      case "P.M.":
+        out += cased(date.getHours() < 12 ? "A.M." : "P.M.");
+        break;
+      case "Q":
+        out += String(Math.floor(date.getMonth() / 3) + 1);
+        break;
+      case "WW":
+        out += number2(Math.floor((dayOfYear(date) - 1) / 7) + 1, 2);
+        break;
+      case "IW":
+        out += number2(isoWeek(date), 2);
+        break;
+      case "W":
+        out += String(Math.floor((date.getDate() - 1) / 7) + 1);
+        break;
+      case "J":
+        out += String(Math.floor(date.getTime() / 864e5 + 24405875e-1));
+        break;
+      case "TZR":
+      case "TZH":
+      case "TZM":
+        break;
+      default:
+        out += pad(date.getMilliseconds(), 3).padEnd(9, "0").slice(0, Number(token.slice(2) || 6));
+    }
+  }
+  return out;
+}
+function formatNumber(value2, upper4) {
+  const number2 = Number(value2);
+  if (!Number.isFinite(number2)) return String(value2);
+  if (/X/u.test(upper4))
+    return Math.round(number2).toString(16)[upper4.includes("x") ? "toLowerCase" : "toUpperCase"]();
+  const body4 = upper4.replace(/^FM/u, "").replace(/^[L$S]/u, "").replace(/(MI|PR|S)$/u, "");
+  const [whole = "", fraction = ""] = body4.split(/[D.]/u);
+  const decimals = fraction.replace(/[^09]/gu, "").length;
+  const zeros = whole.includes("0") ? whole.slice(whole.indexOf("0")).replace(/[^09]/gu, "").length : 0;
+  let text12 = Math.abs(number2).toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    minimumIntegerDigits: Math.max(1, zeros),
+    useGrouping: /[G,]/u.test(whole)
+  });
+  if (!zeros && !decimals && text12 === "0" && whole && !whole.includes("0")) text12 = "0";
+  if (!zeros && text12.startsWith("0.") && !whole.includes("0") && whole) text12 = text12.slice(1);
+  if (/^FM?[L$]|^[L$]/u.test(upper4.replace(/^FM/u, "F"))) text12 = `$${text12}`;
+  if (number2 < 0) return upper4.endsWith("MI") ? `${text12}-` : upper4.endsWith("PR") ? `<${text12}>` : `-${text12}`;
+  return upper4.endsWith("S") && upper4.startsWith("S") ? `+${text12}` : text12;
+}
+function oracleNumberText(value2) {
+  if (Number.isNaN(value2)) return "NaN";
+  if (!Number.isFinite(value2)) return value2 > 0 ? "~" : "-~";
+  if (Number.isInteger(value2)) return Math.abs(value2) < 1e21 ? String(value2 || 0) : BigInt(value2).toString();
+  const rounded = Number(value2.toPrecision(15));
+  if (Number.isInteger(rounded)) return String(rounded || 0);
+  let text12 = String(rounded);
+  if (/e/iu.test(text12)) {
+    const exponent = Number(text12.split(/e/iu)[1]);
+    text12 = rounded.toFixed(Math.min(100, Math.max(0, 15 - exponent))).replace(/\.?0+$/u, "");
+  }
+  return text12.replace(/^(-?)0\./u, "$1.");
+}
+function oracleText(value2) {
+  if (value2 === null || value2 === void 0) return null;
+  if (typeof value2 === "number") return oracleNumberText(value2);
+  if (typeof value2 === "bigint") return value2.toString();
+  return String(value2);
+}
+function decimalNumber(value2) {
+  return Number.isFinite(value2) && !Number.isInteger(value2) ? Number(value2.toPrecision(15)) : value2;
+}
+var DATE_TEXT = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?$/u;
+function arithmeticNumber(value2) {
+  if (typeof value2 === "number") return value2;
+  if (typeof value2 === "bigint") return Number(value2);
+  if (typeof value2 !== "string" || value2.trim() === "") return void 0;
+  const number2 = Number(value2.trim());
+  return Number.isFinite(number2) ? number2 : void 0;
+}
+function arithmeticDate(value2) {
+  if (typeof value2 !== "string" || arithmeticNumber(value2) !== void 0) return void 0;
+  const text12 = value2.trim();
+  return DATE_TEXT.test(text12) || /^\d{1,2}-[A-Za-z]{3}-\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/u.test(text12) ? oracleDate(text12) : void 0;
+}
+var sqlNumber = (value2) => Number.isSafeInteger(value2) ? BigInt(value2) : decimalNumber(value2);
+function sqlArithmetic(left, operator, right) {
+  if (left === null || left === void 0 || right === null || right === void 0) return null;
+  const leftDate = arithmeticDate(left);
+  const rightDate = arithmeticDate(right);
+  if (leftDate && rightDate && operator === "-") {
+    const utc = (date2) => Date.UTC(
+      date2.getFullYear(),
+      date2.getMonth(),
+      date2.getDate(),
+      date2.getHours(),
+      date2.getMinutes(),
+      date2.getSeconds()
+    );
+    return sqlNumber((utc(leftDate) - utc(rightDate)) / 864e5);
+  }
+  const date = leftDate ?? (operator === "+" ? rightDate : void 0);
+  if (date) {
+    const days = arithmeticNumber(leftDate ? right : left);
+    if (days === void 0) return null;
+    const signed = operator === "-" ? -days : days;
+    const whole = Math.trunc(signed);
+    const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + whole);
+    result.setHours(date.getHours(), date.getMinutes(), date.getSeconds());
+    result.setTime(result.getTime() + Math.round((signed - whole) * 86400) * 1e3);
+    const source = String(leftDate ? left : right);
+    const timed = /\d:\d/u.test(source) || result.getHours() || result.getMinutes() || result.getSeconds();
+    return isoDate(result, Boolean(timed));
+  }
+  const a = arithmeticNumber(left);
+  const b = arithmeticNumber(right);
+  if (a === void 0 || b === void 0) return null;
+  return sqlNumber(operator === "-" ? a - b : a + b);
+}
+function parseJsonPath(path12) {
+  const text12 = path12.trim().replace(/^(?:lax|strict)\s+/iu, "");
+  if (!text12.startsWith("$")) return void 0;
+  const steps = [];
+  let index = 1;
+  while (index < text12.length) {
+    const rest = text12.slice(index);
+    let match;
+    if (match = /^\.\*/u.exec(rest)) steps.push({ kind: "any" });
+    else if (match = /^\.([A-Za-z_$][\w$]*)/u.exec(rest)) steps.push({ kind: "field", name: match[1] });
+    else if (match = /^\."((?:[^"\\]|\\.)*)"/u.exec(rest))
+      steps.push({ kind: "field", name: match[1].replace(/\\(.)/gu, "$1") });
+    else if (match = /^\[\s*\*\s*\]/u.exec(rest)) steps.push({ kind: "all" });
+    else if (match = /^\[([^\]]*)\]/u.exec(rest)) {
+      const position2 = (part2) => part2.trim().toLowerCase() === "last" ? "last" : Number(part2);
+      const indexes2 = match[1].split(",").map((part2) => {
+        const range = /^(.+?)\s+to\s+(.+)$/iu.exec(part2.trim());
+        return range ? [position2(range[1]), position2(range[2])] : position2(part2);
+      });
+      if (indexes2.some((entry) => typeof entry === "number" && !Number.isInteger(entry))) return void 0;
+      steps.push({ kind: "index", indexes: indexes2 });
+    } else return void 0;
+    index += match[0].length;
+  }
+  return steps;
+}
+function jsonMatches(doc, pathText) {
+  if (doc === null || doc === void 0 || pathText === null || pathText === void 0) return void 0;
+  const steps = parseJsonPath(String(pathText));
+  if (!steps) return void 0;
+  let data;
+  try {
+    data = typeof doc === "string" ? JSON.parse(doc) : doc;
+  } catch {
+    return void 0;
+  }
+  let current3 = [data];
+  for (const step of steps) {
+    const next = [];
+    for (const value2 of current3) {
+      if (step.kind === "field" || step.kind === "any") {
+        for (const target2 of Array.isArray(value2) ? value2 : [value2]) {
+          if (!target2 || typeof target2 !== "object" || Array.isArray(target2)) continue;
+          if (step.kind === "any") next.push(...Object.values(target2));
+          else if (Object.hasOwn(target2, step.name))
+            next.push(target2[step.name]);
+        }
+      } else {
+        const array = Array.isArray(value2) ? value2 : [value2];
+        if (step.kind === "all") {
+          next.push(...array);
+          continue;
+        }
+        const resolve = (entry) => entry === "last" ? array.length - 1 : entry;
+        for (const entry of step.indexes) {
+          if (Array.isArray(entry)) {
+            for (let cursor = resolve(entry[0]); cursor <= resolve(entry[1]); cursor += 1)
+              if (cursor >= 0 && cursor < array.length) next.push(array[cursor]);
+          } else {
+            const at = resolve(entry);
+            if (at >= 0 && at < array.length) next.push(array[at]);
+          }
+        }
+      }
+    }
+    current3 = next;
+  }
+  return current3;
+}
+function jsonValue(doc, pathText, returning) {
+  const matches3 = jsonMatches(doc, pathText);
+  if (!matches3 || matches3.length !== 1) return null;
+  const value2 = matches3[0];
+  if (value2 === null || typeof value2 === "object") return null;
+  if (returning === "number" || returning === "integer" || returning === "float" || returning === "binary_double") {
+    const number2 = Number(value2);
+    return Number.isFinite(number2) ? number2 : null;
+  }
+  if (typeof value2 === "number") return oracleNumberText(value2);
+  return String(value2);
+}
+function jsonQuery(doc, pathText, wrapper) {
+  const matches3 = jsonMatches(doc, pathText);
+  if (!matches3?.length) return null;
+  if (wrapper) return JSON.stringify(matches3);
+  if (matches3.length !== 1 || matches3[0] === null || typeof matches3[0] !== "object") return null;
+  return JSON.stringify(matches3[0]);
+}
+var POSIX_CLASSES = {
+  alpha: "a-zA-Z",
+  digit: "0-9",
+  alnum: "a-zA-Z0-9",
+  upper: "A-Z",
+  lower: "a-z",
+  space: "\\s",
+  blank: " \\t",
+  punct: "!\"#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]\\^_`{|}~",
+  xdigit: "0-9A-Fa-f",
+  cntrl: "\\x00-\\x1f\\x7f",
+  print: "\\x20-\\x7e",
+  graph: "\\x21-\\x7e",
+  word: "\\w"
+};
+function oracleRegExp(pattern, matchParameter = "", global = false) {
+  let ignoreCase = false;
+  let dotAll = false;
+  let multiline = false;
+  let extended = false;
+  for (const flag3 of matchParameter) {
+    if (flag3 === "i") ignoreCase = true;
+    else if (flag3 === "c") ignoreCase = false;
+    else if (flag3 === "n") dotAll = true;
+    else if (flag3 === "m") multiline = true;
+    else if (flag3 === "x") extended = true;
+  }
+  let source = "";
+  let inClass = false;
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    if (char === "\\") {
+      source += pattern.slice(index, index + 2);
+      index += 1;
+      continue;
+    }
+    if (inClass) {
+      const posix = /^\[:([a-z]+):\]/u.exec(pattern.slice(index));
+      if (posix && POSIX_CLASSES[posix[1]] !== void 0) {
+        source += POSIX_CLASSES[posix[1]];
+        index += posix[0].length - 1;
+        continue;
+      }
+      const equivalence = /^\[[=.](.)[=.]\]/u.exec(pattern.slice(index));
+      if (equivalence) {
+        source += equivalence[1].replace(/[\\\]^-]/u, "\\$&");
+        index += equivalence[0].length - 1;
+        continue;
+      }
+      if (char === "]") inClass = false;
+      else if (char === "[") {
+        source += "\\[";
+        continue;
+      }
+      source += char;
+      continue;
+    }
+    if (char === "[") {
+      inClass = true;
+      source += char;
+      if (pattern[index + 1] === "^") {
+        source += "^";
+        index += 1;
+      }
+      if (pattern[index + 1] === "]") {
+        source += "\\]";
+        index += 1;
+      }
+      continue;
+    }
+    if (extended && /\s/u.test(char)) continue;
+    source += char;
+  }
+  const flags = `${global ? "g" : ""}${ignoreCase ? "i" : ""}${dotAll ? "s" : ""}${multiline ? "m" : ""}`;
+  try {
+    return new RegExp(source, `${flags}u`);
+  } catch {
+    return new RegExp(source, flags);
+  }
+}
+function formatOracle(value2, mask2) {
+  if (value2 === null || value2 === void 0) return null;
+  if (!mask2) return oracleText(value2);
+  const upper4 = mask2.trim().toUpperCase();
+  if (upper4 === "TM" || upper4 === "TM9" || upper4 === "TME")
+    return value2 === "" ? null : oracleNumberText(Number(value2));
+  if (/[90X]/u.test(upper4) && /^(?:FM)?[L$S]?[09GD,.X]+(?:MI|PR|S)?$/u.test(upper4))
+    return formatNumber(value2, upper4);
+  if (upper4 === "DS" || upper4 === "DL") {
+    const date2 = oracleDate(value2);
+    if (!date2) return String(value2);
+    return upper4 === "DS" ? date2.toLocaleDateString("en-US") : date2.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  }
+  const date = oracleDate(value2);
+  return date ? formatDate(date, mask2) : String(value2);
+}
+function parseOracleDate(value2, mask2) {
+  if (value2 === null || value2 === void 0 || value2 === "") return void 0;
+  if (!mask2) return oracleDate(value2);
+  const source = String(value2).trim();
+  const parts = {
+    year: (/* @__PURE__ */ new Date()).getFullYear(),
+    month: 0,
+    day: 1,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    pm: false
+  };
+  let position2 = 0;
+  const digits = (max) => {
+    const match = new RegExp(`^\\d{1,${max}}`, "u").exec(source.slice(position2));
+    if (!match) throw new Error("mismatch");
+    position2 += match[0].length;
+    return Number(match[0]);
+  };
+  try {
+    for (let index = 0; index < mask2.length; ) {
+      const token = DATE_TOKENS.find(
+        (candidate) => mask2.slice(index, index + candidate.length).toUpperCase() === candidate
+      );
+      if (!token) {
+        index += 1;
+        if (/[^\w]/u.test(source[position2] ?? "")) position2 += 1;
+        continue;
+      }
+      index += token.length;
+      switch (token) {
+        case "YYYY":
+        case "RRRR":
+        case "SYYYY":
+          parts.year = digits(4);
+          break;
+        case "YY":
+        case "RR": {
+          const year = digits(2);
+          parts.year = year < 50 ? 2e3 + year : 1900 + year;
+          break;
+        }
+        case "MM":
+          parts.month = digits(2) - 1;
+          break;
+        case "MON":
+        case "MONTH": {
+          const word = /^[A-Za-z]+/u.exec(source.slice(position2))?.[0] ?? "";
+          position2 += word.length;
+          parts.month = MONTH_NAMES.findIndex(
+            (name) => name.slice(0, 3).toUpperCase() === word.slice(0, 3).toUpperCase()
+          );
+          if (parts.month < 0) throw new Error("mismatch");
+          break;
+        }
+        case "DD":
+          parts.day = digits(2);
+          break;
+        case "HH24":
+        case "HH":
+        case "HH12":
+          parts.hour = digits(2);
+          break;
+        case "MI":
+          parts.minute = digits(2);
+          break;
+        case "SS":
+          parts.second = digits(2);
+          break;
+        case "AM":
+        case "PM":
+          parts.pm = /^p/iu.test(source.slice(position2));
+          position2 += 2;
+          break;
+        default:
+          break;
+      }
+    }
+  } catch {
+    return oracleDate(value2);
+  }
+  const hour = parts.pm && parts.hour < 12 ? parts.hour + 12 : parts.hour;
+  const date = new Date(parts.year, parts.month, parts.day, hour, parts.minute, parts.second);
+  return Number.isNaN(date.getTime()) ? void 0 : date;
+}
+function canonicalDate(value2, mask2) {
+  const text12 = value2.trim();
+  if (text12 === "") return value2;
+  const date = DATE_TEXT.test(text12) ? oracleDate(text12) : parseOracleDate(text12, mask2);
+  return date ? isoDate(date) : value2;
+}
+function truncDate(date, unit = "DD") {
+  const upper4 = unit.toUpperCase();
+  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  if (["YYYY", "YEAR", "SYYYY", "YYY", "YY", "Y", "RRRR", "RR", "IYYY"].includes(upper4))
+    result.setMonth(0, 1);
+  else if (["MM", "MON", "MONTH", "RM"].includes(upper4)) result.setDate(1);
+  else if (upper4 === "Q") result.setMonth(Math.floor(date.getMonth() / 3) * 3, 1);
+  else if (upper4 === "IW") result.setDate(result.getDate() - (result.getDay() + 6) % 7);
+  else if (["DAY", "DY", "D"].includes(upper4)) result.setDate(result.getDate() - result.getDay());
+  else if (["HH", "HH24", "HH12"].includes(upper4)) {
+    result.setHours(date.getHours());
+    return isoDate(result);
+  } else if (upper4 === "MI") {
+    result.setHours(date.getHours(), date.getMinutes());
+    return isoDate(result);
+  }
+  return isoDate(result, false);
+}
+var oracleFunctions = /* @__PURE__ */ new Map();
+function registerOracleFunction(name, params2, impl, options3) {
+  const key = name.toLowerCase();
+  oracleFunctions.set(key, {
+    sqlName: key.replaceAll(".", "__"),
+    params: params2,
+    impl,
+    blobs: options3?.blobs ?? false
+  });
+}
+var tableFunctions = /* @__PURE__ */ new Map();
+function registerTableFunction(name, params2, columns, impl) {
+  const key = name.toLowerCase();
+  const upper4 = columns.map((column2) => column2.toUpperCase());
+  registerOracleFunction(
+    name,
+    params2,
+    (args) => JSON.stringify(impl(args).map((row) => upper4.map((column2) => row[column2] ?? null))),
+    { blobs: true }
+  );
+  tableFunctions.set(key.replaceAll(".", "__"), { columns: upper4 });
+}
+var databaseSetups = [];
+function registerDatabaseSetup(setup) {
+  databaseSetups.push(setup);
+}
+var MASK = /\u0000(\d+)\u0000/gu;
+function maskLiterals(sql) {
+  const literals = [];
+  const text12 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
+    literals.push(literal2);
+    return `\0${literals.length - 1}\0`;
+  });
+  return { text: text12, literals };
+}
+var unmask2 = (text12, literals) => text12.replace(MASK, (_match, index) => literals[Number(index)]);
+function closingParen(text12, open3) {
+  let depth = 0;
+  for (let index = open3; index < text12.length; index += 1) {
+    if (text12[index] === "(") depth += 1;
+    else if (text12[index] === ")") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+function topLevelCommas(text12) {
+  const parts = [];
+  let depth = 0;
+  let current3 = "";
+  for (const char of text12) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (char === "," && depth === 0) {
+      parts.push(current3);
+      current3 = "";
+    } else current3 += char;
+  }
+  if (current3.trim() || parts.length) parts.push(current3);
+  return parts;
+}
+function rewritePackageCalls(text12, local) {
+  const pattern = /\b(?:sys\s*\.\s*)?([A-Za-z_][\w$#]*)\s*\.\s*([A-Za-z_][\w$#]*)\s*\(/gu;
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text12); match; match = pattern.exec(text12)) {
+    const key = `${match[1].toLowerCase()}.${match[2].toLowerCase()}`;
+    const fn = oracleFunctions.get(key) ?? local?.get(key);
+    if (!fn) continue;
+    const open3 = match.index + match[0].length - 1;
+    const close3 = closingParen(text12, open3);
+    if (close3 < 0) continue;
+    const args = topLevelCommas(rewritePackageCalls(text12.slice(open3 + 1, close3), local));
+    const positional = [];
+    for (const arg of args) {
+      const named2 = /^\s*([A-Za-z_][\w$#]*)\s*=>\s*([\s\S]*)$/u.exec(arg);
+      if (!named2) positional.push(arg.trim());
+      else {
+        const index = fn.params.indexOf(named2[1].toLowerCase());
+        if (index >= 0) positional[index] = named2[2].trim();
+      }
+    }
+    out += `${text12.slice(last, match.index)}${fn.sqlName}(${Array.from(positional, (arg) => arg ?? "null").join(", ")})`;
+    last = close3 + 1;
+    pattern.lastIndex = close3 + 1;
+  }
+  return rewriteBareCalls(out + text12.slice(last), local);
+}
+function rewriteBareCalls(text12, local) {
+  return text12.replace(
+    /\b(?:sys\s*\.\s*)?([A-Za-z_][\w$#]*)\s*\.\s*([A-Za-z_][\w$#]*)\b(?!\s*[(.])/gu,
+    (whole, pkg, member) => {
+      const key = `${pkg.toLowerCase()}.${member.toLowerCase()}`;
+      const fn = oracleFunctions.get(key) ?? local?.get(key);
+      return fn && BARE_CALLS.has(key) ? `${fn.sqlName}()` : whole;
+    }
+  );
+}
+var BARE_CALLS = /* @__PURE__ */ new Set([
+  "dbms_random.value",
+  "dbms_random.normal",
+  "dbms_random.random",
+  "apex_util.get_session_time_zone",
+  "apex_custom_auth.get_username",
+  "apex_application.get_nls_decimal_separator",
+  "apex_application.get_nls_group_separator"
+]);
+var TABLE_FUNCTIONS = {
+  "apex_util.get_timeframe_lov_data": [
+    ["Last 15 Minutes", 900],
+    ["Last Hour", 3600],
+    ["Last 2 Hours", 7200],
+    ["Last 4 Hours", 14400],
+    ["Last 8 Hours", 28800],
+    ["Last 16 Hours", 57600],
+    ["Last Day", 86400],
+    ["Last 2 Days", 172800],
+    ["Last 3 Days", 259200],
+    ["Last 4 Days", 345600],
+    ["Last 5 Days", 432e3],
+    ["Last Week", 604800],
+    ["Last 2 Weeks", 1209600],
+    ["Last 4 Weeks", 2419200]
+  ].map(([disp, val], index) => `select '${disp}' as disp, ${val} as val, ${index + 1} as insert_order`).join(" union all ")
+};
+function rewriteTableCollections(text12) {
+  const pattern = /\btable\s*\(/giu;
+  const lateral = [];
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text12); match; match = pattern.exec(text12)) {
+    const open3 = match.index + match[0].length - 1;
+    const close3 = closingParen(text12, open3);
+    if (close3 < 0) continue;
+    const inner = text12.slice(open3 + 1, close3).trim();
+    const builtin = TABLE_FUNCTIONS[inner.toLowerCase().replace(/^sys\./u, "")];
+    const registered = tableFunctions.get(/^([\w$#]+)\s*\(/u.exec(inner)?.[1]?.toLowerCase() ?? "");
+    if (registered) {
+      const alias = /^\s*(?:as\s+)?(?!(?:where|on|join|left|inner|cross|group|order|union|connect|start)\b)([A-Za-z_][\w$#]*)/iu.exec(
+        text12.slice(close3 + 1)
+      );
+      const columns = registered.columns.map((column2, index) => `json_extract(value, '$[${index}]') as ${column2.toLowerCase()}`).join(", ");
+      const args = inner.slice(inner.indexOf("(") + 1, -1);
+      if (alias && /\b[A-Za-z_][\w$#]*\s*\.\s*[A-Za-z_"]/u.test(args)) {
+        out += `${text12.slice(last, match.index)}json_each(${inner})`;
+        last = close3 + 1;
+        lateral.push({ alias: alias[1], columns: registered.columns });
+      } else {
+        out += `${text12.slice(last, match.index)}(select ${columns} from json_each(${inner}))`;
+        last = close3 + 1;
+      }
+      pattern.lastIndex = close3 + 1;
+      continue;
+    }
+    out += builtin ? `${text12.slice(last, match.index)}(${builtin})` : `${text12.slice(last, match.index)}(select value as column_value from json_each(${inner}))`;
+    last = close3 + 1;
+    pattern.lastIndex = close3 + 1;
+  }
+  out += text12.slice(last);
+  for (const { alias, columns } of lateral) {
+    out = out.replace(
+      new RegExp(
+        `(\\bselect\\s+(?:distinct\\s+)?|,\\s*)(${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*))(?=\\s*(?:,|\\bfrom\\b))`,
+        "giu"
+      ),
+      (whole, lead, reference, column2) => columns.includes(column2.toUpperCase()) ? `${lead}${reference} as ${column2}` : whole
+    );
+    out = out.replace(
+      new RegExp(`\\b${alias}\\s*\\.\\s*([A-Za-z_][\\w$#]*)\\b`, "giu"),
+      (whole, column2) => {
+        const index = columns.indexOf(column2.toUpperCase());
+        return index < 0 ? whole : `json_extract(${alias}.value, '$[${index}]')`;
+      }
+    );
+  }
+  return out;
+}
+function rewriteRownum(text12) {
+  if (!/\brownum\b/iu.test(text12)) return text12;
+  const predicate2 = /\b(where|and)\s+rownum\s*(<=|<|=)\s*(\d+|:\w+)\s*(and\b)?/giu;
+  for (const match of [...text12.matchAll(predicate2)].reverse()) {
+    let depth = 0;
+    let scopeEnd = text12.length;
+    for (let index = match.index + match[0].length; index < text12.length; index += 1) {
+      if (text12[index] === "(") depth += 1;
+      else if (text12[index] === ")") {
+        if (depth === 0) {
+          scopeEnd = index;
+          break;
+        }
+        depth -= 1;
+      }
+    }
+    const tail = text12.slice(match.index + match[0].length, scopeEnd);
+    if (/\blimit\b/iu.test(tail)) continue;
+    const [, keyword, op, bound, trailingAnd] = match;
+    const limit = op === "<" ? /^\d+$/u.test(bound) ? String(Number(bound) - 1) : `${bound} - 1` : op === "=" ? "1" : bound;
+    const replacement = keyword.toLowerCase() === "where" ? trailingAnd ? "where " : "" : trailingAnd ? "and " : "";
+    text12 = `${text12.slice(0, match.index)}${`${replacement}${tail.trimStart()}`.trimEnd()} limit ${limit}${text12.slice(scopeEnd)}`;
+  }
+  return text12.replace(/\brownum\b/giu, "row_number() over ()");
+}
+function rewriteConnectBy(text12) {
+  const pattern = /(\bfrom\s+[\w$#.]+(?:\s+(?!connect\b)[\w$#]+)?\s+)?\bconnect\s+by\s+(?:level|rownum)\s*(<=|<)\s*/giu;
+  for (let match = pattern.exec(text12); match; match = pattern.exec(text12)) {
+    let depth = 0;
+    let end = match.index + match[0].length;
+    for (; end < text12.length; end += 1) {
+      const char = text12[end];
+      if (char === "(") depth += 1;
+      else if (char === ")") {
+        if (depth === 0) break;
+        depth -= 1;
+      } else if (depth === 0 && /^\s(?:order|union|group|minus|intersect)\b/iu.test(text12.slice(end, end + 12)))
+        break;
+    }
+    const bound = text12.slice(match.index + match[0].length, end).trim();
+    const generator = `(with recursive apex_local_levels(level) as (select 1 union all select level + 1 from apex_local_levels where level < (${bound})${match[2] === "<" ? " - 1" : ""}) select level from apex_local_levels)`;
+    const replacement = match[1] ? `${match[1].trimEnd()}, ${generator} ` : `from ${generator} `;
+    text12 = text12.slice(0, match.index) + replacement + text12.slice(end);
+    pattern.lastIndex = match.index + replacement.length;
+  }
+  return text12;
+}
+var SQL_TOKEN = /(\s*)(\u0000\d+\u0000|"[^"]*"|(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|:[A-Za-z_][\w$#]*|:\d+|[A-Za-z_][\w$#]*|\|\||<=|>=|<>|!=|\^=|~=|->>|->|=>|:=|[\s\S])/uy;
+function tokenizeSql(text12) {
+  const tokens = [];
+  SQL_TOKEN.lastIndex = 0;
+  let position2 = 0;
+  for (let match = SQL_TOKEN.exec(text12); match && match[2]; match = SQL_TOKEN.exec(text12)) {
+    const value2 = match[2];
+    const kind = value2.startsWith("\0") ? "literal" : /^[\d.]/u.test(value2) && value2 !== "." ? "number" : /^:[\w]/u.test(value2) ? "bind" : /^[A-Za-z_"]/u.test(value2) ? "word" : "op";
+    tokens.push({ pre: match[1], text: value2, kind });
+    position2 = SQL_TOKEN.lastIndex;
+  }
+  return { tokens, tail: text12.slice(position2) };
+}
+var renderTokens = (tokens) => tokens.map((token, index) => (index === 0 ? "" : token.pre) + token.text).join("");
+var SQL_KEYWORDS = new Set(
+  "select from where and or not when then else end as on by group order having union all intersect minus except in is like between escape asc desc nulls limit offset join left right inner outer cross natural into values set distinct exists over within partition using with recursive returning default collate glob regexp isnull notnull prior connect interval return".split(" ")
+);
+var isOpToken = (token, ...values) => token?.kind === "op" && values.includes(token.text);
+var isWordToken = (token, ...values) => token?.kind === "word" && values.includes(token.text.toLowerCase());
+function matchForward(tokens, open3) {
+  let depth = 0;
+  for (let index = open3; index < tokens.length; index += 1) {
+    if (isOpToken(tokens[index], "(")) depth += 1;
+    else if (isOpToken(tokens[index], ")")) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+function matchBackward(tokens, close3) {
+  let depth = 0;
+  for (let index = close3; index >= 0; index -= 1) {
+    if (isOpToken(tokens[index], ")")) depth += 1;
+    else if (isOpToken(tokens[index], "(")) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+function callSuffix(tokens, end) {
+  for (; ; ) {
+    const next = tokens[end + 1];
+    if (isWordToken(next, "over", "keep", "filter") && isOpToken(tokens[end + 2], "(")) {
+      const close3 = matchForward(tokens, end + 2);
+      if (close3 < 0) return end;
+      end = close3;
+    } else if (isWordToken(next, "within") && isWordToken(tokens[end + 2], "group") && isOpToken(tokens[end + 3], "(")) {
+      const close3 = matchForward(tokens, end + 3);
+      if (close3 < 0) return end;
+      end = close3;
+    } else return end;
+  }
+}
+function operandEnd(tokens, index) {
+  const token = tokens[index];
+  if (!token) return -1;
+  if (isOpToken(token, "+", "-")) return operandEnd(tokens, index + 1);
+  if (isOpToken(token, "(")) {
+    const close3 = matchForward(tokens, index);
+    return close3 < 0 ? -1 : close3;
+  }
+  if (token.kind === "word") {
+    const lower2 = token.text.toLowerCase();
+    if (lower2 === "case") {
+      let depth = 0;
+      for (let cursor = index; cursor < tokens.length; cursor += 1) {
+        if (isWordToken(tokens[cursor], "case")) depth += 1;
+        else if (isWordToken(tokens[cursor], "end")) {
+          depth -= 1;
+          if (depth === 0) return cursor;
+        }
+      }
+      return -1;
+    }
+    if (SQL_KEYWORDS.has(lower2)) return -1;
+    let end = index;
+    while (isOpToken(tokens[end + 1], ".") && tokens[end + 2]?.kind === "word") end += 2;
+    if (isOpToken(tokens[end + 1], "(")) {
+      const close3 = matchForward(tokens, end + 1);
+      if (close3 < 0) return -1;
+      end = callSuffix(tokens, close3);
+    }
+    return end;
+  }
+  return token.kind === "op" ? -1 : index;
+}
+function operandStart(tokens, index) {
+  const token = tokens[index];
+  if (!token) return -1;
+  if (isOpToken(token, ")")) {
+    let open3 = matchBackward(tokens, index);
+    if (open3 < 0) return -1;
+    if (isWordToken(tokens[open3 - 1], "over", "keep", "filter")) return operandStart(tokens, open3 - 2);
+    if (isWordToken(tokens[open3 - 1], "group") && isWordToken(tokens[open3 - 2], "within"))
+      return operandStart(tokens, open3 - 3);
+    const name = tokens[open3 - 1];
+    if (name?.kind === "word" && !SQL_KEYWORDS.has(name.text.toLowerCase())) {
+      open3 -= 1;
+      while (isOpToken(tokens[open3 - 1], ".") && tokens[open3 - 2]?.kind === "word") open3 -= 2;
+    }
+    return open3;
+  }
+  if (isWordToken(token, "end")) {
+    let depth = 0;
+    for (let cursor = index; cursor >= 0; cursor -= 1) {
+      if (isWordToken(tokens[cursor], "end")) depth += 1;
+      else if (isWordToken(tokens[cursor], "case")) {
+        depth -= 1;
+        if (depth === 0) return cursor;
+      }
+    }
+    return -1;
+  }
+  if (token.kind === "word") {
+    if (SQL_KEYWORDS.has(token.text.toLowerCase())) return -1;
+    let start = index;
+    while (isOpToken(tokens[start - 1], ".") && tokens[start - 2]?.kind === "word") start -= 2;
+    return start;
+  }
+  return token.kind === "op" ? -1 : index;
+}
+function isBinaryAt(tokens, index) {
+  const previous = tokens[index - 1];
+  if (!previous) return false;
+  if (isOpToken(previous, ")")) return true;
+  if (previous.kind === "word")
+    return isWordToken(previous, "end") || !SQL_KEYWORDS.has(previous.text.toLowerCase());
+  return previous.kind !== "op";
+}
+function leftOperand(tokens, operator) {
+  let start = operandStart(tokens, operator - 1);
+  while (start > 0) {
+    const previous = start - 1;
+    if (isOpToken(tokens[previous], "*", "/", "%", "+", "-") && isBinaryAt(tokens, previous)) {
+      const earlier = operandStart(tokens, previous - 1);
+      if (earlier < 0) break;
+      start = earlier;
+    } else if (isOpToken(tokens[previous], "+", "-")) {
+      start = previous;
+      break;
+    } else break;
+  }
+  return start;
+}
+function rightOperand(tokens, operator) {
+  let end = operandEnd(tokens, operator + 1);
+  while (end >= 0 && isOpToken(tokens[end + 1], "*", "/", "%")) {
+    const later = operandEnd(tokens, end + 2);
+    if (later < 0) break;
+    end = later;
+  }
+  return end;
+}
+function rewriteConcatTokens(tokens) {
+  const out = [...tokens];
+  for (let index = 0; index < out.length; index += 1) {
+    if (!isOpToken(out[index], "||")) continue;
+    const start = leftOperand(out, index);
+    if (start < 0) continue;
+    const operands = [renderTokens(out.slice(start, index))];
+    let cursor = index;
+    let end = index;
+    while (isOpToken(out[cursor], "||")) {
+      const last = rightOperand(out, cursor);
+      if (last < 0) break;
+      operands.push(renderTokens(rewriteConcatTokens(out.slice(cursor + 1, last + 1))));
+      end = last;
+      cursor = last + 1;
+    }
+    if (end === index) continue;
+    out.splice(start, end - start + 1, {
+      pre: out[start].pre,
+      text: `concat(${operands.join(", ")})`,
+      kind: "atom"
+    });
+    index = start;
+  }
+  return out;
+}
+var DATE_CAPABLE_CALLS = /* @__PURE__ */ new Set([
+  "trunc",
+  "round",
+  "to_date",
+  "to_timestamp",
+  "last_day",
+  "next_day",
+  "add_months",
+  "datetime",
+  "date",
+  "nvl",
+  "coalesce",
+  "greatest",
+  "least",
+  "max",
+  "min",
+  "decode",
+  "nullif",
+  "new_time",
+  "from_tz",
+  "cast",
+  "apex_local_arith"
+]);
+function dateCapable(tokens) {
+  if (!tokens.length || operandEnd(tokens, 0) !== tokens.length - 1) return false;
+  const first = tokens[0];
+  if (first.kind === "bind") return true;
+  if (first.kind === "atom") return /^apex_local_arith\(/u.test(first.text);
+  if (isOpToken(first, "(")) return dateCapable(tokens.slice(1, -1));
+  if (first.kind !== "word" || isWordToken(first, "case", "null")) return false;
+  const open3 = tokens.findIndex((token) => isOpToken(token, "("));
+  if (open3 < 0) return !isWordToken(tokens.at(-1), "level", "rownum");
+  return DATE_CAPABLE_CALLS.has(tokens[open3 - 1].text.toLowerCase());
+}
+function rewriteDateArithmeticTokens(tokens) {
+  const out = [...tokens];
+  for (let index = 1; index < out.length; index += 1) {
+    if (!isOpToken(out[index], "+", "-") || !isBinaryAt(out, index)) continue;
+    const start = leftOperand(out, index);
+    if (start < 0 || !dateCapable(out.slice(start, index))) continue;
+    const end = rightOperand(out, index);
+    if (end < 0) continue;
+    const right = renderTokens(rewriteDateArithmeticTokens(out.slice(index + 1, end + 1)));
+    out.splice(start, end - start + 1, {
+      pre: out[start].pre,
+      text: `apex_local_arith(${renderTokens(out.slice(start, index))}, '${out[index].text}', ${right})`,
+      kind: "atom"
+    });
+    index = start;
+  }
+  return out;
+}
+function rewriteExpressions(text12, rewrite) {
+  const { tokens, tail } = tokenizeSql(text12);
+  if (!tokens.length) return text12;
+  const lead = tokens[0].pre;
+  return lead + renderTokens(rewrite(tokens)) + tail;
+}
+function rewriteListagg(text12) {
+  const pattern = /\blistagg\s*\(/giu;
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text12); match; match = pattern.exec(text12)) {
+    const open3 = match.index + match[0].length - 1;
+    const close3 = closingParen(text12, open3);
+    if (close3 < 0) continue;
+    const within = /^\s*within\s+group\s*\(/iu.exec(text12.slice(close3 + 1));
+    const orderOpen = within ? close3 + within[0].length : -1;
+    const orderClose = within ? closingParen(text12, orderOpen) : -1;
+    let inner = rewriteListagg(text12.slice(open3 + 1, close3)).replace(/\s+on\s+overflow\s+\w+(?:\s+\u0000\d+\u0000)?(?:\s+(?:with|without)\s+count)?\s*$/iu, "").trim();
+    const distinct = /^distinct\s+/iu.exec(inner);
+    if (distinct) inner = inner.slice(distinct[0].length);
+    const [value2 = "null", separator2] = topLevelCommas(inner).map((part2) => part2.trim());
+    const order = orderClose > 0 ? text12.slice(orderOpen + 1, orderClose).trim() : "";
+    const measure = `apex_local_text(${value2})`;
+    out += text12.slice(last, match.index);
+    out += distinct ? `group_concat(distinct ${measure})` : `group_concat(${measure}, ${separator2 || "''"}${order ? ` ${order}` : ""})`;
+    last = orderClose > 0 ? orderClose + 1 : close3 + 1;
+    pattern.lastIndex = last;
+  }
+  return out + text12.slice(last);
+}
+function rewriteJsonFunctions(text12) {
+  const pattern = /\bjson_(value|query|exists)\s*\(/giu;
+  let out = "";
+  let last = 0;
+  for (let match = pattern.exec(text12); match; match = pattern.exec(text12)) {
+    const open3 = match.index + match[0].length - 1;
+    const close3 = closingParen(text12, open3);
+    if (close3 < 0) continue;
+    const args = topLevelCommas(rewriteJsonFunctions(text12.slice(open3 + 1, close3)));
+    if (args.length < 2) continue;
+    const doc = args[0].replace(/\s+format\s+json\s*$/iu, "").trim();
+    const rest = args.slice(1).join(",").trim();
+    const path12 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
+    if (!path12) continue;
+    const clauses = rest.slice(path12.length);
+    const kind = match[1].toLowerCase();
+    const option = kind === "value" ? /\breturning\s+(number|integer|float|binary_double|date|timestamp)/iu.exec(clauses)?.[1]?.toLowerCase() ?? "" : kind === "query" && /\bwith\s+(?:(?:un)?conditional\s+)?(?:array\s+)?wrapper\b/iu.test(clauses) ? "wrapper" : "";
+    out += `${text12.slice(last, match.index)}json_${kind}(${doc}, ${path12}${option ? `, '${option}'` : ""})`;
+    last = close3 + 1;
+    pattern.lastIndex = last;
+  }
+  return out + text12.slice(last);
+}
+var IDENTITY_MARKER = "/*apex_local_identity*/";
+var PLAIN_DDL = /^\s*(?:create|alter)\s+(?:global\s+temporary\s+)?(?:table|(?:unique\s+)?index)\b/iu;
+function translateOracleSql(sql, local) {
+  if (/\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.test(sql)) sql = translateHierarchy(sql).sql;
+  const trimmed = sql.trim().replace(/;\s*\/?\s*$/u, "").replace(/\n\/\s*$/u, "");
+  const masked = maskLiterals(trimmed);
+  const literal2 = (value2) => {
+    masked.literals.push(value2);
+    return `\0${masked.literals.length - 1}\0`;
+  };
+  const uncommented = masked.text.replace(/--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
+  const ddl = PLAIN_DDL.test(uncommented) && !/\bas\s*\(?\s*select\b/iu.test(uncommented);
+  let text12 = rewriteOuterJoins(uncommented).replace(/#OWNER#\s*\.\s*/gu, "").replace(/#OWNER#/gu, "'APEX_LOCAL'").replace(/\b(?:sys|public)\s*\.\s*dual\b/giu, "dual").replace(/\b(?:sys|public)\s*\.\s*(?=[A-Za-z_][\w$#]*\b(?!\s*[.(]))/giu, "").replace(/\bfrom\s+dual\b/giu, "").replace(/\bselect\s+unique\b/giu, "select distinct").replace(
+    /\binterval\s+(\u0000\d+\u0000)\s+(day|hour|minute|second)s?\b(?:\s*\(\s*\d+\s*\))?/giu,
+    (_whole, value2, unit) => `(cast(${value2} as real) / ${{ day: 1, hour: 24, minute: 1440, second: 86400 }[unit.toLowerCase()]})`
+  ).replace(/\bdefault\s+on\s+null\b/giu, "default").replace(
+    /\bdefault\s+(?:sys(?:date|timestamp)|current_(?:date|timestamp)|localtimestamp)\b/giu,
+    "default (datetime('now','localtime'))"
+  ).replace(/\bdefault\s+(?:date|timestamp)\s+(\u0000\d+\u0000)/giu, "default $1").replace(/\bdefault\s+(sys_guid\s*\(\s*\))/giu, "default ($1)").replace(/\bdate\s+(\u0000\d+\u0000)/giu, "to_date($1)").replace(/\btimestamp\s+(\u0000\d+\u0000)/giu, "to_timestamp($1)").replace(
+    /\bsys(?:date|timestamp)\s*([+-])\s*(\d+(?:\.\d+)?)\b(?!\s*[/*])/giu,
+    (_whole, sign, days) => `datetime('now','localtime',${literal2(`'${sign}${days} days'`)})`
+  ).replace(
+    /\bsys(?:date|timestamp)\b|\bcurrent_(?:date|timestamp)\b|\blocaltimestamp\b/giu,
+    "datetime('now','localtime')"
+  ).replace(
+    /\boffset\s+(\d+|:\w+)\s+rows?\s+fetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu,
+    "limit $2 offset $1"
+  ).replace(/\bfetch\s+(?:first|next)\s+(\d+|:\w+)\s+rows?\s+(?:only|with\s+ties)\b/giu, "limit $1").replace(/\bextract\s*\(\s*(year|month|day|hour|minute|second)\s+from\s+/giu, "apex_local_extract('$1', ").replace(
+    /\btrim\s*\(\s*(both|leading|trailing)\s+(\u0000\d+\u0000)\s+from\s+([^()]*?(?:\([^()]*\)[^()]*?)*)\)/giu,
+    (_whole, side, chars, value2) => `${{ both: "trim", leading: "ltrim", trailing: "rtrim" }[side.toLowerCase()]}(${value2.trim()}, ${chars})`
+  ).replace(
+    /\bcast\s*\(([^()]*(?:\([^()]*\)[^()]*)*?)\s+as\s+(?:date|timestamp(?:\s*\(\s*\d\s*\))?(?:\s+with(?:\s+local)?\s+time\s+zone)?)\s*\)/giu,
+    "($1)"
+  ).replace(/\s+at\s+(?:local\b|time\s+zone\s+(?:\u0000\d+\u0000|[\w$#.:+-]+))/giu, "").replace(
+    /\b(?:[A-Za-z_][\w$#]*\.)?([A-Za-z_][\w$#]*)\.(nextval|currval)\b/giu,
+    (_whole, name, kind) => `apex_local_${kind.toLowerCase()}('${name.toUpperCase()}')`
+  ).replace(/\bdefault\s+(apex_local_(?:nextval|currval)\('[\w$#]+'\))/giu, "default ($1)").replace(
+    /\bdefault\s+(?!\()((?:[A-Za-z_][\w$#]*\.)?[A-Za-z_][\w$#]*\s*\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\))/giu,
+    "default ($1)"
+  ).replace(
+    /\bgenerated\s+(?:always|by\s+default(?:\s+on\s+null)?)\s+as\s+identity(?:\s*\([^)]*\))?/giu,
+    IDENTITY_MARKER
+  ).replace(
+    /\b(?:number|integer|int)(?:\s*\(\s*\d+\s*\))?(\s+\/\*apex_local_identity\*\/(?:\s+not\s+null)?\s+(?:constraint\s+[\w$#"]+\s+)?primary\s+key)\b/giu,
+    "integer$1"
+  ).replace(/\bvarchar2\s*\((\d+)\s*(?:char|byte)\)/giu, "varchar2($1)").replace(/\busing\s+index\b(?:\s+\w+)?/giu, "").replace(/\benable\b|\bnovalidate\b/giu, "").replace(/(?<!\*\s*1\.0\s*|\*)\/(?!\*)/gu, "* 1.0 /");
+  text12 = rewriteJsonFunctions(
+    rewriteListagg(
+      rewriteRownum(rewriteConnectBy(rewriteTableCollections(rewritePackageCalls(text12, local))))
+    )
+  );
+  if (ddl) text12 = cleanTableDdl(text12);
+  else text12 = rewriteExpressions(rewriteExpressions(text12, rewriteConcatTokens), rewriteDateArithmeticTokens);
+  return unmask2(text12, masked.literals);
+}
+function translateMerge(sql, local) {
+  const masked = maskLiterals(translateOracleSql(sql, local));
+  const text12 = masked.text;
+  const head = /^\s*merge\s+into\s+([\w$#."]+)(?:\s+(?:as\s+)?(?!using\b)([\w$#]+))?\s+using\s+/iu.exec(text12);
+  if (!head) return void 0;
+  const table = head[1];
+  const alias = head[2] ?? table;
+  let position2 = head[0].length;
+  let source;
+  if (text12[position2] === "(") {
+    const close4 = closingParen(text12, position2);
+    if (close4 < 0) return void 0;
+    source = text12.slice(position2 + 1, close4);
+    position2 = close4 + 1;
+  } else {
+    const name = /^[\w$#."]+/u.exec(text12.slice(position2))[0];
+    source = name.toLowerCase() === "dual" ? "select 1 as dummy" : `select * from ${name}`;
+    position2 += name.length;
+  }
+  const sourceAlias = /^\s*(?:as\s+)?(?!on\b)([\w$#]+)/iu.exec(text12.slice(position2));
+  const sAlias = sourceAlias ? sourceAlias[1] : "apex_local_src";
+  if (sourceAlias) position2 += sourceAlias[0].length;
+  const on = /^\s*on\s*\(/iu.exec(text12.slice(position2));
+  if (!on) return void 0;
+  const open3 = position2 + on[0].length - 1;
+  const close3 = closingParen(text12, open3);
+  const condition = text12.slice(open3 + 1, close3);
+  const rest = text12.slice(close3 + 1);
+  const from = `from (${source}) as ${sAlias}`;
+  const statements = [];
+  const matched = /\bwhen\s+matched\s+then\s+update\s+set\s+([\s\S]*?)(?=\bwhen\s+not\s+matched\b|$)/iu.exec(
+    rest
+  );
+  if (matched) {
+    const [assignments, where2] = matched[1].split(/\bwhere\b/iu);
+    const sets = topLevelCommas(assignments.replace(/\bdelete\s+where[\s\S]*$/iu, "")).map((assignment) => {
+      const [column2, ...value2] = assignment.split("=");
+      const name = column2.trim().replace(/^[\w$#]+\./u, "");
+      return `${name} = (select ${value2.join("=").trim()} ${from} where ${condition})`;
+    });
+    statements.push(
+      `update ${table} as ${alias} set ${sets.join(", ")} where exists (select 1 ${from} where ${condition}${where2 ? ` and (${where2})` : ""})`
+    );
+  }
+  const insert = /\bwhen\s+not\s+matched\s+then\s+insert\s*(\([^)]*\))?\s*values\s*\(([\s\S]*)\)\s*(?:where\s+([\s\S]*))?$/iu.exec(
+    rest.replace(/\bwhen\s+matched\s+then\s+update[\s\S]*?(?=\bwhen\s+not\s+matched\b)/iu, "")
+  );
+  if (insert) {
+    statements.push(
+      `insert into ${table} ${insert[1] ?? ""} select ${insert[2]} ${from} where not exists (select 1 from ${table} as ${alias} where ${condition})${insert[3] ? ` and (${insert[3]})` : ""}`
+    );
+  }
+  return statements.length ? statements.map((statement) => unmask2(statement, masked.literals)) : void 0;
+}
+function bindNames(sql) {
+  const names = /* @__PURE__ */ new Set();
+  const stripped = sql.replace(/'(?:[^']|'')*'|"[^"]*"|--[^\n]*|\/\*[\s\S]*?\*\//gu, " ");
+  for (const match of stripped.matchAll(/(?<![:\w]):([A-Za-z][\w$#]*)/gu)) names.add(match[1]);
+  return [...names];
+}
+var SQLPLUS_COMMAND = /^(?:prompt|set|spool|whenever|exec|@|rem\b|--|show(?:\s|$)|sho\s|define\s|undefine\s|exit\b|quit\b|pause\b|col(?:umn)?\s|clear\s|ttitle\b|btitle\b|timing\b)/iu;
+var PLSQL_UNIT = /^(?:\/\*[\s\S]*?\*\/\s*)*(?:begin|declare|create\s+(?:or\s+replace\s+)?(?:editionable\s+|noneditionable\s+)?(?:package|procedure|function|trigger|type)\b)/iu;
+function splitScriptUnits(script) {
+  const units = [];
+  let current3 = "";
+  let plsql = false;
+  const push2 = () => {
+    const text12 = plsql ? current3.trim() : current3.trim().replace(/;\s*$/u, "");
+    if (text12) units.push({ kind: plsql ? "plsql" : "sql", text: text12 });
+    current3 = "";
+    plsql = false;
+  };
+  for (const line of script.replace(/\r\n?/gu, "\n").split("\n")) {
+    const trimmed = line.trim();
+    if (!current3.trim() && SQLPLUS_COMMAND.test(trimmed)) continue;
+    if (!plsql && trimmed.startsWith("--")) {
+      current3 += `${line}
+`;
+      continue;
+    }
+    if (!plsql && PLSQL_UNIT.test(`${current3.replace(/--[^\n]*/gu, "")}${trimmed}`.trim())) plsql = true;
+    if (trimmed === "/") {
+      push2();
+      continue;
+    }
+    current3 += `${line}
+`;
+    if (!plsql && /;\s*(?:--.*)?$/u.test(trimmed)) push2();
+  }
+  if (current3.trim()) push2();
+  return units;
+}
+function splitScript(script) {
+  return splitScriptUnits(script).filter((unit) => unit.kind === "sql").map((unit) => unit.text);
+}
+var BLOB_TOKEN = /^\[blob (\d+) bytes #([0-9a-f]{16})\]$/u;
+var BLOB_CACHE_BYTES = 128 * 1048576;
+var LocalDatabase = class {
+  dialect = "sqlite";
+  db;
+  file;
+  #binds = {};
+  #blobs = /* @__PURE__ */ new Map();
+  #blobBytes = 0;
+  #functions = /* @__PURE__ */ new Set();
+  #sequences = /* @__PURE__ */ new Map();
+  #dirtySequences = /* @__PURE__ */ new Set();
+  #writes;
+  #localFunctions = /* @__PURE__ */ new Map();
+  constructor(file) {
+    this.file = file;
+    if (file !== ":memory:") fs3.mkdirSync(path3.dirname(file), { recursive: true });
+    this.db = new DatabaseSync(file);
+    this.#registerOracleFunctions();
+    for (const setup of databaseSetups) setup(this);
+  }
+  /**
+   * Query results carry BLOBs as tokens (`[blob N bytes #hash]`) so they fit session state,
+   * PL/SQL variables and bind values; binding a token, or passing it to a blob-aware function,
+   * restores the bytes. Recently seen BLOBs are kept in memory for that.
+   */
+  blobToken(bytes2) {
+    const key = crypto.createHash("sha1").update(bytes2).digest("hex").slice(0, 16);
+    const token = `[blob ${bytes2.length} bytes #${key}]`;
+    if (this.#blobs.has(token)) this.#blobs.delete(token);
+    else this.#blobBytes += bytes2.length;
+    this.#blobs.set(token, bytes2);
+    for (const [oldest, value2] of this.#blobs) {
+      if (this.#blobBytes <= BLOB_CACHE_BYTES || oldest === token) break;
+      this.#blobs.delete(oldest);
+      this.#blobBytes -= value2.length;
+    }
+    return token;
+  }
+  /** Bytes of a BLOB value or token; undefined for anything else. */
+  blob(value2) {
+    if (value2 instanceof Uint8Array) return value2;
+    if (typeof value2 !== "string" || !BLOB_TOKEN.test(value2)) return void 0;
+    return this.#blobs.get(value2);
+  }
+  static isBlobToken(value2) {
+    return typeof value2 === "string" && BLOB_TOKEN.test(value2);
+  }
+  #sqlValue(value2) {
+    if (typeof value2 === "bigint") return Number(value2);
+    if (typeof value2 === "number") return decimalNumber(value2);
+    if (value2 instanceof Uint8Array) return this.blobToken(value2);
+    return value2 ?? null;
+  }
+  #registerOracleFunctions() {
+    const fn = (name, implementation, varargs = true) => this.db.function(name, { varargs, deterministic: false }, implementation);
+    fn("nvl", (value2, fallback) => value2 ?? fallback ?? null);
+    fn(
+      "nvl2",
+      (value2, whenSet, whenNull) => value2 !== null && value2 !== void 0 ? whenSet ?? null : whenNull ?? null
+    );
+    fn("decode", (...args) => {
+      const [expression, ...pairs] = args;
+      for (let index = 0; index + 1 < pairs.length; index += 2) {
+        if (pairs[index] === expression || pairs[index] === null && expression === null)
+          return pairs[index + 1] ?? null;
+      }
+      return pairs.length % 2 === 1 ? pairs.at(-1) ?? null : null;
+    });
+    fn("to_char", (value2, mask2) => formatOracle(value2, typeof mask2 === "string" ? mask2 : void 0));
+    fn("concat", (...args) => {
+      if (args.every((arg) => arg === null || arg === void 0)) return null;
+      return args.map((arg) => oracleText(arg) ?? "").join("");
+    });
+    fn("apex_local_text", (value2) => oracleText(value2));
+    fn("apex_local_arith", (left, operator, right) => sqlArithmetic(left, String(operator), right));
+    fn("json_value", (doc, pathText, returning) => jsonValue(doc, pathText, returning));
+    fn("json_query", (doc, pathText, wrapper) => jsonQuery(doc, pathText, wrapper === "wrapper"));
+    fn("json_exists", (doc, pathText) => {
+      const matches3 = jsonMatches(doc, pathText);
+      return matches3 === void 0 ? null : matches3.length ? 1 : 0;
+    });
+    fn("to_number", (value2, format2) => {
+      if (value2 === null || value2 === "") return null;
+      if (typeof format2 === "string" && /^x+$/iu.test(format2) && /^[0-9a-f]+$/iu.test(String(value2))) {
+        const hex = String(value2);
+        if (hex.length <= 13) return Number.parseInt(hex, 16);
+        const digest = crypto.createHash("sha256").update(hex.toUpperCase()).digest();
+        return Number(digest.readBigUInt64BE(0) & 0x1fffffffffffffn);
+      }
+      return Number(value2);
+    });
+    fn("to_date", (value2, mask2) => {
+      const date = parseOracleDate(value2, typeof mask2 === "string" ? mask2 : void 0);
+      return date ? isoDate(date) : null;
+    });
+    fn("to_timestamp", (value2, mask2) => {
+      const date = parseOracleDate(value2, typeof mask2 === "string" ? mask2 : void 0);
+      return date ? isoDate(date) : null;
+    });
+    fn("trunc", (value2, unit) => {
+      if (typeof value2 === "number")
+        return Math.trunc(value2 * 10 ** Number(unit ?? 0)) / 10 ** Number(unit ?? 0);
+      if (typeof value2 === "string" && /^\s*-?\d+(\.\d+)?\s*$/u.test(value2)) return Math.trunc(Number(value2));
+      const date = oracleDate(value2);
+      return date ? truncDate(date, typeof unit === "string" ? unit : "DD") : value2 ?? null;
+    });
+    fn(
+      "initcap",
+      (value2) => value2 === null ? null : String(value2).toLowerCase().replace(/\b\w/gu, (char) => char.toUpperCase())
+    );
+    fn(
+      "lpad",
+      (value2, size, fill2) => value2 === null ? null : String(value2).padStart(Number(size), String(fill2 ?? " ")).slice(0, Number(size))
+    );
+    fn(
+      "rpad",
+      (value2, size, fill2) => value2 === null ? null : String(value2).padEnd(Number(size), String(fill2 ?? " ")).slice(0, Number(size))
+    );
+    fn("add_months", (value2, months) => {
+      const date = oracleDate(value2);
+      if (!date) return null;
+      const lastDay = (year, month) => new Date(year, month + 1, 0).getDate();
+      const day = date.getDate();
+      const monthEnd = day === lastDay(date.getFullYear(), date.getMonth());
+      date.setDate(1);
+      date.setMonth(date.getMonth() + Math.trunc(Number(months)));
+      const target2 = lastDay(date.getFullYear(), date.getMonth());
+      date.setDate(monthEnd ? target2 : Math.min(day, target2));
+      return isoDate(date);
+    });
+    fn("months_between", (left, right) => {
+      const a = oracleDate(left);
+      const b = oracleDate(right);
+      return a && b ? (a.getFullYear() - b.getFullYear()) * 12 + (a.getMonth() - b.getMonth()) + (a.getDate() - b.getDate()) / 31 : null;
+    });
+    fn(
+      "greatest",
+      (...args) => args.some((arg) => arg === null) ? null : args.reduce((a, b) => (a ?? 0) > (b ?? 0) ? a : b)
+    );
+    fn(
+      "least",
+      (...args) => args.some((arg) => arg === null) ? null : args.reduce((a, b) => (a ?? 0) < (b ?? 0) ? a : b)
+    );
+    const flagText = (flags) => typeof flags === "string" ? flags : "";
+    fn(
+      "regexp_like",
+      (value2, pattern, flags) => value2 === null || pattern === null || value2 === void 0 || pattern === void 0 ? null : oracleRegExp(String(pattern), flagText(flags)).test(String(oracleText(value2))) ? 1 : 0
+    );
+    fn("regexp_replace", (value2, pattern, replacement, position2, occurrence, flags) => {
+      if (value2 === null) return null;
+      const text12 = String(value2);
+      const offset = Number(position2 ?? 1) - 1;
+      const nth = Number(occurrence ?? 0);
+      const regex = oracleRegExp(String(pattern ?? ""), flagText(flags), true);
+      const single = oracleRegExp(String(pattern ?? ""), flagText(flags));
+      const replace = String(replacement ?? "").replace(/\\(\d)/gu, "$$$1");
+      let count = 0;
+      return text12.slice(0, offset) + text12.slice(offset).replace(regex, (...match) => {
+        count += 1;
+        if (nth && count !== nth) return match[0];
+        return match[0].replace(single, replace);
+      });
+    });
+    fn(
+      "replace",
+      (value2, search, replacement) => value2 === null || value2 === void 0 ? null : search === null || search === void 0 || search === "" ? String(value2) : String(value2).split(String(search)).join(replacement === null || replacement === void 0 ? "" : String(replacement))
+    );
+    fn("v", (name) => {
+      const value2 = this.#binds[String(name).toUpperCase()];
+      return value2 === void 0 || value2 === "" ? null : value2;
+    });
+    fn("nv", (name) => {
+      const value2 = this.#binds[String(name).toUpperCase()];
+      return value2 === null || value2 === void 0 || value2 === "" ? null : Number(value2);
+    });
+    fn("sys_context", (namespace, parameter2) => {
+      const key = String(parameter2 ?? "").toUpperCase();
+      if (String(namespace).toUpperCase() === "APEX$SESSION")
+        return this.#binds[key === "APP_SESSION" ? "APP_SESSION" : key] ?? null;
+      if (key === "SESSION_USER" || key === "CURRENT_USER" || key === "CURRENT_SCHEMA") return "APEX_LOCAL";
+      if (key === "LANG" || key === "LANGUAGE") return "US";
+      return null;
+    });
+    fn("instr", (value2, search, start, occurrence) => {
+      if (value2 === null || search === null) return null;
+      const text12 = String(value2);
+      const needle = String(search);
+      let from = Number(start ?? 1);
+      let count = Number(occurrence ?? 1);
+      if (from > 0) {
+        let index2 = from - 2;
+        while (count > 0) {
+          index2 = text12.indexOf(needle, index2 + 1);
+          if (index2 < 0) return 0;
+          count -= 1;
+        }
+        return index2 + 1;
+      }
+      let index = text12.length + from + 1;
+      while (count > 0) {
+        index = text12.lastIndexOf(needle, index - 1);
+        if (index < 0) return 0;
+        count -= 1;
+      }
+      from = index + 1;
+      return from;
+    });
+    fn("chr", (code) => code === null ? null : String.fromCharCode(Number(code)));
+    fn("ascii", (value2) => value2 === null || value2 === "" ? null : String(value2).charCodeAt(0));
+    fn("bitand", (left, right) => left === null || right === null ? null : Number(left) & Number(right));
+    fn("translate", (value2, from, to) => {
+      if (value2 === null || from === null) return null;
+      const source = String(from);
+      const target2 = String(to ?? "");
+      return [...String(value2)].map((char) => {
+        const index = source.indexOf(char);
+        return index < 0 ? char : target2[index] ?? "";
+      }).join("");
+    });
+    fn("regexp_substr", (value2, pattern, position2, occurrence, flags, group2) => {
+      if (value2 === null || pattern === null) return null;
+      const regex = oracleRegExp(String(pattern), flagText(flags), true);
+      const matches3 = [
+        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(regex)
+      ];
+      const match = matches3[Number(occurrence ?? 1) - 1];
+      return match ? match[Number(group2 ?? 0)] ?? null : null;
+    });
+    fn("regexp_instr", (value2, pattern, position2, occurrence, returnOption, flags) => {
+      if (value2 === null || pattern === null) return null;
+      const offset = Number(position2 ?? 1) - 1;
+      const matches3 = [
+        ...String(value2).slice(offset).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
+      ];
+      const match = matches3[Number(occurrence ?? 1) - 1];
+      if (!match) return 0;
+      return match.index + offset + 1 + (Number(returnOption ?? 0) ? match[0].length : 0);
+    });
+    fn(
+      "regexp_count",
+      (value2, pattern, position2, flags) => value2 === null || pattern === null ? null : [
+        ...String(value2).slice(Number(position2 ?? 1) - 1).matchAll(oracleRegExp(String(pattern), flagText(flags), true))
+      ].length
+    );
+    fn("last_day", (value2) => {
+      const date = oracleDate(value2);
+      return date ? isoDate(new Date(date.getFullYear(), date.getMonth() + 1, 0), false) : null;
+    });
+    fn("next_day", (value2, day) => {
+      const date = oracleDate(value2);
+      if (!date) return null;
+      const target2 = DAY_NAMES.findIndex(
+        (name) => name.slice(0, 3).toUpperCase() === String(day).slice(0, 3).toUpperCase()
+      );
+      const result = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+      while (target2 >= 0 && result.getDay() !== target2) result.setDate(result.getDate() + 1);
+      return isoDate(result, false);
+    });
+    fn("to_clob", (value2) => value2 ?? null);
+    fn("from_tz", (value2) => value2 ?? null);
+    fn("to_nchar", (value2) => value2 === null || value2 === void 0 ? null : String(value2));
+    fn("empty_clob", () => null);
+    fn("empty_blob", () => new Uint8Array());
+    fn("to_blob", (value2) => typeof value2 === "string" ? this.blob(value2) ?? value2 : value2 ?? null);
+    fn("apex_local_num", (value2) => {
+      if (typeof value2 !== "string") return value2 ?? null;
+      const trimmed = value2.trim();
+      return trimmed !== "" && Number.isFinite(Number(trimmed)) ? Number(trimmed) : value2;
+    });
+    fn("apex_local_extract", (unit, value2) => {
+      const date = oracleDate(value2);
+      if (!date) return null;
+      switch (String(unit).toLowerCase()) {
+        case "year":
+          return date.getFullYear();
+        case "month":
+          return date.getMonth() + 1;
+        case "day":
+          return date.getDate();
+        case "hour":
+          return date.getHours();
+        case "minute":
+          return date.getMinutes();
+        default:
+          return date.getSeconds();
+      }
+    });
+    fn("apex_local_nextval", (name) => this.#nextval(String(name)));
+    fn("apex_local_currval", (name) => this.#sequences.get(String(name))?.value ?? null);
+    fn("sys_guid", () => crypto.randomUUID().replaceAll("-", "").toUpperCase());
+    fn("ora_hash", (value2, bucket, seed) => {
+      if (value2 === null || value2 === void 0) return null;
+      const digest = crypto.createHash("md5").update(`${String(seed ?? 0)}|${String(value2)}`).digest().readUInt32BE(0);
+      const max = bucket === null || bucket === void 0 ? 4294967295 : Number(bucket);
+      return digest % (max + 1);
+    });
+    fn("numtodsinterval", (value2, unit) => {
+      if (value2 === null || value2 === void 0) return null;
+      const per = { DAY: 1, HOUR: 24, MINUTE: 1440, SECOND: 86400 };
+      return Number(value2) / (per[String(unit ?? "DAY").toUpperCase()] ?? 1);
+    });
+    fn("numtoyminterval", (value2, unit) => {
+      if (value2 === null || value2 === void 0) return null;
+      return Number(value2) * (String(unit ?? "MONTH").toUpperCase() === "YEAR" ? 365.25 : 30.4375);
+    });
+    fn(
+      "rawtohex",
+      (value2) => value2 === null || value2 === void 0 ? null : Buffer.from(String(value2), "utf8").toString("hex").toUpperCase()
+    );
+    fn(
+      "hextoraw",
+      (value2) => value2 === null || value2 === void 0 ? null : Buffer.from(String(value2), "hex").toString("utf8")
+    );
+  }
+  /**
+   * Makes an application function callable from SQL: `pkg.fn(...)` or a standalone `fn(...)`.
+   * The implementation may run statements on this database; session binds are restored after it.
+   * A standalone name that SQLite or an Oracle shim already defines is not replaced.
+   */
+  registerLocalFunction(name, params2, impl) {
+    const key = name.toLowerCase();
+    const sqlName = key.includes(".") ? `apex_local_fn__${key.replaceAll(".", "__")}` : key;
+    if (!key.includes(".")) {
+      const existing = this.db.prepare("select 1 from pragma_function_list where name = ?").get(sqlName);
+      if (existing) return false;
+    }
+    this.db.function(sqlName, { varargs: true, deterministic: false }, (...args) => {
+      const binds = this.#binds;
+      try {
+        return this.#sqlValue(impl(args.map((arg) => this.#sqlValue(arg))));
+      } finally {
+        this.#binds = binds;
+      }
+    });
+    if (key.includes(".")) this.#localFunctions.set(key, { sqlName, params: params2 });
+    return true;
+  }
+  /** Package functions registered after this database was opened. */
+  #syncFunctions() {
+    if (this.#functions.size === oracleFunctions.size) return;
+    for (const [name, fn] of oracleFunctions) {
+      if (this.#functions.has(name)) continue;
+      this.#functions.add(name);
+      this.db.function(fn.sqlName, { varargs: true, deterministic: false }, (...args) => {
+        if (!fn.blobs) return fn.impl(args.map((arg) => this.#sqlValue(arg)));
+        const values = args.map(
+          (arg) => typeof arg === "bigint" ? Number(arg) : this.blob(arg) ?? arg ?? null
+        );
+        return fn.impl(values);
+      });
+    }
+  }
+  #loadSequences() {
+    this.db.exec(
+      "create table if not exists apex_local_sequences (name text primary key, value integer, increment integer, start integer)"
+    );
+    for (const row of this.db.prepare("select name, value, increment, start from apex_local_sequences").all())
+      if (!this.#dirtySequences.has(row.name))
+        this.#sequences.set(row.name, { value: row.value, increment: row.increment, start: row.start });
+  }
+  #nextval(name) {
+    const sequence4 = this.#sequences.get(name) ?? { value: null, increment: 1, start: 1 };
+    sequence4.value = sequence4.value === null ? sequence4.start : sequence4.value + sequence4.increment;
+    this.#sequences.set(name, sequence4);
+    this.#dirtySequences.add(name);
+    return sequence4.value;
+  }
+  #flushSequences() {
+    if (!this.#dirtySequences.size) return;
+    const upsert = this.db.prepare(
+      "insert into apex_local_sequences (name, value, increment, start) values (?, ?, ?, ?) on conflict(name) do update set value = excluded.value"
+    );
+    for (const name of this.#dirtySequences) {
+      const sequence4 = this.#sequences.get(name);
+      upsert.run(name, sequence4.value, sequence4.increment, sequence4.start);
+    }
+    this.#dirtySequences.clear();
+  }
+  /** `create sequence` / `drop sequence` DDL, kept in a bookkeeping table. */
+  #sequenceDdl(statement) {
+    const sql = statement.replace(/^(?:\s+|--[^\n]*|\/\*[\s\S]*?\*\/)+/u, "");
+    const create2 = /^\s*create\s+(?:or\s+replace\s+)?sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?([\s\S]*)$/iu.exec(sql);
+    const drop = /^\s*drop\s+sequence\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/iu.exec(sql);
+    if (!create2 && !drop) return false;
+    this.#loadSequences();
+    const name = (create2 ?? drop)[1].toUpperCase();
+    if (drop) {
+      this.#sequences.delete(name);
+      this.db.prepare("delete from apex_local_sequences where name = ?").run(name);
+      return true;
+    }
+    const options3 = create2[2] ?? "";
+    const start = Number(/\bstart\s+with\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
+    const increment = Number(/\bincrement\s+by\s+(-?\d+)/iu.exec(options3)?.[1] ?? 1);
+    this.#sequences.set(name, { value: null, increment, start });
+    this.#dirtySequences.add(name);
+    this.#flushSequences();
+    return true;
+  }
+  #prepare(sql, binds) {
+    this.#binds = Object.fromEntries(Object.entries(binds).map(([key, value2]) => [key.toUpperCase(), value2]));
+    this.#syncFunctions();
+    const translated = translateOracleSql(sql, this.#localFunctions);
+    if (/\bapex_local_(?:nextval|currval)\(/u.test(translated)) this.#loadSequences();
+    const values = {};
+    for (const name of bindNames(translated)) {
+      const bound = this.#binds[name.toUpperCase()] ?? null;
+      const value2 = bound === "" ? null : bound;
+      values[name] = typeof value2 === "number" && Number.isSafeInteger(value2) ? BigInt(value2) : this.blob(value2) ?? value2;
+    }
+    const statement = this.db.prepare(translated);
+    statement.setAllowUnknownNamedParameters(true);
+    return { statement, values };
+  }
+  query(sql, binds = {}, maxRows = 1e4) {
+    const { statement, values } = this.#prepare(sql, binds);
+    const columns = statement.columns().map((column2) => column2.name.toUpperCase());
+    const rows = [];
+    for (const raw2 of statement.iterate(values)) {
+      const row = {};
+      for (const [key, value2] of Object.entries(raw2))
+        row[key.toUpperCase()] = this.#sqlValue(value2);
+      rows.push(row);
+      if (rows.length >= maxRows) break;
+    }
+    this.#flushSequences();
+    return { columns, rows };
+  }
+  /** Like query, with BLOB columns as bytes and columns in select order. */
+  rawQuery(sql, binds = {}, maxRows = 1e4) {
+    const { statement, values } = this.#prepare(sql, binds);
+    statement.setReturnArrays(true);
+    const columns = statement.columns().map((column2) => column2.name.toUpperCase());
+    const rows = [];
+    for (const raw2 of statement.iterate(values)) {
+      rows.push(
+        raw2.map(
+          (value2) => typeof value2 === "bigint" ? Number(value2) : typeof value2 === "number" ? decimalNumber(value2) : value2
+        )
+      );
+      if (rows.length >= maxRows) break;
+    }
+    this.#flushSequences();
+    return { columns, rows };
+  }
+  execute(sql, binds = {}) {
+    if (this.#sequenceDdl(sql)) return { changes: 0, lastInsertRowid: 0 };
+    const created = /^\s*create\s+(?:global\s+temporary\s+)?table\s+(?:"?[\w$#]+"?\s*\.\s*)?"?([\w$#]+)"?/iu.exec(sql);
+    const identityTable = created && /\bas\s+identity\b/iu.test(sql) ? created[1] : void 0;
+    const view = /^\s*create\s+or\s+replace\s+(?:(?:no\s*)?force\s+)?(?:editionable\s+|noneditionable\s+)?view\s+((?:"?[\w$#]+"?\.)?"?[\w$#]+"?)/iu.exec(
+      sql
+    );
+    if (view) {
+      this.db.exec(`drop view if exists ${view[1].replace(/^"?[\w$#]+"?\./u, "")}`);
+      sql = sql.replace(
+        /^\s*create\s+or\s+replace\s+(?:(?:no\s*)?force\s+)?(?:editionable\s+|noneditionable\s+)?view/iu,
+        "create view"
+      );
+    }
+    if (/^\s*merge\s+into\b/iu.test(sql)) {
+      const statements = translateMerge(sql, this.#localFunctions);
+      if (!statements) throw new Error("MERGE statement form is not supported locally");
+      let changes = 0;
+      let lastInsertRowid = 0;
+      for (const statement2 of statements) {
+        const result2 = this.execute(statement2, binds);
+        changes += result2.changes;
+        lastInsertRowid = result2.lastInsertRowid || lastInsertRowid;
+      }
+      return { changes, lastInsertRowid };
+    }
+    const { statement, values } = this.#prepare(sql, binds);
+    const result = statement.run(values);
+    this.#flushSequences();
+    if (identityTable) this.#numberIdentities(identityTable);
+    return { changes: Number(result.changes), lastInsertRowid: Number(result.lastInsertRowid) };
+  }
+  /**
+   * Identity columns that did not become the INTEGER PRIMARY KEY get the next number after an
+   * insert that left them empty, as Oracle's GENERATED BY DEFAULT ON NULL does.
+   */
+  #numberIdentities(table) {
+    const row = this.db.prepare("select name, sql from sqlite_master where type = 'table' and upper(name) = upper(?)").get(table);
+    if (!row) return;
+    for (const match of row.sql.matchAll(
+      // A column definition follows `(` or `,`; its type may carry a precision such as NUMBER(10).
+      /[(,]\s*"?([\w$#]+)"?\s+[^,(]*(?:\([^)]*\)[^,(]*)?\/\*apex_local_identity\*\/(?!\s+primary\s+key)/giu
+    )) {
+      const column2 = match[1];
+      const name = `apex_local_identity_${row.name}_${column2}`.replace(/[^\w$#]/gu, "_");
+      this.db.exec(
+        `create trigger if not exists "${name}" after insert on "${row.name}" for each row when NEW."${column2}" is null begin update "${row.name}" set "${column2}" = (select coalesce(max("${column2}"), 0) + 1 from "${row.name}") where rowid = NEW.rowid; end`
+      );
+    }
+  }
+  scalar(sql, binds = {}) {
+    const result = this.query(sql, binds, 1);
+    const row = result.rows[0];
+    return row ? row[result.columns[0]] ?? null : null;
+  }
+  tableExists(table) {
+    return this.db.prepare("select 1 from sqlite_master where type in ('table','view') and upper(name) = upper(?)").get(table) !== void 0;
+  }
+  tableColumns(table) {
+    return this.db.prepare(`pragma table_info("${table.replaceAll('"', "")}")`).all().map((column2) => ({
+      name: column2.name.toUpperCase(),
+      pk: column2.pk > 0,
+      type: column2.type.toUpperCase()
+    }));
+  }
+  /**
+   * How a missing primary key value is filled on insert: an identity column, a column default
+   * (`default seq.nextval`), a `before insert` trigger from a seed script, or nothing.
+   */
+  keySource(table, column2) {
+    const name = table.replaceAll('"', "").toUpperCase();
+    const ddl = this.db.prepare("select sql from sqlite_master where type = 'table' and upper(name) = ?").get(name)?.sql;
+    const definition = ddl ? new RegExp(`[(,]\\s*"?${column2.replace(/[^\w$#]/gu, "")}"?\\s[^,]*`, "iu").exec(ddl)?.[0] : void 0;
+    if (definition?.includes(IDENTITY_MARKER)) return "identity";
+    const info = this.db.prepare(`pragma table_info("${name}")`).all().find((entry) => entry.name.toUpperCase() === column2.toUpperCase());
+    if (info && info.dflt_value !== null && info.dflt_value !== void 0) return "default";
+    if (this.tableExists("apex_local_insert_triggers")) {
+      const trigger = this.db.prepare("select 1 from apex_local_insert_triggers where table_name = ?").get(name.replace(/^.*\./u, ""));
+      if (trigger) return "trigger";
+    }
+    return "none";
+  }
+  /** Runs a script statement by statement; failures are reported, not fatal. */
+  runScript(script, source) {
+    const problems = [];
+    const triggers = [
+      ...script.matchAll(
+        /\bcreate\s+(?:or\s+replace\s+)?(?:editionable\s+)?trigger\s+[\w$#."]+\s+before\s+insert\b[\s\S]*?\bon\s+(?:[\w$#"]+\.)?"?([\w$#]+)"?/giu
+      )
+    ].map((match) => match[1].toUpperCase());
+    if (triggers.length) {
+      this.db.exec("create table if not exists apex_local_insert_triggers (table_name text primary key)");
+      const insert = this.db.prepare("insert or ignore into apex_local_insert_triggers values (?)");
+      for (const table of triggers) insert.run(table);
+    }
+    for (const unit of splitScriptUnits(script)) {
+      if (unit.kind === "plsql") {
+        problems.push(...this.storeUnit(unit.text, source));
+        continue;
+      }
+      if (/^\s*(?:commit|rollback)(?:\s+work)?\s*;?\s*$/iu.test(unit.text)) continue;
+      for (const statement of oracleSeedStatements(unit.text)) {
+        try {
+          this.execute(statement);
+        } catch (error) {
+          problems.push(
+            `${source}: ${error.message} \u2014 ${statement.replace(/\s+/gu, " ").slice(0, 140)}`
+          );
+        }
+      }
+    }
+    return problems;
+  }
+  /**
+   * Keeps a PL/SQL unit of a seed script (package, package body, function, procedure, trigger,
+   * type or anonymous block) in `apex_local_plsql_units`, in script order, for the local PL/SQL
+   * runtime (extensions/server/packages.ts). Row triggers are also applied to SQLite (triggers.ts).
+   */
+  storeUnit(source, script) {
+    this.db.exec(
+      "create table if not exists apex_local_plsql_units (seq integer primary key, kind text, name text, source text, script text)"
+    );
+    const unit = describeUnit(source);
+    this.db.prepare("insert into apex_local_plsql_units (kind, name, source, script) values (?, ?, ?, ?)").run(unit.kind, unit.name, source, script);
+    return unit.kind === "trigger" ? applyTrigger(this, source).map((problem) => `${script}: ${problem}`) : [];
+  }
+  /** The stored PL/SQL units in script order. */
+  plsqlUnits() {
+    if (!this.tableExists("apex_local_plsql_units")) return [];
+    return this.db.prepare("select kind, name, source, script from apex_local_plsql_units order by seq").all();
+  }
+  /**
+   * Starts recording the tables that statements prepared from now on write: INSERT, UPDATE and
+   * DELETE, including the writes of triggers they fire. SQLite authorizes when a statement is
+   * prepared, so a statement that was rolled back still counts. Returns false when this Node.js
+   * build has no authorizer API.
+   */
+  trackWrites() {
+    if (this.#writes) return true;
+    const database = this.db;
+    if (typeof database.setAuthorizer !== "function") return false;
+    const writes = /* @__PURE__ */ new Set();
+    const actions = /* @__PURE__ */ new Set([
+      sqliteConstants.SQLITE_INSERT,
+      sqliteConstants.SQLITE_UPDATE,
+      sqliteConstants.SQLITE_DELETE
+    ]);
+    database.setAuthorizer((action, table, _column, schema) => {
+      if (actions.has(action) && table && schema !== "temp") this.#writes?.add(table.toUpperCase());
+      return sqliteConstants.SQLITE_OK;
+    });
+    this.#writes = writes;
+    return true;
+  }
+  /** Runs preview bookkeeping (e.g. rebuilding generated tables) without recording its writes. */
+  untracked(work) {
+    const writes = this.#writes;
+    this.#writes = void 0;
+    try {
+      return work();
+    } finally {
+      this.#writes = writes;
+    }
+  }
+  /** The tables written since the last call (see trackWrites). */
+  takeWrites() {
+    const tables = [...this.#writes ?? []];
+    this.#writes?.clear();
+    return tables;
+  }
+  close() {
+    if (this.db.isOpen) this.db.close();
+  }
+};
+
 // packages/core/src/preview/extensions.ts
 var extensions = [];
+var rendererSetups = [];
+function registerRendererSetup(setup) {
+  rendererSetups.push(setup);
+}
+function setUpRenderer(renderer) {
+  for (const setup of rendererSetups) setup(renderer);
+}
 function registerExtension(extension) {
   const existing = extensions.findIndex((entry) => entry.name === extension.name);
   if (existing >= 0) extensions.splice(existing, 1, extension);
@@ -4388,8 +4712,8 @@ function open(db2) {
   db2.exec(owned ? "begin" : `savepoint ${OUTER}`);
   return { owned, savepoints: [] };
 }
-function close(db2, state2, commit) {
-  if (state2.owned) {
+function close(db2, state3, commit) {
+  if (state3.owned) {
     if (db2.isTransaction) db2.exec(commit ? "commit" : "rollback");
     return;
   }
@@ -4399,8 +4723,8 @@ function close(db2, state2, commit) {
 }
 function transaction(db2, work, failed2) {
   if (active.has(db2) || !db2.isOpen) return work();
-  const state2 = open(db2);
-  active.set(db2, state2);
+  const state3 = open(db2);
+  active.set(db2, state3);
   let ok = false;
   try {
     const result = work();
@@ -4408,46 +4732,124 @@ function transaction(db2, work, failed2) {
     return result;
   } finally {
     active.delete(db2);
-    close(db2, state2, ok);
+    close(db2, state3, ok);
   }
 }
 function commitWork(db2) {
-  const state2 = active.get(db2);
-  if (!state2 || !state2.owned) return;
+  const state3 = active.get(db2);
+  if (!state3 || !state3.owned) return;
   if (db2.isTransaction) db2.exec("commit");
   db2.exec("begin");
-  state2.savepoints = [];
+  state3.savepoints = [];
 }
 function rollbackWork(db2, savepoint2) {
-  const state2 = active.get(db2);
+  const state3 = active.get(db2);
   if (savepoint2) {
     const name = savepoint2.toUpperCase();
-    const index = state2?.savepoints.lastIndexOf(name) ?? -1;
-    if (!state2 || index < 0) return false;
+    const index = state3?.savepoints.lastIndexOf(name) ?? -1;
+    if (!state3 || index < 0) return false;
     db2.exec(`rollback to ${quote(`apex_sp_${name}`)}`);
-    state2.savepoints.length = index + 1;
+    state3.savepoints.length = index + 1;
     return true;
   }
-  if (!state2) return true;
-  if (state2.owned) {
+  if (!state3) return true;
+  if (state3.owned) {
     if (db2.isTransaction) db2.exec("rollback");
     db2.exec("begin");
   } else if (db2.isTransaction) db2.exec(`rollback to ${OUTER}`);
-  state2.savepoints = [];
+  state3.savepoints = [];
   return true;
 }
 function savepoint(db2, name) {
-  const state2 = active.get(db2);
-  if (!state2) return;
+  const state3 = active.get(db2);
+  if (!state3) return;
   const upper4 = name.toUpperCase();
   db2.exec(`savepoint ${quote(`apex_sp_${upper4}`)}`);
-  state2.savepoints.push(upper4);
+  state3.savepoints.push(upper4);
 }
+
+// packages/core/src/preview/oracle-dictionary.ts
+var OWNER = "'APEX_LOCAL'";
+var MINE = "name not like 'sqlite\\_%' escape '\\' and name not like 'apex\\_local\\_%' escape '\\' and name not like 'apex\\_%' escape '\\' and upper(name) not in (" + [
+  "TABLES",
+  "VIEWS",
+  "TAB_COLUMNS",
+  "INDEXES",
+  "TRIGGERS",
+  "SEQUENCES",
+  "OBJECTS",
+  "SOURCE",
+  "SYS_PRIVS",
+  "ROLE_PRIVS"
+].flatMap((suffix) => ["USER", "ALL", "DBA"].map((prefix) => `'${prefix}_${suffix}'`)).concat([
+  "'SESSION_PRIVS'",
+  "'SESSION_ROLES'",
+  "'ALL_USERS'",
+  "'DUAL'",
+  "'V$TIMEZONE_NAMES'",
+  "'V$VERSION'",
+  "'V$INSTANCE'",
+  "'V$DATABASE'"
+]).join(", ") + ")";
+var VIEWS = {
+  USER_TABLES: `select upper(name) as table_name, 'USERS' as tablespace_name, null as num_rows, 'VALID' as status from sqlite_master where type = 'table' and ${MINE}`,
+  USER_VIEWS: `select upper(name) as view_name, length(sql) as text_length, sql as text from sqlite_master where type = 'view' and ${MINE}`,
+  USER_TAB_COLUMNS: `select upper(m.name) as table_name, upper(p.name) as column_name, coalesce(nullif(upper(p.type), ''), 'VARCHAR2') as data_type, case p."notnull" when 1 then 'N' else 'Y' end as nullable, p.cid + 1 as column_id, p.dflt_value as data_default from sqlite_master m join pragma_table_info(m.name) p where m.type in ('table', 'view') and ${MINE.replaceAll("name not like", "m.name not like").replace("upper(name)", "upper(m.name)")}`,
+  USER_INDEXES: `select upper(name) as index_name, upper(tbl_name) as table_name, 'NORMAL' as index_type, 'VALID' as status from sqlite_master where type = 'index' and ${MINE}`,
+  USER_TRIGGERS: `select upper(name) as trigger_name, upper(tbl_name) as table_name, 'ENABLED' as status from sqlite_master where type = 'trigger' and name like 'apex\\_local\\_%' escape '\\'`,
+  USER_SEQUENCES: `select upper(name) as sequence_name, value as last_number, increment as increment_by, 1 as min_value from apex_local_sequences`,
+  USER_OBJECTS: `select upper(name) as object_name, upper(type) as object_type, 'VALID' as status, datetime('now','localtime') as created, datetime('now','localtime') as last_ddl_time from sqlite_master where type in ('table', 'view', 'index') and ${MINE}
+    union all select upper(name), 'SEQUENCE', 'VALID', datetime('now','localtime'), datetime('now','localtime') from apex_local_sequences
+    union all select upper(name), upper(kind), 'VALID', datetime('now','localtime'), datetime('now','localtime') from apex_local_plsql_units where kind <> 'block'`,
+  USER_SOURCE: `with recursive lines(name, type, line, text, rest) as (
+      select upper(name), upper(kind), 1, substr(source, 1, instr(source || char(10), char(10)) - 1), substr(source, instr(source || char(10), char(10)) + 1)
+        from apex_local_plsql_units where kind <> 'block'
+      union all
+      select name, type, line + 1, substr(rest, 1, instr(rest || char(10), char(10)) - 1), substr(rest, instr(rest || char(10), char(10)) + 1)
+        from lines where rest <> '')
+    select name, type, line, text || char(10) as text from lines`,
+  SESSION_PRIVS: `select column1 as privilege from (values ('CREATE SESSION'), ('CREATE TABLE'), ('CREATE VIEW'), ('CREATE SEQUENCE'), ('CREATE PROCEDURE'), ('CREATE TRIGGER'), ('CREATE TYPE'), ('CREATE JOB'), ('CREATE SYNONYM'))`,
+  USER_SYS_PRIVS: `select ${OWNER} as username, privilege, 'NO' as admin_option from session_privs`,
+  USER_ROLE_PRIVS: `select ${OWNER} as username, column1 as granted_role, 'NO' as admin_option, 'YES' as default_role from (values ('CONNECT'), ('RESOURCE'))`,
+  SESSION_ROLES: `select column1 as role from (values ('CONNECT'), ('RESOURCE'))`,
+  ALL_USERS: `select ${OWNER} as username, 1 as user_id, datetime('now','localtime') as created`,
+  V$TIMEZONE_NAMES: `select column1 as tzname, column1 as tzabbrev, 0 as con_id from (values ${zones()})`,
+  V$VERSION: `select 'Oracle AI Database 23ai (local APEXREST preview)' as banner, 'Oracle AI Database 23ai' as banner_full`,
+  V$INSTANCE: `select 'apexlocal' as instance_name, 'localhost' as host_name, '23.0.0.0.0' as version, 'OPEN' as status`,
+  V$DATABASE: `select 'APEXLOCAL' as name, 'APEXLOCAL' as db_unique_name, 'READ WRITE' as open_mode`
+};
+var OWNED = ["TABLES", "VIEWS", "TAB_COLUMNS", "INDEXES", "TRIGGERS", "SEQUENCES", "OBJECTS", "SOURCE"];
+function zones() {
+  const list4 = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : ["UTC"];
+  return (list4.includes("UTC") ? list4 : ["UTC", ...list4]).map((zone) => `('${zone.replaceAll("'", "''")}')`).join(", ");
+}
+function createOracleDictionary(db2) {
+  db2.exec("create table if not exists dual (dummy varchar2(1))");
+  if (!db2.prepare("select 1 from dual").get()) db2.exec("insert into dual values ('X')");
+  db2.exec(
+    "create table if not exists apex_local_plsql_units (seq integer primary key, kind text, name text, source text, script text)"
+  );
+  db2.exec(
+    "create table if not exists apex_local_sequences (name text primary key, value integer, increment integer, start integer)"
+  );
+  const create2 = (name, sql) => {
+    try {
+      db2.exec(`drop view if exists ${name}`);
+      db2.exec(`create view ${name} as ${sql}`);
+    } catch {
+    }
+  };
+  for (const [name, sql] of Object.entries(VIEWS)) create2(name.includes("$") ? `"${name}"` : name, sql);
+  for (const suffix of OWNED)
+    for (const prefix of ["ALL", "DBA"])
+      create2(`${prefix}_${suffix}`, `select ${OWNER} as owner, v.* from USER_${suffix} v`);
+}
+registerDatabaseSetup((db2) => createOracleDictionary(db2.db));
 
 // packages/core/src/preview/render.ts
 import { createHash as createHash4 } from "node:crypto";
-import fs11 from "node:fs";
-import path12 from "node:path";
+import fs8 from "node:fs";
+import path10 from "node:path";
 
 // packages/core/src/preview/extensions/app.ts
 var strings = (values) => values.map((value2) => typeof value2 === "string" ? value2 : String(value2));
@@ -4586,9 +4988,9 @@ var Engine = class _Engine {
     if (this.#options.defaultEscape === false || this.#options.placeholders === false) return value2;
     return escapeValue(value2, this.#options.escapes?.[name] ?? this.#options.defaultEscape ?? "HTML");
   }
-  #text(text10) {
-    if (!this.#scope.loop.length) return text10;
-    return text10.replace(LOOP_VARIABLE_RE, (whole, name, filter) => {
+  #text(text12) {
+    if (!this.#scope.loop.length) return text12;
+    return text12.replace(LOOP_VARIABLE_RE, (whole, name, filter) => {
       const value2 = this.#lookup(name);
       if (value2 === void 0) return whole;
       if (filter) return escapeValue(value2, filter);
@@ -4600,8 +5002,8 @@ var Engine = class _Engine {
     const token = this.#tokens[index];
     const next = index + 1;
     if (token.type === "text") {
-      const text10 = this.#lastDirective ? token.text.replace(/^\s+/u, " ") : token.text;
-      this.#output += this.#text(text10);
+      const text12 = this.#lastDirective ? token.text.replace(/^\s+/u, " ") : token.text;
+      this.#output += this.#text(text12);
       this.#lastDirective = false;
       return next;
     }
@@ -4621,15 +5023,15 @@ var Engine = class _Engine {
     return handler(next, token.arg);
   }
   /** Index of the next directive in `match` at nesting level 0 (or the end). */
-  #lookAhead(index, match, open2, close2) {
+  #lookAhead(index, match, open3, close3) {
     let level = 0;
     let position2 = index;
     for (; position2 < this.#tokens.length; position2 += 1) {
       const token = this.#tokens[position2];
       if (token.type !== "directive") continue;
       if (Object.hasOwn(match, token.name) && level === 0) break;
-      if (token.name === open2) level += 1;
-      else if (token.name === close2) level -= 1;
+      if (token.name === open3) level += 1;
+      else if (token.name === close3) level -= 1;
       if (level < 0) break;
     }
     return position2;
@@ -4818,17 +5220,17 @@ var Engine = class _Engine {
       const escape = formal.escape ?? definition.defaultEscape;
       if (escape && escape !== "RAW") argEscapes[formal.name] = escape;
     }
-    for (const [argument, text10] of argumentText) {
+    for (const [argument, text12] of argumentText) {
       const escaped2 = Object.hasOwn(argEscapes, argument);
-      args[argument] = /[#&{]|\/\}/u.test(text10) ? new _Engine(
-        text10,
+      args[argument] = /[#&{]|\/\}/u.test(text12) ? new _Engine(
+        text12,
         {
           ...this.#options,
           placeholders: true,
           ...escaped2 ? { defaultEscape: false } : {}
         },
         { ...this.#scope, argEscapes: void 0, loop: [...this.#scope.loop] }
-      ).run() : text10;
+      ).run() : text12;
     }
     return new _Engine(
       definition.template,
@@ -4894,7 +5296,7 @@ function indexTheme(calls) {
   }
   return index;
 }
-function text2(params2, key) {
+function text(params2, key) {
   const value2 = params2?.[key];
   return typeof value2 === "string" ? value2 : value2 === void 0 || value2 === null ? "" : String(value2);
 }
@@ -4946,8 +5348,8 @@ function templateOptions(options3, defaults) {
 }
 
 // packages/core/src/preview/extensions/charts/calendar.ts
-import fs8 from "node:fs";
-import path7 from "node:path";
+import fs4 from "node:fs";
+import path4 from "node:path";
 
 // packages/core/src/preview/extensions/charts/format.ts
 var SCALES = [
@@ -5005,17 +5407,17 @@ function formatValue(value2, spec = {}) {
     return `${new Intl.NumberFormat("en-US", { ...options3, style: "percent" }).format(scaled)}${suffix}`;
   }
   if (format2 === "currency") {
-    let text10;
+    let text12;
     try {
-      text10 = new Intl.NumberFormat("en-US", {
+      text12 = new Intl.NumberFormat("en-US", {
         ...options3,
         style: "currency",
         currency: /^[A-Z]{3}$/u.test(currency ?? "") ? currency : "USD"
       }).format(scaled);
     } catch {
-      text10 = `$${new Intl.NumberFormat("en-US", options3).format(scaled)}`;
+      text12 = `$${new Intl.NumberFormat("en-US", options3).format(scaled)}`;
     }
-    return `${text10}${suffix}`;
+    return `${text12}${suffix}`;
   }
   return `${new Intl.NumberFormat("en-US", options3).format(scaled)}${suffix}`;
 }
@@ -5197,9 +5599,9 @@ function leafPaths(props, prefix = "") {
 }
 function reportUnsupported(renderer, ctx, owner2, component, groups, supported, label) {
   const ignored = leafPaths(component.props).filter(
-    (path15) => (groups.includes(path15.split(".")[0]) || !path15.includes(".")) && !supported.has(path15) && !/(^|\.)(font\w*|cssStyling)$/u.test(path15)
+    (path12) => (groups.includes(path12.split(".")[0]) || !path12.includes(".")) && !supported.has(path12) && !/(^|\.)(font\w*|cssStyling)$/u.test(path12)
   );
-  const own = ignored.filter((path15) => path15.includes(".") || label !== "Chart");
+  const own = ignored.filter((path12) => path12.includes(".") || label !== "Chart");
   if (own.length)
     renderer.diagnose(
       "info",
@@ -5391,10 +5793,10 @@ function chartModel(renderer, ctx, region) {
     }
     if (type === "stock") {
       for (const series of bySeries.values()) {
-        const close2 = mapping("close");
+        const close3 = mapping("close");
         series.type = "line";
         series.points.forEach((point, index) => {
-          point.value = numberOf(result.rows[index]?.[close2]) ?? point.value;
+          point.value = numberOf(result.rows[index]?.[close3]) ?? point.value;
         });
       }
     }
@@ -5423,9 +5825,9 @@ function heightOption(props) {
 function labelText(value2, model) {
   if (value2 === null || value2 === void 0) return "";
   if (typeof value2 === "number") return String(value2);
-  const text10 = String(value2);
-  if (model.timeAxis && /^\d{4}-\d{2}-\d{2}$/u.test(text10)) return `${text10} 00:00:00`;
-  return text10;
+  const text12 = String(value2);
+  if (model.timeAxis && /^\d{4}-\d{2}-\d{2}$/u.test(text12)) return `${text12} 00:00:00`;
+  return text12;
 }
 function referenceLines(series) {
   const values = str(series.props, "referenceLines.values").split(/[,:]/u).map((value2) => value2.trim()).filter(Boolean).map(Number).filter(Number.isFinite);
@@ -5556,9 +5958,9 @@ function initialDate(events, today = /* @__PURE__ */ new Date()) {
   return isoOf(upcoming ?? latest).iso.slice(0, 10);
 }
 function fullCalendarScript(renderer) {
-  const root = path7.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
+  const root = path4.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
   try {
-    const versions = fs8.readdirSync(root).filter((entry) => fs8.existsSync(path7.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+    const versions = fs4.readdirSync(root).filter((entry) => fs4.existsSync(path4.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
     const version = versions.at(-1);
     return version ? `#APEX_FILES#libraries/fullcalendar/${version}/dist/index.global.min.js` : void 0;
   } catch {
@@ -6251,15 +6653,15 @@ function cartesian(model, outer) {
         });
       }
       if (series.label.show && series.label.position !== "none") {
-        const text10 = dataLabel(series, point, formatted, model);
-        const inside = horizontal ? rect.w > textWidth(text10, 11) + 8 : rect.h > 16 && rect.w > textWidth(text10, 11) * 0.6;
+        const text12 = dataLabel(series, point, formatted, model);
+        const inside = horizontal ? rect.w > textWidth(text12, 11) + 8 : rect.h > 16 && rect.w > textWidth(text12, 11) * 0.6;
         const outsidePosition = series.label.position === "outsideBarEdge" || !inside;
         const negative = to < from;
         if (horizontal) {
           const x = outsidePosition ? negative ? rect.x - 4 : rect.x + rect.w + 4 : series.label.position === "insideBarEdge" ? negative ? rect.x + 4 : rect.x + rect.w - 4 : rect.x + rect.w / 2;
           const anchor = outsidePosition ? negative ? "end" : "start" : series.label.position === "insideBarEdge" ? negative ? "start" : "end" : "middle";
           labels.push(
-            textEl(x, rect.y + rect.h / 2, text10, {
+            textEl(x, rect.y + rect.h / 2, text12, {
               anchor,
               cls: "ajc-value",
               size: 11,
@@ -6269,7 +6671,7 @@ function cartesian(model, outer) {
         } else {
           const y = outsidePosition ? negative ? rect.y + rect.h + 8 : rect.y - 8 : series.label.position === "insideBarEdge" ? negative ? rect.y + rect.h - 9 : rect.y + 9 : rect.y + rect.h / 2;
           labels.push(
-            textEl(rect.x + rect.w / 2, y, text10, {
+            textEl(rect.x + rect.w / 2, y, text12, {
               anchor: "middle",
               cls: "ajc-value",
               size: 11,
@@ -6282,9 +6684,9 @@ function cartesian(model, outer) {
     out.push(`<g class="ajc-series" data-series="${esc(series.name)}">${bars.join("")}</g>`);
   }
   for (const total of stackTotals.values()) {
-    const text10 = formatValue(total.value, model.axes.y.format);
+    const text12 = formatValue(total.value, model.axes.y.format);
     labels.push(
-      horizontal ? textEl(total.pos + 4, total.center, text10, { cls: "ajc-value ajc-stack-label", size: 11 }) : textEl(total.center, total.pos - 8, text10, {
+      horizontal ? textEl(total.pos + 4, total.center, text12, { cls: "ajc-value ajc-stack-label", size: 11 }) : textEl(total.center, total.pos - 8, text12, {
         anchor: "middle",
         cls: "ajc-value ajc-stack-label",
         size: 11
@@ -6325,25 +6727,25 @@ function cartesian(model, outer) {
     for (const segment of segments2) {
       const points = segment.filter((entry) => entry !== null);
       if (!points.length) continue;
-      const path15 = linePath(
+      const path12 = linePath(
         points.map((entry) => [entry.x, entry.y]),
         series.line.type,
         horizontal
       );
       if (isArea(series)) {
         const baseline = points.map((entry) => horizontal ? [entry.base, entry.y] : [entry.x, entry.base]).reverse();
-        const close2 = linePath(baseline, series.line.type, horizontal).replace(
+        const close3 = linePath(baseline, series.line.type, horizontal).replace(
           /^M/u,
           "L"
         );
         parts.push(
-          `<path class="ajc-area" d="${path15} ${close2} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
+          `<path class="ajc-area" d="${path12} ${close3} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
         );
       }
       if (series.type !== "area") {
         const dash = series.line.style === "dashed" ? ' stroke-dasharray="8 5"' : series.line.style === "dotted" ? ' stroke-dasharray="2 4"' : "";
         parts.push(
-          `<path class="ajc-line" d="${path15}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
+          `<path class="ajc-line" d="${path12}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
         );
       }
     }
@@ -6363,10 +6765,10 @@ function cartesian(model, outer) {
         )
       );
       if (series.label.show && series.label.position !== "none") {
-        const text10 = dataLabel(series, entry.point, formatted, model);
+        const text12 = dataLabel(series, entry.point, formatted, model);
         const below = series.label.position === "belowMarker";
         labels.push(
-          textEl(entry.x, entry.y + (below ? 14 : -12), text10, {
+          textEl(entry.x, entry.y + (below ? 14 : -12), text12, {
             anchor: "middle",
             cls: "ajc-value",
             size: 11
@@ -6541,15 +6943,15 @@ function pie(model, outer) {
       )
     );
     if (labelled && slice.series.label.show && slice.series.label.position !== "none") {
-      const text10 = dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, percent);
+      const text12 = dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, percent);
       const mid = angle + sweep / 2;
       const ring = r - inner;
-      const fitsInside = sweep * (inner + ring / 2) > textWidth(text10, 11) * 0.9 && ring > 18;
+      const fitsInside = sweep * (inner + ring / 2) > textWidth(text12, 11) * 0.9 && ring > 18;
       const position2 = slice.series.label.position;
       if (position2 === "center" || position2 === "auto" && fitsInside || position2 === "inside" && fitsInside) {
         const [lx, ly] = polar(cx, cy, inner ? (r + inner) / 2 : r * 0.62, mid);
         labels.push(
-          textEl(lx, ly, text10, {
+          textEl(lx, ly, text12, {
             anchor: "middle",
             cls: "ajc-value",
             size: 11,
@@ -6566,7 +6968,7 @@ function pie(model, outer) {
           textEl(
             ex + (rightSide ? 3 : -3),
             by,
-            truncate(text10, Math.max(40, (rightSide ? outer.x + outer.w - ex : ex - outer.x) - 6), 11),
+            truncate(text12, Math.max(40, (rightSide ? outer.x + outer.w - ex : ex - outer.x) - 6), 11),
             {
               anchor: rightSide ? "start" : "end",
               cls: "ajc-value",
@@ -6620,10 +7022,10 @@ function funnel(model, outer) {
         slice.point.link
       )
     );
-    const text10 = slice.series.label.show ? dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, slice.value / total) : formatted;
-    if (height >= 14 && Math.min(top, bottom) * 2 > textWidth(text10, 11) + 8)
+    const text12 = slice.series.label.show ? dataLabel(slice.series, { ...slice.point, group: slice.name }, formatted, model, slice.value / total) : formatted;
+    if (height >= 14 && Math.min(top, bottom) * 2 > textWidth(text12, 11) + 8)
       parts.push(
-        textEl(cx, y + height / 2, text10, {
+        textEl(cx, y + height / 2, text12, {
           anchor: "middle",
           cls: "ajc-value",
           size: 11,
@@ -6928,6 +7330,43 @@ function radar(model, outer) {
 // packages/core/src/preview/extensions/charts/map.ts
 var esc2 = escapeHtml;
 var fixed2 = (value2) => Number(value2.toFixed(2));
+function sdoToGeoJson(sdo) {
+  const gtype = Number(sdo.SDO_GTYPE ?? 0);
+  const dimensions = Math.max(2, Math.floor(gtype / 1e3));
+  const point = sdo.SDO_POINT;
+  if (point && point.X !== null && point.X !== void 0 && point.Y !== null && point.Y !== void 0)
+    return { type: "Point", coordinates: [Number(point.X), Number(point.Y)] };
+  const info = sdo.SDO_ELEM_INFO ?? [];
+  const ordinates = sdo.SDO_ORDINATES ?? [];
+  const points = [];
+  const lines = [];
+  const polygons = [];
+  for (let index = 0; index + 2 < info.length; index += 3) {
+    const start = Number(info[index]) - 1;
+    const etype = Number(info[index + 1]);
+    const interpretation = Number(info[index + 2]);
+    const end = index + 3 < info.length ? Number(info[index + 3]) - 1 : ordinates.length;
+    const positions = [];
+    for (let at = start; at + 1 < end; at += dimensions)
+      positions.push([Number(ordinates[at]), Number(ordinates[at + 1])]);
+    if (etype === 1) points.push(...positions);
+    else if (etype === 2 && interpretation === 1) lines.push(positions);
+    else if ((etype === 1003 || etype === 2003) && (interpretation === 1 || interpretation === 3)) {
+      const [low, high] = positions;
+      const ring = interpretation === 3 && low && high ? [low, [high[0], low[1]], high, [low[0], high[1]], low] : positions;
+      if (etype === 1003 || !polygons.length) polygons.push([ring]);
+      else polygons.at(-1).push(ring);
+    }
+  }
+  return {
+    type: "GeometryCollection",
+    geometries: [
+      ...points.length ? [{ type: "MultiPoint", coordinates: points }] : [],
+      ...lines.length ? [{ type: "MultiLineString", coordinates: lines }] : [],
+      ...polygons.length ? [{ type: "MultiPolygon", coordinates: polygons }] : []
+    ]
+  };
+}
 function geometry(value2) {
   let json5 = value2;
   if (typeof value2 === "string") {
@@ -6938,6 +7377,7 @@ function geometry(value2) {
     }
   }
   if (!json5 || typeof json5 !== "object") return [];
+  if ("SDO_GTYPE" in json5) return geometry(sdoToGeoJson(json5));
   const object = json5;
   const coordinates = object.coordinates;
   switch (object.type) {
@@ -6982,10 +7422,10 @@ var DASHES = {
   dashDot: "6 3 1.5 3"
 };
 function rowStyle(props, row, layer, kind) {
-  const value2 = (path15) => rowSubstitute(str(props, path15), row).trim();
-  const number2 = (path15, fallback) => {
-    const parsed2 = Number(value2(path15));
-    return value2(path15) !== "" && Number.isFinite(parsed2) ? parsed2 : fallback;
+  const value2 = (path12) => rowSubstitute(str(props, path12), row).trim();
+  const number2 = (path12, fallback) => {
+    const parsed2 = Number(value2(path12));
+    return value2(path12) !== "" && Number.isFinite(parsed2) ? parsed2 : fallback;
   };
   const fill2 = value2("appearance.fillColor");
   const stroke = value2("appearance.strokeColor");
@@ -7040,9 +7480,13 @@ function renderMap(renderer, ctx, region) {
       continue;
     }
     const column2 = (key) => str(props, `columnMapping.${key}`).toUpperCase();
-    const dataType = str(props, "columnMapping.geometryColumnDataType", "longitudeLatitude");
     const lon = column2("longitudeColumn");
     const lat = column2("latitudeColumn");
+    const dataType = str(
+      props,
+      "columnMapping.geometryColumnDataType",
+      lon || lat ? "longitudeLatitude" : column2("geojsonColumn") ? "geojson" : "sdoGeometry"
+    );
     const geometryColumn = column2("geojsonColumn") || column2("geometryColumn");
     const tooltipColumn = str(props, "tooltip.column").toUpperCase();
     const tooltipHtml = bool(props, "tooltip.advancedFormatting", false) ? str(props, "tooltip.htmlExpression") : "";
@@ -7054,13 +7498,7 @@ function renderMap(renderer, ctx, region) {
     const assignColumn = fromRegion ? str(props, "rowAssignment.column").toUpperCase() : "";
     const assignValue = str(props, "rowAssignment.valueForThisLayer");
     const target2 = get(props, "link.target");
-    if (dataType === "sdoGeometry")
-      renderer.diagnose(
-        "warning",
-        `Map layer ${definition.id} uses SDO_GEOMETRY; only GeoJSON text in that column can be drawn locally`,
-        ctx.pageId,
-        region.id
-      );
+    const drawnBefore = features.length;
     for (const row of result.rows) {
       if (assignColumn && String(row[assignColumn] ?? "") !== assignValue) continue;
       const shapes2 = dataType === "longitudeLatitude" ? Number.isFinite(Number(row[lon])) && Number.isFinite(Number(row[lat])) && row[lon] !== null && row[lat] !== null && row[lon] !== void 0 && row[lat] !== void 0 ? [{ kind: "point", parts: [[[Number(row[lon]), Number(row[lat])]]] }] : [] : geometry(row[geometryColumn]);
@@ -7073,6 +7511,13 @@ function renderMap(renderer, ctx, region) {
       for (const shape of shapes2) features.push({ layer: index, ...shape, label, info, link, style: style2, weight });
       layer.count += 1;
     }
+    if (dataType === "sdoGeometry" && result.rows.length && features.length === drawnBefore)
+      renderer.diagnose(
+        "warning",
+        `Map layer ${definition.id} uses SDO_GEOMETRY; it is drawn from an Oracle connection that returns the object, or from GeoJSON text in that column`,
+        ctx.pageId,
+        region.id
+      );
   }
   renderer.diagnose(
     "info",
@@ -7202,8 +7647,8 @@ function mapHtml(region, domId, layers, features, height) {
   const items = labelled.slice(0, 40).map((feature) => {
     const layer = layers[feature.layer];
     const [lon, lat] = feature.parts[0][0];
-    const text10 = esc2(feature.label);
-    return `<li><span class="apex-local-map-swatch" style="background:${esc2(layer.color)}"></span>${feature.link ? `<a href="${esc2(feature.link)}">${text10}</a>` : text10} <span class="apex-local-map-count">${lat.toFixed(3)}, ${lon.toFixed(3)}</span></li>`;
+    const text12 = esc2(feature.label);
+    return `<li><span class="apex-local-map-swatch" style="background:${esc2(layer.color)}"></span>${feature.link ? `<a href="${esc2(feature.link)}">${text12}</a>` : text12} <span class="apex-local-map-count">${lat.toFixed(3)}, ${lon.toFixed(3)}</span></li>`;
   }).join("");
   const more = labelled.length - Math.min(labelled.length, 40);
   return `<div class="apex-local-map" id="${esc2(domId)}_map" data-map-region="${esc2(region.id)}">${note2}<div class="apex-local-map-frame"><svg xmlns="http://www.w3.org/2000/svg" class="apex-local-map-canvas" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="xMidYMid meet" style="height:${height}px" role="img" aria-label="${esc2(str(region.props, "name", region.id))}">${gradients.length ? `<defs>${gradients.join("")}</defs>` : ""}${grid.join("")}${shapes2}</svg></div><ul class="apex-local-map-layers">${summary}</ul>${items ? `<ul class="apex-local-map-features">${items}${more > 0 ? `<li class="apex-local-map-count">\u2026 ${more} more</li>` : ""}</ul>` : ""}</div>`;
@@ -7349,9 +7794,9 @@ registerExtension({
 });
 
 // packages/core/src/preview/extensions/components/plugins.ts
-var text3 = (value2) => typeof value2 === "string" ? value2 : value2 === void 0 || value2 === null ? "" : String(value2);
+var text2 = (value2) => typeof value2 === "string" ? value2 : value2 === void 0 || value2 === null ? "" : String(value2);
 var escapeMode = (value2, fallback) => {
-  const mode = text3(value2).toUpperCase();
+  const mode = text2(value2).toUpperCase();
   return ["HTML", "ATTR", "RAW", "STRIPHTML", "JS", "URL"].find((entry) => entry === mode) ?? fallback;
 };
 var cache = /* @__PURE__ */ new WeakMap();
@@ -7363,20 +7808,20 @@ function componentIndex(calls) {
   const groups = /* @__PURE__ */ new Map();
   const attributes2 = /* @__PURE__ */ new Map();
   for (const { kind, params: params2 } of calls) {
-    if (kind === "plugin" && text3(params2.plugin_type) === "TEMPLATE COMPONENT") {
-      const name = text3(params2.name);
+    if (kind === "plugin" && text2(params2.plugin_type) === "TEMPLATE COMPONENT") {
+      const name = text2(params2.name);
       const component = {
-        id: text3(params2.id),
+        id: text2(params2.id),
         name,
         applyName: name.replace(/^THEME_\d+\$/u, "THEME$"),
-        apexlangName: text3(params2.apexlang_name) || name.replace(/^THEME_\d+\$/u, "").toLowerCase(),
-        displayName: text3(params2.display_name) || name,
-        supports: new Set(text3(params2.supported_component_types).split(":").filter(Boolean)),
-        standardAttributes: new Set(text3(params2.standard_attributes).split(":").filter(Boolean)),
-        partial: text3(params2.partial_template),
-        reportBody: text3(params2.report_body_template),
-        reportRow: text3(params2.report_row_template),
-        reportGroup: text3(params2.report_group_template),
+        apexlangName: text2(params2.apexlang_name) || name.replace(/^THEME_\d+\$/u, "").toLowerCase(),
+        displayName: text2(params2.display_name) || name,
+        supports: new Set(text2(params2.supported_component_types).split(":").filter(Boolean)),
+        standardAttributes: new Set(text2(params2.standard_attributes).split(":").filter(Boolean)),
+        partial: text2(params2.partial_template),
+        reportBody: text2(params2.report_body_template),
+        reportRow: text2(params2.report_row_template),
+        reportGroup: text2(params2.report_group_template),
         defaultEscape: escapeMode(params2.default_escape_mode, "HTML"),
         attributes: [],
         positions: [],
@@ -7384,51 +7829,51 @@ function componentIndex(calls) {
         slots: []
       };
       plugins.set(component.id, component);
-    } else if (kind === "plugin_attr_group") groups.set(text3(params2.id), text3(params2.apexlang_name));
+    } else if (kind === "plugin_attr_group") groups.set(text2(params2.id), text2(params2.apexlang_name));
   }
   for (const { kind, params: params2 } of calls) {
-    const plugin = plugins.get(text3(params2.plugin_id));
+    const plugin = plugins.get(text2(params2.plugin_id));
     if (kind === "plugin_attribute" && plugin) {
       const attribute3 = {
-        id: text3(params2.id),
-        staticId: text3(params2.static_id).toUpperCase(),
-        apexlangName: text3(params2.apexlang_name),
-        scope: text3(params2.attribute_scope) || "COMPONENT",
-        type: text3(params2.attribute_type),
-        group: groups.get(text3(params2.attribute_group_id)) || void 0,
-        defaultValue: params2.default_value === void 0 ? void 0 : text3(params2.default_value),
+        id: text2(params2.id),
+        staticId: text2(params2.static_id).toUpperCase(),
+        apexlangName: text2(params2.apexlang_name),
+        scope: text2(params2.attribute_scope) || "COMPONENT",
+        type: text2(params2.attribute_type),
+        group: groups.get(text2(params2.attribute_group_id)) || void 0,
+        defaultValue: params2.default_value === void 0 ? void 0 : text2(params2.default_value),
         escape: escapeMode(params2.escape_mode, plugin.defaultEscape),
         values: /* @__PURE__ */ new Map(),
-        dependsOn: text3(params2.depending_on_attribute_id) || void 0,
-        dependsCondition: text3(params2.depending_on_condition_type) || void 0,
-        dependsExpression: params2.depending_on_expression === void 0 ? void 0 : text3(params2.depending_on_expression),
-        columnTypes: text3(params2.column_data_types) || void 0
+        dependsOn: text2(params2.depending_on_attribute_id) || void 0,
+        dependsCondition: text2(params2.depending_on_condition_type) || void 0,
+        dependsExpression: params2.depending_on_expression === void 0 ? void 0 : text2(params2.depending_on_expression),
+        columnTypes: text2(params2.column_data_types) || void 0
       };
       plugin.attributes.push(attribute3);
       attributes2.set(attribute3.id, attribute3);
     } else if (kind === "plugin_act_position" && plugin)
       plugin.positions.push({
-        staticId: text3(params2.static_id).toUpperCase(),
-        apexlangName: text3(params2.apexlang_name),
-        type: text3(params2.type),
-        templateId: text3(params2.template_id) || void 0
+        staticId: text2(params2.static_id).toUpperCase(),
+        apexlangName: text2(params2.apexlang_name),
+        type: text2(params2.type),
+        templateId: text2(params2.template_id) || void 0
       });
     else if (kind === "plugin_act_template" && plugin)
       plugin.actionTemplates.push({
-        id: text3(params2.id),
-        apexlangName: text3(params2.apexlang_name),
-        type: text3(params2.type),
-        template: text3(params2.template)
+        id: text2(params2.id),
+        apexlangName: text2(params2.apexlang_name),
+        type: text2(params2.type),
+        template: text2(params2.template)
       });
     else if (kind === "plugin_slot" && plugin)
-      plugin.slots.push({ placeholder: text3(params2.placeholder), apexlangName: text3(params2.apexlang_name) });
+      plugin.slots.push({ placeholder: text2(params2.placeholder), apexlangName: text2(params2.apexlang_name) });
   }
   for (const { kind, params: params2 } of calls) {
-    const attribute3 = kind === "plugin_attr_value" ? attributes2.get(text3(params2.plugin_attribute_id)) : void 0;
+    const attribute3 = kind === "plugin_attr_value" ? attributes2.get(text2(params2.plugin_attribute_id)) : void 0;
     if (attribute3)
       attribute3.values.set(
-        text3(params2.apexlang_name) || text3(params2.return_value),
-        text3(params2.return_value)
+        text2(params2.apexlang_name) || text2(params2.return_value),
+        text2(params2.return_value)
       );
   }
   for (const component of plugins.values()) {
@@ -7514,8 +7959,8 @@ function configured(owner2, attribute3, component) {
     `plugin-${attribute3.group}.${attribute3.apexlangName}`,
     ...shadowed ? [] : [`settings.${attribute3.apexlangName}`]
   ] : [`settings.${attribute3.apexlangName}`];
-  for (const path15 of paths) {
-    const value2 = get(owner2.props, path15);
+  for (const path12 of paths) {
+    const value2 = get(owner2.props, path12);
     if (value2 !== void 0) return value2;
   }
   return void 0;
@@ -7616,9 +8061,9 @@ var ComponentRenderer = class {
   /** Substitutes `&COLUMN.` (and `#COLUMN#`) row values and session state into an attribute value. */
   resolve(attribute3, raw2, row) {
     if (!raw2) return "";
-    const columnValue = (name) => this.columnValue(row, name);
+    const columnValue2 = (name) => this.columnValue(row, name);
     if (SOURCE_TYPES.has(attribute3.type) && /^[A-Za-z][\w$#]*$/u.test(raw2)) {
-      const value2 = columnValue(raw2);
+      const value2 = columnValue2(raw2);
       if (value2 !== void 0) return value2;
       if (row && attribute3.type === "SESSION STATE VALUE")
         this.warn(`column ${raw2.toUpperCase()} for ${attribute3.apexlangName} is not in the source`);
@@ -7627,11 +8072,11 @@ var ComponentRenderer = class {
     const replaced = raw2.replace(
       /&(?:"([^"]+)"|([A-Za-z][\w$#]*))(?:!([A-Z]+))?\./gu,
       (whole, quoted, plain2, filter) => {
-        const value2 = columnValue(quoted ?? plain2 ?? "");
+        const value2 = columnValue2(quoted ?? plain2 ?? "");
         return value2 === void 0 ? whole : escapeValue(value2, filter ?? escape);
       }
     ).replace(/#([A-Z][A-Z0-9_$]*)(?:!([A-Z]+))?#/gu, (whole, name, filter) => {
-      const value2 = columnValue(name);
+      const value2 = columnValue2(name);
       return value2 === void 0 ? whole : escapeValue(value2, filter ?? escape);
     });
     return this.renderer.substitute(
@@ -8067,21 +8512,21 @@ var hasStandardSelector = (renderer, ctx) => renderer.pageComponents(ctx, "regio
 function wrapRegion(renderer, ctx, region, parts) {
   const { template, values, children: children2 } = parts;
   registerNamedTemplates(componentIndex(renderer.assets.theme).named);
-  for (const file of text2(template, "javascript_file_urls").split("\n").filter(Boolean))
+  for (const file of text(template, "javascript_file_urls").split("\n").filter(Boolean))
     ctx.jsFiles.add(file);
-  for (const file of text2(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
+  for (const file of text(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
   const type = str(region.props, "type");
   if (type.startsWith("themeTemplateComponent/")) {
     const html = wrapRegionOnly(renderer, ctx, region, values, children2);
     if (html !== void 0) return html;
   }
-  const substitute = (path15, escape) => renderer.substitute(ctx.session, str(region.props, path15), ctx.page, escape);
+  const substitute = (path12, escape) => renderer.substitute(ctx.session, str(region.props, path12), ctx.page, escape);
   values.REGION_IMAGE_ALT_TEXT ||= escapeHtml(substitute("image.accessibleDescription", "RAW"));
   values.REGION_IMAGE_ATTRIBUTES ||= substitute("image.customAttributes", "RAW") || substitute("advanced.imageTagAttributes", "RAW");
   const advancedImage = substitute("advanced.regionImage", "RAW");
   if (!values.REGION_IMAGE_URL && advancedImage) {
     values.REGION_IMAGE_URL = escapeHtml(advancedImage);
-    values.REGION_IMAGE = fill(text2(template, "image_template"), {
+    values.REGION_IMAGE = fill(text(template, "image_template"), {
       REGION_IMAGE_URL: values.REGION_IMAGE_URL
     });
   }
@@ -8092,7 +8537,7 @@ function wrapRegion(renderer, ctx, region, parts) {
   const body4 = bodies.get(region);
   if (body4 && str(region.props, "appearance.renderComponents") === "aboveContent" && values.BODY?.startsWith(body4))
     values.BODY = values.BODY.slice(body4.length) + body4;
-  const sub = text2(template, "sub_plug_template");
+  const sub = text(template, "sub_plug_template");
   const own = children2.get("SUB_REGIONS");
   if (sub && children2.get("BODY")?.length)
     renderer.diagnose(
@@ -8114,7 +8559,7 @@ function wrapRegion(renderer, ctx, region, parts) {
       SUB_REGION: html
     })
   ).join("\n");
-  return fill(text2(template, "template"), values);
+  return fill(text(template, "template"), values);
 }
 var CLIENT = String.raw`
 (function ($) {
@@ -8623,15 +9068,15 @@ function generateTextProcess(renderer, ctx, process2) {
   const target2 = str(process2.props, "useResponse.item").toUpperCase();
   const prompt = [str(process2.props, "genAI.systemPrompt"), inputValue(renderer, ctx, process2)].filter(Boolean).join(" ");
   const agent = ref(process2.props, "genAI.agent") ?? "";
-  const text10 = aiPlaceholder(prompt, agent);
-  if (target2) ctx.session.items[target2] = text10;
+  const text12 = aiPlaceholder(prompt, agent);
+  if (target2) ctx.session.items[target2] = text12;
   renderer.diagnose(
     "info",
     `Process ${process2.id} (generateTextWithAi) returns placeholder text${target2 ? ` into ${target2}` : ""}; no AI service is called locally`,
     ctx.pageId,
     process2.id
   );
-  renderer.trace(ctx, { type: "info", name: `AI placeholder (${process2.id})`, detail: text10 });
+  renderer.trace(ctx, { type: "info", name: `AI placeholder (${process2.id})`, detail: text12 });
   return { ran: true };
 }
 function pushNotificationProcess(renderer, ctx, process2) {
@@ -8705,12 +9150,12 @@ function graph(version) {
   const ids = activities.map((activity) => activity.id.toLowerCase());
   const level = /* @__PURE__ */ new Map();
   const start = activities.find((activity) => /start/iu.test(str(activity.props, "type"))) ?? activities[0];
-  const visit = (id, depth, path15) => {
-    if (path15.has(id) || (level.get(id) ?? -1) >= depth) return;
+  const visit = (id, depth, path12) => {
+    if (path12.has(id) || (level.get(id) ?? -1) >= depth) return;
     level.set(id, depth);
-    path15.add(id);
-    for (const edge of edges) if (edge.from === id && ids.includes(edge.to)) visit(edge.to, depth + 1, path15);
-    path15.delete(id);
+    path12.add(id);
+    for (const edge of edges) if (edge.from === id && ids.includes(edge.to)) visit(edge.to, depth + 1, path12);
+    path12.delete(id);
   };
   if (start) visit(start.id.toLowerCase(), 0, /* @__PURE__ */ new Set());
   let next = Math.max(-1, ...level.values()) + 1;
@@ -8761,9 +9206,9 @@ function svgFor(nodes, edges, title) {
     const x2 = to.x + NODE_W / 2;
     const y2 = to.y;
     const back = y2 <= y1;
-    const path15 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
+    const path12 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
     const label = edge.name && !/^(connection|normal)\b/iu.test(edge.name) ? `<text class="apex-local-wf-label" x="${(x1 + x2) / 2 + 6}" y="${(y1 + y2) / 2}">${escapeHtml(edge.name)}</text>` : "";
-    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path15}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
+    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path12}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
   }).join("");
   const boxes = nodes.map((node) => {
     const kind = ICONS[node.type] ?? node.type;
@@ -8795,8 +9240,8 @@ function workflowDiagram(renderer, ctx, region) {
     ctx.pageId,
     region.id
   );
-  const empty = nodes.length ? "" : '<p class="apex-local-muted">This workflow version has no activities.</p>';
-  return `<div class="apex-local-wf" data-workflow="${escapeHtml(workflow.id)}"><div class="apex-local-wf-caption"><span class="fa fa-workflow" aria-hidden="true"></span> ${escapeHtml(title)} <span class="apex-local-wf-note">Definition only \xB7 local preview</span></div>${empty || svgFor(nodes, edges, title)}</div>`;
+  const empty2 = nodes.length ? "" : '<p class="apex-local-muted">This workflow version has no activities.</p>';
+  return `<div class="apex-local-wf" data-workflow="${escapeHtml(workflow.id)}"><div class="apex-local-wf-caption"><span class="fa fa-workflow" aria-hidden="true"></span> ${escapeHtml(title)} <span class="apex-local-wf-note">Definition only \xB7 local preview</span></div>${empty2 || svgFor(nodes, edges, title)}</div>`;
 }
 
 // packages/core/src/preview/extensions/devtools/view-as.ts
@@ -9256,7 +9701,7 @@ function inputPredicate(column2, facet, raw2) {
     value2 = prefix[2];
   }
   if (value2 === "") return "";
-  const text10 = `upper(${column2})`;
+  const text12 = `upper(${column2})`;
   const needle = `upper(${quoteText(value2)})`;
   switch (operator) {
     case "NEQ":
@@ -9270,13 +9715,13 @@ function inputPredicate(column2, facet, raw2) {
     case "GTE":
       return `${column2} >= ${literal(value2, facet.number)}`;
     case "STARTS":
-      return `instr(${text10}, ${needle}) = 1`;
+      return `instr(${text12}, ${needle}) = 1`;
     case "NSTARTS":
-      return `coalesce(instr(${text10}, ${needle}), 0) <> 1`;
+      return `coalesce(instr(${text12}, ${needle}), 0) <> 1`;
     case "C":
-      return `instr(${text10}, ${needle}) > 0`;
+      return `instr(${text12}, ${needle}) > 0`;
     case "NC":
-      return `coalesce(instr(${text10}, ${needle}), 0) = 0`;
+      return `coalesce(instr(${text12}, ${needle}), 0) = 0`;
     default:
       return inList(column2, [value2]);
   }
@@ -9932,7 +10377,7 @@ function renderListView(renderer, ctx, region) {
   const setting3 = (key) => str(region.props, `settings.${key}`);
   const column2 = (...keys) => (keys.map((key) => setting3(key)).find(Boolean) ?? "").toUpperCase();
   const html = (template, row) => rowTemplate(renderer, ctx, template, row, true);
-  const text10 = column2("textColumn") || result.columns[0] || "";
+  const text12 = column2("textColumn") || result.columns[0] || "";
   const target2 = get(region.props, "settings.linkTarget") ?? get(region.props, "link.target");
   const info = column2("supplementalInfoColumn", "supplementalInformationColumn");
   const counter = column2("counterColumn");
@@ -9942,7 +10387,7 @@ function renderListView(renderer, ctx, region) {
   const dividerColumn = options3.has("showListDivider") ? column2("listDividerColumn") : "";
   let divider;
   const items = result.rows.map((row) => {
-    const label = advanced && setting3("textFormatting") ? html(setting3("textFormatting"), row) : escapeHtml(row[text10] ?? "");
+    const label = advanced && setting3("textFormatting") ? html(setting3("textFormatting"), row) : escapeHtml(row[text12] ?? "");
     const supplemental = advanced && setting3("supplementalInfoFormatting") ? html(setting3("supplementalInfoFormatting"), row) : info && row[info] !== null && row[info] !== void 0 ? escapeHtml(row[info]) : "";
     let image = "";
     if (options3.has("showImage") && /Url$/u.test(imageType) && imageUrl && row[imageUrl]) {
@@ -9961,16 +10406,16 @@ function renderListView(renderer, ctx, region) {
     const entryAttributes = advanced && setting3("listEntryAttrs") ? ` ${html(setting3("listEntryAttrs"), row)}` : "";
     return `${heading3}<li class="a-ListView-item${image ? " has-icon" : ""}${counter ? " has-count" : ""}"${entryAttributes}>${href ? `<a class="ui-btn" href="${escapeHtml(href)}">${body4}</a>` : body4}</li>`;
   }).join("");
-  const placeholder2 = renderer.substitute(
+  const placeholder3 = renderer.substitute(
     ctx.session,
     setting3("searchBoxPlaceholder") || "Search...",
     ctx.page,
     "HTML"
   );
-  const search = options3.has("enableSearch") ? `<div class="a-ListView-searchbar"><input type="search" class="apex-item-text" placeholder="${placeholder2}" aria-label="Search" data-apex-local-listview="${escapeHtml(domId)}"></div>` : "";
-  const empty = result.rows.length ? "" : `<span class="nodatafound">${renderer.substitute(ctx.session, str(region.props, "messages.whenNoDataFound", "No data found."), ctx.page, "HTML")}</span>`;
+  const search = options3.has("enableSearch") ? `<div class="a-ListView-searchbar"><input type="search" class="apex-item-text" placeholder="${placeholder3}" aria-label="Search" data-apex-local-listview="${escapeHtml(domId)}"></div>` : "";
+  const empty2 = result.rows.length ? "" : `<span class="nodatafound">${renderer.substitute(ctx.session, str(region.props, "messages.whenNoDataFound", "No data found."), ctx.page, "HTML")}</span>`;
   const listAttributes = advanced && setting3("listAttrs") ? ` ${renderer.substitute(ctx.session, setting3("listAttrs"), ctx.page, "HTML")}` : "";
-  return `${search}<div id="${escapeHtml(domId)}_lv"><ul class="a-ListView${options3.has("insetList") ? " a-ListView--inset" : ""}" id="${escapeHtml(domId)}_listview" data-role="listview"${listAttributes}>${items}</ul>${empty}</div>`;
+  return `${search}<div id="${escapeHtml(domId)}_lv"><ul class="a-ListView${options3.has("insetList") ? " a-ListView--inset" : ""}" id="${escapeHtml(domId)}_listview" data-role="listview"${listAttributes}>${items}</ul>${empty2}</div>`;
 }
 
 // packages/core/src/preview/extensions/facets/search.ts
@@ -10503,8 +10948,8 @@ textarea.apex-item-textarea--autoHeight{overflow:hidden;resize:none}
 `;
 
 // packages/core/src/preview/extensions/items/common.ts
-import fs9 from "node:fs";
-import path8 from "node:path";
+import fs5 from "node:fs";
+import path5 from "node:path";
 var apexScript = (name) => `#APEX_FILES#libraries/apex/#MIN_DIRECTORY#${name}#MIN#.js?v=#APEX_VERSION#`;
 var LIBRARY_DEFAULTS = { markedjs: "18.0.11", purify: "3.4.14" };
 var libraryCache = /* @__PURE__ */ new Map();
@@ -10513,7 +10958,7 @@ function libraryVersion(renderer, library) {
   if (!libraryCache.has(key)) {
     let version = LIBRARY_DEFAULTS[library] ?? "";
     try {
-      const found = fs9.readdirSync(path8.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
+      const found = fs5.readdirSync(path5.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
       if (found.length) version = found.at(-1);
     } catch {
     }
@@ -10613,10 +11058,10 @@ function ajaxIdentifier(ctx, name) {
   return `LOCAL:${ctx.pageId}:${name}`;
 }
 function cascading(item2) {
-  const selector2 = (key) => strings4(get(item2.props, key)).map((name) => `#${name.toUpperCase()}`).join(",");
+  const selector = (key) => strings4(get(item2.props, key)).map((name) => `#${name.toUpperCase()}`).join(",");
   return {
-    parents: selector2("cascadingLov.parentItems"),
-    submit: selector2("cascadingLov.itemsToSubmit"),
+    parents: selector("cascadingLov.parentItems"),
+    submit: selector("cascadingLov.itemsToSubmit"),
     required: bool(item2.props, "cascadingLov.parentRequired", true)
   };
 }
@@ -10928,8 +11373,8 @@ var Matrix = class {
     return score;
   }
 };
-function qrMatrix(text10, ecc = "M") {
-  const bytes2 = [...Buffer.from(text10, "utf8")];
+function qrMatrix(text12, ecc = "M") {
+  const bytes2 = [...Buffer.from(text12, "utf8")];
   let version = 1;
   for (; version <= 40; version += 1) {
     const countBits = version <= 9 ? 8 : 16;
@@ -10967,19 +11412,19 @@ function qrMatrix(text10, ecc = "M") {
   }
   return best.modules;
 }
-function qrSvg(text10, options3 = {}) {
-  const modules = qrMatrix(text10);
+function qrSvg(text12, options3 = {}) {
+  const modules = qrMatrix(text12);
   const border = 4;
   const dimension = modules.length + border * 2;
-  const path15 = [];
+  const path12 = [];
   modules.forEach(
     (row, y) => row.forEach((dark, x) => {
-      if (dark) path15.push(`M${x + border},${y + border}h1v1h-1z`);
+      if (dark) path12.push(`M${x + border},${y + border}h1v1h-1z`);
     })
   );
   const size = options3.size ?? 160;
   const attr3 = (value2) => value2.replace(/[^#\w(),.% -]/gu, "");
-  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options3.background ?? "#ffffff")}"/><path fill="${attr3(options3.foreground ?? "#000000")}" d="${path15.join("")}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options3.background ?? "#ffffff")}"/><path fill="${attr3(options3.foreground ?? "#000000")}" d="${path12.join("")}"/></svg>`;
 }
 
 // packages/core/src/preview/extensions/items/render.ts
@@ -11212,10 +11657,10 @@ var datePicker = (renderer, ctx, item2, name, value2) => {
     ...displayAs === "native" ? ["date-picker-apex-native"] : []
   ];
   const example = formatOracle((/* @__PURE__ */ new Date()).toISOString(), mask2) ?? "";
-  const native = (text10) => {
-    if (!text10 || displayAs !== "native") return text10;
-    const date = ISO_DATE.test(text10) ? new Date(text10.replace(" ", "T")) : parseOracleDate(text10, mask2);
-    if (!date || Number.isNaN(date.getTime())) return text10;
+  const native = (text12) => {
+    if (!text12 || displayAs !== "native") return text12;
+    const date = ISO_DATE.test(text12) ? new Date(text12.replace(" ", "T")) : parseOracleDate(text12, mask2);
+    if (!date || Number.isNaN(date.getTime())) return text12;
     const iso = isoDate(date);
     return showTime ? iso.slice(0, 16).replace(" ", "T") : iso.slice(0, 10);
   };
@@ -11923,7 +12368,7 @@ var itemTemplate = (renderer, ctx, item2, values) => {
   const optionsList = strings4(get(item2.props, "appearance.templateOptions"));
   const options3 = optionsList.length ? templateOptions(
     optionsList.flatMap((option) => option === "#DEFAULT#" ? [option] : option.split(/\s+/u)),
-    text2(field, "default_template_options")
+    text(field, "default_template_options")
   ) : "";
   const containerClasses = strings4(get(item2.props, "appearance.cssClasses"));
   const value2 = ctx.session.items[name] ?? "";
@@ -11974,8 +12419,8 @@ function pluginRequest(renderer, session, body4) {
   return { ctx, item: item2, name, form, json: json5 };
 }
 var escaped = (entries) => entries.map((entry) => ({ r: escapeHtml(entry.r), d: escapeHtml(entry.d) }));
-function matches(text10, search) {
-  return text10.toLowerCase().includes(search.toLowerCase());
+function matches(text12, search) {
+  return text12.toLowerCase().includes(search.toLowerCase());
 }
 function popupLovResponse(renderer, request) {
   const { ctx, item: item2, name, form, json: json5 } = request;
@@ -12082,11 +12527,11 @@ var help = (renderer, session, request) => {
   if (!renderer.findPage(pageId)) return reply({ error: `Page ${pageId} not found` }, 404);
   const ctx = renderer.prepareSubmit(session, pageId, "");
   const item2 = renderer.pageComponents(ctx, "pageItem").find((candidate) => candidate.id.toUpperCase() === name);
-  const text10 = item2 ? str(item2.props, "help.helpText") : "";
-  if (!item2 || !text10) return reply({ error: `No help for ${name}` }, 404);
+  const text12 = item2 ? str(item2.props, "help.helpText") : "";
+  if (!item2 || !text12) return reply({ error: `No help for ${name}` }, 404);
   return reply({
     title: escapeHtml(renderer.substitute(session, renderer.label(item2), ctx.page, "RAW")),
-    helpText: `<div class="apex-help-dialog">${renderer.substitute(session, text10, ctx.page, "HTML")}</div>`
+    helpText: `<div class="apex-help-dialog">${renderer.substitute(session, text12, ctx.page, "HTML")}</div>`
   });
 };
 var IGNORED = [
@@ -12138,7 +12583,7 @@ function withRuntime(rt, run2) {
 var rememberRenderer = (renderer) => {
   lastRenderer = renderer;
 };
-var text4 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : oracleText(value2);
+var text3 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : oracleText(value2);
 var sessionState = (rt) => rt?.ctx.session.items;
 var itemValue = (rt, item2) => {
   const name = String(item2 ?? "").toUpperCase();
@@ -12183,29 +12628,29 @@ function since2(value2) {
   return "Now";
 }
 function split(value2, separator2) {
-  const source = text4(value2);
+  const source = text3(value2);
   if (source === null) return [];
   const sep = separator2 === null || separator2 === void 0 ? "\n" : String(separator2);
   return sep === "" ? [...source] : source.split(sep);
 }
 function pageUrl(rt, args) {
   const renderer = rt?.renderer ?? lastRenderer;
-  const pageKey = text4(args.p_page) ?? rt?.ctx.pageId ?? "";
+  const pageKey = text3(args.p_page) ?? rt?.ctx.pageId ?? "";
   const page2 = renderer?.findPage(pageKey);
   const base = renderer ? page2 ? renderer.pagePath(page2) : `${renderer.baseUrl}/${pageKey}` : `f?p=${pageKey}`;
   const params2 = new URLSearchParams();
   const names = split(args.p_items, ",");
   const values = split(args.p_values, ",");
   names.forEach((name, index) => params2.set(name.trim().toLowerCase(), values[index] ?? ""));
-  if (text4(args.p_clear_cache)) params2.set("clear", String(args.p_clear_cache));
-  if (text4(args.p_request)) params2.set("request", String(args.p_request));
+  if (text3(args.p_clear_cache)) params2.set("clear", String(args.p_clear_cache));
+  if (text3(args.p_request)) params2.set("request", String(args.p_request));
   const query = params2.toString();
   return `${base}${query ? `?${query}` : ""}`;
 }
 function addError(args, rt) {
   if (!rt) return null;
   const location = String(args.p_display_location ?? "INLINE_IN_NOTIFICATION").toUpperCase();
-  const item2 = text4(args.p_page_item_name)?.toUpperCase();
+  const item2 = text3(args.p_page_item_name)?.toUpperCase();
   rt.errors.push({
     type: "error",
     location: location === "INLINE_WITH_FIELD" ? ["inline"] : location === "INLINE_WITH_FIELD_AND_NOTIFICATION" ? ["inline", "page"] : ["page"],
@@ -12240,18 +12685,18 @@ var STUBS = {
     params: p("p_name", "p_value", "p_commit"),
     fn: (args, rt) => {
       const items = sessionState(rt);
-      if (items) items[String(args.p_name ?? "").toUpperCase()] = text4(args.p_value) ?? "";
+      if (items) items[String(args.p_name ?? "").toUpperCase()] = text3(args.p_value) ?? "";
       return null;
     }
   },
   "apex_util.get_session_state": {
     params: p("p_item"),
-    fn: (args, rt) => text4(itemValue(rt, args.p_item))
+    fn: (args, rt) => text3(itemValue(rt, args.p_item))
   },
   "apex_util.get_numeric_session_state": {
     params: p("p_item"),
     fn: (args, rt) => {
-      const value2 = text4(itemValue(rt, args.p_item));
+      const value2 = text3(itemValue(rt, args.p_item));
       return value2 === null ? null : Number(value2);
     }
   },
@@ -12266,10 +12711,10 @@ var STUBS = {
   },
   "apex_util.clear_app_cache": { params: p("p_app_id"), fn: noop },
   "apex_util.clear_user_cache": { params: [], fn: noop },
-  "apex_util.prepare_url": { params: p("p_url"), fn: (args) => text4(args.p_url), sql: true },
+  "apex_util.prepare_url": { params: p("p_url"), fn: (args) => text3(args.p_url), sql: true },
   "apex_util.url_encode": {
     params: p("p_url"),
-    fn: (args) => text4(args.p_url) === null ? null : encodeURIComponent(String(args.p_url)),
+    fn: (args) => text3(args.p_url) === null ? null : encodeURIComponent(String(args.p_url)),
     sql: true
   },
   "apex_util.string_to_table": {
@@ -12286,7 +12731,7 @@ var STUBS = {
   "apex_util.redirect_url": {
     params: p("p_url"),
     fn: (args, rt) => {
-      if (rt && text4(args.p_url)) rt.redirectURL = String(args.p_url);
+      if (rt && text3(args.p_url)) rt.redirectURL = String(args.p_url);
       return null;
     }
   },
@@ -12296,16 +12741,16 @@ var STUBS = {
   },
   "apex_util.public_check_authorization": {
     params: p("p_security_scheme"),
-    fn: (args, rt) => authorize(rt, text4(args.p_security_scheme))
+    fn: (args, rt) => authorize(rt, text3(args.p_security_scheme))
   },
   "apex_authorization.is_authorized": {
     params: p("p_authorization_name"),
-    fn: (args, rt) => authorize(rt, text4(args.p_authorization_name))
+    fn: (args, rt) => authorize(rt, text3(args.p_authorization_name))
   },
   // Permissive unless the developer toolbar's "view as" chose roles (devtools/view-as.ts).
   "apex_acl.has_user_role": {
     params: p("p_application_id", "p_user_name", "p_role_static_id"),
-    fn: (args, rt) => aclCheck(rt?.renderer, rt?.ctx.session, text4(args.p_role_static_id) ?? "")
+    fn: (args, rt) => aclCheck(rt?.renderer, rt?.ctx.session, text3(args.p_role_static_id) ?? "")
   },
   "apex_acl.has_user_any_roles": {
     params: p("p_application_id", "p_user_name"),
@@ -12314,18 +12759,18 @@ var STUBS = {
   "owa_util.redirect_url": {
     params: p("curl"),
     fn: (args, rt) => {
-      if (rt && text4(args.curl)) rt.redirectURL = String(args.curl);
+      if (rt && text3(args.curl)) rt.redirectURL = String(args.curl);
       return null;
     }
   },
   v: {
     params: p("p_item"),
-    fn: (args, rt) => text4(itemValue(rt, args.p_item))
+    fn: (args, rt) => text3(itemValue(rt, args.p_item))
   },
   nv: {
     params: p("p_item"),
     fn: (args, rt) => {
-      const value2 = text4(itemValue(rt, args.p_item));
+      const value2 = text3(itemValue(rt, args.p_item));
       return value2 === null ? null : Number(value2);
     }
   },
@@ -12333,12 +12778,12 @@ var STUBS = {
   "apex_application.g_flow_id": { params: [], fn: (_args, rt) => rt?.renderer.appId ?? null },
   "apex_application.g_flow_step_id": { params: [], fn: (_args, rt) => rt?.ctx.pageId ?? null },
   "apex_application.g_user": { params: [], fn: (_args, rt) => rt?.ctx.session.user ?? null },
-  "apex_application.g_request": { params: [], fn: (_args, rt) => text4(rt?.ctx.request) },
+  "apex_application.g_request": { params: [], fn: (_args, rt) => text3(rt?.ctx.request) },
   "apex_application.g_instance": { params: [], fn: (_args, rt) => rt?.ctx.session.id ?? null },
   "apex_application.g_debug": { params: [], fn: () => 0 },
   "apex_application.g_print_success_message": {
     params: [],
-    fn: (_args, rt) => text4(rt?.ctx.session.success)
+    fn: (_args, rt) => text3(rt?.ctx.session.success)
   },
   "apex_application.lf": { params: [], fn: () => "\n" },
   "apex_application.crlf": { params: [], fn: () => "\r\n" },
@@ -12383,7 +12828,7 @@ var STUBS = {
   },
   "apex_string.join": {
     params: p("p_table", "p_sep"),
-    fn: (args) => Array.isArray(args.p_table) ? args.p_table.join(String(args.p_sep ?? "\n")) : text4(args.p_table)
+    fn: (args) => Array.isArray(args.p_table) ? args.p_table.join(String(args.p_sep ?? "\n")) : text3(args.p_table)
   },
   "apex_string.format": {
     params: p("p_message", "p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"),
@@ -12395,17 +12840,17 @@ var STUBS = {
   },
   "apex_string.get_initials": {
     params: p("p_str", "p_cnt"),
-    fn: (args) => text4(args.p_str) === null ? null : String(args.p_str).split(/\s+/u).filter(Boolean).map((word) => word[0].toUpperCase()).slice(0, Number(args.p_cnt ?? 2)).join(""),
+    fn: (args) => text3(args.p_str) === null ? null : String(args.p_str).split(/\s+/u).filter(Boolean).map((word) => word[0].toUpperCase()).slice(0, Number(args.p_cnt ?? 2)).join(""),
     sql: true
   },
   "apex_escape.html": {
     params: p("p_string"),
-    fn: (args) => text4(args.p_string) === null ? null : escapeHtml(String(args.p_string)),
+    fn: (args) => text3(args.p_string) === null ? null : escapeHtml(String(args.p_string)),
     sql: true
   },
   "apex_escape.html_attribute": {
     params: p("p_string"),
-    fn: (args) => text4(args.p_string) === null ? null : escapeHtml(String(args.p_string)),
+    fn: (args) => text3(args.p_string) === null ? null : escapeHtml(String(args.p_string)),
     sql: true
   },
   "apex_escape.js_literal": {
@@ -12418,12 +12863,12 @@ var STUBS = {
   },
   "apex_escape.striphtml": {
     params: p("p_string"),
-    fn: (args) => text4(args.p_string) === null ? null : String(args.p_string).replace(/<[^>]*>/gu, ""),
+    fn: (args) => text3(args.p_string) === null ? null : String(args.p_string).replace(/<[^>]*>/gu, ""),
     sql: true
   },
   "htf.escape_sc": {
     params: p("ctext"),
-    fn: (args) => text4(args.ctext) === null ? null : escapeHtml(String(args.ctext)),
+    fn: (args) => text3(args.ctext) === null ? null : escapeHtml(String(args.ctext)),
     sql: true
   },
   "apex_lang.message": {
@@ -12457,7 +12902,7 @@ var STUBS = {
   },
   "apex_lang.lang": {
     params: p("p_primary_text_string"),
-    fn: (args) => text4(args.p_primary_text_string),
+    fn: (args) => text3(args.p_primary_text_string),
     sql: true
   },
   // output
@@ -12482,7 +12927,7 @@ var STUBS = {
   "apex_app_setting.set_value": {
     params: p("p_name", "p_value", "p_raise_error"),
     fn: (args, rt) => {
-      settings(rt)?.set(String(args.p_name ?? "").toUpperCase(), text4(args.p_value));
+      settings(rt)?.set(String(args.p_name ?? "").toUpperCase(), text3(args.p_value));
       return null;
     }
   },
@@ -12552,7 +12997,7 @@ var STUBS = {
   "apex_authentication.login": {
     params: p("p_username", "p_password"),
     fn: (args, rt) => {
-      if (rt && text4(args.p_username)) rt.ctx.session.user = String(args.p_username).toUpperCase();
+      if (rt && text3(args.p_username)) rt.ctx.session.user = String(args.p_username).toUpperCase();
       return null;
     }
   },
@@ -12576,7 +13021,7 @@ var NOOP_PACKAGES = /* @__PURE__ */ new Set([
 ]);
 var attr2 = (value2) => escapeHtml(value2 === null || value2 === void 0 ? "" : String(value2));
 var fname = (index) => `f${String(Number(index ?? 1)).padStart(2, "0")}`;
-var idAttr = (id) => text4(id) === null ? "" : ` id="${attr2(id)}"`;
+var idAttr = (id) => text3(id) === null ? "" : ` id="${attr2(id)}"`;
 function print(rt, value2, end) {
   rt?.output.push(`${value2 === null || value2 === void 0 ? "" : String(value2)}${end}`);
   return null;
@@ -12585,9 +13030,32 @@ var authorize = (_rt, _name) => 1;
 function setAuthorizer(fn) {
   authorize = fn;
 }
+var LEGACY_PACKAGES = {
+  htmldb_lang: "apex_lang",
+  wwv_flow_lang: "apex_lang",
+  htmldb_util: "apex_util",
+  wwv_flow_utilities: "apex_util",
+  wwv_flow_collection: "apex_collection",
+  htmldb_collection: "apex_collection",
+  htmldb_application: "apex_application",
+  wwv_flow: "apex_application",
+  htmldb_item: "apex_item",
+  wwv_flow_item: "apex_item",
+  htmldb_mail: "apex_mail",
+  wwv_flow_mail: "apex_mail",
+  wwv_flow_escape: "apex_escape",
+  wwv_flow_custom_auth_std: "apex_custom_auth",
+  wwv_flow_plugin_util: "apex_plugin_util",
+  wwv_flow_api: "apex_util"
+};
 function findStub(name) {
   if (Object.hasOwn(STUBS, name)) return STUBS[name];
   const pkg = name.split(".")[0];
+  const current3 = LEGACY_PACKAGES[pkg];
+  if (current3) {
+    const mapped = `${current3}${name.slice(pkg.length)}`;
+    if (Object.hasOwn(STUBS, mapped)) return STUBS[mapped];
+  }
   if (NOOP_PACKAGES.has(pkg)) return { params: [], fn: noop };
   return void 0;
 }
@@ -12600,8 +13068,21 @@ function stubArgs(stub, positional, named2) {
   for (const [name, value2] of Object.entries(named2)) args[name] = value2;
   return args;
 }
+function sqlNames(name) {
+  const pkg = name.split(".")[0];
+  const member = name.slice(pkg.length);
+  return [
+    name,
+    ...Object.entries(LEGACY_PACKAGES).filter(([, current3]) => current3 === pkg).map(([legacy]) => `${legacy}${member}`)
+  ];
+}
 for (const [name, stub] of Object.entries(STUBS)) {
   if (!stub.sql) continue;
+  for (const alias of sqlNames(name).slice(1))
+    registerOracleFunction(alias, stub.params, (values) => {
+      const result = stub.fn(stubArgs(stub, values, {}), active2);
+      return Array.isArray(result) ? JSON.stringify(result) : result;
+    });
   registerOracleFunction(name, stub.params, (values) => {
     const result = stub.fn(stubArgs(stub, values, {}), active2);
     return Array.isArray(result) ? JSON.stringify(result) : result;
@@ -12611,641 +13092,106 @@ function registerStubs(stubs) {
   for (const [name, stub] of Object.entries(stubs)) {
     STUBS[name] = stub;
     if (!stub.sql) continue;
-    registerOracleFunction(name, stub.params, (values) => {
-      const result = stub.fn(stubArgs(stub, values, {}), active2);
-      return Array.isArray(result) ? JSON.stringify(result) : result;
-    });
+    for (const alias of sqlNames(name))
+      registerOracleFunction(alias, stub.params, (values) => {
+        const result = stub.fn(stubArgs(stub, values, {}), active2);
+        return Array.isArray(result) ? JSON.stringify(result) : result;
+      });
   }
 }
 
-// packages/core/src/preview/extensions/server/parser.ts
-var PlsqlSyntaxError = class extends Error {
-  line;
-  constructor(message, line) {
-    super(message);
-    this.line = line;
-  }
-};
-var TWO_CHAR_OPS = /* @__PURE__ */ new Set([":=", "=>", "..", "||", "<=", ">=", "<>", "!=", "<<", ">>", "**", "~=", "^="]);
-var Q_CLOSE = { "[": "]", "{": "}", "(": ")", "<": ">" };
-function lex(src) {
-  const tokens = [];
-  let index = 0;
-  let line = 1;
-  let gapStart = 0;
-  const push2 = (kind, text10, value2, start, end) => {
-    tokens.push({ kind, text: text10, value: value2, pre: src.slice(gapStart, start), line });
-    for (const char of src.slice(start, end)) if (char === "\n") line += 1;
-    index = end;
-    gapStart = end;
-  };
-  while (index < src.length) {
-    const char = src[index];
-    const next = src[index + 1] ?? "";
-    if (char === "\n") {
-      line += 1;
-      index += 1;
-      continue;
-    }
-    if (/\s/u.test(char)) {
-      index += 1;
-      continue;
-    }
-    if (char === "-" && next === "-") {
-      const end = src.indexOf("\n", index);
-      index = end < 0 ? src.length : end;
-      continue;
-    }
-    if (char === "/" && next === "*") {
-      const end = src.indexOf("*/", index + 2);
-      const stop = end < 0 ? src.length : end + 2;
-      for (const c of src.slice(index, stop)) if (c === "\n") line += 1;
-      index = stop;
-      continue;
-    }
-    const start = index;
-    if ((char === "q" || char === "Q") && next === "'") {
-      const open2 = src[index + 2] ?? "";
-      const close2 = Q_CLOSE[open2] ?? open2;
-      const end = src.indexOf(`${close2}'`, index + 3);
-      if (end < 0) throw new PlsqlSyntaxError("Unterminated q-quoted string", line);
-      const value2 = src.slice(index + 3, end);
-      push2("string", `'${value2.replaceAll("'", "''")}'`, value2, start, end + 2);
-      continue;
-    }
-    if (char === "'") {
-      let cursor = index + 1;
-      let value2 = "";
-      for (; ; ) {
-        if (cursor >= src.length) throw new PlsqlSyntaxError("Unterminated string literal", line);
-        if (src[cursor] === "'") {
-          if (src[cursor + 1] === "'") {
-            value2 += "'";
-            cursor += 2;
-            continue;
-          }
-          break;
-        }
-        value2 += src[cursor];
-        cursor += 1;
-      }
-      push2("string", src.slice(start, cursor + 1), value2, start, cursor + 1);
-      continue;
-    }
-    if (char === '"') {
-      const end = src.indexOf('"', index + 1);
-      if (end < 0) throw new PlsqlSyntaxError("Unterminated quoted identifier", line);
-      push2("qident", src.slice(start, end + 1), src.slice(start + 1, end), start, end + 1);
-      continue;
-    }
-    if (/\d/u.test(char) || char === "." && /\d/u.test(next)) {
-      const match = /^(?:\d+(?:\.(?!\.)\d*)?|\.\d+)(?:[eE][+-]?\d+)?[fFdD]?/u.exec(src.slice(index));
-      const text10 = match[0].replace(/[fFdD]$/u, "");
-      push2("number", text10, text10, start, start + match[0].length);
-      continue;
-    }
-    if (char === ":" && /[A-Za-z]/u.test(next)) {
-      const match = /^:[A-Za-z][\w$#]*/u.exec(src.slice(index));
-      push2("bind", match[0], match[0].slice(1).toUpperCase(), start, start + match[0].length);
-      continue;
-    }
-    if (/[A-Za-z_]/u.test(char)) {
-      const match = /^[A-Za-z_][\w$#]*/u.exec(src.slice(index));
-      push2("word", match[0], match[0].toLowerCase(), start, start + match[0].length);
-      continue;
-    }
-    const two = src.slice(index, index + 2);
-    if (TWO_CHAR_OPS.has(two)) {
-      push2("op", two, two, start, start + 2);
-      continue;
-    }
-    push2("op", char, char, start, start + 1);
-  }
-  return tokens;
-}
-var tokenText = (tokens) => tokens.map((token, index) => (index === 0 ? "" : token.pre) + token.text).join("").trim();
-var BLOCK_END = /* @__PURE__ */ new Set(["end", "elsif", "else", "when", "exception"]);
-var isWord = (token, ...words) => token?.kind === "word" && words.includes(token.value);
-var isOp = (token, ...ops) => token?.kind === "op" && ops.includes(token.value);
-function splitTopLevel(tokens, separator2 = ",") {
-  const parts = [[]];
-  let depth = 0;
-  for (const token of tokens) {
-    if (isOp(token, "(")) depth += 1;
-    if (isOp(token, ")")) depth -= 1;
-    if (depth === 0 && isOp(token, separator2)) parts.push([]);
-    else parts.at(-1).push(token);
-  }
-  return parts.filter((part2, index) => part2.length || index < parts.length - 1);
-}
-function parseArgs(tokens) {
-  if (!tokens.length) return [];
-  return splitTopLevel(tokens).map(
-    (part2) => part2[0]?.kind === "word" && isOp(part2[1], "=>") ? { name: part2[0].value, expr: part2.slice(2) } : { expr: part2 }
+// packages/core/src/preview/extensions/server/packages.ts
+var empty = () => ({ packages: /* @__PURE__ */ new Map(), routines: /* @__PURE__ */ new Map(), blocks: [], problems: [] });
+function addRoutine(map, routine) {
+  const list4 = map.get(routine.name) ?? [];
+  const index = list4.findIndex(
+    (entry) => entry.params.length === routine.params.length && entry.params.every((param, at) => param.name === routine.params[at].name)
   );
+  if (index >= 0) list4[index] = routine;
+  else list4.push(routine);
+  map.set(routine.name, list4);
 }
-function matchParen(tokens, open2) {
-  let depth = 0;
-  for (let index = open2; index < tokens.length; index += 1) {
-    if (isOp(tokens[index], "(")) depth += 1;
-    else if (isOp(tokens[index], ")")) {
-      depth -= 1;
-      if (depth === 0) return index;
-    }
-  }
-  throw new PlsqlSyntaxError("Unbalanced parentheses", tokens[open2]?.line ?? 0);
+function afterHeader(parser) {
+  while (parser.peek() && !isWord(parser.peek(), "is", "as")) parser.next();
+  parser.expectWord("is", "as");
 }
-var Parser2 = class {
-  tokens;
-  pos = 0;
-  constructor(source) {
-    this.tokens = lex(source.replace(/\n\s*\/\s*$/u, "\n"));
+function parsePackage(source, body4) {
+  const parser = new Parser(unitBody(source));
+  afterHeader(parser);
+  const decls = parser.declarations(true);
+  let init;
+  if (body4 && isWord(parser.peek(), "begin")) {
+    init = parser.block();
+  } else {
+    parser.expectWord("end");
   }
-  get line() {
-    return this.peek()?.line ?? this.tokens.at(-1)?.line ?? 0;
-  }
-  peek(offset = 0) {
-    return this.tokens[this.pos + offset];
-  }
-  next() {
-    const token = this.tokens[this.pos];
-    if (!token) throw new PlsqlSyntaxError("Unexpected end of code", this.line);
-    this.pos += 1;
-    return token;
-  }
-  expectWord(...words) {
-    const token = this.next();
-    if (!isWord(token, ...words))
-      throw new PlsqlSyntaxError(`Expected ${words.join("/")} but found "${token.text}"`, token.line);
-    return token;
-  }
-  expectOp(op) {
-    const token = this.next();
-    if (!isOp(token, op))
-      throw new PlsqlSyntaxError(`Expected "${op}" but found "${token.text}"`, token.line);
-  }
-  acceptWord(...words) {
-    if (!isWord(this.peek(), ...words)) return false;
-    this.pos += 1;
-    return true;
-  }
-  acceptOp(op) {
-    if (!isOp(this.peek(), op)) return false;
-    this.pos += 1;
-    return true;
-  }
-  /** Reads an expression until `stop` matches at depth 0 (outside parentheses and CASE). */
-  readUntil(stop) {
-    const out = [];
-    let depth = 0;
-    let cases = 0;
-    for (; ; ) {
-      const token = this.peek();
-      if (!token) {
-        if (depth || cases) throw new PlsqlSyntaxError("Unexpected end of code in expression", this.line);
-        return out;
-      }
-      if (depth === 0 && cases === 0 && stop(token)) return out;
-      if (isOp(token, "(")) depth += 1;
-      else if (isOp(token, ")")) depth -= 1;
-      else if (isWord(token, "case")) cases += 1;
-      else if (isWord(token, "end") && cases > 0) cases -= 1;
-      out.push(token);
-      this.pos += 1;
-    }
-  }
-  untilWord(...words) {
-    const expr = this.readUntil((token) => isWord(token, ...words) || isOp(token, ";"));
-    if (!isWord(this.peek(), ...words)) throw new PlsqlSyntaxError(`Expected ${words.join("/")}`, this.line);
-    return expr;
-  }
-  untilSemicolon() {
-    const expr = this.readUntil((token) => isOp(token, ";"));
-    this.expectOp(";");
-    return expr;
-  }
-  /** Whole program: a statement list (APEX accepts bodies without BEGIN/END). */
-  program() {
-    const body4 = this.statements(/* @__PURE__ */ new Set());
-    if (this.peek()) throw new PlsqlSyntaxError(`Unexpected "${this.peek().text}"`, this.line);
-    return body4;
-  }
-  block(label) {
-    const decls = this.acceptWord("declare") ? this.declarations() : [];
-    this.expectWord("begin");
-    const body4 = this.statements(BLOCK_END);
-    const handlers = [];
-    if (this.acceptWord("exception")) {
-      while (this.acceptWord("when")) {
-        const names = [this.next().value];
-        while (this.acceptWord("or")) names.push(this.next().value);
-        this.expectWord("then");
-        handlers.push({ names, body: this.statements(BLOCK_END) });
-      }
-    }
-    this.expectWord("end");
-    if (this.peek()?.kind === "word" && !isOp(this.peek(), ";")) this.pos += 1;
-    return { decls, body: body4, handlers, ...label ? { label } : {} };
-  }
-  declarations() {
-    const decls = [];
-    while (this.peek() && !isWord(this.peek(), "begin")) {
-      const token = this.next();
-      const line = token.line;
-      if (isWord(token, "pragma", "subtype")) {
-        this.untilSemicolon();
-        continue;
-      }
-      if (isWord(token, "cursor")) {
-        const name2 = this.next().value;
-        const params2 = isOp(this.peek(), "(") ? this.params() : [];
-        if (this.acceptWord("return")) this.untilWord("is");
-        this.expectWord("is");
-        decls.push({ kind: "cursor", name: name2, params: params2, sql: this.untilSemicolon(), line });
-        continue;
-      }
-      if (isWord(token, "type")) {
-        const name2 = this.next().value;
-        const body4 = this.untilSemicolon();
-        decls.push({
-          kind: "type",
-          name: name2,
-          collection: body4.some((part2) => isWord(part2, "table", "varray", "varying"))
-        });
-        continue;
-      }
-      if (isWord(token, "function", "procedure")) {
-        const routine = this.routine(token.value === "function");
-        if (routine) decls.push({ kind: "routine", routine });
-        continue;
-      }
-      const name = token.value;
-      if (this.acceptWord("exception")) {
-        this.expectOp(";");
-        decls.push({ kind: "exception", name });
-        continue;
-      }
-      const constant = this.acceptWord("constant");
-      const type = tokenText(this.readUntil((part2) => isOp(part2, ":=", ";") || isWord(part2, "default")));
-      const init = this.acceptOp(":=") || this.acceptWord("default") ? this.untilSemicolon() : void 0;
-      if (!init) this.expectOp(";");
-      decls.push({ kind: "var", name, type, constant, ...init ? { init } : {}, line });
-    }
-    return decls;
-  }
-  params() {
-    this.expectOp("(");
-    const start = this.pos;
-    const close2 = matchParen(this.tokens, start - 1);
-    const inner = this.tokens.slice(start, close2);
-    this.pos = close2 + 1;
-    return splitTopLevel(inner).map((part2) => {
-      let index = 1;
-      let mode = "in";
-      if (isWord(part2[index], "in")) index += 1;
-      if (isWord(part2[index], "out")) {
-        mode = index === 2 ? "in out" : "out";
-        index += 1;
-      }
-      if (isWord(part2[index], "nocopy")) index += 1;
-      const rest = part2.slice(index);
-      const split2 = rest.findIndex((item2) => isOp(item2, ":=") || isWord(item2, "default"));
-      const type = tokenText(split2 < 0 ? rest : rest.slice(0, split2));
-      return {
-        name: part2[0].value,
-        mode,
-        type,
-        ...split2 >= 0 ? { init: rest.slice(split2 + 1) } : {}
-      };
-    });
-  }
-  routine(isFunction) {
-    const name = this.next().value;
-    const params2 = isOp(this.peek(), "(") ? this.params() : [];
-    if (isFunction) {
-      this.expectWord("return");
-      this.readUntil((token) => isWord(token, "is", "as") || isOp(token, ";"));
-    }
-    if (this.acceptOp(";")) return void 0;
-    this.expectWord("is", "as");
-    const decls = this.declarations();
-    this.expectWord("begin");
-    this.pos -= 1;
-    const block = this.block();
-    block.decls = decls;
-    this.expectOp(";");
-    return { name, params: params2, isFunction, block };
-  }
-  statements(terminators) {
-    const list4 = [];
-    for (; ; ) {
-      const token = this.peek();
-      if (!token) return list4;
-      if (token.kind === "word" && terminators.has(token.value)) return list4;
-      list4.push(this.statement());
-    }
-  }
-  label() {
-    if (!isOp(this.peek(), "<<")) return void 0;
-    this.pos += 1;
-    const name = this.next().value;
-    this.expectOp(">>");
-    return name;
-  }
-  endLoop() {
-    this.expectWord("end");
-    this.expectWord("loop");
-    if (this.peek()?.kind === "word") this.pos += 1;
-    this.expectOp(";");
-  }
-  statement() {
-    const label = this.label();
-    const token = this.peek();
-    const line = token.line;
-    if (isOp(token, ";")) {
-      this.pos += 1;
-      return { k: "noop", line };
-    }
-    if (token.kind === "word") {
-      switch (token.value) {
-        case "declare":
-        case "begin": {
-          const block = this.block(label);
-          this.expectOp(";");
-          return { k: "block", block, line };
-        }
-        case "null":
-          if (isOp(this.peek(1), ";")) {
-            this.pos += 2;
-            return { k: "null", line };
-          }
+  return { decls, ...init ? { init } : {} };
+}
+function parseStandalone(source, kind, name) {
+  const parser = new Parser(`${kind} ${name} ${unitBody(source)}`);
+  parser.pos = 1;
+  return parser.routine(kind === "function");
+}
+function buildLibrary(units) {
+  const library = empty();
+  const parsed2 = /* @__PURE__ */ new Map();
+  for (const unit of units) {
+    try {
+      switch (unit.kind) {
+        case "package":
+        case "package body": {
+          const entry = parsed2.get(unit.name) ?? {};
+          if (unit.kind === "package") entry.spec = parsePackage(unit.source, false).decls;
+          else entry.body = parsePackage(unit.source, true);
+          parsed2.set(unit.name, entry);
           break;
-        case "if": {
-          this.pos += 1;
-          const branches = [];
-          let otherwise;
-          const ends = /* @__PURE__ */ new Set(["elsif", "else", "end"]);
-          let cond = this.untilWord("then");
-          this.expectWord("then");
-          branches.push({ cond, body: this.statements(ends) });
-          while (this.acceptWord("elsif")) {
-            cond = this.untilWord("then");
-            this.expectWord("then");
-            branches.push({ cond, body: this.statements(ends) });
-          }
-          if (this.acceptWord("else")) otherwise = this.statements(/* @__PURE__ */ new Set(["end"]));
-          this.expectWord("end");
-          this.expectWord("if");
-          this.expectOp(";");
-          return { k: "if", branches, ...otherwise ? { otherwise } : {}, line };
         }
-        case "case": {
-          this.pos += 1;
-          const selector2 = isWord(this.peek(), "when") ? void 0 : this.untilWord("when");
-          const whens = [];
-          const ends = /* @__PURE__ */ new Set(["when", "else", "end"]);
-          while (this.acceptWord("when")) {
-            const expr = this.untilWord("then");
-            this.expectWord("then");
-            whens.push({ expr, body: this.statements(ends) });
-          }
-          const otherwise = this.acceptWord("else") ? this.statements(/* @__PURE__ */ new Set(["end"])) : void 0;
-          this.expectWord("end");
-          this.expectWord("case");
-          if (this.peek()?.kind === "word") this.pos += 1;
-          this.expectOp(";");
-          return {
-            k: "case",
-            ...selector2 ? { selector: selector2 } : {},
-            whens,
-            ...otherwise ? { otherwise } : {},
-            line
-          };
-        }
-        case "loop": {
-          this.pos += 1;
-          const body4 = this.statements(/* @__PURE__ */ new Set(["end"]));
-          this.endLoop();
-          return { k: "loop", body: body4, ...label ? { label } : {}, line };
-        }
-        case "while": {
-          this.pos += 1;
-          const cond = this.untilWord("loop");
-          this.expectWord("loop");
-          const body4 = this.statements(/* @__PURE__ */ new Set(["end"]));
-          this.endLoop();
-          return { k: "while", cond, body: body4, ...label ? { label } : {}, line };
-        }
-        case "for":
-          return this.forLoop(label, line);
-        case "exit":
-        case "continue": {
-          this.pos += 1;
-          const name = this.peek()?.kind === "word" && !isWord(this.peek(), "when") ? this.next().value : void 0;
-          const when = this.acceptWord("when") ? this.untilSemicolon() : void 0;
-          if (!when) this.expectOp(";");
-          return {
-            k: token.value,
-            ...when ? { when } : {},
-            ...name ? { label: name } : {},
-            line
-          };
-        }
-        case "return": {
-          this.pos += 1;
-          const expr = this.untilSemicolon();
-          return { k: "return", ...expr.length ? { expr } : {}, line };
-        }
-        case "raise": {
-          this.pos += 1;
-          const name = this.untilSemicolon();
-          return {
-            k: "raise",
-            ...name.length ? { name: name.map((part2) => part2.value).join(".") } : {},
-            line
-          };
-        }
-        case "select":
-        case "with":
-          return this.selectInto(line);
-        case "insert":
-        case "update":
-        case "delete":
-        case "merge":
-          return this.dml(line);
-        case "commit":
-        case "rollback":
-        case "savepoint": {
-          this.pos += 1;
-          const words = this.untilSemicolon().filter((part2) => part2.kind === "word" || part2.kind === "qident").map((part2) => part2.value);
-          const op = token.value;
-          const to = words.indexOf("to");
-          const name = op === "savepoint" ? words[0] : op === "rollback" && to >= 0 ? words.slice(to + 1).find((word) => word !== "savepoint") : void 0;
-          return { k: "tx", op, ...name ? { savepoint: name } : {}, line };
-        }
-        case "lock":
-          this.untilSemicolon();
-          return { k: "noop", line };
-        case "set":
-          if (isWord(this.peek(1), "transaction")) {
-            this.untilSemicolon();
-            return { k: "noop", line };
-          }
+        case "function":
+        case "procedure": {
+          const routine = parseStandalone(unit.source, unit.kind, unit.name);
+          if (routine) library.routines.set(unit.name, [routine]);
           break;
-        case "execute":
-        case "open":
-        case "fetch":
-        case "close":
-        case "goto":
-        case "forall":
-        case "pipe": {
-          this.untilSemicolon();
-          return { k: "unsupported", what: `${token.value.toUpperCase()} statements`, line };
         }
+        case "block":
+          library.blocks.push({ source: unit.source, script: unit.script });
+          break;
         default:
           break;
       }
+    } catch (error) {
+      const line = error instanceof PlsqlSyntaxError ? ` (line ${error.line})` : "";
+      library.problems.push(
+        `${unit.script}: ${unit.kind} ${unit.name}: ${error.message}${line}; its routines are not run locally`
+      );
     }
-    return this.assignmentOrCall(line);
   }
-  forLoop(label, line) {
-    this.expectWord("for");
-    const name = this.next().value;
-    this.expectWord("in");
-    const reverse = this.acceptWord("reverse");
-    const tag = label ? { label } : {};
-    if (isOp(this.peek(), "(") && isWord(this.peek(1), "select", "with")) {
-      const close2 = matchParen(this.tokens, this.pos);
-      const sql = this.tokens.slice(this.pos + 1, close2);
-      this.pos = close2 + 1;
-      this.expectWord("loop");
-      const body5 = this.statements(/* @__PURE__ */ new Set(["end"]));
-      this.endLoop();
-      return { k: "forQuery", name, sql, body: body5, ...tag, line };
-    }
-    const from = this.readUntil((token) => isOp(token, "..") || isWord(token, "loop"));
-    if (this.acceptOp("..")) {
-      const to = this.untilWord("loop");
-      this.expectWord("loop");
-      const body5 = this.statements(/* @__PURE__ */ new Set(["end"]));
-      this.endLoop();
-      return { k: "forRange", name, reverse, from, to, body: body5, ...tag, line };
-    }
-    this.expectWord("loop");
-    const cursor = from[0]?.value ?? "";
-    const args = isOp(from[1], "(") ? parseArgs(from.slice(2, matchParen(from, 1))) : [];
-    const body4 = this.statements(/* @__PURE__ */ new Set(["end"]));
-    this.endLoop();
-    return { k: "forQuery", name, cursor, args, body: body4, ...tag, line };
+  for (const [name, entry] of parsed2) {
+    const decls = [...entry.spec ?? [], ...entry.body?.decls ?? []];
+    const routines = /* @__PURE__ */ new Map();
+    for (const decl of decls) if (decl.kind === "routine") addRoutine(routines, decl.routine);
+    library.packages.set(name, {
+      name,
+      decls,
+      ...entry.body?.init ? { init: entry.body.init } : {},
+      routines,
+      hasBody: Boolean(entry.body)
+    });
   }
-  /** `select ... into a, b from ...` — the INTO clause is removed from the SQL. */
-  selectInto(line) {
-    const tokens = this.untilSemicolon();
-    let depth = 0;
-    let into = -1;
-    for (let index = 0; index < tokens.length; index += 1) {
-      const token = tokens[index];
-      if (isOp(token, "(")) depth += 1;
-      else if (isOp(token, ")")) depth -= 1;
-      else if (depth === 0 && isWord(token, "into")) {
-        into = index;
-        break;
-      }
-    }
-    if (into < 0) throw new PlsqlSyntaxError("SELECT without INTO in PL/SQL", line);
-    const bulk = isWord(tokens[into - 1], "collect") && isWord(tokens[into - 2], "bulk");
-    let end = into + 1;
-    depth = 0;
-    while (end < tokens.length && !(depth === 0 && isWord(tokens[end], "from"))) {
-      if (isOp(tokens[end], "(")) depth += 1;
-      if (isOp(tokens[end], ")")) depth -= 1;
-      end += 1;
-    }
-    const targets = splitTopLevel(tokens.slice(into + 1, end)).map((part2) => this.target(part2));
-    const head = tokens.slice(0, bulk ? into - 2 : into);
-    const tail = tokens.slice(end);
-    return { k: "selectInto", sql: [...head, ...tail], targets, bulk, line };
-  }
-  dml(line) {
-    const tokens = this.untilSemicolon();
-    let depth = 0;
-    for (let index = 0; index < tokens.length; index += 1) {
-      const token = tokens[index];
-      if (isOp(token, "(")) depth += 1;
-      else if (isOp(token, ")")) depth -= 1;
-      else if (depth === 0 && isWord(token, "returning", "return")) {
-        const rest = tokens.slice(index + 1);
-        const into = rest.findIndex((part2) => isWord(part2, "into"));
-        if (into < 0) break;
-        const targets = splitTopLevel(rest.slice(into + 1)).map((part2) => this.target(part2));
-        const returning = { ...token, text: "returning", value: "returning" };
-        return {
-          k: "dml",
-          sql: [...tokens.slice(0, index), returning, ...rest.slice(0, into)],
-          targets,
-          line
-        };
-      }
-    }
-    return { k: "dml", sql: tokens, line };
-  }
-  target(tokens) {
-    const [first, second, third] = tokens;
-    if (first?.kind === "bind" && tokens.length === 1) return { kind: "bind", name: first.value };
-    if (first?.kind === "word") {
-      if (tokens.length === 1) return { kind: "var", name: first.value };
-      if (isOp(second, ".") && third && tokens.length === 3) {
-        if (first.value === "apex_application")
-          return { kind: "global", name: `${first.value}.${third.value}` };
-        return { kind: "var", name: first.value, field: third.value };
-      }
-      if (isOp(second, "(") && matchParen(tokens, 1) === tokens.length - 1)
-        return { kind: "var", name: first.value, index: tokens.slice(2, -1) };
-    }
-    throw new PlsqlSyntaxError(`Unsupported assignment target "${tokenText(tokens)}"`, first?.line ?? 0);
-  }
-  assignmentOrCall(line) {
-    const tokens = this.untilSemicolon();
-    let depth = 0;
-    for (let index2 = 0; index2 < tokens.length; index2 += 1) {
-      const token = tokens[index2];
-      if (isOp(token, "(")) depth += 1;
-      else if (isOp(token, ")")) depth -= 1;
-      else if (depth === 0 && isOp(token, ":=")) {
-        return {
-          k: "assign",
-          target: this.target(tokens.slice(0, index2)),
-          expr: tokens.slice(index2 + 1),
-          line
-        };
-      }
-    }
-    const name = [];
-    let index = 0;
-    while (tokens[index]?.kind === "word" || tokens[index]?.kind === "qident") {
-      name.push(tokens[index].value.toLowerCase());
-      index += 1;
-      if (!isOp(tokens[index], ".")) break;
-      index += 1;
-    }
-    if (!name.length)
-      throw new PlsqlSyntaxError(`Unsupported statement "${tokenText(tokens).slice(0, 60)}"`, line);
-    let args = [];
-    if (isOp(tokens[index], "(")) {
-      const close2 = matchParen(tokens, index);
-      args = parseArgs(tokens.slice(index + 1, close2));
-      index = close2 + 1;
-    }
-    if (index < tokens.length)
-      throw new PlsqlSyntaxError(`Unsupported statement "${tokenText(tokens).slice(0, 60)}"`, line);
-    return { k: "call", name, args, line };
-  }
-};
-function parseProgram(source) {
-  return new Parser2(source).program();
+  return library;
 }
-function parseExpression(source) {
-  return lex(source.trim().replace(/;\s*$/u, ""));
+function pickOverload(routines, positional, named2) {
+  let best;
+  for (const routine of routines) {
+    const names = routine.params.map((param) => param.name);
+    if (positional > names.length) continue;
+    if (!named2.every((name) => names.includes(name))) continue;
+    const given = /* @__PURE__ */ new Set([...names.slice(0, positional), ...named2]);
+    if (routine.params.some((param) => !given.has(param.name) && !param.init && param.mode !== "out"))
+      continue;
+    const spare = names.length - given.size;
+    if (!best || spare < best.spare) best = { routine, spare };
+  }
+  return best?.routine ?? (routines.length === 1 ? routines[0] : void 0);
 }
 
 // packages/core/src/preview/extensions/server/plsql.ts
@@ -13276,6 +13222,8 @@ var Scope = class {
   cursors = /* @__PURE__ */ new Map();
   exceptions = /* @__PURE__ */ new Set();
   routines = /* @__PURE__ */ new Map();
+  /** All routines of a name declared in this scope (package overloads). */
+  overloads = /* @__PURE__ */ new Map();
   collectionTypes = /* @__PURE__ */ new Set();
   parent;
   constructor(parent) {
@@ -13343,7 +13291,11 @@ var COLLECTION_TYPES = /* @__PURE__ */ new Set([
   "odcivarchar2list",
   "odcinumberlist",
   "dbms_sql.varchar2_table",
-  "dbms_sql.number_table"
+  "dbms_sql.number_table",
+  "apex_plugin_util.t_column_value_list",
+  "apex_plugin_util.t_column_value_list2",
+  "apex_plugin_util.t_column_list",
+  "apex_t_string_pairs"
 ]);
 var COMPARISON2 = /* @__PURE__ */ new Set(["=", "<", ">", "<=", ">=", "<>", "!=", "~=", "^="]);
 var LOOP_LIMIT = 1e5;
@@ -13410,6 +13362,43 @@ function parsed(code) {
     }
     if (parseCache.size > 500) parseCache.clear();
     parseCache.set(code, entry);
+  }
+  if (entry instanceof PlsqlSyntaxError) throw entry;
+  return entry;
+}
+var libraries = /* @__PURE__ */ new WeakMap();
+function plsqlLibrary(renderer) {
+  let library = libraries.get(renderer);
+  if (!library) {
+    library = renderer.oracle ? buildLibrary([]) : buildLibrary(typeof renderer.db.plsqlUnits === "function" ? renderer.db.plsqlUnits() : []);
+    libraries.set(renderer, library);
+    for (const problem of library.problems) renderer.diagnose("warning", `PL/SQL unit: ${problem}`);
+  }
+  return library;
+}
+var packageStates = /* @__PURE__ */ new WeakMap();
+function libraryTarget(library, names) {
+  for (const offset of names.length > 2 ? [0, 1] : [0]) {
+    const pkg = library.packages.get(names[offset]);
+    if (pkg && names[offset + 1]) return { pkg, member: names[offset + 1], rest: names.slice(offset + 2) };
+  }
+  const standalone = library.routines.get(names.at(-1));
+  if (standalone && names.length <= 2 && (names.length === 1 || !library.packages.has(names[0])))
+    return { routine: standalone, rest: [] };
+  return void 0;
+}
+var declarationCache = /* @__PURE__ */ new Map();
+function declarations(code) {
+  let entry = declarationCache.get(code);
+  if (!entry) {
+    try {
+      entry = new Parser(code).declarations();
+    } catch (error) {
+      if (!(error instanceof PlsqlSyntaxError)) throw error;
+      entry = error;
+    }
+    if (declarationCache.size > 200) declarationCache.clear();
+    declarationCache.set(code, entry);
   }
   if (entry instanceof PlsqlSyntaxError) throw entry;
   return entry;
@@ -13482,6 +13471,57 @@ var Interpreter = class {
     if (this.redirectURL) result.redirectURL = this.redirectURL;
     return result;
   }
+  /**
+   * Runs routine `name` declared in `code` (a plug-in's PL/SQL: declarations without a body) with
+   * argument values by parameter name. Parameters without a value get their default, or an empty
+   * record; OUT and IN OUT values come back in `outs`.
+   */
+  runDeclared(code, name, values) {
+    const result = {
+      ok: true,
+      value: null,
+      output: "",
+      errors: this.errors,
+      outs: {}
+    };
+    try {
+      withRuntime(this, () => {
+        const scope2 = new Scope();
+        this.declare(declarations(code), scope2);
+        const routine = scope2.overloads.get(name.toLowerCase())?.[0];
+        if (!routine) throw new PlsqlUnsupported(`the plug-in code declares no ${name}`, 0);
+        const local = new Scope(scope2);
+        for (const param of routine.params) {
+          const type = typeOf(param.type, scope2);
+          const given = Object.hasOwn(values, param.name) ? values[param.name] : void 0;
+          const value2 = given !== void 0 ? given : param.init ? this.evaluate(param.init, local) : /\.t_|%rowtype$/iu.test(param.type) ? new RecordValue() : null;
+          local.vars.set(param.name, {
+            value: value2 instanceof RecordValue ? value2 : this.coerce(value2, type),
+            type: value2 instanceof RecordValue ? "record" : type,
+            constant: false
+          });
+        }
+        result.value = this.runRoutine(routine, local);
+        for (const param of routine.params)
+          if (param.mode !== "in") result.outs[param.name] = local.vars.get(param.name)?.value ?? null;
+      });
+    } catch (error) {
+      result.ok = false;
+      if (error instanceof PlsqlException)
+        result.failure = { message: error.message, kind: error.kind, line: this.line };
+      else if (error instanceof PlsqlSyntaxError || error instanceof PlsqlUnsupported)
+        result.failure = { message: error.message, kind: "unsupported", line: error.line || this.line };
+      else
+        result.failure = {
+          message: error.message ?? String(error),
+          kind: "engine",
+          line: this.line
+        };
+    }
+    result.output = this.output.join("");
+    if (this.redirectURL) result.redirectURL = this.redirectURL;
+    return result;
+  }
   /** COMMIT, ROLLBACK [TO SAVEPOINT name] and SAVEPOINT name act on the page transaction. */
   transactionControl(op, name) {
     const db2 = this.renderer.db.db;
@@ -13515,9 +13555,17 @@ var Interpreter = class {
         case "type":
           if (decl.collection) scope2.collectionTypes.add(decl.name);
           break;
-        case "routine":
+        case "routine": {
           scope2.routines.set(decl.routine.name, { routine: decl.routine, scope: scope2 });
+          const list4 = scope2.overloads.get(decl.routine.name) ?? [];
+          const same = list4.findIndex(
+            (entry) => entry.params.length === decl.routine.params.length && entry.params.every((param, at) => param.name === decl.routine.params[at].name)
+          );
+          if (same >= 0) list4[same] = decl.routine;
+          else list4.push(decl.routine);
+          scope2.overloads.set(decl.routine.name, list4);
           break;
+        }
       }
     }
   }
@@ -13615,10 +13663,10 @@ var Interpreter = class {
         return statement.otherwise ? this.execList(statement.otherwise, new Scope(scope2)) : void 0;
       }
       case "case": {
-        const selector2 = statement.selector ? this.evaluate(statement.selector, scope2) : void 0;
+        const selector = statement.selector ? this.evaluate(statement.selector, scope2) : void 0;
         for (const when of statement.whens) {
           const value2 = this.evaluate(when.expr, scope2);
-          if (statement.selector ? sameValue(selector2 ?? null, value2) : truthy(value2))
+          if (statement.selector ? sameValue(selector ?? null, value2) : truthy(value2))
             return this.execList(when.body, new Scope(scope2));
         }
         if (statement.otherwise) return this.execList(statement.otherwise, new Scope(scope2));
@@ -13711,6 +13759,8 @@ var Interpreter = class {
       case "bind":
         this.ctx.session.items[target2.name] = itemText(value2);
         return;
+      case "row":
+        throw new PlsqlUnsupported(`:${target2.row}.${target2.column} outside a row trigger`, this.line);
       case "global":
         if (target2.name === "apex_application.g_print_success_message") {
           this.ctx.session.success = itemText(value2) || void 0;
@@ -13721,6 +13771,13 @@ var Interpreter = class {
       case "var": {
         const variable = scope2.variable(target2.name);
         if (!variable) {
+          const global = target2.field ? this.packageVariable([target2.name, target2.field]) : void 0;
+          if (global) {
+            if (global.constant)
+              throw new PlsqlUnsupported(`assignment to constant ${target2.name}.${target2.field}`, this.line);
+            global.value = this.coerce(value2, global.type);
+            return;
+          }
           if (target2.field) {
             this.note(
               "info",
@@ -13834,6 +13891,66 @@ var Interpreter = class {
       throw engineError(error);
     }
   }
+  // ------------------------------------------------------------ packages
+  get library() {
+    return plsqlLibrary(this.renderer);
+  }
+  /** The package's state for this request, initialized on first use. */
+  packageScope(pkg) {
+    let states = packageStates.get(this.ctx);
+    if (!states) packageStates.set(this.ctx, states = /* @__PURE__ */ new Map());
+    let scope2 = states.get(pkg.name);
+    if (scope2) return scope2;
+    scope2 = new Scope();
+    states.set(pkg.name, scope2);
+    const line = this.line;
+    try {
+      this.declare(pkg.decls, scope2);
+      if (pkg.init) this.execBlock(pkg.init, scope2);
+    } finally {
+      this.line = line;
+    }
+    return scope2;
+  }
+  /** A package variable or constant (`pkg.g_x`), when the chain names one. */
+  packageVariable(names) {
+    const target2 = libraryTarget(this.library, names);
+    if (!target2 || !("pkg" in target2) || !target2.pkg) return void 0;
+    if (target2.pkg.routines.has(target2.member)) return void 0;
+    return this.packageScope(target2.pkg).vars.get(target2.member);
+  }
+  /** Calls an application routine by chain; undefined when the chain names none. */
+  callLibrary(names, args, scope2) {
+    const target2 = libraryTarget(this.library, names);
+    if (!target2 || target2.rest.length) return void 0;
+    const positional = args.filter((arg) => !arg.name).length;
+    const named2 = args.filter((arg) => arg.name).map((arg) => arg.name);
+    if ("routine" in target2) {
+      const routine2 = pickOverload(target2.routine, positional, named2);
+      return routine2 ? { value: this.invoke(routine2, new Scope(), args, scope2) } : void 0;
+    }
+    const overloads = target2.pkg.routines.get(target2.member);
+    if (!overloads) return void 0;
+    const routine = pickOverload(overloads, positional, named2);
+    if (!routine) return void 0;
+    return { value: this.invoke(routine, this.packageScope(target2.pkg), args, scope2) };
+  }
+  /** Calls an application routine with values (from SQL); undefined when it does not exist. */
+  callWithValues(names, values) {
+    const target2 = libraryTarget(this.library, names);
+    if (!target2 || target2.rest.length) return void 0;
+    const overloads = "routine" in target2 ? target2.routine : target2.pkg.routines.get(target2.member);
+    const routine = overloads && pickOverload(overloads, values.length, []);
+    if (!routine) return void 0;
+    const defining = "routine" in target2 ? new Scope() : this.packageScope(target2.pkg);
+    const local = new Scope(defining);
+    routine.params.forEach((param, index) => {
+      const type = typeOf(param.type, defining);
+      const value2 = index < values.length ? values[index] : param.init ? this.evaluate(param.init, local) : null;
+      local.vars.set(param.name, { value: this.coerce(value2, type), type, constant: param.mode === "in" });
+    });
+    return { value: this.runRoutine(routine, local) };
+  }
   // ------------------------------------------------------------ calls
   evalArgs(args, scope2) {
     const positional = [];
@@ -13849,8 +13966,15 @@ var Interpreter = class {
     const names = chain[0] === "sys" && chain.length > 1 ? chain.slice(1) : chain;
     const name = names.join(".");
     if (names.length === 1) {
-      const local = scope2.find((s) => s.routines.get(name));
-      if (local) return this.invoke(local.routine, local.scope, args, scope2);
+      const local = scope2.find((s) => s.overloads.has(name) ? s : void 0);
+      if (local) {
+        const routine = pickOverload(
+          local.overloads.get(name),
+          args.filter((arg) => !arg.name).length,
+          args.filter((arg) => arg.name).map((arg) => arg.name)
+        ) ?? local.routines.get(name).routine;
+        return this.invoke(routine, local, args, scope2);
+      }
       if (name === "raise_application_error") {
         const { positional: positional2, named: named3 } = this.evalArgs(args, scope2);
         const code = Number(positional2[0] ?? named3.num ?? -2e4);
@@ -13863,13 +13987,15 @@ var Interpreter = class {
     if (COLLECTION_TYPES.has(name)) return Collection.of(this.evalArgs(args, scope2).positional);
     const variable = names.length === 2 ? scope2.variable(names[0]) : void 0;
     if (variable?.value instanceof Collection) return this.collectionMethod(variable, names[1], args, scope2);
+    const application = this.callLibrary(names, args, scope2);
+    if (application) return application.value;
     const stub = findStub(name);
     if (!stub) {
       this.note("info", `${name} is not simulated locally; ${asFunction ? "returned NULL" : "skipped"}`);
       return null;
     }
     const { positional, named: named2 } = this.evalArgs(args, scope2);
-    const plain2 = (value2) => value2 instanceof Collection ? value2.values().map(plain2) : value2 instanceof RecordValue ? null : value2;
+    const plain2 = (value2) => stub.raw ? value2 : value2 instanceof Collection ? value2.values().map(plain2) : value2 instanceof RecordValue ? null : value2;
     const result = stub.fn(
       stubArgs(
         stub,
@@ -13880,6 +14006,50 @@ var Interpreter = class {
     );
     if (Array.isArray(result)) return Collection.of(result);
     return result ?? null;
+  }
+  /**
+   * Reads a variable through its element and field accessors, as far as they go:
+   * `rec.field`, `list(i)`, `list(i).value_list(j).varchar2_value`, `list(i).value_list.count`.
+   * `start` is the index of the variable's token; returns the value and the last token consumed.
+   */
+  walkPath(variable, tokens, start, scope2) {
+    let current3 = variable.value;
+    let holder = variable;
+    let at = start;
+    for (; ; ) {
+      if (current3 instanceof Collection && isOp(tokens[at + 1], "(")) {
+        const close3 = matchParen(tokens, at + 1);
+        const key = this.collectionKey(this.evaluate(tokens.slice(at + 2, close3), scope2));
+        if (!current3.items.has(key))
+          throw new PlsqlException("no_data_found", 100, PREDEFINED_TEXT.no_data_found, "app");
+        current3 = current3.items.get(key) ?? null;
+        holder = { value: current3, type: "any", constant: true };
+        at = close3;
+        continue;
+      }
+      if (isOp(tokens[at + 1], ".") && (tokens[at + 2]?.kind === "word" || tokens[at + 2]?.kind === "qident")) {
+        const member = tokens[at + 2].value.toLowerCase();
+        if (current3 instanceof RecordValue) {
+          current3 = current3.fields[member.toUpperCase()] ?? null;
+          holder = { value: current3, type: "any", constant: true };
+          at += 2;
+          continue;
+        }
+        if (current3 instanceof Collection) {
+          let args = [];
+          let end = at + 2;
+          if (isOp(tokens[at + 3], "(")) {
+            end = matchParen(tokens, at + 3);
+            args = parseArgs(tokens.slice(at + 4, end));
+          }
+          current3 = this.collectionMethod(holder, member, args, scope2);
+          holder = { value: current3, type: "any", constant: true };
+          at = end;
+          continue;
+        }
+      }
+      return { value: current3, end: at };
+    }
   }
   collectionMethod(variable, method, args, scope2) {
     const collection = variable.value;
@@ -13926,17 +14096,23 @@ var Interpreter = class {
     routine.params.forEach((param, index) => {
       const arg = args.find((entry) => entry.name === param.name) ?? args.filter((entry) => !entry.name)[index];
       const type = typeOf(param.type, defining);
-      const value2 = arg && param.mode !== "out" ? this.evaluate(arg.expr, caller) : !arg && param.init ? this.evaluate(param.init, local) : null;
-      local.vars.set(param.name, { value: this.coerce(value2, type), type, constant: param.mode === "in" });
+      const value3 = arg && param.mode !== "out" ? this.evaluate(arg.expr, caller) : !arg && param.init ? this.evaluate(param.init, local) : null;
+      local.vars.set(param.name, { value: this.coerce(value3, type), type, constant: param.mode === "in" });
       if (arg && param.mode !== "in") {
         outs.push({ target: targetOf(arg.expr), name: param.name });
       }
     });
+    const value2 = this.runRoutine(routine, local);
+    for (const out of outs) this.assign(out.target, local.vars.get(out.name)?.value ?? null, caller);
+    return value2;
+  }
+  /** Runs a routine body in its parameter scope; a function must return a value. */
+  runRoutine(routine, local) {
+    if (this.#depth >= MAX_CALL_DEPTH) throw new PlsqlUnsupported("recursion depth exceeded", this.line);
     this.#depth += 1;
     const line = this.line;
     try {
       const signal = this.execBlock(routine.block, local);
-      for (const out of outs) this.assign(out.target, local.vars.get(out.name)?.value ?? null, caller);
       if (routine.isFunction) {
         if (signal?.kind !== "return")
           throw new PlsqlException(
@@ -14030,33 +14206,14 @@ var Interpreter = class {
         }
         throw new PlsqlUnsupported(`attribute ${head}%${attribute3}`, token.line);
       }
-      if (variable && names.length === 1) {
-        if (variable.value instanceof Collection && callOpen >= 0) {
-          const key = this.collectionKey(this.evaluate(tokens.slice(callOpen + 1, callClose), scope2));
-          if (!variable.value.items.has(key))
-            throw new PlsqlException("no_data_found", 100, PREDEFINED_TEXT.no_data_found, "app");
-          bind(pre, variable.value.items.get(key) ?? null);
-          index = callClose;
-          continue;
-        }
-        bind(pre, variable.value);
-        index = end;
+      if (variable && (names.length === 1 || variable.value instanceof RecordValue || variable.value instanceof Collection)) {
+        const walked = this.walkPath(variable, tokens, index, scope2);
+        bind(pre, walked.value);
+        index = walked.end;
         continue;
       }
-      if (variable && names.length >= 2) {
-        if (variable.value instanceof RecordValue) {
-          bind(pre, variable.value.fields[names[1].toUpperCase()] ?? null);
-          index = end;
-          continue;
-        }
-        if (variable.value instanceof Collection) {
-          bind(pre, this.collectionMethod(variable, names[1], callArgs, scope2));
-          index = callOpen >= 0 ? callClose : end;
-          continue;
-        }
-      }
       if (names.length === 1) {
-        const routine = scope2.find((s) => s.routines.get(head));
+        const routine = scope2.find((s) => s.routines.get(head)) ?? (mode === "expr" ? this.library.routines.get(head) : void 0);
         const isCollectionType = COLLECTION_TYPES.has(head) || scope2.find((s) => s.collectionTypes.has(head) ? true : void 0);
         if (routine || isCollectionType || head === "raise_application_error") {
           bind(pre, this.call(names, callArgs, scope2, true));
@@ -14069,6 +14226,24 @@ var Interpreter = class {
         }
         pieces.push({ pre, text: token.text, token });
         continue;
+      }
+      const libraryChain = head === "sys" ? names.slice(1) : names;
+      const own = libraryTarget(this.library, libraryChain);
+      if (own) {
+        const global = this.packageVariable(libraryChain);
+        if (global) {
+          bind(pre, global.value);
+          index = end;
+          continue;
+        }
+        if (mode === "expr" || callOpen < 0) {
+          const result = this.callLibrary(libraryChain, callArgs, scope2);
+          if (result) {
+            bind(pre, result.value);
+            index = callOpen >= 0 ? callClose : end;
+            continue;
+          }
+        }
       }
       const dropped = head === "sys" ? names.slice(1) : names;
       const full = dropped.join(".");
@@ -14111,11 +14286,11 @@ function runPlsql(renderer, ctx, code, mode, owner2) {
 }
 
 // packages/core/src/preview/extensions/files/blob.ts
-import zlib2 from "node:zlib";
+import zlib from "node:zlib";
 
 // packages/core/src/preview/extensions/files/store.ts
 import { randomInt } from "node:crypto";
-import path9 from "node:path";
+import path6 from "node:path";
 registerDatabaseSetup((db2) => {
   db2.db.exec(`create table if not exists apex_application_temp_files (
     id integer primary key,
@@ -14185,7 +14360,7 @@ function mimeType(bytes2, filename = "", stored2) {
     if (head.startsWith("<svg") || head.startsWith("<?xml") && head.includes("<svg"))
       return "image/svg+xml";
   }
-  return MIME[path9.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
+  return MIME[path6.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
 }
 function tempName(filename) {
   return `${randomInt(1e9, 9e9)}${randomInt(1e5, 9e5)}/${filename}`;
@@ -14235,19 +14410,19 @@ function purgeRequestFiles(db2, names) {
 }
 var pending = /* @__PURE__ */ new WeakMap();
 var ready = /* @__PURE__ */ new WeakMap();
-function queueDownload(session, download3) {
-  pending.set(session, download3);
+function queueDownload(session, download2) {
+  pending.set(session, download2);
 }
 function takeDownload(session) {
-  const download3 = pending.get(session);
+  const download2 = pending.get(session);
   pending.delete(session);
-  return download3;
+  return download2;
 }
-function keepDownload(session, download3) {
+function keepDownload(session, download2) {
   let map = ready.get(session);
   if (!map) ready.set(session, map = /* @__PURE__ */ new Map());
   const id = String(randomInt(1e9, 9e9));
-  map.set(id, download3);
+  map.set(id, download2);
   for (const key of map.keys()) {
     if (map.size <= 10) break;
     map.delete(key);
@@ -14261,15 +14436,15 @@ function contentDisposition(filename, inline) {
   const ascii = filename.replace(/[^\x20-\x7e]|["\\]/gu, "_") || "download";
   return `${inline ? "inline" : "attachment"}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename || "download")}`;
 }
-function fileResponse(download3) {
+function fileResponse(download2) {
   return {
     type: "binary",
     body: "",
-    data: download3.bytes,
-    contentType: download3.mimeType,
+    data: download2.bytes,
+    contentType: download2.mimeType,
     headers: {
-      "content-disposition": contentDisposition(download3.filename, download3.inline),
-      "content-length": String(download3.bytes.length),
+      "content-disposition": contentDisposition(download2.filename, download2.inline),
+      "content-length": String(download2.bytes.length),
       "x-content-type-options": "nosniff",
       // uploaded SVG or HTML must not run script in the preview's origin
       "content-security-policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox"
@@ -14390,7 +14565,7 @@ var displayImage = (renderer, ctx, item2, name, value2) => {
     "settings.basedOn",
     str(item2.props, "source.column") ? "blobColItem" : "url"
   );
-  const alt = (text10) => renderer.substitute(ctx.session, text10, ctx.page, "RAW");
+  const alt = (text12) => renderer.substitute(ctx.session, text12, ctx.page, "RAW");
   let src = "";
   let altText = str(item2.props, "settings.altText") ? alt(str(item2.props, "settings.altText")) : "";
   if (basedOn === "url") src = value2;
@@ -14429,7 +14604,7 @@ function fileAttributes2(renderer, ctx, item2, value2) {
     const row = formBlob(renderer, ctx, item2);
     if (!row?.bytes?.length) return {};
     const inline = str(item2.props, "display.contentDisposition", "attachment") === "inline";
-    const download3 = route(renderer, "files.item", {
+    const download2 = route(renderer, "files.item", {
       page: ctx.pageId,
       item: name,
       inline: inline ? "Y" : void 0
@@ -14445,8 +14620,8 @@ function fileAttributes2(renderer, ctx, item2, value2) {
       filename: row.filename || (image ? void 0 : "file"),
       "file-size": String(row.bytes.length),
       "mime-type": mimeType(row.bytes, row.filename, row.mimeType),
-      link: image ? preview : linked2 ? download3 : void 0,
-      "download-link": linked2 ? download3 : void 0,
+      link: image ? preview : linked2 ? download2 : void 0,
+      "download-link": linked2 ? download2 : void 0,
       "download-text": linked2 ? str(item2.props, "display.downloadLinkText") || void 0 : void 0
     };
   }
@@ -14494,11 +14669,11 @@ var downloadBlobColumn = (renderer, ctx, region, column2, row) => {
   const inline = columnSetting(column2, "viewFileAs") === "inline";
   const url2 = columnLink(renderer, ctx, region, column2, row, inline);
   if (!url2) return "";
-  const text10 = (columnSetting(column2, "downloadText") || "Download").replace(
+  const text12 = (columnSetting(column2, "downloadText") || "Download").replace(
     /#([A-Z0-9_$]+)#/gu,
     (whole, key) => key in row ? String(row[key] ?? "") : whole
   );
-  return `<a href="${escapeHtml(url2)}"${inline ? ' target="_blank" rel="noopener"' : ""}>${escapeHtml(text10)}</a>`;
+  return `<a href="${escapeHtml(url2)}"${inline ? ' target="_blank" rel="noopener"' : ""}>${escapeHtml(text12)}</a>`;
 };
 function fileContext(renderer, session, pageKey, request = "") {
   const page2 = pageKey ? renderer.findPage(pageKey) : void 0;
@@ -14584,8 +14759,8 @@ var tempRoute = (renderer, session, request) => {
   return fileResponse({ bytes: file.bytes, filename: file.filename, mimeType: file.mimeType, inline: true });
 };
 var downloadRoute = (_renderer, session, request) => {
-  const download3 = keptDownload(session, request.params.get("id") ?? "");
-  return download3 ? fileResponse(download3) : notFound("The download has expired; run it again.");
+  const download2 = keptDownload(session, request.params.get("id") ?? "");
+  return download2 ? fileResponse(download2) : notFound("The download has expired; run it again.");
 };
 var CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
   let crc = index;
@@ -14607,7 +14782,7 @@ function zipFiles(files) {
     for (let index = 2; used.has(name); index += 1) name = file.name.replace(/(\.[^.]*)?$/u, ` (${index})$1`);
     used.add(name);
     const nameBytes = Buffer.from(name, "utf8");
-    const data = zlib2.deflateRawSync(file.bytes);
+    const data = zlib.deflateRawSync(file.bytes);
     const crc = crc32(file.bytes);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(67324752, 0);
@@ -14695,15 +14870,15 @@ function downloadFiles(renderer, ctx, props, owner2) {
   };
 }
 function downloadProcess(renderer, ctx, process2, point) {
-  const download3 = downloadFiles(renderer, ctx, process2.props, process2.id);
-  if (!download3) return { ran: false };
+  const download2 = downloadFiles(renderer, ctx, process2.props, process2.id);
+  if (!download2) return { ran: false };
   if (point === "beforeHeader") {
-    queueDownload(ctx.session, download3);
+    queueDownload(ctx.session, download2);
     return { ran: true };
   }
   return {
     ran: true,
-    redirectURL: route(renderer, "files.download", { id: keepDownload(ctx.session, download3) })
+    redirectURL: route(renderer, "files.download", { id: keepDownload(ctx.session, download2) })
   };
 }
 function dynamicActionChild(ctx, key) {
@@ -14714,9 +14889,9 @@ function dynamicActionChild(ctx, key) {
 
 // packages/core/src/preview/extensions/files/parse.ts
 import { createHash as createHash2 } from "node:crypto";
-import path10 from "node:path";
+import path7 from "node:path";
 function formatOf(filename, bytes2) {
-  const extension = path10.extname(filename ?? "").toLowerCase();
+  const extension = path7.extname(filename ?? "").toLowerCase();
   if (extension === ".xlsx" || extension === ".xlsm") return "xlsx";
   if (extension === ".json") return "json";
   if (extension === ".xml") return "xml";
@@ -14729,16 +14904,16 @@ function formatOf(filename, bytes2) {
 }
 function decodeText(bytes2, encoding) {
   const label = (encoding ?? "utf-8").toLowerCase().replace(/^al32utf8$/u, "utf-8");
-  let text10;
+  let text12;
   try {
-    text10 = new TextDecoder(label, { fatal: label === "utf-8" }).decode(bytes2);
+    text12 = new TextDecoder(label, { fatal: label === "utf-8" }).decode(bytes2);
   } catch {
-    text10 = new TextDecoder("windows-1252").decode(bytes2);
+    text12 = new TextDecoder("windows-1252").decode(bytes2);
   }
-  return text10.replace(/^﻿/u, "");
+  return text12.replace(/^﻿/u, "");
 }
-function detectSeparator(text10, enclosedBy) {
-  const sample = text10.split(/\r?\n/u).slice(0, 10);
+function detectSeparator(text12, enclosedBy) {
+  const sample = text12.split(/\r?\n/u).slice(0, 10);
   let best = ",";
   let bestScore = -1;
   for (const candidate of [",", ";", "	", "|"]) {
@@ -14753,18 +14928,18 @@ function detectSeparator(text10, enclosedBy) {
   }
   return best;
 }
-function splitCsv(text10, separator2, enclosedBy = '"') {
+function splitCsv(text12, separator2, enclosedBy = '"') {
   const rows = [];
   let row = [];
   let cell = "";
   let quoted = false;
   let wasQuoted = false;
   const quote5 = enclosedBy || "\0";
-  for (let index = 0; index < text10.length; index += 1) {
-    const char = text10[index];
+  for (let index = 0; index < text12.length; index += 1) {
+    const char = text12[index];
     if (quoted) {
       if (char === quote5) {
-        if (text10[index + 1] === quote5) {
+        if (text12[index + 1] === quote5) {
           cell += quote5;
           index += 1;
         } else quoted = false;
@@ -14774,13 +14949,13 @@ function splitCsv(text10, separator2, enclosedBy = '"') {
     if (char === quote5 && cell === "" && !wasQuoted) {
       quoted = true;
       wasQuoted = true;
-    } else if (text10.startsWith(separator2, index)) {
+    } else if (text12.startsWith(separator2, index)) {
       row.push(cell);
       cell = "";
       wasQuoted = false;
       index += separator2.length - 1;
     } else if (char === "\n" || char === "\r") {
-      if (char === "\r" && text10[index + 1] === "\n") index += 1;
+      if (char === "\r" && text12[index + 1] === "\n") index += 1;
       row.push(cell);
       rows.push(row);
       row = [];
@@ -14800,11 +14975,11 @@ var xmlDecode = (value2) => value2.replace(
   (whole, entity) => entity.startsWith("#x") || entity.startsWith("#X") ? String.fromCodePoint(Number.parseInt(entity.slice(2), 16)) : entity.startsWith("#") ? String.fromCodePoint(Number(entity.slice(1))) : ENTITIES[entity] ?? whole
 );
 var localName = (name) => name.replace(/^.*:/u, "");
-function parseXml(text10) {
+function parseXml(text12) {
   const root = { name: "#document", attributes: {}, children: [], text: "" };
   const stack = [root];
   const pattern = /<!\[CDATA\[([\s\S]*?)\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!DOCTYPE[^>]*>|<(\/?)([\w:.-]+)((?:\s+[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>|([^<]+)/gu;
-  for (const match of text10.matchAll(pattern)) {
+  for (const match of text12.matchAll(pattern)) {
     const current3 = stack.at(-1);
     if (match[1] !== void 0) current3.text += match[1];
     else if (match[6] !== void 0) current3.text += xmlDecode(match[6]);
@@ -14823,8 +14998,8 @@ function parseXml(text10) {
   }
   return root;
 }
-function xmlRows(text10, rowSelector) {
-  const document = parseXml(text10);
+function xmlRows(text12, rowSelector) {
+  const document = parseXml(text12);
   let rows = [];
   const steps = (rowSelector ?? "").replace(/^\/+/u, "").split("/").map((step) => localName(step.trim())).filter(Boolean);
   if (steps.length) {
@@ -14855,8 +15030,8 @@ function xmlRows(text10, rowSelector) {
   return { columns, records };
 }
 var flattenXml = (node) => node.children.length ? node.children.map(flattenXml).join(" ") : node.text.trim();
-function selectJson(value2, selector2) {
-  const steps = (selector2 ?? "").replace(/^\$\.?/u, "").split(".").filter(Boolean);
+function selectJson(value2, selector) {
+  const steps = (selector ?? "").replace(/^\$\.?/u, "").split(".").filter(Boolean);
   let current3 = value2;
   for (const step of steps) {
     const key = step.replace(/\[\*?\]$/u, "");
@@ -14876,8 +15051,8 @@ function flattenJson(value2, prefix, out) {
   }
   out[prefix || "VALUE"] = value2 === null || value2 === void 0 ? "" : typeof value2 === "object" ? JSON.stringify(value2) : String(value2);
 }
-function jsonRows2(text10, rowSelector) {
-  const selected = selectJson(JSON.parse(text10), rowSelector);
+function jsonRows2(text12, rowSelector) {
+  const selected = selectJson(JSON.parse(text12), rowSelector);
   const array = Array.isArray(selected) ? selected : selected === void 0 ? [] : [selected];
   const columns = [];
   const records = array.map((entry) => {
@@ -14905,7 +15080,7 @@ function workbookSheets(zip2) {
     const name = xmlDecode(/\bname="([^"]*)"/u.exec(match[1])?.[1] ?? `Sheet${index + 1}`);
     const id = /\br:id="([^"]*)"/u.exec(match[1])?.[1] ?? "";
     const target2 = targets.get(id) ?? `worksheets/sheet${index + 1}.xml`;
-    return { sequence: index + 1, name, file: path10.posix.basename(target2), path: `xl/${target2}` };
+    return { sequence: index + 1, name, file: path7.posix.basename(target2), path: `xl/${target2}` };
   });
 }
 function xlsxWorksheets(bytes2) {
@@ -15002,8 +15177,8 @@ function parseFile(bytes2, filename, options3 = {}) {
   if (cached2) return cached2;
   let result;
   if (format2 === "json" || format2 === "xml") {
-    const text10 = decodeText(bytes2, options3.encoding);
-    const { columns, records } = format2 === "json" ? jsonRows2(text10, options3.rowSelector) : xmlRows(text10, options3.rowSelector);
+    const text12 = decodeText(bytes2, options3.encoding);
+    const { columns, records } = format2 === "json" ? jsonRows2(text12, options3.rowSelector) : xmlRows(text12, options3.rowSelector);
     result = {
       format: format2,
       columns,
@@ -15011,10 +15186,10 @@ function parseFile(bytes2, filename, options3 = {}) {
     };
   } else {
     let rows = format2 === "xlsx" ? xlsxRows(bytes2, options3.sheet) : (() => {
-      const text10 = decodeText(bytes2, options3.encoding);
+      const text12 = decodeText(bytes2, options3.encoding);
       const enclosedBy = options3.enclosedBy ?? '"';
-      const separator2 = options3.separator === "\\t" ? "	" : options3.separator || detectSeparator(text10, enclosedBy);
-      return splitCsv(text10, separator2, enclosedBy);
+      const separator2 = options3.separator === "\\t" ? "	" : options3.separator || detectSeparator(text12, enclosedBy);
+      return splitCsv(text12, separator2, enclosedBy);
     })();
     rows = rows.slice(options3.skipRows ?? 0);
     const width = Math.max(0, ...rows.map((row) => row.length));
@@ -15130,14 +15305,14 @@ function profileOptions(args, bytes2) {
 }
 function sourceIndex(columns, column2, position2) {
   if (column2["column-number"]) return column2["column-number"] - 1;
-  const selector2 = column2.selector;
-  if (!selector2) return columns.length > position2 ? position2 : -1;
-  if (column2["selector-type"] === "sequence" && /^\d+$/u.test(selector2)) return Number(selector2) - 1;
+  const selector = column2.selector;
+  if (!selector) return columns.length > position2 ? position2 : -1;
+  if (column2["selector-type"] === "sequence" && /^\d+$/u.test(selector)) return Number(selector) - 1;
   if (column2["selector-type"] === "regexp") {
-    const pattern = new RegExp(selector2, "iu");
+    const pattern = new RegExp(selector, "iu");
     return columns.findIndex((name) => pattern.test(name));
   }
-  const wanted = selector2.replace(/^\$\.?/u, "").replace(/^\/+/u, "").toLowerCase();
+  const wanted = selector.replace(/^\$\.?/u, "").replace(/^\/+/u, "").toLowerCase();
   return columns.findIndex(
     (name) => name.toLowerCase() === wanted || name.toLowerCase().replace(/^@/u, "") === wanted
   );
@@ -15300,7 +15475,7 @@ function loadData(renderer, ctx, definition, bytes2, fileName, sheet) {
     ...options3,
     headers: options3.format === "csv" || options3.format === "xlsx" ? profile["headings-in-first-row"] !== false : true
   });
-  const indexes = profile.columns.map((column2, position2) => sourceIndex(parsed2.columns, column2, position2));
+  const indexes2 = profile.columns.map((column2, position2) => sourceIndex(parsed2.columns, column2, position2));
   if (!db2.tableExists(table)) {
     createTarget(db2, table, profile);
     renderer.diagnose(
@@ -15327,7 +15502,7 @@ function loadData(renderer, ctx, definition, bytes2, fileName, sheet) {
           const kind = definitionColumn ? str(definitionColumn.props, "source.type", "data") : "data";
           if (column2["line-number"]) values[column2.name] = firstLine + rowIndex + 1;
           else if (kind === "data") {
-            const source = indexes[position2];
+            const source = indexes2[position2];
             values[column2.name] = convert(
               column2,
               transform(definitionColumn, source >= 0 ? row[source] ?? "" : "")
@@ -15348,7 +15523,7 @@ function loadData(renderer, ctx, definition, bytes2, fileName, sheet) {
               table: str(definitionColumn.props, `lookup.tableColumn${index}`),
               data: str(definitionColumn.props, `lookup.dataColumn${index}`).toUpperCase()
             })).filter((pair) => pair.table && pair.data);
-            const source = indexes[position2];
+            const source = indexes2[position2];
             const raw2 = source >= 0 ? row[source] ?? "" : "";
             const lookupBinds = { ...binds2 };
             const where2 = conditions2.map((pair, index) => {
@@ -15440,8 +15615,8 @@ function dataLoadingProcess(renderer, ctx, process2) {
   let bytes2;
   let fileName = "";
   if (sourceType === "textareaItem") {
-    const text10 = ctx.session.items[str(process2.props, "sourceData.textareaItem").toUpperCase()] ?? "";
-    bytes2 = Buffer.from(text10, "utf8");
+    const text12 = ctx.session.items[str(process2.props, "sourceData.textareaItem").toUpperCase()] ?? "";
+    bytes2 = Buffer.from(text12, "utf8");
     fileName = `pasted.${str(definition.props, "dataProfile.format", "csv")}`;
   } else if (sourceType === "sqlQuery") {
     const sql = str(process2.props, "sourceData.sqlQuery");
@@ -15519,7 +15694,7 @@ var setCurrentRenderer = (renderer) => {
 };
 var rendererOf = (rt) => rt?.renderer ?? activeRuntime()?.renderer ?? current2;
 var dbOf = (rt) => rendererOf(rt)?.db;
-var text5 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? void 0 : String(value2);
+var text4 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? void 0 : String(value2);
 var number = (value2) => {
   const parsed2 = Number(value2);
   return value2 === null || value2 === void 0 || value2 === "" || !Number.isFinite(parsed2) ? void 0 : parsed2;
@@ -15552,17 +15727,17 @@ var PARSE_PARAMS = [
 ];
 function parserArgs(args) {
   return {
-    fileName: text5(args.p_file_name),
+    fileName: text4(args.p_file_name),
     fileType: number(args.p_file_type),
     profile: readProfile(args.p_file_profile),
-    sheet: text5(args.p_xlsx_sheet_name),
-    rowSelector: text5(args.p_row_selector),
-    separator: text5(args.p_csv_col_delimiter),
-    enclosedBy: text5(args.p_csv_enclosed),
+    sheet: text4(args.p_xlsx_sheet_name),
+    rowSelector: text4(args.p_row_selector),
+    separator: text4(args.p_csv_col_delimiter),
+    enclosedBy: text4(args.p_csv_enclosed),
     skipRows: number(args.p_skip_rows),
     addHeadersRow: args.p_add_headers_row === void 0 || args.p_add_headers_row === null ? void 0 : flag2(args.p_add_headers_row),
     maxRows: number(args.p_max_rows) ?? number(args.p_return_rows),
-    encoding: text5(args.p_file_charset)
+    encoding: text4(args.p_file_charset)
   };
 }
 var named = (params2, values) => Object.fromEntries(params2.map((param, index) => [param, values[index]]));
@@ -15666,12 +15841,12 @@ api(
 api(
   "apex_data_parser.get_file_type",
   ["p_file_name"],
-  (args) => FILE_TYPES[formatOf(text5(args.p_file_name))],
+  (args) => FILE_TYPES[formatOf(text4(args.p_file_name))],
   true
 );
 api("apex_data_parser.assert_file_type", ["p_file_name", "p_file_type"], (args) => {
   const wanted = number(args.p_file_type);
-  const name = text5(args.p_file_name) ?? "";
+  const name = text4(args.p_file_name) ?? "";
   const extension = name.toLowerCase().split(".").pop() ?? "";
   const known = { xlsx: 1, csv: 2, txt: 2, tsv: 2, xml: 3, json: 4 };
   return wanted === void 0 ? extension in known : known[extension] === wanted;
@@ -15683,7 +15858,7 @@ api(
   ["p_application_id", "p_static_id"],
   (args, rt) => {
     const renderer = rendererOf(rt);
-    const definition = renderer ? findDefinition(renderer, text5(args.p_static_id) ?? "") : void 0;
+    const definition = renderer ? findDefinition(renderer, text4(args.p_static_id) ?? "") : void 0;
     return definition ? JSON.stringify(definitionProfile(definition)) : null;
   },
   true
@@ -15693,12 +15868,12 @@ api(
   ["p_application_id", "p_static_id", "p_data_to_load", "p_xlsx_sheet_name", "p_skip_validation"],
   (args, rt) => {
     const renderer = rendererOf(rt);
-    const definition = renderer ? findDefinition(renderer, text5(args.p_static_id) ?? "") : void 0;
+    const definition = renderer ? findDefinition(renderer, text4(args.p_static_id) ?? "") : void 0;
     const bytes2 = bytesOf(args.p_data_to_load, renderer?.db);
     if (!renderer || !rt || !definition || !bytes2) {
       rt?.note(
         "warning",
-        `apex_data_loading.load_data: data load definition ${text5(args.p_static_id) ?? ""} not found`
+        `apex_data_loading.load_data: data load definition ${text4(args.p_static_id) ?? ""} not found`
       );
       return new RecordValue({ processed_rows: 0, error_rows: 0 });
     }
@@ -15709,7 +15884,7 @@ api(
       definition,
       bytes2,
       `data.${format2}`,
-      text5(args.p_xlsx_sheet_name)
+      text4(args.p_xlsx_sheet_name)
     );
     return new RecordValue({ processed_rows: result.processed, error_rows: result.errors });
   }
@@ -15719,13 +15894,13 @@ api(
   ["p_item_name", "p_v1", "p_v2", "p_content_disposition"],
   (args, rt) => {
     const renderer = rendererOf(rt);
-    const item2 = text5(args.p_item_name);
+    const item2 = text4(args.p_item_name);
     if (!renderer || !item2) return null;
     return route(renderer, "files.item", {
       page: rt?.ctx.pageId && renderer.findPage(rt.ctx.pageId)?.children.some((child) => child.id.toUpperCase() === item2.toUpperCase()) ? rt.ctx.pageId : itemPage(renderer, item2)?.id,
       item: item2.toUpperCase(),
-      v1: text5(args.p_v1),
-      v2: text5(args.p_v2),
+      v1: text4(args.p_v1),
+      v2: text4(args.p_v2),
       inline: String(args.p_content_disposition ?? "").toLowerCase() === "inline" ? "Y" : void 0
     });
   },
@@ -15773,7 +15948,7 @@ api(
   "utl_raw.cast_to_raw",
   ["c"],
   (args, rt) => {
-    const value2 = text5(args.c);
+    const value2 = text4(args.c);
     return value2 === void 0 ? null : dbOf(rt)?.blobToken(Buffer.from(value2, "utf8")) ?? value2;
   },
   true
@@ -15800,7 +15975,7 @@ api(
   "apex_util.clob_to_blob",
   ["p_clob", "p_charset", "p_include_bom"],
   (args, rt) => {
-    const value2 = text5(args.p_clob);
+    const value2 = text4(args.p_clob);
     return value2 === void 0 ? null : dbOf(rt)?.blobToken(Buffer.from(value2, "utf8")) ?? value2;
   },
   true
@@ -15810,7 +15985,7 @@ function filenameFromOutput(rt) {
   const line = rt.output.join("").match(/content-disposition:[^\n]*filename\*?=(?:UTF-8'')?"?([^";\n]+)"?/iu);
   return line?.[1] ? decodeURIComponent(line[1].trim()) : void 0;
 }
-function download2(rt, bytes2, mime, filename, inline = false) {
+function download(rt, bytes2, mime, filename, inline = false) {
   if (!rt || !bytes2) return null;
   const session = rt.ctx.session;
   const pending2 = headers.get(session);
@@ -15831,7 +16006,7 @@ api("owa_util.mime_header", ["ccontent_type", "bclose_header", "ccharset"], (arg
   if (rt)
     headers.set(rt.ctx.session, {
       ...headers.get(rt.ctx.session),
-      ...text5(args.ccontent_type) ? { mime: text5(args.ccontent_type) } : {}
+      ...text4(args.ccontent_type) ? { mime: text4(args.ccontent_type) } : {}
     });
   return null;
 });
@@ -15844,19 +16019,19 @@ api("wpg_docload.download_file", ["p_blob"], (args, rt) => {
   const value2 = args.p_blob;
   const db2 = dbOf(rt);
   const bytes2 = value2 instanceof Uint8Array ? value2 : db2?.blob(value2);
-  if (bytes2) return download2(rt, bytes2);
-  const name = text5(value2);
+  if (bytes2) return download(rt, bytes2);
+  const name = text4(value2);
   const row = name ? db2?.db.prepare("select blob_content, mime_type, filename from apex_application_files where name = ?").get(name) : void 0;
-  return row ? download2(rt, row.blob_content, row.mime_type, row.filename) : download2(rt, bytesOf(value2, db2));
+  return row ? download(rt, row.blob_content, row.mime_type, row.filename) : download(rt, bytesOf(value2, db2));
 });
 api(
   "apex_http.download",
   ["p_blob", "p_content_type", "p_filename", "p_is_inline", "p_clob"],
-  (args, rt) => download2(
+  (args, rt) => download(
     rt,
     bytesOf(args.p_blob ?? args.p_clob, dbOf(rt)),
-    text5(args.p_content_type),
-    text5(args.p_filename),
+    text4(args.p_content_type),
+    text4(args.p_filename),
     flag2(args.p_is_inline)
   )
 );
@@ -16252,13 +16427,13 @@ var actionRoute = (renderer, session, request) => {
         inline: true
       })
     };
-  const download3 = downloadFiles(renderer, ctx, action.props, action.id);
-  if (!download3) return { type: "json", body: JSON.stringify({ error: "The query returned no file." }) };
+  const download2 = downloadFiles(renderer, ctx, action.props, action.id);
+  if (!download2) return { type: "json", body: JSON.stringify({ error: "The query returned no file." }) };
   return {
     type: "json",
     body: JSON.stringify({
-      url: route(renderer, "files.download", { id: keepDownload(session, download3) }),
-      inline: download3.inline
+      url: route(renderer, "files.download", { id: keepDownload(session, download2) }),
+      inline: download2.inline
     })
   };
 };
@@ -16364,21 +16539,21 @@ registerExtension({
     }
     return (result) => {
       purgeRequestFiles(renderer.db, requestFiles);
-      const download3 = takeDownload(session);
-      if (download3 && !result.errors?.length)
-        return { redirectURL: route(renderer, "files.download", { id: keepDownload(session, download3) }) };
+      const download2 = takeDownload(session);
+      if (download2 && !result.errors?.length)
+        return { redirectURL: route(renderer, "files.download", { id: keepDownload(session, download2) }) };
       return result;
     };
   },
   respond: (_renderer, ctx) => {
-    const download3 = takeDownload(ctx.session);
-    return download3 ? fileResponse(download3) : void 0;
+    const download2 = takeDownload(ctx.session);
+    return download2 ? fileResponse(download2) : void 0;
   }
 });
 
 // packages/core/src/preview/extensions/live.ts
-function identifiers(text10) {
-  const code = text10.replace(/'(?:[^']|'')*'/gu, " ").replace(/--[^\n]*/gu, " ").replace(/\/\*[\s\S]*?\*\//gu, " ");
+function identifiers(text12) {
+  const code = text12.replace(/'(?:[^']|'')*'/gu, " ").replace(/--[^\n]*/gu, " ").replace(/\/\*[\s\S]*?\*\//gu, " ");
   const names = /* @__PURE__ */ new Set();
   for (const match of code.matchAll(/"([^"]+)"|([A-Za-z][\w$#]*)/gu))
     names.add((match[1] ?? match[2]).toUpperCase());
@@ -16826,10 +17001,10 @@ var yesNo = (value2) => value2 ? "Yes" : "No";
 var strings5 = (value2) => (Array.isArray(value2) ? value2 : value2 === void 0 ? [] : [value2]).map((entry) => refName(entry));
 var lastUpdated = { last_updated_by: "APEX_LOCAL", last_updated_on: "" };
 var COMMON = "workspace, workspace_display_name, application_id n, application_name";
-function walk2(components, type) {
+function walk(components, type) {
   return components.flatMap((component) => [
     ...component.type === type ? [component] : [],
-    ...walk2(component.children, type)
+    ...walk(component.children, type)
   ]);
 }
 function ensureStateTables(db2) {
@@ -16908,12 +17083,45 @@ function ensureStateTables(db2) {
     "id n, automation_log_id n, message_timestamp d, message_type, message, pk_value"
   );
 }
+var REGION_SOURCE_TYPES = {
+  staticContent: ["Static Content", "NATIVE_STATIC"],
+  helpText: ["Help Text", "NATIVE_HELP_TEXT"],
+  dynamicContent: ["PL/SQL Dynamic Content", "NATIVE_DYNAMIC_CONTENT"],
+  classicReport: ["Classic Report", "NATIVE_SQL_REPORT"],
+  interactiveReport: ["Interactive Report", "NATIVE_IR"],
+  interactiveGrid: ["Interactive Grid", "NATIVE_IG"],
+  cards: ["Cards", "NATIVE_CARDS"],
+  chart: ["Chart", "NATIVE_JET_CHART"],
+  list: ["List", "NATIVE_LIST"],
+  breadcrumb: ["Breadcrumb", "NATIVE_BREADCRUMB"],
+  tree: ["Tree", "NATIVE_JSTREE"],
+  calendar: ["Calendar", "NATIVE_CSS_CALENDAR"],
+  map: ["Map", "NATIVE_MAP_REGION"],
+  form: ["Form", "NATIVE_FORM"],
+  facetedSearch: ["Faceted Search", "NATIVE_FACETED_SEARCH"],
+  smartFilters: ["Smart Filters", "NATIVE_SMART_FILTERS"],
+  search: ["Search", "NATIVE_SEARCH_REGION"],
+  regionDisplaySelector: ["Region Display Selector", "NATIVE_DISPLAY_SELECTOR"],
+  listView: ["List View", "NATIVE_JQM_LIST_VIEW"],
+  url: ["URL", "NATIVE_URL"],
+  workflowDiagram: ["Workflow Diagram", "NATIVE_WORKFLOW_DIAGRAM"]
+};
+function regionSourceType(type) {
+  const native = REGION_SOURCE_TYPES[type];
+  if (native) return native;
+  const [kind, name = ""] = type.split("/");
+  const upper4 = name.replace(/([a-z0-9])([A-Z])/gu, "$1_$2").toUpperCase();
+  if (kind === "themeTemplateComponent") return [name, "TMPL_THEME_42$" + upper4];
+  if (kind === "plugin" || kind === "appTemplateComponent") return [name, "PLUGIN_" + upper4];
+  return [type, type.replace(/([a-z])([A-Z])/gu, "$1_$2").toUpperCase()];
+}
 function pageRows(context) {
   const { renderer, base } = context;
   const pages2 = [];
   const items = [];
   const regions = [];
   const buttons = [];
+  const trees = [];
   for (const page2 of [...renderer.app.pages.values()].sort((a, b) => Number(a.id) - Number(b.id))) {
     const props = page2.props;
     const pageBase = { ...base, page_id: Number(page2.id), page_name: str(props, "name", page2.id) };
@@ -16930,10 +17138,11 @@ function pageRows(context) {
       build_option: refName(get(props, "config.buildOption")),
       page_comment: str(props, "comments.comments"),
       page_css_classes: strings5(get(props, "appearance.cssClasses")).join(" "),
+      page_function: str(props, "appearance.pageMode") === "modalDialog" ? "Modal Dialog" : "Standard",
       ...lastUpdated,
       last_updated_on: now()
     });
-    for (const region of walk2(page2.children, "region")) {
+    for (const region of walk(page2.children, "region")) {
       const source = isObject(region.props.source) ? region.props.source : {};
       const parent = ref(region.props, "layout.parentRegion");
       regions.push({
@@ -16941,8 +17150,18 @@ function pageRows(context) {
         region_id: hashId(context.appId, page2.id, "region", region.id),
         region_name: str(region.props, "name", region.id),
         static_id: str(region.props, "advanced.staticId") || region.id,
-        source_type: str(region.props, "type"),
-        source_type_code: str(region.props, "type").toUpperCase(),
+        source_type: regionSourceType(str(region.props, "type"))[0],
+        source_type_code: regionSourceType(str(region.props, "type"))[1],
+        source_type_plugin_name: regionSourceType(str(region.props, "type"))[1],
+        template_id: refName(get(region.props, "appearance.template")) ? hashId(context.appId, "0", "template", refName(get(region.props, "appearance.template"))) : null,
+        region_template_options: strings5(get(region.props, "appearance.templateOptions")).join(":"),
+        component_template_options: strings5(get(region.props, "componentAppearance.templateOptions")).join(
+          ":"
+        ),
+        list_id: ref(source, "list") ? hashId(context.appId, "list", ref(source, "list")) : null,
+        list_template_override_id: null,
+        breadcrumb_template_id: null,
+        report_template_id: null,
         display_sequence: Number(get(region.props, "layout.sequence") ?? 0),
         display_position: str(region.props, "layout.slot"),
         template: refName(get(region.props, "appearance.template")),
@@ -16956,8 +17175,16 @@ function pageRows(context) {
         component_comment: str(region.props, "comments.comments"),
         ...lastUpdated
       });
+      if (str(region.props, "type") === "tree")
+        trees.push({
+          ...pageBase,
+          region_id: hashId(context.appId, page2.id, "region", region.id),
+          region_name: str(region.props, "name", region.id),
+          tree_query: str(source, "sqlQuery"),
+          tree_source: str(source, "tableName")
+        });
     }
-    for (const item2 of walk2(page2.children, "pageItem")) {
+    for (const item2 of walk(page2.children, "pageItem")) {
       const region = ref(item2.props, "layout.region");
       items.push({
         ...pageBase,
@@ -16981,7 +17208,7 @@ function pageRows(context) {
         ...lastUpdated
       });
     }
-    for (const button2 of walk2(page2.children, "button")) {
+    for (const button2 of walk(page2.children, "button")) {
       buttons.push({
         ...pageBase,
         button_id: hashId(context.appId, page2.id, "button", button2.id),
@@ -16994,7 +17221,7 @@ function pageRows(context) {
       });
     }
   }
-  return { pages: pages2, items, regions, buttons };
+  return { pages: pages2, items, regions, buttons, trees };
 }
 function listRows(context) {
   const { renderer, base, appId } = context;
@@ -17042,6 +17269,7 @@ function listRows(context) {
       static_id: component.id,
       list_type: str(component.props, "source.type", "static"),
       list_entries: count,
+      list_query: str(component.props, "source.sqlQuery"),
       build_option: refName(get(component.props, "config.buildOption")),
       component_comment: str(component.props, "comments.comments"),
       ...lastUpdated
@@ -17103,7 +17331,7 @@ function themeStyles(renderer) {
   return [...renderer.theme.styles.entries()].map(([key, style2]) => ({
     id: key,
     key,
-    name: text2(style2, "name") || key,
+    name: text(style2, "name") || key,
     isPublic: true
   }));
 }
@@ -17321,7 +17549,7 @@ function buildDictionary(renderer) {
     application_name: str(app, "name", renderer.app.app.id)
   };
   const context = { renderer, base, appId };
-  const { pages: pages2, items, regions, buttons } = pageRows(context);
+  const { pages: pages2, items, regions, buttons, trees } = pageRows(context);
   const { lists, entries } = listRows(context);
   const lovs = lovRows2(context);
   const theme = themeRows(context);
@@ -17334,7 +17562,7 @@ function buildDictionary(renderer) {
     replaceTable(
       db2,
       "apex_local_dict_applications",
-      `${COMMON}, alias, owner, pages n, theme_number n, home_link, login_url, authentication_scheme, authorization_scheme, build_status, availability_status, version, compatibility_mode, application_group, logo_type, logo_text, created_on d, last_updated_by, last_updated_on d`,
+      `${COMMON}, alias, owner, pages n, theme_number n, home_link, login_url, authentication_scheme, authorization_scheme, build_status, availability_status, version, compatibility_mode, friendly_url, application_group, logo_type, logo_text, created_on d, last_updated_by, last_updated_on d`,
       [
         {
           ...base,
@@ -17350,6 +17578,7 @@ function buildDictionary(renderer) {
           availability_status: "Available",
           version: str(app, "version"),
           compatibility_mode: str(app, "runtime.compatibilityMode"),
+          friendly_url: str(app, "security.friendlyUrl") === "false" ? "No" : "Yes",
           logo_type: str(app, "logo.type"),
           logo_text: str(app, "logo.text"),
           created_on: stamp,
@@ -17366,14 +17595,20 @@ function buildDictionary(renderer) {
     replaceTable(
       db2,
       "APEX_APPLICATION_PAGES",
-      `${COMMON}, page_id n, page_name, page_title, page_alias, page_mode, page_group, page_template, help_text, authorization_scheme, page_requires_authentication, build_option, page_comment, page_css_classes, last_updated_by, last_updated_on d`,
+      `${COMMON}, page_id n, page_name, page_title, page_alias, page_mode, page_group, page_template, help_text, authorization_scheme, page_requires_authentication, build_option, page_comment, page_css_classes, page_function, last_updated_by, last_updated_on d`,
       pages2
     );
     replaceTable(
       db2,
       "APEX_APPLICATION_PAGE_REGIONS",
-      `${COMMON}, page_id n, page_name, region_id n, region_name, static_id, source_type, source_type_code, display_sequence n, display_position, template, parent_region_id n, location, query_type, table_name, region_source, authorization_scheme, build_option, component_comment, last_updated_by, last_updated_on d`,
+      `${COMMON}, page_id n, page_name, region_id n, region_name, static_id, source_type, source_type_code, source_type_plugin_name, display_sequence n, display_position, template, template_id n, region_template_options, component_template_options, list_id n, list_template_override_id n, breadcrumb_template_id n, report_template_id n, parent_region_id n, location, query_type, table_name, region_source, authorization_scheme, build_option, component_comment, last_updated_by, last_updated_on d`,
       stamped(regions)
+    );
+    replaceTable(
+      db2,
+      "APEX_APPLICATION_PAGE_TREES",
+      `${COMMON}, page_id n, page_name, region_id n, region_name, tree_query, tree_source, last_updated_by, last_updated_on d`,
+      stamped(trees)
     );
     replaceTable(
       db2,
@@ -17390,7 +17625,7 @@ function buildDictionary(renderer) {
     replaceTable(
       db2,
       "APEX_APPLICATION_LISTS",
-      `${COMMON}, list_id n, list_name, static_id, list_type, list_entries n, build_option, component_comment, last_updated_by, last_updated_on d`,
+      `${COMMON}, list_id n, list_name, static_id, list_type, list_entries n, list_query, build_option, component_comment, last_updated_by, last_updated_on d`,
       stamped(lists)
     );
     replaceTable(
@@ -17586,6 +17821,8 @@ function stateViews(db2, base, renderer) {
     "APEX_COLLECTIONS",
     `select collection_name, seq_id, ${cols}, md5_original from apex_local_collection_members where session_id = v('APP_SESSION')`
   );
+  for (const legacy of ["WWV_FLOW_COLLECTIONS", "HTMLDB_COLLECTIONS"])
+    replaceView(db2, legacy, "select * from APEX_COLLECTIONS");
   replaceView(
     db2,
     "APEX_MAIL_QUEUE",
@@ -17606,11 +17843,11 @@ function stateViews(db2, base, renderer) {
     "APEX_WORKSPACE_PREFERENCES",
     `select ${ws} as workspace, ${WORKSPACE_ID} as workspace_id, user_name, rowid as preference_id, preference_name, preference_value from apex_local_preferences where session_id = v('APP_SESSION')`
   );
-  const state2 = (column2) => `case ${column2} when 'ASSIGNED' then 'Assigned' when 'UNASSIGNED' then 'Unassigned' when 'COMPLETED' then 'Completed' when 'CANCELLED' then 'Canceled' when 'ERRORED' then 'Errored' when 'EXPIRED' then 'Expired' when 'INFO_REQUESTED' then 'Information Requested' else ${column2} end`;
+  const state3 = (column2) => `case ${column2} when 'ASSIGNED' then 'Assigned' when 'UNASSIGNED' then 'Unassigned' when 'COMPLETED' then 'Completed' when 'CANCELLED' then 'Canceled' when 'ERRORED' then 'Errored' when 'EXPIRED' then 'Expired' when 'INFO_REQUESTED' then 'Information Requested' else ${column2} end`;
   replaceView(
     db2,
     "APEX_TASKS",
-    `select t.task_id, (select d.task_def_id from APEX_APPL_TASKDEFS d where d.static_id = t.task_def_static_id) as task_def_id, t.task_def_name, t.task_def_static_id, t.task_type, t.subject, t.application_id as details_app_id, null as details_link_target, t.due_on, null as due_in, null as due_in_hours, t.priority, case t.priority when 1 then 'Urgent' when 2 then 'High' when 3 then 'Medium' when 4 then 'Low' else 'Lowest' end as priority_level, t.initiator, lower(t.initiator) as initiator_lower, t.actual_owner, lower(t.actual_owner) as actual_owner_lower, t.potential_owners, t.state_code, ${state2("t.state_code")} as state, case when t.state_code in ('COMPLETED','CANCELLED','ERRORED','EXPIRED') then 'Y' else 'N' end as is_completed, t.outcome_code, initcap(t.outcome_code) as outcome, t.detail_pk, t.parameters, t.workflow_id, t.initiator as created_by, t.created_on, t.last_updated_by, t.last_updated_on, t.application_id, ${appName} as application_name, ${ws} as workspace from (select x.*, 'APPROVAL' as task_type from apex_local_tasks x) t`
+    `select t.task_id, (select d.task_def_id from APEX_APPL_TASKDEFS d where d.static_id = t.task_def_static_id) as task_def_id, t.task_def_name, t.task_def_static_id, t.task_type, t.subject, t.application_id as details_app_id, null as details_link_target, t.due_on, null as due_in, null as due_in_hours, t.priority, case t.priority when 1 then 'Urgent' when 2 then 'High' when 3 then 'Medium' when 4 then 'Low' else 'Lowest' end as priority_level, t.initiator, lower(t.initiator) as initiator_lower, t.actual_owner, lower(t.actual_owner) as actual_owner_lower, t.potential_owners, t.state_code, ${state3("t.state_code")} as state, case when t.state_code in ('COMPLETED','CANCELLED','ERRORED','EXPIRED') then 'Y' else 'N' end as is_completed, t.outcome_code, initcap(t.outcome_code) as outcome, t.detail_pk, t.parameters, t.workflow_id, t.initiator as created_by, t.created_on, t.last_updated_by, t.last_updated_on, t.application_id, ${appName} as application_name, ${ws} as workspace from (select x.*, 'APPROVAL' as task_type from apex_local_tasks x) t`
   );
   replaceView(
     db2,
@@ -18253,13 +18490,13 @@ function remove(scope2, name) {
   for (const table of ["apex_local_collection_members", "apex_local_collections"])
     db(scope2).prepare(`delete from ${table} where session_id = ? and collection_name = ?`).run(scope2.session, name);
 }
-var text6 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : typeof value2 === "number" ? value2 : String(value2);
+var text5 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : typeof value2 === "number" ? value2 : String(value2);
 var md5 = (values) => createHash3("md5").update(values.map((value2) => value2 === null || value2 === void 0 ? "" : String(value2)).join("|")).digest("hex");
 function attributes(args) {
   const values = {};
   for (const attribute3 of ATTRIBUTES) {
     const value2 = args[`p_${attribute3}`];
-    if (value2 !== void 0) values[attribute3] = text6(value2);
+    if (value2 !== void 0) values[attribute3] = text5(value2);
   }
   return values;
 }
@@ -18319,8 +18556,8 @@ function fromQuery(rt, args, numericFirst) {
     if (numericFirst) {
       cells.slice(0, 5).forEach((cell, index) => mapped[N[index]] = cell ?? null);
       cells.slice(5, 10).forEach((cell, index) => mapped[D[index]] = cell ?? null);
-      cells.slice(10).forEach((cell, index) => mapped[C[index]] = text6(cell));
-    } else cells.slice(0, 50).forEach((cell, index) => mapped[C[index]] = text6(cell));
+      cells.slice(10).forEach((cell, index) => mapped[C[index]] = text5(cell));
+    } else cells.slice(0, 50).forEach((cell, index) => mapped[C[index]] = text5(cell));
     addMember(target2, name, mapped, /^y/iu.test(String(args.p_generate_md5 ?? "NO")));
   }
   return result.rows.length;
@@ -18419,7 +18656,7 @@ var COLLECTION_STUBS = {
         addMember(
           current3,
           nameOf(args),
-          Object.fromEntries(lists.map(([attribute3, values]) => [attribute3, text6(values[index])])),
+          Object.fromEntries(lists.map(([attribute3, values]) => [attribute3, text5(values[index])])),
           /^y/iu.test(String(args.p_generate_md5 ?? "NO"))
         );
       return null;
@@ -18472,7 +18709,7 @@ var COLLECTION_STUBS = {
       if (!column2) raise(-20103, `Invalid attribute number ${position2}`);
       db(current3).prepare(
         `update apex_local_collection_members set ${column2} = ? where session_id = ? and collection_name = ? and seq_id = ?`
-      ).run(text6(value2), current3.session, name, seq);
+      ).run(text5(value2), current3.session, name, seq);
       changed(current3, name);
       return null;
     })
@@ -18496,7 +18733,7 @@ var COLLECTION_STUBS = {
       requireCollection(current3, name);
       const column2 = C[Number(args.p_attr_number ?? 1) - 1];
       if (!column2) raise(-20103, `Invalid attribute number ${String(args.p_attr_number)}`);
-      const value2 = text6(args.p_attr_value);
+      const value2 = text5(args.p_attr_value);
       db(current3).prepare(
         `delete from apex_local_collection_members where session_id = ? and collection_name = ? and ${value2 === null ? `${column2} is null` : `${column2} = ?`}`
       ).run(current3.session, name, ...value2 === null ? [] : [value2]);
@@ -18853,23 +19090,23 @@ ${row.mail_body ? `<pre>${cell(row.mail_body)}</pre>` : ""}</details>`
 }
 
 // packages/core/src/preview/extensions/platform/rest.ts
-import fs10 from "node:fs";
-import path11 from "node:path";
-var restDir = (renderer) => path11.join(renderer.app.root, ".apex-local", "rest");
+import fs6 from "node:fs";
+import path8 from "node:path";
+var restDir = (renderer) => path8.join(renderer.app.root, ".apex-local", "rest");
 var safe = (name) => name.replace(/[^\w.-]+/gu, "_");
 function readFixture(renderer, candidates) {
   const dir = restDir(renderer);
   for (const candidate of candidates.filter(Boolean)) {
-    const file = path11.join(dir, `${safe(candidate)}.json`);
-    if (!fs10.existsSync(file)) continue;
-    const source = fs10.readFileSync(file, "utf8");
+    const file = path8.join(dir, `${safe(candidate)}.json`);
+    if (!fs6.existsSync(file)) continue;
+    const source = fs6.readFileSync(file, "utf8");
     let parsed2;
     try {
       parsed2 = JSON.parse(source);
     } catch (error) {
       renderer.diagnose(
         "warning",
-        `REST fixture ${path11.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
+        `REST fixture ${path8.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
       );
       return { file, status: 200, headers: {}, body: source, text: source };
     }
@@ -18896,7 +19133,7 @@ function logCall(renderer, ctx, entry) {
     source: entry.source,
     method: entry.method.toUpperCase(),
     url: entry.url,
-    fixture: entry.fixture ? path11.relative(renderer.app.root, entry.fixture.file) : null,
+    fixture: entry.fixture ? path8.relative(renderer.app.root, entry.fixture.file) : null,
     status_code: entry.fixture?.status ?? 404,
     request_body: entry.body ?? null,
     response_body: entry.fixture ? entry.fixture.text.slice(0, 4e3) : null,
@@ -18943,9 +19180,9 @@ function profileColumns2(source) {
     };
   });
 }
-function pick(value2, selector2) {
+function pick(value2, selector) {
   let current3 = value2;
-  for (const part2 of selector2.replace(/^\$\.?/u, "").split(/\.|\[(\d+)\]/u).filter((piece) => piece !== void 0 && piece !== "")) {
+  for (const part2 of selector.replace(/^\$\.?/u, "").split(/\.|\[(\d+)\]/u).filter((piece) => piece !== void 0 && piece !== "")) {
     if (current3 === null || current3 === void 0) return void 0;
     if (Array.isArray(current3) && /^\d+$/u.test(part2)) current3 = current3[Number(part2)];
     else if (isPlainObject(current3)) {
@@ -18964,7 +19201,7 @@ function rowsOf(body4, rowSelector, single) {
   if (Array.isArray(rows)) return rows.map((row) => isPlainObject(row) ? row : { value: row });
   return isPlainObject(rows) ? [rows] : [];
 }
-var scalar2 = (value2) => value2 === null || value2 === void 0 ? null : typeof value2 === "object" ? JSON.stringify(value2) : typeof value2 === "boolean" ? value2 ? "true" : "false" : value2;
+var scalar = (value2) => value2 === null || value2 === void 0 ? null : typeof value2 === "object" ? JSON.stringify(value2) : typeof value2 === "boolean" ? value2 ? "true" : "false" : value2;
 var regionCache = /* @__PURE__ */ new WeakMap();
 function restRegionSql(renderer, ctx, region) {
   const sourceProps = isObject(region.props.source) ? region.props.source : void 0;
@@ -19037,7 +19274,7 @@ function materialize(renderer, ctx, region, sourceProps) {
     rows.map(
       (row) => Object.fromEntries(
         columns.map((column2) => {
-          const value2 = scalar2(pick(row, column2.selector));
+          const value2 = scalar(pick(row, column2.selector));
           return [
             column2.name,
             column2.type === "number" && value2 !== null && value2 !== "" ? Number(value2) : value2
@@ -19131,7 +19368,7 @@ function invokeApiProcess(renderer, ctx, process2) {
     );
     const output = header2 ? header2[1] : /^(status|status_code|http_status)$/iu.test(name) && pick(fixture.body, name) === void 0 ? fixture.status : pick(fixture.body, name);
     if (output !== void 0)
-      ctx.session.items[item2.toUpperCase()] = output === null ? "" : String(scalar2(output));
+      ctx.session.items[item2.toUpperCase()] = output === null ? "" : String(scalar(output));
   }
   if (fixture.status >= 400)
     return {
@@ -19378,9 +19615,9 @@ function manageTask(renderer, ctx, taskId, operation2, outcome) {
   if (!task) raise2(`Task ${taskId} does not exist`);
   const op = operation2.toLowerCase().replace(/[^a-z]/gu, "");
   const user = ctx.session.user.toUpperCase();
-  const set = (state2, extra = {}) => {
+  const set = (state3, extra = {}) => {
     const values = {
-      state_code: state2,
+      state_code: state3,
       last_updated_by: ctx.session.user,
       last_updated_on: now(),
       ...extra
@@ -19468,9 +19705,9 @@ function workflowProcess(renderer, ctx, process2) {
     const idItem = str(process2.props, "workflowInstance.workflowIdItem") || str(process2.props, "workflow.workflowIdItem");
     const id = Number(ctx.session.items[idItem.toUpperCase()] ?? "");
     if (!id) return { ran: false };
-    const state2 = { terminate: "TERMINATED", suspend: "SUSPENDED", resume: "ACTIVE", retry: "ACTIVE" }[action];
-    if (state2)
-      raw(renderer).prepare("update apex_local_workflows set state_code = ?, last_updated_on = ? where workflow_id = ?").run(state2, now(), id);
+    const state3 = { terminate: "TERMINATED", suspend: "SUSPENDED", resume: "ACTIVE", retry: "ACTIVE" }[action];
+    if (state3)
+      raw(renderer).prepare("update apex_local_workflows set state_code = ?, last_updated_on = ? where workflow_id = ?").run(state3, now(), id);
     else
       renderer.diagnose("info", `Workflow action ${action} is not simulated locally`, ctx.pageId, process2.id);
     return { ran: true };
@@ -19493,7 +19730,7 @@ function failed(renderer, ctx, process2, error) {
     ]
   };
 }
-var text7 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
+var text6 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
 function params(value2) {
   if (Array.isArray(value2))
     return Object.fromEntries(value2.map((entry, index) => [String(index + 1), String(entry ?? "")]));
@@ -19519,18 +19756,18 @@ var taskCreate = {
   ],
   fn: withRt(
     (rt, args) => createTask(rt.renderer, rt.ctx, String(args.p_task_def_static_id ?? ""), {
-      subject: text7(args.p_subject),
-      detailPk: text7(args.p_detail_pk),
+      subject: text6(args.p_subject),
+      detailPk: text6(args.p_detail_pk),
       priority: args.p_priority === void 0 || args.p_priority === null ? null : Number(args.p_priority),
       parameters: params(args.p_parameters),
-      initiator: text7(args.p_initiator)
+      initiator: text6(args.p_initiator)
     })
   )
 };
 var taskOperation = (operation2) => ({
   params: ["p_task_id", "p_outcome", "p_autoclaim"],
   fn: withRt((rt, args) => {
-    manageTask(rt.renderer, rt.ctx, Number(args.p_task_id), operation2, text7(args.p_outcome));
+    manageTask(rt.renderer, rt.ctx, Number(args.p_task_id), operation2, text6(args.p_outcome));
     return null;
   })
 });
@@ -19555,7 +19792,7 @@ var SERVICE_STUBS = {
       insertRow(raw(rt.renderer), "apex_local_task_comments", {
         id: nextId(rt.renderer, "apex_local_task_comments", "id"),
         task_id: Number(args.p_task_id),
-        text: text7(args.p_text),
+        text: text6(args.p_text),
         created_by: rt.ctx.session.user,
         created_on: now()
       });
@@ -19569,9 +19806,9 @@ var SERVICE_STUBS = {
         rt.renderer,
         rt.ctx,
         String(args.p_static_id ?? ""),
-        text7(args.p_detail_pk),
+        text6(args.p_detail_pk),
         params(args.p_parameters),
-        text7(args.p_initiator) ?? void 0
+        text6(args.p_initiator) ?? void 0
       )
     )
   },
@@ -19679,9 +19916,9 @@ var stateKey = (pageId, regionId) => `${pageId}:${regionId}`;
 function reportState(session, key, init) {
   let states = STATES.get(session);
   if (!states) STATES.set(session, states = /* @__PURE__ */ new Map());
-  let state2 = states.get(key);
-  if (!state2) states.set(key, state2 = init());
-  return state2;
+  let state3 = states.get(key);
+  if (!state3) states.set(key, state3 = init());
+  return state3;
 }
 function peekState(session, key) {
   return STATES.get(session)?.get(key);
@@ -19797,7 +20034,7 @@ var Cells = class {
     if (expression) html = this.substituteRow(expression, row);
     const target2 = get(column2.props, "link.target");
     if (type === "link" || target2 !== void 0) {
-      const text10 = this.substituteRow(
+      const text12 = this.substituteRow(
         str(column2.props, "link.linkText", `#${column2.id.toUpperCase()}#`),
         row
       );
@@ -19808,7 +20045,7 @@ var Cells = class {
         row,
         trigger ?? `apex.jQuery('#${this.renderer.regionDomId(this.region)}')`
       );
-      html = `<a href="${escapeHtml(href)}"${attributes2 ? ` ${attributes2}` : ""}>${text10}</a>`;
+      html = `<a href="${escapeHtml(href)}"${attributes2 ? ` ${attributes2}` : ""}>${text12}</a>`;
     }
     if (type === "percentGraph" || /^pct_graph/iu.test(str(column2.props, "appearance.formatMask"))) {
       const percent = Math.max(0, Math.min(100, Number(row[column2.id.toUpperCase()]) || 0));
@@ -19922,7 +20159,7 @@ function inWindow(raw2, amount, unit, future, now2 = Date.now()) {
 function matches2(filter, raw2, display2) {
   const operator = normalizeOperator(filter.operator);
   const value2 = filter.value;
-  const text10 = display2.toLowerCase();
+  const text12 = display2.toLowerCase();
   const needle = value2.toLowerCase();
   const equalsEither = (candidate) => !isEmpty(raw2) && compareValues(raw2, candidate) === 0 && numeric2(raw2) !== void 0 || String(raw2 ?? "") === candidate || display2 === candidate;
   switch (operator) {
@@ -19939,11 +20176,11 @@ function matches2(filter, raw2, display2) {
     case "<=":
       return !isEmpty(raw2) && compareValues(raw2, value2) <= 0;
     case "contains":
-      return text10.includes(needle);
+      return text12.includes(needle);
     case "doesNotContain":
-      return !text10.includes(needle);
+      return !text12.includes(needle);
     case "startsWith":
-      return text10.startsWith(needle);
+      return text12.startsWith(needle);
     case "isNull":
       return isEmpty(raw2);
     case "isNotNull":
@@ -20147,16 +20384,16 @@ function pagination(template, type, pager) {
   const last = first + shown - 1;
   const pages2 = Math.max(1, Math.ceil(total / perPage));
   const link = (target2) => `javascript:apexLocalReports.paginate('${escapeHtml(domId)}',${target2})`;
-  const textTemplate = text2(template, "pagination_template") || '<span class="t-Report-paginationText">#TEXT#</span>';
+  const textTemplate = text(template, "pagination_template") || '<span class="t-Report-paginationText">#TEXT#</span>';
   const ofTotal = /OfZ/u.test(type) ? ` of ${total}` : "";
   const range = fill(textTemplate, { TEXT: `${first} - ${last}${ofTotal}` });
   if (/NoPagination$/u.test(type)) return `<tr><td colspan="99"${align}>${range}</td></tr>`;
   const previous = page2 > 1 ? fill(
-    text2(template, "previous_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--prev">#PAGINATION_PREVIOUS#</a>',
+    text(template, "previous_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--prev">#PAGINATION_PREVIOUS#</a>',
     { LINK: link(page2 - 1), PAGINATION_PREVIOUS: "Previous" }
   ) : "";
   const next = last < total ? fill(
-    text2(template, "next_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--next">#PAGINATION_NEXT#</a>',
+    text(template, "next_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--next">#PAGINATION_NEXT#</a>',
     { LINK: link(page2 + 1), PAGINATION_NEXT: "Next" }
   ) : "";
   if (type === "nextAndPreviousLinks") return `<tr><td colspan="99"${align}>${previous}${next}</td></tr>`;
@@ -20190,12 +20427,12 @@ function classicReport(renderer, ctx, region) {
   const domId = renderer.regionDomId(region);
   ctx.clientConfig.regions.push({ id: domId, kind: "classicReport" });
   diagnoseClassic(renderer, ctx, region);
-  const state2 = classicState(ctx, region);
+  const state3 = classicState(ctx, region);
   const cells = new Cells(renderer, ctx, region);
   const all2 = regionColumns(region, result.columns);
   const byName = new Map(all2.map((column2) => [column2.id.toUpperCase(), column2]));
   const moreData = result.rows.length > limit;
-  const rows = applyFiltersAndSort(result.rows.slice(0, limit), cells, byName, [], [], state2.sort);
+  const rows = applyFiltersAndSort(result.rows.slice(0, limit), cells, byName, [], [], state3.sort);
   const columns = all2.filter(
     (column2) => !/^hidden/u.test(str(column2.props, "type")) && !isSpecialColumn(column2.id)
   );
@@ -20230,7 +20467,7 @@ function classicReport(renderer, ctx, region) {
     );
   const cssClasses = templateOptions(
     stringList(list(region.props, "componentAppearance.templateOptions")),
-    text2(template, "preset_template_options").replaceAll(":", " ")
+    text(template, "preset_template_options").replaceAll(":", " ")
   );
   const pager = pagination(template, type, {
     domId,
@@ -20279,18 +20516,18 @@ function classicReport(renderer, ctx, region) {
     const column2 = byName.get(name);
     return column2 ? display2(column2, row, index) : escapeHtml(row[name] ?? "");
   });
-  if (text2(template, "row_template_type") === "NAMED_COLUMNS") {
+  if (text(template, "row_template_type") === "NAMED_COLUMNS") {
     const rowHtml = visible.map(
-      (row, index) => fill(positional(text2(template, "row_template1"), row, index), {
+      (row, index) => fill(positional(text(template, "row_template1"), row, index), {
         ...Object.fromEntries(Object.keys(row).map((name) => [name, escapeHtml(row[name] ?? "")])),
         ...Object.fromEntries(all2.map((column2) => [column2.id.toUpperCase(), display2(column2, row, index)])),
         ROWNUM: String((page2 - 1) * perPage + index + 1),
         COLCOUNT: String(columns.length)
       })
     ).join("\n");
-    return fill(text2(template, "row_template_before_rows"), shared3) + rowHtml + fill(text2(template, "row_template_after_rows"), shared3) + moreMessage;
+    return fill(text(template, "row_template_before_rows"), shared3) + rowHtml + fill(text(template, "row_template_after_rows"), shared3) + moreMessage;
   }
-  const sorted2 = new Map(state2.sort.slice(0, 1).map((entry) => [entry.column, entry.direction]));
+  const sorted2 = new Map(state3.sort.slice(0, 1).map((entry) => [entry.column, entry.direction]));
   const showHeadings = str(region.props, "heading.type") !== "none";
   const headings2 = showHeadings ? columns.map((column2) => {
     const name = column2.id.toUpperCase();
@@ -20299,7 +20536,7 @@ function classicReport(renderer, ctx, region) {
     const direction = sorted2.get(name);
     const header2 = sortable ? `<a class="u-Report-sort" href="#" data-apex-local-sort="${escapeHtml(name)}" data-region="${escapeHtml(domId)}" title="Sort by this column"><span class="u-Report-sortHeading">${label}</span>${direction ? `<span class="u-Report-sortIcon a-Icon icon-rpt-sort-${direction}" aria-hidden="true"></span>` : ""}</a>` : label;
     const alignment = headingAlignment(renderer, column2, visible[0]?.[name]);
-    return fill(text2(template, "column_heading_template"), {
+    return fill(text(template, "column_heading_template"), {
       COLUMN_HEADER: header2,
       COLUMN_HEADER_NAME: escapeHtml(name),
       ALIGNMENT: `align="${alignment === "u-tR" ? "right" : alignment === "u-tC" ? "center" : "left"}"`,
@@ -20309,20 +20546,20 @@ function classicReport(renderer, ctx, region) {
     });
   }).join("") : "";
   const body4 = visible.map(
-    (row, index) => fill(positional(text2(template, "row_template_before_first"), row, index), {
+    (row, index) => fill(positional(text(template, "row_template_before_first"), row, index), {
       ROWNUM: String(index + 1)
     }) + columns.map((column2) => {
       const alignment = renderer.alignment(column2, row[column2.id.toUpperCase()]);
-      return fill(text2(template, "row_template1"), {
+      return fill(text(template, "row_template1"), {
         COLUMN_VALUE: display2(column2, row, index),
         ALIGNMENT: `align="${alignment === "u-tR" ? "right" : alignment === "u-tC" ? "center" : "left"}"`,
         ACCESSIBLE_HEADERS: `headers="${escapeHtml(column2.id.toUpperCase())}"`,
         COLUMN_HEADER: cells.heading(column2),
         COLUMN_NUM: String(columns.indexOf(column2) + 1)
       });
-    }).join("") + positional(text2(template, "row_template_after_last"), row, index)
+    }).join("") + positional(text(template, "row_template_after_last"), row, index)
   ).join("\n");
-  return fill(text2(template, "row_template_before_rows"), shared3) + (showHeadings ? text2(template, "before_column_heading") + headings2 + text2(template, "after_column_heading") : "<tbody>") + body4 + fill(text2(template, "row_template_after_rows"), shared3) + moreMessage;
+  return fill(text(template, "row_template_before_rows"), shared3) + (showHeadings ? text(template, "before_column_heading") + headings2 + text(template, "after_column_heading") : "<tbody>") + body4 + fill(text(template, "row_template_after_rows"), shared3) + moreMessage;
 }
 function diagnoseClassic(renderer, ctx, region) {
   const note2 = (message) => renderer.diagnose("info", message, ctx.pageId, region.id);
@@ -21931,8 +22168,8 @@ function reportList(region, selection) {
     }))
   ];
 }
-function snapshot(state2) {
-  const { pending: _pending, selected: _selected, ...rest } = state2;
+function snapshot(state3) {
+  const { pending: _pending, selected: _selected, ...rest } = state3;
   void _pending;
   void _selected;
   return JSON.parse(JSON.stringify(rest));
@@ -22132,10 +22369,10 @@ function sortGroups(entries, columns, functions, sort) {
       const fn = functions.findIndex((candidate) => candidate.label.toUpperCase() === entry.column);
       const left = fn >= 0 ? a.values[fn] : a.first[entry.column];
       const right = fn >= 0 ? b.values[fn] : b.first[entry.column];
-      const empty = (value2) => value2 === null || value2 === void 0 || value2 === "";
-      if (empty(left) || empty(right)) {
-        if (empty(left) && empty(right)) continue;
-        return empty(left) ? 1 : -1;
+      const empty2 = (value2) => value2 === null || value2 === void 0 || value2 === "";
+      if (empty2(left) || empty2(right)) {
+        if (empty2(left) && empty2(right)) continue;
+        return empty2(left) ? 1 : -1;
       }
       const compared = compareValues(left, right);
       if (compared) return entry.direction === "desc" ? -compared : compared;
@@ -22355,16 +22592,16 @@ function authorizationAllows(renderer, ctx, value2) {
   return !name || authorizeExtensions(renderer, ctx, name) !== false;
 }
 function editOperations(renderer, ctx, region, ops) {
-  const allowed = {
+  const allowed2 = {
     add: ops.includes("add"),
     update: ops.includes("update"),
     delete: ops.includes("delete")
   };
   for (const op of ["add", "update", "delete"]) {
     const scheme = get(region.props, `editAuthorization.${op}`);
-    if (!allowed[op] || scheme === void 0) continue;
+    if (!allowed2[op] || scheme === void 0) continue;
     if (!authorizationAllows(renderer, ctx, scheme)) {
-      allowed[op] = false;
+      allowed2[op] = false;
       renderer.diagnose(
         "info",
         `Interactive Grid ${region.id}: edit authorization denies ${op} for ${ctx.session.user} locally`,
@@ -22373,7 +22610,7 @@ function editOperations(renderer, ctx, region, ops) {
       );
     }
   }
-  return allowed;
+  return allowed2;
 }
 function igState(renderer, ctx, region) {
   return reportState(ctx.session, stateKey(ctx.pageId, region.id), () => {
@@ -22426,7 +22663,7 @@ function identityOf(row, identity) {
   return identity.map((name) => row[name] === null || row[name] === void 0 ? "" : String(row[name])).join("|");
 }
 function gridModel(renderer, ctx, region, depth = 0) {
-  const state2 = igState(renderer, ctx, region);
+  const state3 = igState(renderer, ctx, region);
   const cells = new Cells(renderer, ctx, region);
   const domId = renderer.regionDomId(region);
   let sql = renderer.regionSql(ctx, region);
@@ -22456,10 +22693,10 @@ function gridModel(renderer, ctx, region, depth = 0) {
     cells,
     new Map(columns.map((column2) => [column2.name, column2.component])),
     visibleColumns.map((column2) => column2.component),
-    state2.filters,
-    state2.sort
+    state3.filters,
+    state3.sort
   );
-  const views = state2.views ??= emptyViews();
+  const views = state3.views ??= emptyViews();
   const breaks = views.breaks.filter((entry) => entry.enabled && byName.has(entry.column)).map((entry) => byName.get(entry.column));
   if (breaks.length) {
     const indexed = rows.map((row, index) => ({ row, index }));
@@ -22468,10 +22705,10 @@ function gridModel(renderer, ctx, region, depth = 0) {
         const lov = cells.lov(column2.component);
         const left = lov ? cells.text(column2.component, a.row) : a.row[column2.name];
         const right = lov ? cells.text(column2.component, b.row) : b.row[column2.name];
-        const empty = (value2) => value2 === null || value2 === void 0 || value2 === "";
-        if (empty(left) || empty(right)) {
-          if (empty(left) && empty(right)) continue;
-          return empty(left) ? 1 : -1;
+        const empty2 = (value2) => value2 === null || value2 === void 0 || value2 === "";
+        if (empty2(left) || empty2(right)) {
+          if (empty2(left) && empty2(right)) continue;
+          return empty2(left) ? 1 : -1;
         }
         const compared = compareValues(left, right);
         if (compared) return compared;
@@ -22499,7 +22736,7 @@ function gridModel(renderer, ctx, region, depth = 0) {
   return {
     region,
     domId,
-    state: state2,
+    state: state3,
     cells,
     columns,
     byName,
@@ -22788,16 +23025,10 @@ function interactiveGrid(renderer, ctx, region) {
   diagnoseSavedReport(renderer, ctx, region, primarySavedReport(region), {
     children: /* @__PURE__ */ new Set(["aggregate", "controlBreak", "highlight"])
   });
-  const { domId, state: state2, cells } = model;
+  const { domId, state: state3, cells } = model;
   const id = escapeHtml(domId);
   ctx.clientConfig.regions.push({ id: domId, kind: "interactiveGrid" });
-  for (const file of [
-    "model",
-    "tooltipManager",
-    "widget.toolbar",
-    "widget.tableModelViewBase",
-    "widget.grid"
-  ])
+  for (const file of ["modelViewBase", "tooltipManager", "widget.toolbar", "widget.grid"])
     ctx.jsFiles.add(`#APEX_FILES#libraries/apex/#MIN_DIRECTORY#${file}#MIN#.js?v=#APEX_VERSION#`);
   const trigger = `apex.jQuery('#${domId}')`;
   const fields = [
@@ -22806,8 +23037,8 @@ function interactiveGrid(renderer, ctx, region) {
   ];
   const grid = gridViewData(model, fields, trigger);
   const data = grid.data;
-  const order = state2.columns;
-  const sortIndex = new Map(state2.sort.map((entry, index) => [entry.column, { ...entry, index }]));
+  const order = state3.columns;
+  const sortIndex = new Map(state3.sort.map((entry, index) => [entry.column, { ...entry, index }]));
   const hasSelector = model.columns.some((column2) => column2.type === "rowSelector");
   const hasActions = model.columns.some((column2) => column2.type === "actionsMenu");
   const editable = model.editable && (model.allowed.update || model.allowed.add || model.allowed.delete);
@@ -22895,7 +23126,7 @@ function interactiveGrid(renderer, ctx, region) {
     allowed: model.allowed,
     rowSelector: hasSelector,
     rowActions: hasActions,
-    rowsPerPage: state2.rowsPerPage && state2.rowsPerPage > 0 ? state2.rowsPerPage : pagination2 === "page" ? 50 : 0,
+    rowsPerPage: state3.rowsPerPage && state3.rowsPerPage > 0 ? state3.rowsPerPage : pagination2 === "page" ? 50 : 0,
     pagination: pagination2,
     showTotal: get(region.props, "pagination.showTotalCount") !== false,
     toolbar: get(region.props, "toolbar.show") !== false,
@@ -22903,14 +23134,14 @@ function interactiveGrid(renderer, ctx, region) {
     addLabel: str(region.props, "toolbar.addButtonLabel", "Add Row"),
     details,
     master: model.master ? renderer.regionDomId(model.master.region) : null,
-    selected: state2.selected ?? null,
+    selected: state3.selected ?? null,
     noData: renderer.substitute(
       ctx.session,
       str(region.props, "messages.whenNoDataFound", "No data found"),
       ctx.page,
       "RAW"
     ),
-    filters: state2.filters.map((filter) => {
+    filters: state3.filters.map((filter) => {
       const column2 = filter.column ? model.byName.get(filter.column) : void 0;
       return {
         label: filterLabel(filter, column2 ? cells.label(column2.component) : filter.column),
@@ -22930,9 +23161,9 @@ function interactiveGrid(renderer, ctx, region) {
     highlights: grid.highlights,
     aggregateLabels: grid.aggregateLabels,
     views: {
-      breaks: state2.views?.breaks ?? [],
-      highlights: state2.views?.highlights ?? [],
-      aggregates: state2.views?.aggregates ?? []
+      breaks: state3.views?.breaks ?? [],
+      highlights: state3.views?.highlights ?? [],
+      aggregates: state3.views?.aggregates ?? []
     }
   };
   return `<div class="a-IG" id="${id}_ig" role="group" aria-label="${escapeHtml(str(region.props, "title", str(region.props, "name")))}" data-apex-local-ig="${id}">
@@ -22964,8 +23195,8 @@ function saveGrid(renderer, ctx, region, changes) {
   const tableColumns = new Set(renderer.data.tableColumns(table).map((column2) => column2.name.toUpperCase()));
   const label = (column2) => model.cells.label(column2.component);
   for (const change of changes) {
-    const allowed = change.op === "insert" ? model.allowed.add : change.op === "update" ? model.allowed.update : model.allowed.delete;
-    if (!allowed)
+    const allowed2 = change.op === "insert" ? model.allowed.add : change.op === "update" ? model.allowed.update : model.allowed.delete;
+    if (!allowed2)
       errors.push({
         ...change.id ? { id: change.id } : {},
         message: `${change.op} is not allowed in ${region.id}.`
@@ -22975,14 +23206,14 @@ function saveGrid(renderer, ctx, region, changes) {
       if (!column2.databaseColumn || column2.primaryKey) continue;
       const value3 = change.values[column2.name];
       const props = column2.component.props;
-      const text10 = value3 === null || value3 === void 0 ? "" : String(value3);
+      const text12 = value3 === null || value3 === void 0 ? "" : String(value3);
       const location = { ...change.id ? { id: change.id } : {}, column: column2.name };
-      if (get(props, "validation.valueRequired") === true && text10 === "")
+      if (get(props, "validation.valueRequired") === true && text12 === "")
         errors.push({ ...location, message: `${label(column2)} must have some value.` });
       const max = num(props, "validation.maxLength", 0);
-      if (max && text10.length > max)
+      if (max && text12.length > max)
         errors.push({ ...location, message: `${label(column2)} must have at most ${max} characters.` });
-      if (column2.type === "numberField" && text10 !== "" && !Number.isFinite(Number(text10.replaceAll(",", ""))))
+      if (column2.type === "numberField" && text12 !== "" && !Number.isFinite(Number(text12.replaceAll(",", ""))))
         errors.push({ ...location, message: `${label(column2)} must be Numeric.` });
     }
   }
@@ -23002,10 +23233,10 @@ function saveGrid(renderer, ctx, region, changes) {
   const where2 = keyColumns.map((column2, index) => `${column2} = :K${index}`).join(" and ");
   const bindName2 = (column2) => `C_${column2.name.replace(/\W/gu, "_")}`;
   const value2 = (column2, raw2) => {
-    const text10 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
-    if (text10 === "") return null;
-    if (column2.type === "numberField") return text10.replaceAll(",", "");
-    return text10;
+    const text12 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
+    if (text12 === "") return null;
+    if (column2.type === "numberField") return text12.replaceAll(",", "");
+    return text12;
   };
   let saved = 0;
   renderer.data.execute("savepoint apex_local_ig");
@@ -23121,8 +23352,8 @@ function workingComputations(renderer, ctx, region, sql, views, ids) {
   });
 }
 function irModel(renderer, ctx, region) {
-  const state2 = irState(renderer, ctx, region);
-  const views = state2.views ??= emptyViews();
+  const state3 = irState(renderer, ctx, region);
+  const views = state3.views ??= emptyViews();
   const cells = new Cells(renderer, ctx, region);
   const sql = renderer.regionSql(ctx, region);
   const limit = rowLimit(region, 1e5);
@@ -23166,7 +23397,7 @@ function irModel(renderer, ctx, region) {
   );
   const byName = new Map(available.map((column2) => [column2.id.toUpperCase(), column2]));
   const breaks = views.breaks.filter((entry) => entry.enabled && byName.has(entry.column)).map((entry) => byName.get(entry.column));
-  let order = state2.columns;
+  let order = state3.columns;
   if (!order) {
     const saved = primarySavedReport(region);
     const display2 = bySequence2(saved?.children.filter((child) => child.type === "displayColumn") ?? []);
@@ -23178,8 +23409,8 @@ function irModel(renderer, ctx, region) {
     cells,
     byName,
     [...breaks, ...displayed],
-    state2.filters,
-    state2.sort
+    state3.filters,
+    state3.sort
   );
   if (breaks.length) {
     const indexed = rows.map((row, index) => ({ row, index }));
@@ -23189,10 +23420,10 @@ function irModel(renderer, ctx, region) {
         const lov = cells.lov(column2);
         const left = lov ? cells.text(column2, a.row) : a.row[name];
         const right = lov ? cells.text(column2, b.row) : b.row[name];
-        const empty = (value2) => value2 === null || value2 === void 0 || value2 === "";
-        if (empty(left) || empty(right)) {
-          if (empty(left) && empty(right)) continue;
-          return empty(left) ? 1 : -1;
+        const empty2 = (value2) => value2 === null || value2 === void 0 || value2 === "";
+        if (empty2(left) || empty2(right)) {
+          if (empty2(left) && empty2(right)) continue;
+          return empty2(left) ? 1 : -1;
         }
         const compared = compareValues(left, right);
         if (compared) return compared;
@@ -23202,7 +23433,7 @@ function irModel(renderer, ctx, region) {
     rows = indexed.map((entry) => entry.row);
   }
   return {
-    state: state2,
+    state: state3,
     views,
     cells,
     available,
@@ -23279,7 +23510,7 @@ function chipHtml(id, chip) {
 var style = (value2) => value2 ? ` style="${escapeHtml(value2)}"` : "";
 function reportTable(options3) {
   const { renderer, ctx, region, model, id, domId, visible, start, lastPage, link } = options3;
-  const { state: state2, views, cells, displayed, breaks, byName } = model;
+  const { state: state3, views, cells, displayed, breaks, byName } = model;
   const linkIcon = renderer.substitute(
     ctx.session,
     str(
@@ -23290,7 +23521,7 @@ function reportTable(options3) {
     ctx.page,
     "RAW"
   );
-  const sorted2 = new Map(state2.sort.map((entry, index) => [entry.column, { ...entry, index }]));
+  const sorted2 = new Map(state3.sort.map((entry, index) => [entry.column, { ...entry, index }]));
   const headerId = (column2) => `${id}_${escapeHtml(column2.id.toUpperCase())}`;
   const header2 = (withIds) => `<tr>${link !== "none" ? `<th class="a-IRR-header a-IRR-header--linkCol"${withIds ? ` id="${id}_LINK"` : ""}><span class="u-VisuallyHidden">${link === "single" ? "Single Row View" : "Link"}</span></th>` : ""}${displayed.map((column2) => {
     const name = column2.id.toUpperCase();
@@ -23371,8 +23602,8 @@ function singleRowView(model, id, domId, index) {
   const nav = (target2, label, iconName, enabled) => `<button type="button" class="a-Button a-IRR-button a-IRR-button--pagination" data-apex-local-ir-single="${target2}"${enabled ? "" : " disabled"} title="${label}" aria-label="${label}">${icon2(iconName)}</button>`;
   return `<div class="a-IRR-singleRowView" id="${id}_single_row_view"><div class="a-IRR-toolbar a-IRR-toolbar--singleRow"><div class="a-IRR-controlGroup"><button type="button" class="a-Button a-IRR-button" data-apex-local-ir-single="-1">${icon2("icon-irr-report")} Report View</button></div><div class="a-IRR-singleRowNav">${nav(index - 1, "Previous", "icon-left-chevron", index > 0)}<span class="a-IRR-pagination-label">Row ${index + 1} of ${model.rows.length}</span>${nav(index + 1, "Next", "icon-right-chevron", index < model.rows.length - 1)}</div><div class="a-IRR-controlGroup a-IRR-viewOptionsContainer"><label class="a-IRR-viewOption"><input type="checkbox" class="a-IRR-viewOptions-checkbox" data-apex-local-ir-single-option="nulls"> Exclude Null Values</label> <label class="a-IRR-viewOption"><input type="checkbox" class="a-IRR-viewOptions-checkbox" data-apex-local-ir-single-option="displayed"> Displayed Columns</label></div></div><div class="a-IRR-singleRow-group"><div class="a-IRR-singleRow-rows is-expanded">${columns.map((column2) => {
     const name = column2.id.toUpperCase();
-    const empty = row[name] === null || row[name] === void 0 || row[name] === "";
-    return `<div class="a-IRR-singleRow-row${shown.has(column2) ? " is-displayed" : ""}${empty ? " is-null" : ""}"><div class="a-IRR-singleRow-name">${escapeHtml(model.cells.label(column2))}</div><div class="a-IRR-singleRow-value">${model.cells.html(column2, row, trigger)}</div></div>`;
+    const empty2 = row[name] === null || row[name] === void 0 || row[name] === "";
+    return `<div class="a-IRR-singleRow-row${shown.has(column2) ? " is-displayed" : ""}${empty2 ? " is-null" : ""}"><div class="a-IRR-singleRow-name">${escapeHtml(model.cells.label(column2))}</div><div class="a-IRR-singleRow-value">${model.cells.html(column2, row, trigger)}</div></div>`;
   }).join("")}</div></div></div>`;
 }
 var VIEW_LABELS = { report: "Report", groupBy: "Group By", pivot: "Pivot", chart: "Chart" };
@@ -23400,11 +23631,11 @@ function interactiveReport(renderer, ctx, region, slots) {
   const domId = renderer.regionDomId(region);
   const id = escapeHtml(domId);
   ctx.clientConfig.regions.push({ id: domId, kind: "interactiveReport" });
-  const { state: state2, views, cells, displayed, rows } = model;
+  const { state: state3, views, cells, displayed, rows } = model;
   const menu = actionsMenu(region);
   const link = linkMode(region);
-  const perPage = state2.rowsPerPage && state2.rowsPerPage > 0 ? state2.rowsPerPage : 50;
-  const all2 = state2.rowsPerPage === -1;
+  const perPage = state3.rowsPerPage && state3.rowsPerPage > 0 ? state3.rowsPerPage : 50;
+  const all2 = state3.rowsPerPage === -1;
   const pages2 = all2 ? 1 : Math.max(1, Math.ceil(rows.length / perPage));
   const page2 = Math.min(pages2, Math.max(1, ctx.session.pagination[key] ?? 1));
   const size = all2 ? rows.length || 1 : perPage;
@@ -23441,8 +23672,8 @@ function interactiveReport(renderer, ctx, region, slots) {
       name: entry.name,
       label: cells.label(model.byName.get(entry.name))
     })),
-    sort: state2.sort,
-    filters: state2.filters,
+    sort: state3.sort,
+    filters: state3.filters,
     views,
     menu,
     rowsPerPage: all2 ? -1 : perPage,
@@ -23489,7 +23720,7 @@ ${searchField ? `<div class="a-IRR-controlGroup a-IRR-controlGroup--search"><div
         editable: false
       })
     );
-  state2.filters.forEach((filter, index) => {
+  state3.filters.forEach((filter, index) => {
     const column2 = filter.column ? model.byName.get(filter.column) : void 0;
     const label = filterLabel(filter, column2 ? cells.label(column2) : filter.column);
     chips.push(
@@ -23759,9 +23990,9 @@ function codeOutsideLiterals(code) {
     const startsWord = index === 0 || !IDENTIFIER_CHAR.test(code[index - 1]);
     const q = !startsWord ? -1 : /[qQ]/u.test(char) && next === "'" ? index : /[nN]/u.test(char) && /[qQ]/u.test(next) && code[index + 2] === "'" ? index + 1 : -1;
     if (q >= 0) {
-      const open2 = code[q + 2];
-      if (open2 === void 0) return void 0;
-      const end = code.indexOf(`${QUOTE_CLOSE[open2] ?? open2}'`, q + 3);
+      const open3 = code[q + 2];
+      if (open3 === void 0) return void 0;
+      const end = code.indexOf(`${QUOTE_CLOSE[open3] ?? open3}'`, q + 3);
       if (end < 0) return void 0;
       blank(end + 2);
       continue;
@@ -23856,9 +24087,9 @@ ${code}`;
   let shape = shapes.get(key) ?? "text";
   try {
     for (let attempt = 0; ; attempt += 1) {
-      let reply2;
+      let reply3;
       try {
-        reply2 = oracle.data.plsql({
+        reply3 = oracle.data.plsql({
           block: oracleBlock(code, mode, shape),
           binds,
           after,
@@ -23879,31 +24110,31 @@ ${code}`;
         );
         return runOraclePlsql(renderer, ctx, oracle, code, mode, owner2);
       }
-      if (reply2.error && attempt === 0 && shape === "text" && wrongShape(reply2.error, mode)) {
+      if (reply3.error && attempt === 0 && shape === "text" && wrongShape(reply3.error, mode)) {
         shape = "boolean";
         continue;
       }
       shapes.set(key, shape);
-      if (reply2.error?.code === -20997)
-        renderer.diagnose("error", `${owner2.label}: ${reply2.error.message}`, ctx.pageId, owner2.component);
-      if (reply2.output.trim())
+      if (reply3.error?.code === -20997)
+        renderer.diagnose("error", `${owner2.label}: ${reply3.error.message}`, ctx.pageId, owner2.component);
+      if (reply3.output.trim())
         renderer.diagnose(
           "info",
-          `${owner2.label}: DBMS_OUTPUT ${reply2.output.trim().slice(0, 500)}`,
+          `${owner2.label}: DBMS_OUTPUT ${reply3.output.trim().slice(0, 500)}`,
           ctx.pageId,
           owner2.component
         );
-      result.output = renderer.localizeOracleHtml(reply2.htp);
-      if (reply2.error) {
+      result.output = renderer.localizeOracleHtml(reply3.htp);
+      if (reply3.error) {
         result.ok = false;
-        result.failure = failure(reply2.error);
+        result.failure = failure(reply3.error);
         return result;
       }
-      const value2 = reply2.values[RESULT_BIND] ?? null;
+      const value2 = reply3.values[RESULT_BIND] ?? null;
       result.value = shape === "boolean" ? value2 === "Y" : value2;
       for (const name of [...names, ...Object.keys(after)]) {
         if (name in builtins || name === "REQUEST") continue;
-        const next = reply2.values[name] ?? "";
+        const next = reply3.values[name] ?? "";
         if (next !== (ctx.session.items[name] ?? "")) ctx.session.items[name] = next;
       }
       return result;
@@ -24003,11 +24234,11 @@ function pageRowValidation(renderer, ctx) {
   }
   const errors = [];
   for (const region of regions.values()) {
-    const state2 = peekState(ctx.session, stateKey(ctx.pageId, region.id));
-    const changes = state2?.pending?.changes ?? [];
+    const state3 = peekState(ctx.session, stateKey(ctx.pageId, region.id));
+    const changes = state3?.pending?.changes ?? [];
     const failures = validateRows(renderer, ctx, region, changes);
     if (!failures.length) continue;
-    if (state2) state2.pending = void 0;
+    if (state3) state3.pending = void 0;
     errors.push(...rowErrorsForPage(renderer, region, failures));
   }
   return errors;
@@ -24030,8 +24261,8 @@ function target(renderer, session, page2, regionId) {
   const region = findRegion2(renderer, ctx, regionId);
   if (!region) return `Region ${regionId} not found`;
   const type = str(region.props, "type");
-  const state2 = type === "interactiveGrid" ? igState(renderer, ctx, region) : type === "interactiveReport" ? irState(renderer, ctx, region) : classicState(ctx, region);
-  return { ctx, region, type, state: state2, key: stateKey(ctx.pageId, region.id) };
+  const state3 = type === "interactiveGrid" ? igState(renderer, ctx, region) : type === "interactiveReport" ? irState(renderer, ctx, region) : classicState(ctx, region);
+  return { ctx, region, type, state: state3, key: stateKey(ctx.pageId, region.id) };
 }
 function body(request) {
   try {
@@ -24041,7 +24272,7 @@ function body(request) {
     return {};
   }
 }
-var text8 = (value2) => value2 === void 0 || value2 === null ? "" : String(value2);
+var text7 = (value2) => value2 === void 0 || value2 === null ? "" : String(value2);
 function displayedColumns(renderer, found) {
   if (found.type === "interactiveReport")
     return irModel(renderer, found.ctx, found.region).displayed.map((column2) => column2.id.toUpperCase());
@@ -24050,16 +24281,16 @@ function displayedColumns(renderer, found) {
   return found.state.columns?.filter((name) => visible.includes(name) || /^APEX\$/u.test(name)) ?? visible;
 }
 var objects = (value2) => Array.isArray(value2) ? value2.filter((entry) => entry && typeof entry === "object") : [];
-var upperText = (value2) => text8(value2).trim().toUpperCase();
+var upperText = (value2) => text7(value2).trim().toUpperCase();
 function functionsOf2(value2) {
   return objects(value2).map((entry) => {
-    const fn = text8(entry.fn) || "sum";
+    const fn = text7(entry.fn) || "sum";
     const column2 = upperText(entry.column);
     return {
       fn,
       column: column2,
-      label: text8(entry.label).trim() || `${AGGREGATE_LABELS[fn] ?? fn} ${column2}`.trim(),
-      formatMask: text8(entry.formatMask),
+      label: text7(entry.label).trim() || `${AGGREGATE_LABELS[fn] ?? fn} ${column2}`.trim(),
+      formatMask: text7(entry.formatMask),
       sum: entry.sum === true
     };
   }).filter((entry) => AGGREGATE_LABELS[entry.fn] && (entry.column || entry.fn === "count"));
@@ -24072,14 +24303,14 @@ function sortsOf2(value2) {
 }
 function irViewsAction(renderer, session, found, input) {
   const gridActions = /* @__PURE__ */ new Set(["controlBreak", "highlight", "aggregate", "toggle", "remove"]);
-  if (found.type !== "interactiveReport" && !(found.type === "interactiveGrid" && gridActions.has(text8(input.action))))
+  if (found.type !== "interactiveReport" && !(found.type === "interactiveGrid" && gridActions.has(text7(input.action))))
     return void 0;
-  const { state: state2 } = found;
-  const views = state2.views ??= emptyViews();
+  const { state: state3 } = found;
+  const views = state3.views ??= emptyViews();
   const selection = reportSelection(session, found.key);
   const index = Number(input.index);
-  const kind = text8(input.kind);
-  switch (text8(input.action)) {
+  const kind = text7(input.kind);
+  switch (text7(input.action)) {
     case "controlBreak":
       views.breaks = objects(input.breaks).map((entry) => ({ column: upperText(entry.column), enabled: entry.enabled !== false })).filter(
         (entry, position2, all2) => entry.column && all2.findIndex((other) => other.column === entry.column) === position2
@@ -24088,17 +24319,17 @@ function irViewsAction(renderer, session, found, input) {
       return null;
     case "highlight": {
       const raw2 = input.highlight ?? {};
-      const operator = normalizeOperator(text8(raw2.operator) || "=");
+      const operator = normalizeOperator(text7(raw2.operator) || "=");
       const highlight2 = {
-        name: text8(raw2.name).trim() || "Highlight",
+        name: text7(raw2.name).trim() || "Highlight",
         type: raw2.type === "cell" ? "cell" : "row",
         column: upperText(raw2.column),
         operator,
-        value: text8(raw2.value),
-        value2: text8(raw2.value2) || void 0,
-        unit: text8(raw2.unit) || void 0,
-        background: text8(raw2.background),
-        text: text8(raw2.text),
+        value: text7(raw2.value),
+        value2: text7(raw2.value2) || void 0,
+        unit: text7(raw2.unit) || void 0,
+        background: text7(raw2.background),
+        text: text7(raw2.text),
         enabled: raw2.enabled !== false,
         sequence: Number(raw2.sequence) || (views.highlights.length + 1) * 10
       };
@@ -24112,16 +24343,16 @@ function irViewsAction(renderer, session, found, input) {
     }
     case "compute": {
       const raw2 = input.computation ?? {};
-      const expression = text8(raw2.expression).trim();
+      const expression = text7(raw2.expression).trim();
       if (!expression) return json4({ error: "Enter a computation expression." });
       const replace = Number(input.replace);
       const existing = Number.isInteger(replace) ? views.computations[replace] : void 0;
       const name = existing?.name ?? nextComputationName(views);
       const computation = {
         name,
-        label: text8(raw2.label).trim() || name,
+        label: text7(raw2.label).trim() || name,
         expression,
-        formatMask: text8(raw2.formatMask).trim()
+        formatMask: text7(raw2.formatMask).trim()
       };
       const model = irModel(renderer, found.ctx, found.region);
       const sql = renderer.regionSql(found.ctx, found.region);
@@ -24136,13 +24367,13 @@ function irViewsAction(renderer, session, found, input) {
       }
       if (existing) views.computations[replace] = computation;
       else {
-        state2.columns = [...model.displayed.map((column2) => column2.id.toUpperCase()), name];
+        state3.columns = [...model.displayed.map((column2) => column2.id.toUpperCase()), name];
         views.computations.push(computation);
       }
       return null;
     }
     case "aggregate": {
-      const fn = text8(input.fn);
+      const fn = text7(input.fn);
       const column2 = upperText(input.column);
       if (!column2 || !["sum", "average", "count", "countDistinct", "min", "max", "median"].includes(fn))
         return json4({ error: "Select an aggregation and a column." });
@@ -24171,16 +24402,16 @@ function irViewsAction(renderer, session, found, input) {
     }
     case "chart": {
       const raw2 = input.chart ?? {};
-      const fn = text8(raw2.fn) || "sum";
+      const fn = text7(raw2.fn) || "sum";
       const chart = {
-        type: CHART_TYPES.has(text8(raw2.type)) ? text8(raw2.type) : "bar",
+        type: CHART_TYPES.has(text7(raw2.type)) ? text7(raw2.type) : "bar",
         label: upperText(raw2.label),
         value: upperText(raw2.value),
         fn,
         orientation: raw2.orientation === "horizontal" ? "horizontal" : "vertical",
-        sort: text8(raw2.sort) || "default",
-        labelTitle: text8(raw2.labelTitle),
-        valueTitle: text8(raw2.valueTitle)
+        sort: text7(raw2.sort) || "default",
+        labelTitle: text7(raw2.labelTitle),
+        valueTitle: text7(raw2.valueTitle)
       };
       if (!chart.label || !chart.value && fn !== "count")
         return json4({ error: "Select a label column and a value column." });
@@ -24189,7 +24420,7 @@ function irViewsAction(renderer, session, found, input) {
       return null;
     }
     case "view": {
-      const view = text8(input.view);
+      const view = text7(input.view);
       views.view = view === "groupBy" || view === "pivot" || view === "chart" ? view : "report";
       views.single = void 0;
       return null;
@@ -24204,7 +24435,7 @@ function irViewsAction(renderer, session, found, input) {
       else if (kind === "computations") {
         const [removed] = views.computations.splice(index, 1);
         if (removed) {
-          if (state2.columns) state2.columns = state2.columns.filter((name) => name !== removed.name);
+          if (state3.columns) state3.columns = state3.columns.filter((name) => name !== removed.name);
           views.aggregates = views.aggregates.filter((entry) => entry.column !== removed.name);
           views.highlights = views.highlights.filter((entry) => entry.column !== removed.name);
           views.breaks = views.breaks.filter((entry) => entry.column !== removed.name);
@@ -24218,24 +24449,24 @@ function irViewsAction(renderer, session, found, input) {
       views.single = Number.isInteger(index) && index >= 0 ? index : void 0;
       return json4({ ok: true });
     case "saveReport": {
-      const name = text8(input.name).trim();
+      const name = text7(input.name).trim();
       if (!name) return json4({ error: "Enter a name for the report." });
       const existing = selection.privates.find((report2) => report2.name.toLowerCase() === name.toLowerCase());
-      const copy = snapshot(state2);
+      const copy = snapshot(state3);
       if (copy.views) copy.views.single = void 0;
       if (existing) {
         existing.state = copy;
-        existing.description = text8(input.description);
+        existing.description = text7(input.description);
         selection.current = existing.id;
       } else {
         const id = `p:${selection.next++}`;
-        selection.privates.push({ id, name, description: text8(input.description), state: copy });
+        selection.privates.push({ id, name, description: text7(input.description), state: copy });
         selection.current = id;
       }
       return json4({ ok: true, report: selection.current });
     }
     case "selectReport": {
-      const id = text8(input.id);
+      const id = text7(input.id);
       const report2 = reportList(found.region, selection).find((entry) => entry.id === id);
       if (!report2) return json4({ error: `Saved report ${id} not found` });
       selection.current = report2.primary ? "" : report2.id;
@@ -24256,78 +24487,78 @@ function irViewsAction(renderer, session, found, input) {
 }
 function reportRoute(renderer, session, request) {
   const input = body(request);
-  const found = target(renderer, session, text8(input.page), text8(input.region));
+  const found = target(renderer, session, text7(input.page), text7(input.region));
   if (typeof found === "string") return json4({ error: found }, 404);
-  const { state: state2 } = found;
-  const column2 = text8(input.column).toUpperCase();
-  switch (text8(input.action)) {
+  const { state: state3 } = found;
+  const column2 = text7(input.column).toUpperCase();
+  switch (text7(input.action)) {
     case "search": {
-      const value2 = text8(input.text).trim();
-      if (value2) state2.filters.push({ column: column2, operator: "contains", value: value2, enabled: true });
+      const value2 = text7(input.text).trim();
+      if (value2) state3.filters.push({ column: column2, operator: "contains", value: value2, enabled: true });
       break;
     }
     case "filter": {
-      const operator = normalizeOperator(text8(input.operator) || "=");
+      const operator = normalizeOperator(text7(input.operator) || "=");
       if (!column2 || !SUPPORTED_OPERATORS.has(operator))
         return json4({ error: `Unsupported filter ${operator}` });
       const filter = {
         column: column2,
         operator,
-        value: text8(input.value),
-        ...operator === "between" || operator === "notBetween" ? { value2: text8(input.value2) } : {},
-        ...text8(input.unit) ? { unit: text8(input.unit) } : {},
+        value: text7(input.value),
+        ...operator === "between" || operator === "notBetween" ? { value2: text7(input.value2) } : {},
+        ...text7(input.unit) ? { unit: text7(input.unit) } : {},
         enabled: true
       };
       const replace = Number(input.replace);
-      if (Number.isInteger(replace) && state2.filters[replace]) state2.filters[replace] = filter;
-      else state2.filters.push(filter);
+      if (Number.isInteger(replace) && state3.filters[replace]) state3.filters[replace] = filter;
+      else state3.filters.push(filter);
       break;
     }
     case "toggleFilter": {
-      const filter = state2.filters[Number(input.index)];
+      const filter = state3.filters[Number(input.index)];
       if (filter) filter.enabled = input.enabled === true;
       break;
     }
     case "removeFilter":
-      state2.filters.splice(Number(input.index), 1);
+      state3.filters.splice(Number(input.index), 1);
       break;
     case "sort": {
       const sort = Array.isArray(input.sort) ? input.sort : [];
-      state2.sort = sort.filter((entry) => entry && entry.column).map((entry) => ({
-        column: text8(entry.column).toUpperCase(),
+      state3.sort = sort.filter((entry) => entry && entry.column).map((entry) => ({
+        column: text7(entry.column).toUpperCase(),
         direction: entry.direction === "desc" ? "desc" : "asc"
       }));
       break;
     }
     case "classicSort": {
-      const current3 = state2.sort[0];
-      state2.sort = [
+      const current3 = state3.sort[0];
+      state3.sort = [
         { column: column2, direction: current3?.column === column2 && current3.direction === "asc" ? "desc" : "asc" }
       ];
       break;
     }
     case "hide":
-      state2.columns = displayedColumns(renderer, found).filter((name) => name !== column2);
+      state3.columns = displayedColumns(renderer, found).filter((name) => name !== column2);
       break;
     case "columns":
-      state2.columns = (Array.isArray(input.columns) ? input.columns : []).map(
-        (name) => text8(name).toUpperCase()
+      state3.columns = (Array.isArray(input.columns) ? input.columns : []).map(
+        (name) => text7(name).toUpperCase()
       );
       break;
     case "rowsPerPage": {
       const value2 = Number(input.value);
-      if (value2 === -1 || Number.isInteger(value2) && value2 > 0) state2.rowsPerPage = value2;
+      if (value2 === -1 || Number.isInteger(value2) && value2 > 0) state3.rowsPerPage = value2;
       break;
     }
     case "select":
-      state2.selected = text8(input.id);
+      state3.selected = text7(input.id);
       return json4({ ok: true });
     case "reset":
       resetState(session, found.key);
       break;
     default: {
       const handled = irViewsAction(renderer, session, found, input);
-      if (handled === void 0) return json4({ error: `Unknown report action ${text8(input.action)}` }, 400);
+      if (handled === void 0) return json4({ error: `Unknown report action ${text7(input.action)}` }, 400);
       if (handled) return handled;
     }
   }
@@ -24448,9 +24679,9 @@ function chartRoute(renderer, session, request) {
 }
 function changesOf(input) {
   if (!Array.isArray(input.changes)) return [];
-  return input.changes.filter((change) => change && /^(insert|update|delete)$/u.test(text8(change.op))).map((change) => ({
-    op: text8(change.op),
-    ...change.id !== void 0 ? { id: text8(change.id) } : {},
+  return input.changes.filter((change) => change && /^(insert|update|delete)$/u.test(text7(change.op))).map((change) => ({
+    op: text7(change.op),
+    ...change.id !== void 0 ? { id: text7(change.id) } : {},
     values: Object.fromEntries(
       Object.entries(change.values ?? {}).map(([name, value2]) => [
         name.toUpperCase(),
@@ -24511,7 +24742,7 @@ function applyGrid(renderer, ctx, region, process2, changes) {
 }
 function saveRoute(renderer, session, request) {
   const input = body(request);
-  const found = target(renderer, session, text8(input.page), text8(input.region));
+  const found = target(renderer, session, text7(input.page), text7(input.region));
   if (typeof found === "string") return json4({ ok: false, errors: [{ message: found }] }, 404);
   const process2 = rowProcess(renderer, found.ctx, found.region);
   if (!process2) {
@@ -24538,7 +24769,7 @@ function saveRoute(renderer, session, request) {
 }
 function stageRoute(renderer, session, request) {
   const input = body(request);
-  const found = target(renderer, session, text8(input.page), text8(input.region));
+  const found = target(renderer, session, text7(input.page), text7(input.region));
   if (typeof found === "string") return json4({ error: found }, 404);
   found.state.pending = { changes: changesOf(input) };
   return json4({ ok: true, staged: found.state.pending.changes.length });
@@ -24565,10 +24796,10 @@ registerExtension({
         );
         return { ran: false };
       }
-      const state2 = peekState(ctx.session, stateKey(ctx.pageId, region.id));
-      const pending2 = state2?.pending;
-      if (!state2 || !pending2?.changes.length) return { ran: true };
-      state2.pending = void 0;
+      const state3 = peekState(ctx.session, stateKey(ctx.pageId, region.id));
+      const pending2 = state3?.pending;
+      if (!state3 || !pending2?.changes.length) return { ran: true };
+      state3.pending = void 0;
       const result = applyGrid(renderer, ctx, region, process2, pending2.changes);
       return result.ok ? { ran: true } : { ran: false, errors: pageErrors(region, result) };
     }
@@ -24585,6 +24816,970 @@ registerExtension({
 ${REPORTS_CLIENT}
 apex.jQuery(function () { apexLocalReports.init(); });`,
   css: REPORTS_CSS
+});
+
+// packages/core/src/preview/extensions/server/apis.ts
+var p2 = (...names) => names;
+var text8 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
+var noop2 = () => null;
+function origin(rt) {
+  return rt?.ctx.session.origin ?? "http://localhost";
+}
+function hostUrl(rt, option) {
+  const base = origin(rt);
+  switch (String(option ?? "").toUpperCase()) {
+    case "SCRIPT":
+      return `${base}/`;
+    case "IMGPRE":
+      return `${base}/i/`;
+    case "APEX_PATH":
+      return `${base}${rt?.renderer.baseUrl ?? ""}/`;
+    default:
+      return base;
+  }
+}
+var state2 = 625341585;
+function random() {
+  state2 ^= state2 << 13;
+  state2 ^= state2 >>> 17;
+  state2 ^= state2 << 5;
+  return (state2 >>> 0) % 1000000007 / 1000000007;
+}
+function randomString(option, length) {
+  const sets = {
+    U: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    L: "abcdefghijklmnopqrstuvwxyz",
+    A: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+    X: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+    P: " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+  };
+  const chars = sets[String(option ?? "U").toUpperCase()] ?? sets.U;
+  const size = Math.max(0, Math.min(4e3, Number(length ?? 1) || 0));
+  return Array.from({ length: size }, () => chars[Math.floor(random() * chars.length)]).join("");
+}
+function markdownToHtml(markdown) {
+  const escape = (value2) => value2.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  const inline = (value2) => escape(value2).replace(/`([^`]+)`/gu, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/gu, "<strong>$1</strong>").replace(/\*([^*]+)\*/gu, "<em>$1</em>").replace(
+    /\[([^\]]+)\]\(([^)\s]+)\)/gu,
+    (_m, label, href) => /^(?:https?:|mailto:|\/|#)/iu.test(href) ? `<a href="${href}">${label}</a>` : label
+  );
+  const out = [];
+  let list4;
+  let paragraph = [];
+  const flush = () => {
+    if (paragraph.length) out.push(`<p>${paragraph.map(inline).join(" ")}</p>`);
+    paragraph = [];
+  };
+  const close3 = () => {
+    if (list4) out.push(`</${list4}>`);
+    list4 = void 0;
+  };
+  for (const line of markdown.replace(/\r\n?/gu, "\n").split("\n")) {
+    const heading3 = /^(#{1,6})\s+(.*)$/u.exec(line);
+    const bullet = /^\s*[-*+]\s+(.*)$/u.exec(line);
+    const numbered = /^\s*\d+[.)]\s+(.*)$/u.exec(line);
+    if (heading3) {
+      flush();
+      close3();
+      out.push(`<h${heading3[1].length}>${inline(heading3[2])}</h${heading3[1].length}>`);
+    } else if (bullet || numbered) {
+      flush();
+      const kind = bullet ? "ul" : "ol";
+      if (list4 !== kind) {
+        close3();
+        out.push(`<${kind}>`);
+        list4 = kind;
+      }
+      out.push(`<li>${inline((bullet ?? numbered)[1])}</li>`);
+    } else if (!line.trim()) {
+      flush();
+      close3();
+    } else {
+      close3();
+      paragraph.push(line.trim());
+    }
+  }
+  flush();
+  close3();
+  return out.join("\n");
+}
+function sessionValue(rt, name) {
+  if (!rt || text8(name) === null) return null;
+  const key = String(name).toUpperCase();
+  const item2 = rt.ctx.session.items[key];
+  if (item2 !== void 0 && item2 !== "") return item2;
+  const builtin = rt.renderer.builtin(rt.ctx.session, rt.ctx.page)[key];
+  return builtin === void 0 || builtin === "" ? null : builtin;
+}
+var allowed = { params: p2("p_task_id", "p_operation", "p_user"), fn: () => true };
+registerStubs({
+  "apex_util.host_url": { params: p2("p_option"), fn: (args, rt) => hostUrl(rt, args.p_option), sql: true },
+  "apex_util.get_protocol": { params: [], fn: (_args, rt) => origin(rt).split(":")[0], sql: true },
+  "apex_util.get_session_time_zone": {
+    params: [],
+    fn: (_args, rt) => rt?.ctx.session.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    sql: true
+  },
+  "apex_util.set_session_time_zone": {
+    params: p2("p_time_zone"),
+    fn: (args, rt) => {
+      if (rt) rt.ctx.session.timeZone = text8(args.p_time_zone) ?? void 0;
+      return null;
+    }
+  },
+  // One workspace locally, named as the dictionary views name it.
+  "apex_util.find_workspace": { params: ["p_security_group_id"], fn: () => "PREVIEW", sql: true },
+  "apex_util.find_security_group_id": { params: ["p_workspace"], fn: () => 1000000000000001, sql: true },
+  "apex_util.varchar2_to_blob": {
+    params: p2("p_varchar2", "p_charset"),
+    fn: (args) => text8(args.p_varchar2),
+    sql: true
+  },
+  "apex_application.get_nls_decimal_separator": { params: [], fn: () => ".", sql: true },
+  "apex_application.get_nls_group_separator": { params: [], fn: () => ",", sql: true },
+  "apex_application.do_substitutions": {
+    params: p2("p_string", "p_escape"),
+    fn: (args, rt) => rt && text8(args.p_string) !== null ? rt.renderer.substitute(rt.ctx.session, String(args.p_string), rt.ctx.page, "RAW") : text8(args.p_string)
+  },
+  "apex_application_admin.get_build_option_status": {
+    params: p2("p_application_id", "p_id", "p_build_option_name"),
+    fn: () => "INCLUDE"
+  },
+  "apex_custom_auth.get_username": { params: [], fn: (_args, rt) => rt?.ctx.session.user ?? null, sql: true },
+  "apex_markdown.to_html": {
+    params: p2("p_markdown", "p_embedded_html_mode", "p_softbreak", "p_extra_link_attributes"),
+    fn: (args) => text8(args.p_markdown) === null ? null : markdownToHtml(String(args.p_markdown)),
+    sql: true
+  },
+  // System messages use the same lookup as application text messages locally.
+  "apex_lang.system_message": {
+    params: ["p_name", "p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"],
+    fn: (args, rt) => findStub("apex_lang.message").fn(args, rt),
+    sql: true
+  },
+  "apex_session_state.get_value": {
+    params: ["p_item"],
+    fn: (args, rt) => sessionValue(rt, args.p_item),
+    sql: true
+  },
+  "apex_session_state.get_varchar2": {
+    params: ["p_item"],
+    fn: (args, rt) => sessionValue(rt, args.p_item),
+    sql: true
+  },
+  "apex_session_state.get_clob": {
+    params: ["p_item"],
+    fn: (args, rt) => sessionValue(rt, args.p_item),
+    sql: true
+  },
+  "apex_session_state.get_number": {
+    params: ["p_item"],
+    fn: (args, rt) => {
+      const value2 = sessionValue(rt, args.p_item);
+      return value2 === null || !Number.isFinite(Number(value2)) ? null : Number(value2);
+    },
+    sql: true
+  },
+  "apex_session_state.get_timestamp": {
+    params: ["p_item"],
+    fn: (args, rt) => sessionValue(rt, args.p_item),
+    sql: true
+  },
+  "apex_session_state.get_boolean": {
+    params: ["p_item"],
+    fn: (args, rt) => {
+      const value2 = sessionValue(rt, args.p_item);
+      return value2 === null ? null : /^(?:y|yes|true|1)$/iu.test(value2);
+    }
+  },
+  "apex_session_state.set_value": {
+    params: ["p_item", "p_value"],
+    fn: (args, rt) => {
+      if (rt && text8(args.p_item))
+        rt.ctx.session.items[String(args.p_item).toUpperCase()] = text8(args.p_value) ?? "";
+      return null;
+    }
+  },
+  "apex_workflow.is_allowed": allowed,
+  "apex_human_task.is_allowed": allowed,
+  "apex_approval.is_allowed": allowed,
+  "dbms_random.value": {
+    params: p2("low", "high"),
+    fn: (args) => {
+      const low = args.low === null || args.low === void 0 ? 0 : Number(args.low);
+      const high = args.high === null || args.high === void 0 ? 1 : Number(args.high);
+      return low + random() * (high - low);
+    },
+    sql: true
+  },
+  "dbms_random.normal": {
+    params: [],
+    fn: () => Math.sqrt(-2 * Math.log(random() || 1e-9)) * Math.cos(2 * Math.PI * random()),
+    sql: true
+  },
+  "dbms_random.string": {
+    params: p2("opt", "len"),
+    fn: (args) => randomString(args.opt, args.len),
+    sql: true
+  },
+  "dbms_random.random": { params: [], fn: () => Math.floor((random() - 0.5) * 2 ** 32), sql: true },
+  "dbms_random.seed": {
+    params: p2("val"),
+    fn: (args) => {
+      const seed = String(args.val ?? 1);
+      state2 = [...seed].reduce((hash, char) => Math.imul(hash, 31) + char.charCodeAt(0) | 0, 625341585) || 1;
+      return null;
+    }
+  },
+  "dbms_random.initialize": { params: p2("val"), fn: noop2 },
+  "dbms_stats.gather_table_stats": { params: [], fn: noop2 },
+  "dbms_stats.gather_schema_stats": { params: [], fn: noop2 }
+});
+
+// packages/core/src/preview/extensions/server/library.ts
+function contextFor(renderer) {
+  const runtime2 = activeRuntime();
+  if (runtime2 && runtime2.renderer === renderer) return runtime2.ctx;
+  if (renderer.lastContext) return renderer.lastContext;
+  const pageId = [...renderer.app.pages.keys()].find((id) => id !== "0");
+  if (!pageId) return void 0;
+  return renderer.prepare({ id: "apex-local-setup", user: "DEVELOPER", items: {}, pagination: {} }, pageId);
+}
+function sqlValue2(value2) {
+  if (value2 === null || value2 === void 0) return null;
+  if (typeof value2 === "boolean") return value2 ? 1 : 0;
+  if (value2 instanceof RecordValue || value2 instanceof Collection) return itemText(value2) || null;
+  return value2;
+}
+function registerFunctions(renderer) {
+  const library = plsqlLibrary(renderer);
+  const register = (name, chain, params2) => renderer.db.registerLocalFunction(name, params2, (args) => {
+    const ctx = contextFor(renderer);
+    if (!ctx) return null;
+    const interpreter = new Interpreter(renderer, ctx, { label: `function ${name}` });
+    const result = withRuntime(interpreter, () => interpreter.callWithValues(chain, args));
+    if (!result)
+      throw new Error(
+        `ORA-06553: PLS-306: wrong number or types of arguments in call to ${name.toUpperCase()}`
+      );
+    return sqlValue2(result.value);
+  });
+  for (const pkg of library.packages.values())
+    for (const [member, overloads] of pkg.routines)
+      if (overloads.some((routine) => routine.isFunction))
+        register(
+          `${pkg.name}.${member}`,
+          [pkg.name, member],
+          overloads.find((r) => r.isFunction).params.map((p3) => p3.name)
+        );
+  for (const [name, overloads] of library.routines)
+    if (overloads[0].isFunction)
+      register(
+        name,
+        [name],
+        overloads[0].params.map((p3) => p3.name)
+      );
+}
+function runInstallBlocks(renderer) {
+  const db2 = renderer.db;
+  const library = plsqlLibrary(renderer);
+  if (!library.blocks.length) return;
+  db2.db.exec("create table if not exists apex_local_plsql_state (name text primary key, value text)");
+  if (db2.db.prepare("select 1 from apex_local_plsql_state where name = 'install_blocks'").get()) return;
+  db2.db.prepare("insert into apex_local_plsql_state values ('install_blocks', 'run')").run();
+  const ctx = contextFor(renderer);
+  if (!ctx) return;
+  for (const block of library.blocks) {
+    const interpreter = new Interpreter(renderer, ctx, { label: `install block in ${block.script}` });
+    const result = interpreter.run(block.source.replace(/\n\s*\/\s*$/u, ""), "block");
+    if (!result.ok && result.failure)
+      renderer.diagnose(
+        "warning",
+        `Seed script: ${block.script}: anonymous block: ${result.failure.message}${result.failure.line ? ` (line ${result.failure.line})` : ""}; the rest of the block did not run`
+      );
+  }
+}
+registerRendererSetup((renderer) => {
+  if (renderer.oracle) return;
+  registerFunctions(renderer);
+  runInstallBlocks(renderer);
+});
+
+// packages/core/src/preview/extensions/server/plugins.ts
+import fs7 from "node:fs";
+import path9 from "node:path";
+var indexes = /* @__PURE__ */ new WeakMap();
+function fileUrls(component, property2) {
+  const value2 = get(component.props, property2);
+  const values = Array.isArray(value2) ? value2.map(String) : value2 === void 0 ? [] : [String(value2)];
+  return values.flatMap((entry) => entry.split(/\r?\n/u)).map((entry) => entry.trim()).filter(Boolean);
+}
+function pluginIndex(renderer) {
+  let index = indexes.get(renderer);
+  if (index) return index;
+  index = /* @__PURE__ */ new Map();
+  const attributesByDir = /* @__PURE__ */ new Map();
+  for (const component of renderer.app.shared) {
+    if (component.type !== "customAttribute") continue;
+    const dir = path9.dirname(component.file);
+    const entries = attributesByDir.get(dir) ?? [];
+    entries.push({
+      number: Number(str(component.props, "attribute", component.id.replace(/\D/gu, ""))) || 0,
+      apexlangName: str(component.props, "apexlangName", component.id),
+      defaultValue: str(component.props, "default.value"),
+      application: /^application$/iu.test(str(component.props, "scope"))
+    });
+    attributesByDir.set(dir, entries);
+  }
+  for (const component of renderer.app.shared) {
+    if (component.type !== "plugin") continue;
+    const code = str(component.props, "source.plsqlCode");
+    const kind = str(component.props, "type");
+    const relative = path9.relative(renderer.app.root, path9.dirname(component.file)).split(path9.sep);
+    index.set(component.id, {
+      component,
+      name: component.id,
+      kind,
+      staticId: str(component.props, "staticId", component.id),
+      code,
+      render: str(component.props, "callbacks.renderProcedureName"),
+      ajax: str(component.props, "callbacks.ajaxProcedureName"),
+      substitute: str(component.props, "advanced.substituteAttributeValues", "true") !== "false",
+      attributes: attributesByDir.get(path9.dirname(component.file)) ?? [],
+      filePrefix: `${renderer.baseUrl}/files/plugin/${relative.at(-2) ?? kind}/${relative.at(-1) ?? component.id}/`,
+      filesDir: path9.join(path9.dirname(component.file), "static-files"),
+      cssFiles: fileUrls(component, "css.fileUrls"),
+      jsFiles: fileUrls(component, "javaScript.fileUrls")
+    });
+  }
+  indexes.set(renderer, index);
+  return index;
+}
+function settingText(value2) {
+  if (value2 === void 0 || value2 === null) return "";
+  if (Array.isArray(value2)) return value2.map((entry) => settingText(entry)).join(":");
+  if (typeof value2 === "boolean") return value2 ? "Y" : "N";
+  if (isObject(value2)) return "";
+  return String(value2);
+}
+function attributeFields(renderer, ctx, plugin, component, application, count) {
+  const fields = {};
+  for (let number2 = 1; number2 <= count; number2 += 1)
+    fields[`ATTRIBUTE_${String(number2).padStart(2, "0")}`] = null;
+  for (const attribute3 of plugin.attributes) {
+    if (attribute3.application !== application || !attribute3.number) continue;
+    const set = component ? get(component.props, `settings.${attribute3.apexlangName}`) : void 0;
+    let value2 = set === void 0 ? attribute3.defaultValue : settingText(set);
+    if (plugin.substitute && value2) value2 = renderer.substitute(ctx.session, value2, ctx.page, "RAW");
+    fields[`ATTRIBUTE_${String(attribute3.number).padStart(2, "0")}`] = value2 === "" ? null : value2;
+  }
+  return fields;
+}
+function pluginRecord(renderer, ctx, plugin) {
+  return new RecordValue({
+    NAME: plugin.staticId,
+    FILE_PREFIX: plugin.filePrefix,
+    ESCAPE_OUTPUT: true,
+    ...attributeFields(renderer, ctx, plugin, plugin.component, true, 15)
+  });
+}
+function numericId(id) {
+  let hash = 0;
+  for (const char of id) hash = Math.imul(hash, 31) + char.charCodeAt(0) | 0;
+  return Math.abs(hash) + 1;
+}
+function regionSource(region) {
+  return str(region.props, "source.sqlQuery") || str(region.props, "source.plsqlCode") || str(region.props, "source.htmlCode") || str(region.props, "source.text") || (str(region.props, "source.tableName") ? `select * from ${str(region.props, "source.tableName")}` : "");
+}
+function regionRecord(renderer, ctx, plugin, region) {
+  return new RecordValue({
+    ID: numericId(region.id),
+    STATIC_ID: renderer.regionDomId(region),
+    NAME: str(region.props, "name", region.id),
+    TYPE: str(region.props, "type"),
+    SOURCE: regionSource(region) || null,
+    AJAX_ITEMS_TO_SUBMIT: list(region.props, "source.pageItemsToSubmit").map(String).join(",") || str(region.props, "source.pageItemsToSubmit") || null,
+    ESCAPE_OUTPUT: true,
+    NO_DATA_FOUND_MESSAGE: str(region.props, "messages.whenNoDataFound") || null,
+    FETCHED_ROWS: 15,
+    ERROR_MESSAGE: null,
+    ...attributeFields(renderer, ctx, plugin, region, false, 25)
+  });
+}
+function itemRecord(renderer, ctx, plugin, item2, name) {
+  const label = renderer.label(item2);
+  return new RecordValue({
+    ID: numericId(item2.id),
+    NAME: name,
+    LABEL: label,
+    PLAIN_LABEL: label.replace(/<[^>]*>/gu, ""),
+    FORMAT_MASK: str(item2.props, "appearance.formatMask") || null,
+    IS_REQUIRED: str(item2.props, "validation.valueRequired") === "true",
+    PLACEHOLDER: str(item2.props, "appearance.valuePlaceholder") || null,
+    ELEMENT_WIDTH: str(item2.props, "appearance.width") || null,
+    ELEMENT_MAX_LENGTH: str(item2.props, "validation.maxLength") || null,
+    ELEMENT_HEIGHT: str(item2.props, "appearance.height") || null,
+    ELEMENT_ATTRIBUTES: str(item2.props, "advanced.customAttributes") || null,
+    ELEMENT_CSS_CLASSES: str(item2.props, "advanced.cssClasses") || null,
+    ICON_CSS_CLASSES: str(item2.props, "appearance.icon") || null,
+    ESCAPE_OUTPUT: true,
+    LOV_DEFINITION: str(item2.props, "lov.sqlQuery") || null,
+    LOV_DISPLAY_NULL: str(item2.props, "lov.displayNullValue") === "true",
+    LOV_NULL_TEXT: str(item2.props, "lov.nullDisplayValue") || null,
+    LOV_NULL_VALUE: str(item2.props, "lov.nullReturnValue") || null,
+    LOV_CASCADE_PARENT_ITEMS: list(item2.props, "cascadingLov.parentItems").map(String).join(",") || null,
+    AJAX_ITEMS_TO_SUBMIT: list(item2.props, "cascadingLov.itemsToSubmit").map(String).join(",") || null,
+    SESSION_STATE_NAME: name,
+    ...attributeFields(renderer, ctx, plugin, item2, false, 25)
+  });
+}
+var running = /* @__PURE__ */ new WeakMap();
+var ajaxForms = /* @__PURE__ */ new WeakMap();
+function loadDeclaredFiles(renderer, ctx, plugin) {
+  const resolve = (url2) => {
+    const local = url2.startsWith("#PLUGIN_FILES#");
+    let resolved = url2.replaceAll("#PLUGIN_FILES#", plugin.filePrefix);
+    if (resolved.includes("#MIN#")) {
+      const plain2 = url2.replace("#PLUGIN_FILES#", "").replaceAll("#MIN#", "");
+      const useMin = local && !fs7.existsSync(path9.join(plugin.filesDir, plain2));
+      resolved = resolved.replaceAll("#MIN#", useMin ? ".min" : "");
+    }
+    return renderer.urls(resolved);
+  };
+  for (const url2 of plugin.cssFiles) ctx.cssFiles.add(resolve(url2));
+  for (const url2 of plugin.jsFiles) ctx.jsFiles.add(resolve(url2));
+}
+function runCallback(renderer, ctx, plugin, callback, values, owner2) {
+  const interpreter = new Interpreter(renderer, ctx, {
+    label: `plug-in ${plugin.name}`,
+    component: owner2.id
+  });
+  running.set(interpreter, { pageId: ctx.pageId, ...owner2 });
+  return interpreter.runDeclared(plugin.code, callback, values);
+}
+function failureBox(message) {
+  return `<div class="apex-local-unsupported"><span class="fa fa-warning" aria-hidden="true"></span> ${escapeHtml(message)}</div>`;
+}
+function placeholder2(renderer, ctx, region, type, reason) {
+  renderer.diagnose(
+    "warning",
+    `Region type ${type} (${region.id}) is not simulated; a placeholder is shown (${reason})`,
+    ctx.pageId,
+    region.id
+  );
+  return `<div class="apex-local-unsupported"><span class="fa fa-info-circle" aria-hidden="true"></span> <strong>${escapeHtml(type)}</strong> is not simulated locally.</div>`;
+}
+function renderRegion(renderer, ctx, region) {
+  const type = str(region.props, "type");
+  const plugin = pluginIndex(renderer).get(type.slice("plugin/".length));
+  if (!plugin)
+    return placeholder2(renderer, ctx, region, type, "the plug-in definition is not in the application");
+  if (!plugin.code || !plugin.render)
+    return placeholder2(renderer, ctx, region, type, "the plug-in has no PL/SQL render callback");
+  loadDeclaredFiles(renderer, ctx, plugin);
+  const result = runCallback(
+    renderer,
+    ctx,
+    plugin,
+    plugin.render,
+    {
+      p_region: regionRecord(renderer, ctx, plugin, region),
+      p_plugin: pluginRecord(renderer, ctx, plugin),
+      p_is_printer_friendly: false,
+      p_param: new RecordValue({ IS_PRINTER_FRIENDLY: false })
+    },
+    { kind: "region", id: region.id }
+  );
+  if (!result.ok) {
+    const message = `Plug-in ${plugin.name} (region ${region.id}): ${result.failure?.message ?? "render failed"}${result.failure?.line ? ` (line ${result.failure.line})` : ""}`;
+    renderer.diagnose(
+      result.failure?.kind === "unsupported" ? "warning" : "error",
+      message,
+      ctx.pageId,
+      region.id
+    );
+    return result.output + failureBox(message);
+  }
+  return result.output;
+}
+function renderItem(renderer, ctx, item2, name, value2) {
+  const type = str(item2.props, "type");
+  const plugin = pluginIndex(renderer).get(type.slice("plugin/".length));
+  if (!plugin?.code || !plugin.render) {
+    renderer.diagnose(
+      "warning",
+      `Item type ${type} (${name}) is not simulated; a text field is shown`,
+      ctx.pageId,
+      name
+    );
+    return `<input type="text" id="${escapeHtml(name)}" name="${escapeHtml(name)}" class="text_field apex-item-text" value="${escapeHtml(value2)}" />`;
+  }
+  loadDeclaredFiles(renderer, ctx, plugin);
+  const readOnly = str(item2.props, "readOnly.type") === "always";
+  const result = runCallback(
+    renderer,
+    ctx,
+    plugin,
+    plugin.render,
+    {
+      p_item: itemRecord(renderer, ctx, plugin, item2, name),
+      p_plugin: pluginRecord(renderer, ctx, plugin),
+      p_value: value2 === "" ? null : value2,
+      p_is_readonly: readOnly,
+      p_is_printer_friendly: false,
+      p_param: new RecordValue({
+        VALUE: value2 === "" ? null : value2,
+        VALUE_SET_BY_CONTROLLER: false,
+        IS_READONLY: readOnly,
+        IS_PRINTER_FRIENDLY: false
+      })
+    },
+    { kind: "item", id: item2.id }
+  );
+  if (!result.ok) {
+    const message = `Plug-in ${plugin.name} (item ${name}): ${result.failure?.message ?? "render failed"}`;
+    renderer.diagnose("error", message, ctx.pageId, name);
+    return result.output + failureBox(message);
+  }
+  return result.output;
+}
+var reply2 = (body4, status = 200) => ({
+  status,
+  type: "json",
+  body: JSON.stringify(body4)
+});
+var ajax2 = (renderer, session, request) => {
+  const form = new URLSearchParams(request.body);
+  const identifier2 = (form.get("p_request") ?? "").replace(/^PLUGIN=/u, "");
+  const [prefix, pageId, kind, id] = identifier2.split(":");
+  if (prefix !== "APEXPLUGIN" || !pageId || !id || kind !== "region" && kind !== "item")
+    return reply2({ error: `Unknown ajax identifier ${identifier2}` }, 400);
+  let json5 = {};
+  try {
+    json5 = JSON.parse(form.getAll("p_json").join("") || "{}");
+  } catch {
+    return reply2({ error: "p_json is not valid JSON" }, 400);
+  }
+  const submitted = Array.isArray(json5.pageItems) ? json5.pageItems : json5.pageItems?.itemsToSubmit ?? [];
+  for (const entry of submitted)
+    session.items[entry.n.toUpperCase()] = Array.isArray(entry.v) ? entry.v.join(":") : String(entry.v ?? "");
+  if (!renderer.findPage(pageId)) return reply2({ error: `Page ${pageId} not found` }, 404);
+  const ctx = renderer.prepareSubmit(session, pageId, "");
+  ajaxForms.set(ctx, form);
+  const component = renderer.pageComponents(ctx, kind === "region" ? "region" : "pageItem").find((candidate) => candidate.id.toUpperCase() === id.toUpperCase());
+  if (!component) return reply2({ error: `${kind} ${id} not found on page ${pageId}` }, 404);
+  const plugin = pluginIndex(renderer).get(str(component.props, "type").slice("plugin/".length));
+  if (!plugin?.code || !plugin.ajax) return reply2({ error: `${kind} ${id} has no ajax callback` }, 404);
+  const values = kind === "region" ? {
+    p_region: regionRecord(renderer, ctx, plugin, component),
+    p_plugin: pluginRecord(renderer, ctx, plugin)
+  } : {
+    p_item: itemRecord(renderer, ctx, plugin, component, component.id.toUpperCase()),
+    p_plugin: pluginRecord(renderer, ctx, plugin)
+  };
+  values.p_param = new RecordValue({});
+  const result = runCallback(renderer, ctx, plugin, plugin.ajax, values, { kind, id: component.id });
+  if (!result.ok) {
+    const message = `Plug-in ${plugin.name} ajax (${kind} ${id}): ${result.failure?.message ?? "failed"}`;
+    renderer.diagnose("error", message, pageId, component.id);
+    return reply2({ error: message }, 500);
+  }
+  const body4 = result.output.trim();
+  return { status: 200, type: /^[{[]/u.test(body4) ? "json" : "text", body: result.output };
+};
+var dataParams = [
+  "p_sql_statement",
+  "p_min_columns",
+  "p_max_columns",
+  "p_data_type_list",
+  "p_component_name",
+  "p_search_type",
+  "p_search_column_no",
+  "p_search_string",
+  "p_first_row",
+  "p_max_rows"
+];
+var textOf4 = (value2) => value2 === null || value2 === void 0 ? null : itemText(value2);
+function pluginData(rt, args) {
+  const sql = text9(args.p_sql_statement);
+  if (!rt || !sql)
+    return {
+      columns: [],
+      rows: [],
+      types: /* @__PURE__ */ new Map()
+    };
+  const binds = rt.renderer.binds(rt.ctx.session, rt.ctx.page);
+  const result = rt.renderer.data.query(
+    rt.renderer.substitute(rt.ctx.session, sql, rt.ctx.page, "RAW"),
+    binds,
+    1e4
+  );
+  let rows = result.rows;
+  const search = text9(args.p_search_string);
+  const column2 = Number(args.p_search_column_no ?? 0);
+  if (search && column2 > 0 && result.columns[column2 - 1]) {
+    const name = result.columns[column2 - 1];
+    const needle = search.toLowerCase();
+    rows = rows.filter((row) => {
+      const value2 = String(row[name] ?? "").toLowerCase();
+      return /^EXACT/iu.test(String(args.p_search_type ?? "")) ? value2 === needle : value2.includes(needle);
+    });
+  }
+  const first = Math.max(1, Number(args.p_first_row ?? 1));
+  const max = args.p_max_rows === null || args.p_max_rows === void 0 ? rows.length : Number(args.p_max_rows);
+  rows = rows.slice(first - 1, first - 1 + max);
+  const declared = String(args.p_data_type_list ?? "").split(",").map((entry) => entry.trim().toUpperCase());
+  const types = /* @__PURE__ */ new Map();
+  result.columns.forEach((name, index) => {
+    const sample = rows.find((row) => row[name] !== null && row[name] !== void 0)?.[name];
+    types.set(name, declared[index] || (typeof sample === "number" ? "NUMBER" : "VARCHAR2"));
+  });
+  return { columns: result.columns, rows, types };
+}
+function columnValue(value2, type = "VARCHAR2") {
+  const fields = {
+    VARCHAR2_VALUE: null,
+    NUMBER_VALUE: null,
+    DATE_VALUE: null,
+    TIMESTAMP_VALUE: null,
+    CLOB_VALUE: null
+  };
+  const plain2 = value2 === null || value2 === void 0 ? null : value2;
+  if (/^NUMBER/u.test(type)) fields.NUMBER_VALUE = plain2 === null ? null : Number(plain2);
+  else if (/^DATE/u.test(type)) fields.DATE_VALUE = plain2;
+  else if (/^TIMESTAMP/u.test(type)) fields.TIMESTAMP_VALUE = plain2;
+  else if (type === "CLOB") fields.CLOB_VALUE = plain2;
+  else fields.VARCHAR2_VALUE = plain2 === null ? null : itemText(plain2);
+  return new RecordValue(fields);
+}
+var text9 = (value2) => value2 === null || value2 === void 0 || value2 === "" ? null : String(value2);
+var truthy2 = (value2, fallback) => value2 === null || value2 === void 0 ? fallback : value2 === true || /^(?:y|yes|true|1)$/iu.test(String(value2));
+function jsValue(value2) {
+  if (value2 === null || value2 === void 0 || value2 === "") return "null";
+  if (typeof value2 === "boolean") return value2 ? "true" : "false";
+  if (typeof value2 === "number") return Number.isFinite(value2) ? String(value2) : "null";
+  return JSON.stringify(String(value2)).replaceAll("</", "<\\/");
+}
+var writers = /* @__PURE__ */ new WeakMap();
+function writer(rt) {
+  let state3 = writers.get(rt);
+  if (!state3) writers.set(rt, state3 = { stack: [] });
+  return state3;
+}
+function emit(rt, name, value2) {
+  if (!rt) return null;
+  const state3 = writer(rt);
+  const top = state3.stack.at(-1);
+  const comma = top && top.count > 0 ? "," : "";
+  if (top) top.count += 1;
+  const key = top && !top.array && name !== null && name !== void 0 ? `${JSON.stringify(String(name))}:` : "";
+  rt.output.push(`${comma}${key}${value2}`);
+  return null;
+}
+function open2(rt, name, array) {
+  if (!rt) return null;
+  emit(rt, name, array ? "[" : "{");
+  writer(rt).stack.push({ array, count: 0 });
+  return null;
+}
+function close2(rt, array) {
+  if (!rt) return null;
+  const state3 = writer(rt);
+  if (state3.stack.length) state3.stack.pop();
+  rt.output.push(array ? "]" : "}");
+  return null;
+}
+function writeJson(rt, args) {
+  const top = rt ? writer(rt).stack.at(-1) : void 0;
+  const positional = args._;
+  const inArray = top?.array ?? false;
+  const name = inArray ? null : args.p_name ?? positional[0];
+  const value2 = inArray ? args.p_value ?? positional[0] : args.p_value ?? positional[1];
+  const writeNull = truthy2(args.p_write_null ?? (inArray ? positional[1] : positional[2]), false);
+  if ((value2 === null || value2 === void 0) && !writeNull && !inArray) return null;
+  return emit(
+    rt,
+    name,
+    value2 === null || value2 === void 0 ? "null" : typeof value2 === "number" || typeof value2 === "boolean" ? String(value2) : JSON.stringify(String(value2))
+  );
+}
+function addFile(rt, args, extension) {
+  if (!rt) return null;
+  const name = text9(args.p_name);
+  if (!name) return null;
+  const directory = rt.renderer.urls(text9(args.p_directory) ?? `${"#IMAGE_PREFIX#"}libraries/`).replace(/#PLUGIN_FILES#/gu, "");
+  const version = text9(args.p_version) ?? "";
+  const skip = truthy2(args.p_skip_extension, false);
+  const url2 = `${directory}${name}${version}${skip ? "" : `.${extension}`}`;
+  (extension === "js" ? rt.ctx.jsFiles : rt.ctx.cssFiles).add(url2);
+  return null;
+}
+registerStubs({
+  "apex_javascript.add_value": {
+    params: ["p_value", "p_add_comma"],
+    fn: (args) => `${jsValue(args.p_value)}${truthy2(args.p_add_comma, true) ? "," : ""}`,
+    sql: true
+  },
+  "apex_javascript.add_attribute": {
+    params: ["p_name", "p_value", "p_omit_null", "p_add_comma"],
+    fn: (args) => {
+      const omit = truthy2(args.p_omit_null, true);
+      if (omit && (args.p_value === null || args.p_value === void 0 || args.p_value === "")) return "";
+      return `${JSON.stringify(String(args.p_name ?? ""))}:${jsValue(args.p_value)}${truthy2(args.p_add_comma, true) ? "," : ""}`;
+    },
+    sql: true
+  },
+  "apex_javascript.escape": {
+    params: ["p_text"],
+    fn: (args) => text9(args.p_text) === null ? null : JSON.stringify(String(args.p_text)).slice(1, -1),
+    sql: true
+  },
+  "apex_javascript.add_onload_code": {
+    params: ["p_code", "p_key"],
+    fn: (args, rt) => {
+      if (rt && text9(args.p_code)) rt.ctx.onload.push(String(args.p_code));
+      return null;
+    }
+  },
+  "apex_javascript.add_inline_code": {
+    params: ["p_code", "p_key"],
+    fn: (args, rt) => {
+      if (rt && text9(args.p_code)) rt.ctx.onload.unshift(String(args.p_code));
+      return null;
+    }
+  },
+  "apex_javascript.add_library": {
+    params: ["p_name", "p_directory", "p_version", "p_skip_extension", "p_check_to_add_minified", "p_key"],
+    fn: (args, rt) => addFile(rt, args, "js")
+  },
+  "apex_javascript.add_3rd_party_library_file": {
+    params: ["p_library", "p_file_name", "p_directory", "p_version"],
+    fn: (args, rt) => addFile(
+      rt,
+      {
+        p_name: args.p_file_name,
+        p_directory: args.p_directory ?? `#IMAGE_PREFIX#libraries/${String(args.p_library ?? "")}/`
+      },
+      "js"
+    )
+  },
+  "apex_css.add_file": {
+    params: [
+      "p_name",
+      "p_directory",
+      "p_version",
+      "p_skip_extension",
+      "p_media_query",
+      "p_attributes",
+      "p_key"
+    ],
+    fn: (args, rt) => addFile(rt, args, "css")
+  },
+  "apex_css.add": {
+    params: ["p_css", "p_key"],
+    fn: (args, rt) => {
+      if (rt && text9(args.p_css))
+        rt.ctx.onload.push(
+          `apex.jQuery('head').append(${JSON.stringify(`<style>${String(args.p_css)}</style>`)});`
+        );
+      return null;
+    }
+  },
+  "apex_plugin.get_ajax_identifier": {
+    params: [],
+    fn: (_args, rt) => {
+      const current3 = rt ? running.get(rt) : void 0;
+      return current3 ? `APEXPLUGIN:${current3.pageId}:${current3.kind}:${current3.id}` : null;
+    }
+  },
+  "apex_plugin_util.escape": {
+    params: ["p_value", "p_escape"],
+    fn: (args) => text9(args.p_value) === null ? null : truthy2(args.p_escape, true) ? escapeHtml(String(args.p_value)) : String(args.p_value),
+    sql: true
+  },
+  "apex_plugin_util.replace_substitutions": {
+    params: ["p_value", "p_escape"],
+    fn: (args, rt) => text9(args.p_value) === null || !rt ? text9(args.p_value) : rt.renderer.substitute(
+      rt.ctx.session,
+      String(args.p_value),
+      rt.ctx.page,
+      truthy2(args.p_escape, true) ? "HTML" : "RAW"
+    )
+  },
+  "apex_plugin_util.page_item_names_to_jquery": {
+    params: ["p_page_item_names"],
+    fn: (args) => (text9(args.p_page_item_names) ?? "").split(",").map((name) => name.trim()).filter(Boolean).map((name) => `#${name.toUpperCase()}`).join(",") || null,
+    sql: true
+  },
+  "apex_plugin_util.debug_region": { params: [], fn: () => null },
+  "apex_plugin_util.debug_page_item": { params: [], fn: () => null },
+  "apex_plugin_util.debug_dynamic_action": { params: [], fn: () => null },
+  "apex_plugin_util.debug_process": { params: [], fn: () => null },
+  "apex_plugin_util.set_component_values": { params: [], fn: () => null },
+  "apex_plugin_util.clear_component_values": { params: [], fn: () => null },
+  "apex_plugin_util.get_display_data": {
+    params: [
+      "p_sql_statement",
+      "p_min_columns",
+      "p_max_columns",
+      "p_component_name",
+      "p_display_column_no",
+      "p_search_column_no",
+      "p_search_string",
+      "p_display_extra"
+    ],
+    fn: (args, rt) => {
+      if (!rt || text9(args.p_sql_statement) === null) return text9(args.p_search_string);
+      try {
+        const rows = rt.renderer.data.query(
+          String(args.p_sql_statement),
+          rt.renderer.binds(rt.ctx.session, rt.ctx.page),
+          1e4
+        );
+        const search = text9(args.p_search_string);
+        const display2 = Number(args.p_display_column_no ?? 1) - 1;
+        const searched = Number(args.p_search_column_no ?? 2) - 1;
+        const row = rows.rows.find(
+          (entry) => String(entry[rows.columns[searched]] ?? "") === (search ?? "")
+        );
+        return row ? itemText(row[rows.columns[display2]] ?? null) : search;
+      } catch {
+        return text9(args.p_search_string);
+      }
+    }
+  },
+  "apex_plugin_util.c_data_type_varchar2": { params: [], fn: () => "VARCHAR2" },
+  "apex_plugin_util.c_data_type_number": { params: [], fn: () => "NUMBER" },
+  "apex_plugin_util.c_data_type_date": { params: [], fn: () => "DATE" },
+  "apex_plugin_util.c_data_type_timestamp": { params: [], fn: () => "TIMESTAMP" },
+  "apex_plugin_util.c_data_type_timestamp_tz": { params: [], fn: () => "TIMESTAMP WITH TIME ZONE" },
+  "apex_plugin_util.c_data_type_timestamp_ltz": { params: [], fn: () => "TIMESTAMP WITH LOCAL TIME ZONE" },
+  "apex_plugin_util.c_data_type_clob": { params: [], fn: () => "CLOB" },
+  "apex_plugin_util.c_data_type_blob": { params: [], fn: () => "BLOB" },
+  "apex_plugin_util.c_search_like_ignore": { params: [], fn: () => "LIKE_IGNORE" },
+  "apex_plugin_util.c_search_contains_ignore": { params: [], fn: () => "CONTAINS_IGNORE" },
+  "apex_plugin_util.c_search_exact_ignore": { params: [], fn: () => "EXACT_IGNORE" },
+  "apex_plugin_util.get_data": {
+    params: dataParams,
+    fn: (args, rt) => {
+      const result = pluginData(rt, args);
+      return Collection.of(
+        result.columns.map((column2) => Collection.of(result.rows.map((row) => textOf4(row[column2]))))
+      );
+    }
+  },
+  "apex_plugin_util.get_data2": {
+    params: dataParams,
+    fn: (args, rt) => {
+      const result = pluginData(rt, args);
+      return Collection.of(
+        result.columns.map(
+          (column2) => new RecordValue({
+            NAME: column2,
+            DATA_TYPE: result.types.get(column2) ?? "VARCHAR2",
+            FORMAT_MASK: null,
+            VALUE_LIST: Collection.of(
+              result.rows.map((row) => columnValue(row[column2] ?? null, result.types.get(column2)))
+            )
+          })
+        )
+      );
+    }
+  },
+  "apex_plugin_util.get_column_no": {
+    params: ["p_attribute_label", "p_column_alias", "p_column_value_list", "p_is_required", "p_data_type"],
+    raw: true,
+    fn: (args) => {
+      const alias = text9(args.p_column_alias);
+      if (alias === null) {
+        if (truthy2(args.p_is_required, true))
+          throw new Error(`ORA-20001: ${String(args.p_attribute_label ?? "Column")} is required and not set`);
+        return null;
+      }
+      const list4 = args.p_column_value_list;
+      const columns = list4 instanceof Collection ? list4.values() : [];
+      const index = columns.findIndex(
+        (column2) => (column2 instanceof RecordValue ? String(column2.fields.NAME ?? "") : "").toUpperCase() === alias.toUpperCase()
+      );
+      if (index < 0) {
+        if (/^\d+$/u.test(alias)) return Number(alias);
+        throw new Error(
+          `ORA-20001: column ${alias} for ${String(args.p_attribute_label ?? "attribute")} is not in the region source`
+        );
+      }
+      return index + 1;
+    }
+  },
+  "apex_plugin_util.get_value_as_varchar2": {
+    params: ["p_data_type", "p_value", "p_format_mask"],
+    raw: true,
+    fn: (args) => {
+      const value2 = args.p_value;
+      if (!(value2 instanceof RecordValue)) return text9(value2);
+      for (const field of ["VARCHAR2_VALUE", "NUMBER_VALUE", "DATE_VALUE", "TIMESTAMP_VALUE", "CLOB_VALUE"]) {
+        const entry = value2.fields[field];
+        if (entry !== null && entry !== void 0) return itemText(entry);
+      }
+      return null;
+    }
+  },
+  "apex_json.initialize_output": { params: [], fn: () => null },
+  "apex_json.initialize_clob_output": { params: [], fn: () => null },
+  "apex_json.flush": { params: [], fn: () => null },
+  "apex_json.open_object": { params: ["p_name"], fn: (args, rt) => open2(rt, args.p_name, false) },
+  "apex_json.open_array": { params: ["p_name"], fn: (args, rt) => open2(rt, args.p_name, true) },
+  "apex_json.close_object": { params: [], fn: (_args, rt) => close2(rt, false) },
+  "apex_json.close_array": { params: [], fn: (_args, rt) => close2(rt, true) },
+  "apex_json.close_all": {
+    params: [],
+    fn: (_args, rt) => {
+      if (!rt) return null;
+      const state3 = writer(rt);
+      while (state3.stack.length) close2(rt, state3.stack.at(-1).array);
+      return null;
+    }
+  },
+  "apex_json.write": { params: ["p_name", "p_value", "p_write_null"], fn: (args, rt) => writeJson(rt, args) },
+  ...Object.fromEntries(
+    Array.from({ length: 20 }, (_, index) => {
+      const field = `x${String(index + 1).padStart(2, "0")}`;
+      return [
+        `apex_application.g_${field}`,
+        {
+          params: [],
+          fn: (_args, rt) => rt ? text9(ajaxForms.get(rt.ctx)?.get(field)) : null
+        }
+      ];
+    })
+  ),
+  "apex_application.g_widget_action": {
+    params: [],
+    fn: (_args, rt) => rt ? text9(ajaxForms.get(rt.ctx)?.get("p_widget_action")) : null
+  },
+  "apex_application.g_widget_name": {
+    params: [],
+    fn: (_args, rt) => rt ? text9(ajaxForms.get(rt.ctx)?.get("p_widget_name")) : null
+  }
+});
+var CLIENT4 = String.raw`
+(function ($) {
+  "use strict";
+  var base = location.pathname.replace(/\/[^/]*$/, "");
+  // Calls of plug-ins written in PL/SQL carry identifiers from apex_plugin.get_ajax_identifier.
+  $.ajaxPrefilter(function (options) {
+    if (typeof options.url === "string" && /(^|\/)wwv_flow\.ajax/.test(options.url) &&
+        typeof options.data === "string" && /(^|&)p_request=PLUGIN%3DAPEXPLUGIN%3A/.test(options.data)) {
+      options.url = base + "/__apex/x/plugins.ajax";
+    }
+  });
+})(apex.jQuery);
+`;
+registerExtension({
+  name: "plsql-plugins",
+  regions: { plugin: (renderer, ctx, region) => renderRegion(renderer, ctx, region) },
+  items: { plugin: (renderer, ctx, item2, name, value2) => renderItem(renderer, ctx, item2, name, value2) },
+  routes: { "plugins.ajax": ajax2 },
+  client: CLIENT4
 });
 
 // packages/core/src/preview/extensions/server.ts
@@ -24724,8 +25919,8 @@ function errorTextValidation(renderer, ctx, validation) {
   const result = runValidation(renderer, ctx, validation, "functionBody");
   if (!result) return void 0;
   if (!result.ok) return report(renderer, ctx, owner(validation), result, "treated as passed") ?? null;
-  const text10 = itemText(result.value);
-  return addedError(result) ?? (text10 ? text10 : null);
+  const text12 = itemText(result.value);
+  return addedError(result) ?? (text12 ? text12 : null);
 }
 function plsqlErrorValidation(renderer, ctx, validation) {
   const result = runValidation(renderer, ctx, validation, "block");
@@ -24830,19 +26025,19 @@ function evaluateAuthorization(renderer, ctx, name) {
   const key = `${scheme.id}|${ctx.session.user}|${ctx.pageId}|${viewAs ? JSON.stringify(viewAs) : ""}`;
   if (cache3.has(key)) return cache3.get(key);
   const type = str(scheme.props, "type");
-  let allowed;
+  let allowed2;
   const who = owner(scheme);
   const started2 = performance.now();
-  if (viewAs?.deny.some((denied) => denied.toLowerCase() === scheme.id.toLowerCase())) allowed = 0;
+  if (viewAs?.deny.some((denied) => denied.toLowerCase() === scheme.id.toLowerCase())) allowed2 = 0;
   else if (/isinroleorgroup/iu.test(type)) {
     const names = get(scheme.props, "settings.names");
     const wanted = (Array.isArray(names) ? names.map(String) : String(names ?? "").split(/[,:]/u)).filter(
       Boolean
     );
-    allowed = !viewAs || wanted.some((role) => hasRole(renderer, viewAs, role)) ? 1 : 0;
+    allowed2 = !viewAs || wanted.some((role) => hasRole(renderer, viewAs, role)) ? 1 : 0;
   } else if (/functionbody/iu.test(type)) {
     const result = run(renderer, ctx, str(scheme.props, "settings.plsqlFunctionBody"), "functionBody", who);
-    if (result.ok) allowed = truthy(result.value) ? 1 : 0;
+    if (result.ok) allowed2 = truthy(result.value) ? 1 : 0;
     else report(renderer, ctx, who, result, "access is allowed");
   } else if (/exists/iu.test(type)) {
     const result = run(
@@ -24852,39 +26047,39 @@ function evaluateAuthorization(renderer, ctx, name) {
       "sqlExpression",
       who
     );
-    if (result.ok) allowed = Number(result.value) > 0 === !/not/iu.test(type) ? 1 : 0;
+    if (result.ok) allowed2 = Number(result.value) > 0 === !/not/iu.test(type) ? 1 : 0;
     else report(renderer, ctx, who, result, "access is allowed");
   } else if (/itemisnotnull|itemIsNull/iu.test(type)) {
     const value2 = ctx.session.items[str(scheme.props, "settings.item").toUpperCase()] ?? "";
-    allowed = value2 !== "" === /notnull/iu.test(type) ? 1 : 0;
+    allowed2 = value2 !== "" === /notnull/iu.test(type) ? 1 : 0;
   }
-  cache3.set(key, allowed);
+  cache3.set(key, allowed2);
   renderer.trace(ctx, {
     type: "authorization",
     name: scheme.id,
-    detail: `${type}: ${allowed === void 0 ? "not evaluated, allowed" : allowed ? "allowed" : viewAs ? "denied" : "denied (allowed anyway: view as is off)"}`,
-    level: allowed === 0 ? "warning" : void 0,
+    detail: `${type}: ${allowed2 === void 0 ? "not evaluated, allowed" : allowed2 ? "allowed" : viewAs ? "denied" : "denied (allowed anyway: view as is off)"}`,
+    level: allowed2 === 0 ? "warning" : void 0,
     ms: performance.now() - started2
   });
-  if (allowed === 0 && !viewAs)
+  if (allowed2 === 0 && !viewAs)
     renderer.diagnose(
       "info",
       `Authorization scheme ${scheme.id} denies ${ctx.session.user} locally; the preview allows access anyway`,
       ctx.pageId,
       scheme.id
     );
-  if (allowed === void 0 && viewAs)
+  if (allowed2 === void 0 && viewAs)
     renderer.diagnose(
       "info",
       `Authorization scheme ${scheme.id} (${type}) is not evaluated locally; view as allows it`,
       ctx.pageId,
       scheme.id
     );
-  return allowed;
+  return allowed2;
 }
 function enforcedAuthorization(renderer, ctx, name) {
-  const allowed = evaluateAuthorization(renderer, ctx, name);
-  return allowed === 0 && enforcing(ctx.session) ? 0 : 1;
+  const allowed2 = evaluateAuthorization(renderer, ctx, name);
+  return allowed2 === 0 && enforcing(ctx.session) ? 0 : 1;
 }
 setAuthorizer(
   (rt, name) => rt && name ? enforcedAuthorization(rt.renderer, rt.ctx, name) : 1
@@ -25315,199 +26510,6 @@ var STRUCTURE_JS = String.raw`
 })(apex.jQuery);
 `;
 
-// packages/core/src/preview/extensions/structure/hierarchy.ts
-var LITERAL = "";
-function mask(sql) {
-  const literals = [];
-  const text10 = sql.replace(/'(?:[^']|'')*'/gu, (literal2) => {
-    literals.push(literal2);
-    return `${LITERAL}${literals.length - 1}${LITERAL}`;
-  });
-  return { text: text10, literals };
-}
-function unmask2(text10, literals) {
-  return text10.replace(
-    new RegExp(`${LITERAL}(\\d+)${LITERAL}`, "gu"),
-    (_whole, index) => String(literals[Number(index)])
-  );
-}
-function depths(text10) {
-  const result = [];
-  let depth = 0;
-  for (const char of text10) {
-    if (char === ")") depth -= 1;
-    result.push(depth);
-    if (char === "(") depth += 1;
-  }
-  return result;
-}
-function find(text10, level, pattern, depth) {
-  const found = [];
-  const regex = new RegExp(pattern.source, "giu");
-  for (let match = regex.exec(text10); match; match = regex.exec(text10)) {
-    if (level[match.index] === depth) found.push({ index: match.index, end: match.index + match[0].length });
-  }
-  return found;
-}
-function splitTop(fragment) {
-  const parts = [];
-  let depth = 0;
-  let start = 0;
-  for (let index = 0; index < fragment.length; index += 1) {
-    const char = fragment[index];
-    if (char === "(") depth += 1;
-    else if (char === ")") depth -= 1;
-    else if (char === "," && depth === 0) {
-      parts.push(fragment.slice(start, index));
-      start = index + 1;
-    }
-  }
-  parts.push(fragment.slice(start));
-  return parts;
-}
-var CLAUSES = [
-  ["select", /\bselect\b/],
-  ["from", /\bfrom\b/],
-  ["where", /\bwhere\b/],
-  ["start", /\bstart\s+with\b/],
-  ["connect", /\bconnect\s+by\b/],
-  ["siblings", /\border\s+siblings\s+by\b/],
-  ["order", /\border\s+by\b(?<!siblings\s+by)/],
-  ["group", /\bgroup\s+by\b/],
-  ["set", /\b(?:union|intersect|minus|except)\b/]
-];
-function rewriteSelect(text10, level, depth) {
-  const marks = [];
-  for (const [name, pattern] of CLAUSES) {
-    for (const hit of find(text10, level, pattern, depth)) marks.push({ name, ...hit });
-  }
-  const siblings = marks.filter((mark) => mark.name === "siblings");
-  const clauses = marks.filter(
-    (mark) => !(mark.name === "order" && siblings.some((entry) => entry.index === mark.index)) && !(mark.name === "select" && mark.index !== marks.find((entry) => entry.name === "select")?.index)
-  ).sort((a, b) => a.index - b.index);
-  const has = (name) => clauses.some((mark) => mark.name === name);
-  if (has("set")) return { unsupported: "set operators around a hierarchical query" };
-  if (has("group")) return { unsupported: "GROUP BY in a hierarchical query" };
-  if (!has("select") || !has("from")) return { unsupported: "missing SELECT or FROM" };
-  const body4 = (name) => {
-    const index = clauses.findIndex((mark2) => mark2.name === name);
-    if (index < 0) return void 0;
-    const mark = clauses[index];
-    const next = clauses[index + 1];
-    return text10.slice(mark.end, next ? next.index : text10.length).trim();
-  };
-  const selectList2 = body4("select");
-  const fromClause = body4("from");
-  const whereClause = body4("where");
-  const startWith = body4("start");
-  let connect = body4("connect");
-  const orderSiblings = body4("siblings");
-  if (/^distinct\b/iu.test(selectList2)) return { unsupported: "SELECT DISTINCT in a hierarchical query" };
-  if (splitTop(fromClause).length > 1 || /\bjoin\b/iu.test(fromClause.replace(/\([^]*\)/gu, "")))
-    return { unsupported: "joins in a hierarchical query" };
-  const fromMatch = /^(\([^]*\)|"[^"]+"(?:\."[^"]+")?|[\w$#]+(?:\.[\w$#]+)?)(?:\s+(?:as\s+)?("?[\w$#]+"?))?$/iu.exec(
-    fromClause
-  );
-  if (!fromMatch) return { unsupported: `FROM clause "${fromClause}"` };
-  const source = fromMatch[1];
-  const alias = fromMatch[2] ?? (source.startsWith("(") ? '"__T"' : source.split(".").at(-1));
-  connect = connect.replace(/^nocycle\s+/iu, "");
-  const prior = /^prior\s+([^=]+?)\s*=\s*([^=]+)$/iu.exec(connect) ?? void 0;
-  const reverse = prior ? void 0 : /^([^=]+?)\s*=\s*prior\s+([^=]+)$/iu.exec(connect);
-  if (!prior && !reverse) return { unsupported: `CONNECT BY condition "${connect}"` };
-  const parentKey = (prior ? prior[1] : reverse[2]).trim();
-  const childKey = (prior ? prior[2] : reverse[1]).trim();
-  if (/\b(?:and|or|prior)\b/iu.test(parentKey) || /\b(?:and|or|prior)\b/iu.test(childKey))
-    return { unsupported: `CONNECT BY condition "${connect}"` };
-  const extras = [];
-  const carried = [];
-  const extra = (expression) => {
-    extras.push(expression);
-    return `"__X${extras.length}"`;
-  };
-  const replacePseudo = (fragment) => fragment.replace(
-    /\bsys_connect_by_path\s*\(\s*((?:[^(),]|\([^()]*\))+?)\s*,\s*(\u0001\d+\u0001)\s*\)/giu,
-    (_whole, expression, separator2) => {
-      const column2 = extra(expression);
-      const name = `"__CP${carried.length + 1}"`;
-      carried.push({
-        column: name,
-        anchor: `${separator2} || coalesce(s.${column2}, '')`,
-        step: `h.${name} || ${separator2} || coalesce(c.${column2}, '')`
-      });
-      return `"__H".${name}`;
-    }
-  ).replace(
-    /\bconnect_by_root\s+((?:"[^"]+"|[\w$#]+)(?:\.(?:"[^"]+"|[\w$#]+))?)/giu,
-    (_whole, expression) => {
-      const column2 = extra(expression);
-      const name = `"__CR${carried.length + 1}"`;
-      carried.push({ column: name, anchor: `s.${column2}`, step: `h.${name}` });
-      return `"__H".${name}`;
-    }
-  ).replace(
-    /(?<![.\w$#"])connect_by_isleaf\b/giu,
-    `(case when exists (select 1 from "__SRC" "__K" where "__K"."__C" = "__H"."__P") then 0 else 1 end)`
-  ).replace(/\bconnect_by_iscycle\b/giu, "0").replace(/(?<![.\w$#"])level\b(?!\s*\()/giu, '"__H"."__LVL"');
-  if (/\bprior\b/iu.test(selectList2)) return { unsupported: "PRIOR in the select list" };
-  const columns = splitTop(selectList2).map((item2) => {
-    const trimmed = item2.trim();
-    const bare = /^(level|connect_by_isleaf)$/iu.exec(trimmed)?.[1];
-    const replaced = replacePseudo(trimmed);
-    if (bare) return `${replaced} as "${bare.toUpperCase()}"`;
-    if (trimmed === "*") return `${alias}.*`;
-    return replaced;
-  }).join(", ");
-  const where2 = whereClause ? replacePseudo(whereClause) : "";
-  const siblingOrder = orderSiblings || "(select null)";
-  const startCondition = startWith ? `case when (${startWith}) then 1 else 0 end` : "1";
-  const extraColumns = extras.map((expression, index) => `, (${expression}) as "__X${index + 1}"`).join("");
-  const carriedColumns = carried.map((entry) => `, ${entry.column}`).join("");
-  const segment = (rank, row) => `printf('%08d%08d', ${rank}, ${row})`;
-  const sql = `with recursive "__SRC" as materialized (select ${alias}.*, row_number() over () as "__RID", (${parentKey}) as "__P", (${childKey}) as "__C", ${startCondition} as "__S", row_number() over (partition by (${childKey}) order by ${siblingOrder}) as "__SIB"${extraColumns} from ${source} ${alias}), "__H" ("__RID", "__P", "__LVL", "__PATH"${carriedColumns}) as (select s."__RID", s."__P", 1, ${segment(`row_number() over (order by ${siblingOrder})`, 's."__RID"')}${carried.map((entry) => `, ${entry.anchor}`).join("")} from "__SRC" s where s."__S" = 1 union all select c."__RID", c."__P", h."__LVL" + 1, h."__PATH" || '.' || ${segment('c."__SIB"', 'c."__RID"')}${carried.map((entry) => `, ${entry.step}`).join("")} from "__SRC" c join "__H" h on c."__C" = h."__P" where h."__LVL" < 64) select ${columns} from "__SRC" ${alias} join "__H" on "__H"."__RID" = ${alias}."__RID"${where2 ? ` where ${where2}` : ""} order by "__H"."__PATH"`;
-  return sql.replaceAll(
-    `over (order by ${siblingOrder})`,
-    `over (order by ${requalify(siblingOrder, alias, "s")})`
-  );
-}
-function requalify(expression, alias, to) {
-  const bare = alias.replaceAll('"', "");
-  return expression.replace(new RegExp(`(^|[^\\w$#."])"?${bare}"?\\.`, "giu"), `$1${to}.`);
-}
-function translateHierarchy(sql) {
-  const masked = mask(sql);
-  let text10 = masked.text;
-  if (!/\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.test(text10)) return { sql };
-  for (let guard2 = 0; guard2 < 8; guard2 += 1) {
-    const level = depths(text10);
-    const match = /\bconnect\s+by\b(?!\s+(?:level|rownum)\b)/iu.exec(text10);
-    if (!match) break;
-    const depth = level[match.index];
-    let start = 0;
-    let end = text10.length;
-    if (depth > 0) {
-      for (let index = match.index; index >= 0; index -= 1) {
-        if (text10[index] === "(" && level[index] === depth - 1) {
-          start = index + 1;
-          break;
-        }
-      }
-      for (let index = match.index; index < text10.length; index += 1) {
-        if (text10[index] === ")" && level[index] === depth - 1) {
-          end = index;
-          break;
-        }
-      }
-    }
-    const fragment = text10.slice(start, end);
-    const fragmentLevel = level.slice(start, end);
-    const rewritten = rewriteSelect(fragment, fragmentLevel, depth);
-    if (typeof rewritten !== "string") return { sql, unsupported: rewritten.unsupported };
-    text10 = text10.slice(0, start) + rewritten + text10.slice(end);
-  }
-  return { sql: unmask2(text10, masked.literals) };
-}
-
 // packages/core/src/preview/extensions/structure/legacy.ts
 var note = (renderer, ctx, region, message) => renderer.diagnose("info", message, ctx.pageId, region.id);
 function classic(renderer, ctx, region) {
@@ -25623,8 +26625,8 @@ function tabformTable(renderer, ctx, region) {
 }
 function cellEditor(renderer, ctx, region, column2, name, raw2, row) {
   const type = column2 ? str(column2.props, "type", "plainText") : "plainText";
-  const text10 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
-  const value2 = escapeHtml(text10);
+  const text12 = raw2 === null || raw2 === void 0 ? "" : String(raw2);
+  const value2 = escapeHtml(text12);
   const data = `data-tabform-col="${escapeHtml(name)}" data-orig="${value2}"`;
   const width = column2 ? num(column2.props, "appearance.width", 0) : 0;
   const label = escapeHtml(str(column2?.props ?? {}, "heading.heading", name));
@@ -25641,14 +26643,14 @@ function cellEditor(renderer, ctx, region, column2, name, raw2, row) {
     case "radioGroup": {
       const options3 = renderer.lov(ctx, column2.props.lov, `${region.id}.${name}`);
       const nullOption = get(column2.props, "lov.displayNullValue") === true;
-      const known = options3.some((option) => option.r === text10);
-      return `<select class="selectlist" ${data} aria-label="${label}">${nullOption ? `<option value="${escapeHtml(str(column2.props, "lov.nullReturnValue"))}">${escapeHtml(str(column2.props, "lov.nullDisplayValue"))}</option>` : ""}${!known && text10 ? `<option value="${value2}" selected>${value2}</option>` : ""}${options3.map((option) => `<option value="${escapeHtml(option.r)}"${option.r === text10 ? " selected" : ""}>${escapeHtml(option.d)}</option>`).join("")}</select>`;
+      const known = options3.some((option) => option.r === text12);
+      return `<select class="selectlist" ${data} aria-label="${label}">${nullOption ? `<option value="${escapeHtml(str(column2.props, "lov.nullReturnValue"))}">${escapeHtml(str(column2.props, "lov.nullDisplayValue"))}</option>` : ""}${!known && text12 ? `<option value="${value2}" selected>${value2}</option>` : ""}${options3.map((option) => `<option value="${escapeHtml(option.r)}"${option.r === text12 ? " selected" : ""}>${escapeHtml(option.d)}</option>`).join("")}</select>`;
     }
     case "simpleCheckbox": {
       const [checkedValue = "Y", uncheckedValue = ""] = str(column2.props, "lov.checkboxValues", "Y").split(
         ","
       );
-      return `<input type="checkbox" ${data} value="${escapeHtml(checkedValue)}" data-unchecked="${escapeHtml(uncheckedValue)}"${text10 === checkedValue ? " checked" : ""} aria-label="${label}">`;
+      return `<input type="checkbox" ${data} value="${escapeHtml(checkedValue)}" data-unchecked="${escapeHtml(uncheckedValue)}"${text12 === checkedValue ? " checked" : ""} aria-label="${label}">`;
     }
     case "hiddenSavesState":
       return `<input type="hidden" ${data} value="${value2}">`;
@@ -25665,7 +26667,7 @@ function cellEditor(renderer, ctx, region, column2, name, raw2, row) {
     }
     case "plainTextBasedOnLov": {
       const options3 = renderer.lov(ctx, column2.props.lov, `${region.id}.${name}`);
-      return escapeHtml(options3.find((option) => option.r === text10)?.d ?? text10);
+      return escapeHtml(options3.find((option) => option.r === text12)?.d ?? text12);
     }
     default:
       return value2;
@@ -25703,10 +26705,10 @@ function tabform(renderer, ctx, region) {
   const page2 = Math.min(pageCount, Math.max(1, ctx.session.pagination[stateKey(ctx.pageId, region.id)] ?? 1));
   const rows = result.rows.slice((page2 - 1) * perPage, page2 * perPage);
   const added = ctx.session.pagination[addKey(ctx.pageId, region)] ?? 0;
-  const selector2 = `<input type="checkbox" class="u-selector" data-tabform-select aria-label="Select row">`;
+  const selector = `<input type="checkbox" class="u-selector" data-tabform-select aria-label="Select row">`;
   const cell = (name, row) => {
     const column2 = byName.get(name);
-    if (str(column2?.props ?? {}, "type") === "rowSelector") return selector2;
+    if (str(column2?.props ?? {}, "type") === "rowSelector") return selector;
     const raw2 = row ? row[name] : "";
     if (!row && (!column2 || !EDITABLE.has(str(column2.props, "type")))) return "";
     return cellEditor(renderer, ctx, region, column2, name, raw2, row);
@@ -25938,8 +26940,8 @@ function searchItem(renderer, ctx, region) {
   return slotted ? slotted.id.toUpperCase() : "";
 }
 var quote4 = (name) => `"${name.replaceAll('"', "").toUpperCase()}"`;
-function highlight(text10, terms) {
-  let html = escapeHtml(text10);
+function highlight(text12, terms) {
+  let html = escapeHtml(text12);
   for (const term of terms) {
     const safe2 = escapeHtml(term).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     if (safe2)
@@ -25950,8 +26952,8 @@ function highlight(text10, terms) {
   }
   return html;
 }
-function initials2(text10) {
-  return text10.split(/\s+/u).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join("");
+function initials2(text12) {
+  return text12.split(/\s+/u).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join("");
 }
 function configRows(renderer, ctx, config, terms, limit) {
   const type = str(config.props, "type", "simple");
@@ -26186,22 +27188,22 @@ function rowText(template, row, escape) {
   return template.replace(/#([A-Z0-9_$]+)#/giu, (whole, name) => {
     const key = name.toUpperCase();
     if (!(key in row)) return whole;
-    const text10 = row[key] === null || row[key] === void 0 ? "" : String(row[key]);
-    return escape ? escapeHtml(text10) : text10;
+    const text12 = row[key] === null || row[key] === void 0 ? "" : String(row[key]);
+    return escape ? escapeHtml(text12) : text12;
   });
 }
 function treeModel(renderer, ctx, region) {
   const settings2 = (key) => str(region.props, `settings.${key}`);
-  const empty = {
+  const empty2 = {
     data: { id: "__root", label: "Root", children: [] },
     showRoot: false,
     expanded: [],
     tooltip: false
   };
   const sql = renderer.regionSql(ctx, region);
-  if (!sql) return { ...empty, error: "The tree has no local source." };
+  if (!sql) return { ...empty2, error: "The tree has no local source." };
   const result = renderer.query(ctx, region, sql, 1e4);
-  if (result.error) return { ...empty, error: result.error };
+  if (result.error) return { ...empty2, error: result.error };
   const labelColumn = settings2("nodeLabelColumn") || result.columns[1] || result.columns[0] || "";
   const valueColumn = settings2("nodeValueColumn");
   const idColumn = settings2("nodeIdColumn") || valueColumn;
@@ -26391,8 +27393,8 @@ function treeRoute(renderer, session, params2, items) {
 
 // packages/core/src/preview/extensions/structure/wizard.ts
 function attribute2(props, key) {
-  for (const path15 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
-    const value2 = get(props, path15);
+  for (const path12 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
+    const value2 = get(props, path12);
     if (value2 !== void 0 && value2 !== null && !isObject(value2))
       return Array.isArray(value2) ? value2.map(String).join(",") : String(value2);
   }
@@ -26725,11 +27727,11 @@ function rowVersionColumn(region) {
   const column2 = str(region.props, "edit.rowVersionColumn");
   return /version/iu.test(type) && column2 ? column2.toUpperCase() : void 0;
 }
-var text9 = (value2) => value2 === null || value2 === void 0 ? "" : String(value2);
+var text10 = (value2) => value2 === null || value2 === void 0 ? "" : String(value2);
 function checksum(region, row, columns) {
   const version = rowVersionColumn(region);
-  if (version) return `v:${text9(row[version])}`;
-  return JSON.stringify([...new Set(columns)].sort().map((column2) => [column2, text9(row[column2])]));
+  if (version) return `v:${text10(row[version])}`;
+  return JSON.stringify([...new Set(columns)].sort().map((column2) => [column2, text10(row[column2])]));
 }
 function rememberRow(session, pageId, region, key, row, columns) {
   let map = snapshots.get(session);
@@ -26930,6 +27932,8 @@ var ApexRenderer = class {
   options;
   #autoTables = /* @__PURE__ */ new Set();
   #diagnosticKeys = /* @__PURE__ */ new Set();
+  /** False after the application's error handling function could not be called once. */
+  #errorHandlerUsable = true;
   constructor(app, assets, db2, options3 = {}) {
     this.app = app;
     this.assets = assets;
@@ -26945,6 +27949,11 @@ var ApexRenderer = class {
       seedDirs: options3.seedDirs ?? []
     };
   }
+  /**
+   * The page context of the request being rendered most recently. SQL functions that run the
+   * application's PL/SQL outside an interpreter (a package function in region SQL) use its session.
+   */
+  lastContext;
   get baseUrl() {
     return `/r/${this.alias}`;
   }
@@ -26997,7 +28006,7 @@ var ApexRenderer = class {
   /** Folder of the current theme's own files (`#THEME_DB_IMAGES#`), next to its theme.apx. */
   themeFilesDir() {
     const theme = this.themeComponent();
-    return theme ? path12.join(path12.dirname(path12.resolve(this.app.root, theme.file)), "static-files") : void 0;
+    return theme ? path10.join(path10.dirname(path10.resolve(this.app.root, theme.file)), "static-files") : void 0;
   }
   /**
    * Theme styles the application offers, keyed by lower-case static ID: the theme's own `style`
@@ -27016,9 +28025,9 @@ var ApexRenderer = class {
       styles.set(style2.id.toLowerCase(), {
         ...base,
         static_id: style2.id,
-        name: str(style2.props, "name", text2(base, "name") || style2.id),
-        css_file_urls: css.length ? css.join("\n") : text2(base, "css_file_urls"),
-        theme_roller_output_file_url: output || text2(base, "theme_roller_output_file_url")
+        name: str(style2.props, "name", text(base, "name") || style2.id),
+        css_file_urls: css.length ? css.join("\n") : text(base, "css_file_urls"),
+        theme_roller_output_file_url: output || text(base, "theme_roller_output_file_url")
       });
       if (master && !styles.has(master.toLowerCase()))
         styles.set(master.toLowerCase(), styles.get(style2.id.toLowerCase()));
@@ -27051,6 +28060,8 @@ var ApexRenderer = class {
       APP_PAGE_ALIAS: str(page2?.props ?? {}, "alias").toUpperCase(),
       APP_VERSION: "",
       APP_TENANT_ID: "",
+      // The preview's one workspace (dictionary views report it as PREVIEW).
+      WORKSPACE_ID: "1000000000000001",
       BROWSER_LANGUAGE: "en",
       LOGOUT_URL: `${this.baseUrl}/__logout`,
       APP_IMAGES: `${this.baseUrl}/files/static/v1/`,
@@ -27160,8 +28171,26 @@ var ApexRenderer = class {
       case "userIsAuthenticated":
         return true;
       case "userIsThePublicUser":
+      case "userIsPublicUser":
       case "never":
         return false;
+      case "userIsNotPublicUser":
+      case "userIsNotThePublicUser":
+        return true;
+      // No inline validation errors are pending when a page renders.
+      case "inlineValidationErrorsDisplayed":
+        return Boolean(ctx.session.errors?.length);
+      case "inlineValidationErrorsNotDisplayed":
+        return !ctx.session.errors?.length;
+      case "currentPageIsNotInValue":
+        return !value2.split(",").includes(ctx.pageId);
+      case "currentPageNotEquals":
+      case "currentPage!=page":
+        return ctx.pageId !== (str(condition, "page") || value2);
+      case "requestIsNull":
+        return request === "";
+      case "requestIsNotNull":
+        return request !== "";
       case "always":
       case "":
         return true;
@@ -27271,14 +28300,14 @@ var ApexRenderer = class {
     if (get(page2.props, "dialog.chained") !== void 0)
       attributes2.push(`chained:${bool(page2.props, "dialog.chained", true)}`);
     const literal2 = (value2) => `'${escapeJs(value2)}'`;
-    const code = text2(template, "dialog_js_init_code") || "apex.navigation.dialog(#PAGE_URL#,{title:#TITLE#,height:#DIALOG_HEIGHT#,width:#DIALOG_WIDTH#,maxWidth:#DIALOG_MAX_WIDTH#,modal:#IS_MODAL#,dialog:#DIALOG#,#DIALOG_ATTRIBUTES#},#PAGE_CSS_CLASSES#,#TRIGGERING_ELEMENT#)";
+    const code = text(template, "dialog_js_init_code") || "apex.navigation.dialog(#PAGE_URL#,{title:#TITLE#,height:#DIALOG_HEIGHT#,width:#DIALOG_WIDTH#,maxWidth:#DIALOG_MAX_WIDTH#,modal:#IS_MODAL#,dialog:#DIALOG#,#DIALOG_ATTRIBUTES#},#PAGE_CSS_CLASSES#,#TRIGGERING_ELEMENT#)";
     return fill(code, {
       PAGE_URL: literal2(url2),
       TITLE: literal2(str(page2.props, "title", str(page2.props, "name"))),
-      DIALOG_HEIGHT: literal2(str(page2.props, "dialog.height", text2(template, "dialog_height") || "auto")),
-      DIALOG_WIDTH: literal2(str(page2.props, "dialog.width", text2(template, "dialog_width") || "720")),
+      DIALOG_HEIGHT: literal2(str(page2.props, "dialog.height", text(template, "dialog_height") || "auto")),
+      DIALOG_WIDTH: literal2(str(page2.props, "dialog.width", text(template, "dialog_width") || "720")),
       DIALOG_MAX_WIDTH: literal2(
-        str(page2.props, "dialog.maxWidth", text2(template, "dialog_max_width") || "960")
+        str(page2.props, "dialog.maxWidth", text(template, "dialog_max_width") || "960")
       ),
       IS_MODAL: String(str(page2.props, "appearance.pageMode") !== "nonModalDialog"),
       DIALOG: "null",
@@ -27516,6 +28545,8 @@ var ApexRenderer = class {
   repairSchema(ctx, region, sql, message) {
     if (this.data.dialect === "oracle") return false;
     const missingTable = /no such table: (?:main\.)?"?([\w$#]+)"?/iu.exec(message)?.[1];
+    if (missingTable && /^(?:dual|sys|system|public|v\$\w*|gv\$\w*|user_\w+|all_\w+|dba_\w+)$/iu.test(missingTable))
+      return false;
     if (missingTable) {
       if (/^APEX_/iu.test(missingTable)) {
         this.diagnose(
@@ -27573,47 +28604,13 @@ var ApexRenderer = class {
       itemErrors: /* @__PURE__ */ new Map(),
       messageTemplates: {}
     };
+    this.lastContext = ctx;
     this.trace(ctx, {
       type: "begin",
       name: `Show page ${page2.id}`,
       detail: [str(page2.props, "name"), request && `request ${request}`].filter(Boolean).join(" \xB7 ")
     });
-    for (const item2 of this.pageComponents(ctx, "pageItem")) {
-      const name = item2.id.toUpperCase();
-      if ((session.items[name] ?? "") !== "") continue;
-      const type = str(item2.props, "default.type");
-      const value2 = str(item2.props, "default.staticValue") || str(item2.props, "default.value");
-      if (value2 && (type === "" || type === "static" || type === "staticValue"))
-        session.items[name] = this.substitute(session, value2, page2, "RAW");
-      else if (type === "item")
-        session.items[name] = session.items[str(item2.props, "default.item").toUpperCase()] ?? "";
-      else if (type === "functionBody" || type === "sqlQuerySingleValue" || type === "expression" && str(item2.props, "default.plsqlExpression")) {
-        const code = str(item2.props, "default.plsqlFunctionBody") || str(item2.props, "default.plsqlExpression") || str(item2.props, "default.sqlQuerySingleValue");
-        const language = type === "functionBody" ? "plsqlFunctionBody" : type === "expression" ? "plsqlExpression" : "sqlExpression";
-        const result = evaluateExpression(
-          this,
-          ctx,
-          type === "sqlQuerySingleValue" ? `(${code})` : code,
-          language
-        );
-        if (result === void 0) this.diagnose("info", `Default for ${name} not evaluated`, page2.id, name);
-        else session.items[name] = result === null || result === false ? "" : String(result);
-      } else if (type === "sqlQuery" || type === "expression") {
-        const sql = str(item2.props, "default.sqlQuery") || str(item2.props, "default.sqlExpression");
-        if (sql) {
-          try {
-            session.items[name] = String(
-              this.data.scalar(
-                sql.startsWith("select") ? sql : `select ${sql}${this.data.dialect === "oracle" ? " from dual" : ""}`,
-                this.binds(session, page2)
-              ) ?? ""
-            );
-          } catch {
-            this.diagnose("info", `Default for ${name} not evaluated`, page2.id, name);
-          }
-        }
-      }
-    }
+    for (const item2 of this.pageComponents(ctx, "pageItem")) this.applyDefault(ctx, item2);
     const pointErrors = runPointExtensions(this, ctx, "beforeHeader");
     if (pointErrors.length) session.errors = [...session.errors ?? [], ...pointErrors];
     for (const computation of bySequence3(this.pageComponents(ctx, "computation"))) {
@@ -27711,6 +28708,44 @@ var ApexRenderer = class {
       (item2) => ref(item2.props, "source.formRegion") === regionId && str(item2.props, "source.column")
     );
   }
+  /** Gives an empty item its declared default (static, item, PL/SQL or SQL). */
+  applyDefault(ctx, item2) {
+    const { session, page: page2 } = ctx;
+    const name = item2.id.toUpperCase();
+    if ((session.items[name] ?? "") !== "") return;
+    const type = str(item2.props, "default.type");
+    const value2 = str(item2.props, "default.staticValue") || str(item2.props, "default.value");
+    if (value2 && (type === "" || type === "static" || type === "staticValue"))
+      session.items[name] = this.substitute(session, value2, page2, "RAW");
+    else if (type === "item")
+      session.items[name] = session.items[str(item2.props, "default.item").toUpperCase()] ?? "";
+    else if (type === "functionBody" || type === "sqlQuerySingleValue" || type === "expression" && str(item2.props, "default.plsqlExpression")) {
+      const code = str(item2.props, "default.plsqlFunctionBody") || str(item2.props, "default.plsqlExpression") || str(item2.props, "default.sqlQuerySingleValue");
+      const language = type === "functionBody" ? "plsqlFunctionBody" : type === "expression" ? "plsqlExpression" : "sqlExpression";
+      const result = evaluateExpression(
+        this,
+        ctx,
+        type === "sqlQuerySingleValue" ? `(${code})` : code,
+        language
+      );
+      if (result === void 0) this.diagnose("info", `Default for ${name} not evaluated`, page2.id, name);
+      else session.items[name] = result === null || result === false ? "" : String(result);
+    } else if (type === "sqlQuery" || type === "expression") {
+      const sql = str(item2.props, "default.sqlQuery") || str(item2.props, "default.sqlExpression");
+      if (sql) {
+        try {
+          session.items[name] = String(
+            this.data.scalar(
+              sql.startsWith("select") ? sql : `select ${sql}${this.data.dialect === "oracle" ? " from dual" : ""}`,
+              this.binds(session, page2)
+            ) ?? ""
+          );
+        } catch {
+          this.diagnose("info", `Default for ${name} not evaluated`, page2.id, name);
+        }
+      }
+    }
+  }
   initializeForm(ctx, regionId) {
     const region = this.pageComponents(ctx, "region").find((candidate) => candidate.id === regionId);
     if (!region) return;
@@ -27720,7 +28755,11 @@ var ApexRenderer = class {
     if (!table || !keys.length) return;
     this.ensureTable(ctx, table, this.regionColumns(ctx, region));
     if (keys.some((key) => !ctx.session.items[key.id.toUpperCase()])) {
-      for (const item2 of items) if (!keys.includes(item2)) delete ctx.session.items[item2.id.toUpperCase()];
+      for (const item2 of items) {
+        if (keys.includes(item2)) continue;
+        delete ctx.session.items[item2.id.toUpperCase()];
+        this.applyDefault(ctx, item2);
+      }
       return;
     }
     const where2 = keys.map((key) => `"${str(key.props, "source.column").toUpperCase()}" = :${key.id.toUpperCase()}`).join(" and ");
@@ -27807,6 +28846,52 @@ var ApexRenderer = class {
     session.user = (username || "DEVELOPER").toUpperCase();
     const home = this.findPage(this.homePage());
     return { redirectURL: home ? this.pagePath(home) : this.baseUrl };
+  }
+  /**
+   * Errors as the application's error handling function words them. APEX passes each error to that
+   * function before showing it; here it runs in the connected Oracle database for errors that carry
+   * an ORA code, which needs the APEX error API (`apex_error`) there. Without it, or when the call
+   * fails, the messages are unchanged.
+   */
+  userErrors(errors) {
+    if (!errors?.length) return errors ?? [];
+    const handler = str(this.app.app.props, "errorHandling.errorHandlingFunctionName");
+    if (!this.oracle || !this.#errorHandlerUsable || !/^[\w$#]+(?:\.[\w$#]+){0,2}$/u.test(handler))
+      return errors;
+    return errors.map((error) => {
+      const found = /ORA-(\d{5})/u.exec(error.message);
+      if (!found || !this.#errorHandlerUsable) return error;
+      const reply3 = this.oracle.data.plsql({
+        block: `declare
+  l_error apex_error.t_error;
+  l_result apex_error.t_error_result;
+begin
+  l_error.message := :EH_MESSAGE;
+  l_error.ora_sqlcode := -to_number(:EH_CODE);
+  l_error.ora_sqlerrm := :EH_SQLERRM;
+  l_error.is_internal_error := false;
+  l_error.display_location := apex_error.c_inline_in_notification;
+  l_result := ${handler}(l_error);
+  :EH_RESULT := substr(l_result.message, 1, 4000);
+end;`,
+        binds: {
+          EH_MESSAGE: error.message.slice(0, 4e3),
+          EH_CODE: Number(found[1]),
+          EH_SQLERRM: error.message.slice(found.index, found.index + 4e3),
+          EH_RESULT: null
+        }
+      });
+      if (reply3.error) {
+        this.#errorHandlerUsable = false;
+        this.diagnose(
+          "warning",
+          `Error handling function ${handler} could not be called (${reply3.error.message.split("\n")[0]}); errors keep their database text`
+        );
+        return error;
+      }
+      const message = reply3.values.EH_RESULT;
+      return message ? { ...error, message } : error;
+    });
   }
   /** Implements `wwv_flow.accept` for apex.page.submit (reload on submit = "S"). */
   accept(session, pageKey, request, values) {
@@ -28208,8 +29293,8 @@ var ApexRenderer = class {
     const template = this.theme.pages.get(templateId) ?? this.theme.pages.get("standard");
     if (!this.theme.pages.has(templateId))
       this.diagnose("warning", `Page template @/${templateId} not found; used Standard`, ctx.pageId);
-    const slots = this.theme.slots.get(text2(template, "id")) ?? /* @__PURE__ */ new Map();
-    const placeholder2 = (slot2) => {
+    const slots = this.theme.slots.get(text(template, "id")) ?? /* @__PURE__ */ new Map();
+    const placeholder3 = (slot2) => {
       if (slots.has(slot2)) return slots.get(slot2);
       if (PAGE_DEFAULT_SLOTS.has(slot2)) return "BODY";
       const lower2 = slot2.toLowerCase();
@@ -28225,7 +29310,7 @@ var ApexRenderer = class {
     const regions = this.pageComponents(ctx, "region");
     for (const region of regions) {
       if (ref(region.props, "layout.parentRegion")) continue;
-      const key = placeholder2(str(region.props, "layout.slot", "body"));
+      const key = placeholder3(str(region.props, "layout.slot", "body"));
       positions.set(key, [...positions.get(key) ?? [], region]);
     }
     const pageButtons = this.pageComponents(ctx, "button").filter(
@@ -28236,7 +29321,7 @@ var ApexRenderer = class {
     );
     const gridless = new Set(
       this.assets.theme.filter(
-        (call) => call.kind === "page_tmpl_display_point" && String(call.params.page_template_id) === text2(template, "id") && (call.params.has_grid_support === false || call.params.has_grid_support === "N")
+        (call) => call.kind === "page_tmpl_display_point" && String(call.params.page_template_id) === text(template, "id") && (call.params.has_grid_support === false || call.params.has_grid_support === "N")
       ).map((call) => String(call.params.placeholder))
     );
     const values = {};
@@ -28252,13 +29337,13 @@ var ApexRenderer = class {
     }
     for (const button2 of bySequence3(pageButtons)) {
       if (!this.visible(ctx, button2)) continue;
-      const key = placeholder2(str(button2.props, "layout.slot", "body"));
+      const key = placeholder3(str(button2.props, "layout.slot", "body"));
       values[key] = (values[key] ?? "") + this.renderButton(ctx, button2);
     }
     if (pageItems.length) values.BODY = (values.BODY ?? "") + this.itemsGrid(ctx, template, pageItems);
     const pageOptions = templateOptions(
       strings6(list(page2.props, "appearance.templateOptions")),
-      text2(template, "default_template_options")
+      text(template, "default_template_options")
     );
     const themeComponent = this.themeComponent();
     const styleId = (ctx.session.themeStyle ?? ref(themeComponent?.props ?? {}, "style.currentThemeStyle") ?? defaultStaticId(this.theme, "current_theme_style_id", "vita")).toLowerCase();
@@ -28273,16 +29358,16 @@ var ApexRenderer = class {
       `${IMAGE_PREFIX}libraries/font-apex/2.5.1/css/font-apex.min.css?v=${APEX_FULL_VERSION}`
     ];
     const themeCss = strings6(list(themeComponent?.props ?? {}, "css.fileUrls"));
-    const themeFiles = themeCss.length ? themeCss : text2(this.theme.theme, "css_file_urls").split("\n").filter(Boolean);
+    const themeFiles = themeCss.length ? themeCss : text(this.theme.theme, "css_file_urls").split("\n").filter(Boolean);
     const styleCss = [
-      ...text2(style2, "css_file_urls").split("\n"),
-      text2(style2, "theme_roller_output_file_url")
+      ...text(style2, "css_file_urls").split("\n"),
+      text(style2, "theme_roller_output_file_url")
     ].filter(Boolean);
     const appCss = strings6(list(this.app.app.props, "css.fileUrls"));
     const pageCss = strings6(list(page2.props, "css.fileUrls"));
     const inlineCss = [str(this.app.app.props, "css.inline"), str(page2.props, "css.inline")].filter(Boolean);
     const themeJs = strings6(list(themeComponent?.props ?? {}, "javaScript.fileUrls"));
-    const themeJsFiles = themeJs.length ? themeJs : text2(this.theme.theme, "javascript_file_urls").split("\n").filter(Boolean);
+    const themeJsFiles = themeJs.length ? themeJs : text(this.theme.theme, "javascript_file_urls").split("\n").filter(Boolean);
     const appJs = strings6(list(this.app.app.props, "javaScript.fileUrls"));
     const pageJs = strings6(list(page2.props, "javaScript.fileUrls"));
     this.navigation(ctx, values, template);
@@ -28310,12 +29395,12 @@ var ApexRenderer = class {
       regionItems[region.id] = names;
     }
     if (Object.keys(regionItems).length) ctx.clientConfig.regionItems = regionItems;
-    const pageTemplate = text2(template, "id");
-    ctx.messageTemplates[`${pageTemplate}_S`] = text2(template, "success_message");
-    ctx.messageTemplates[`${pageTemplate}_E`] = text2(template, "notification_message");
+    const pageTemplate = text(template, "id");
+    ctx.messageTemplates[`${pageTemplate}_S`] = text(template, "success_message");
+    ctx.messageTemplates[`${pageTemplate}_E`] = text(template, "notification_message");
     const onload2 = [
       `apex.message.registerTemplates(${JSON.stringify(Object.fromEntries(Object.entries(ctx.messageTemplates).map(([id, markup2]) => [id, this.substitute(ctx.session, markup2, page2, "HTML")]))).replaceAll("<", "\\u003c")});`,
-      text2(template, "javascript_code_onload"),
+      text(template, "javascript_code_onload"),
       ...ctx.onload,
       `apexLocal.init(${JSON.stringify(ctx.clientConfig).replaceAll("<", "\\u003c")});`,
       this.substitute(ctx.session, str(this.app.app.props, "javaScript.executeWhenPageLoads"), page2, "RAW"),
@@ -28329,7 +29414,7 @@ var ApexRenderer = class {
     ].filter(Boolean);
     const hidden2 = (name, id, value2) => `<input type="hidden" name="${name}" value="${escapeHtml(value2)}" id="${id}" />`;
     const success = ctx.session.success;
-    const errors = ctx.session.errors;
+    const errors = this.userErrors(ctx.session.errors);
     ctx.session.success = void 0;
     ctx.session.errors = void 0;
     const builtins = {
@@ -28399,12 +29484,12 @@ ${onload2.join("\n")}
 });
 </script>`,
       // apex.message finds these placeholders and the registered sub-templates by ID.
-      SUCCESS_MESSAGE: `<span id="APEX_SUCCESS_MESSAGE" data-template-id="${pageTemplate}_S" class="apex-page-success${success ? "" : " u-hidden"}">${success ? fill(text2(template, "success_message"), {
+      SUCCESS_MESSAGE: `<span id="APEX_SUCCESS_MESSAGE" data-template-id="${pageTemplate}_S" class="apex-page-success${success ? "" : " u-hidden"}">${success ? fill(text(template, "success_message"), {
         SUCCESS_MESSAGE: escapeHtml(success),
         SUCCESS_MESSAGE_HEADING: "Success",
         CLOSE_NOTIFICATION: "Close"
       }) : ""}</span>`,
-      NOTIFICATION_MESSAGE: `<span id="APEX_ERROR_MESSAGE" data-template-id="${pageTemplate}_E" class="apex-page-error${errors?.length ? "" : " u-hidden"}">${errors?.length ? fill(text2(template, "notification_message"), {
+      NOTIFICATION_MESSAGE: `<span id="APEX_ERROR_MESSAGE" data-template-id="${pageTemplate}_E" class="apex-page-error${errors?.length ? "" : " u-hidden"}">${errors?.length ? fill(text(template, "notification_message"), {
         MESSAGE: errors.map((error) => escapeHtml(error.message)).join("<br>"),
         ERROR_MESSAGE_HEADING: "Error",
         CLOSE_NOTIFICATION: "Close"
@@ -28419,7 +29504,7 @@ ${onload2.join("\n")}
       ...values
     };
     const html = fill(
-      `${text2(template, "header_template")}${text2(template, "box")}${text2(template, "footer_template")}`,
+      `${text(template, "header_template")}${text(template, "box")}${text(template, "footer_template")}`,
       builtins
     );
     this.trace(ctx, { type: "end", name: ctx.denied ? "Access denied" : "Page rendered" });
@@ -28427,8 +29512,8 @@ ${onload2.join("\n")}
   }
   favicons() {
     const icon3 = this.app.files.length ? `${this.baseUrl}/files/static/v1/icons/app-icon-32.png` : "";
-    const exists2 = fs11.existsSync(
-      path12.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
+    const exists2 = fs8.existsSync(
+      path10.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
     );
     return icon3 && exists2 ? `<link rel="icon" sizes="32x32" href="${icon3}">` : "";
   }
@@ -28456,8 +29541,8 @@ ${onload2.join("\n")}
     ).join("");
     const current3 = (ctx.session.themeStyle ?? "").toLowerCase();
     const ownStyles = this.themeComponent()?.children.filter((child) => child.type === "style") ?? [];
-    const styles = [...this.themeStyles().entries()].filter(([id, style2]) => !ownStyles.length || text2(style2, "static_id").toLowerCase() === id).map(
-      ([id, style2]) => `<option value="${escapeHtml(id)}"${id === current3 ? " selected" : ""}>${escapeHtml(text2(style2, "name") || id)}</option>`
+    const styles = [...this.themeStyles().entries()].filter(([id, style2]) => !ownStyles.length || text(style2, "static_id").toLowerCase() === id).map(
+      ([id, style2]) => `<option value="${escapeHtml(id)}"${id === current3 ? " selected" : ""}>${escapeHtml(text(style2, "name") || id)}</option>`
     ).join("");
     const picker = `<label class="apex-local-style" title="Theme style"><span class="fa fa-paint-brush" aria-hidden="true"></span><span class="apex-local-tb-label">Theme style</span> <select onchange="location.search='apex_theme_style='+encodeURIComponent(this.value)"><option value="">Application default</option>${styles}</select></label>`;
     const tools = extensions.map((extension) => extension.toolbar?.(this, ctx) ?? "").join("");
@@ -28472,7 +29557,7 @@ ${onload2.join("\n")}
   }
   navigation(ctx, values, template) {
     const app = this.app.app.props;
-    const box = `${text2(template, "header_template")}${text2(template, "box")}`;
+    const box = `${text(template, "header_template")}${text(template, "box")}`;
     const nav = bool(ctx.page.props, "navigationMenu.overrideUserInterfaceLevel", false) ? ctx.page.props : app;
     const menu = this.shared("list", ref(nav, "navigationMenu.list"));
     if (menu && (box.includes("#SIDE_GLOBAL_NAVIGATION_LIST#") || box.includes("#TOP_GLOBAL_NAVIGATION_LIST#"))) {
@@ -28522,11 +29607,11 @@ ${onload2.join("\n")}
       else if (!bool(props, "layout.newColumn", true)) rows.at(-1).at(-1).push(cell);
       else rows.at(-1).push([cell]);
     }
-    const max = Number(text2(template, "grid_max_columns")) || 12;
-    const containerTemplate = text2(template, "grid_template") || '<div class="container">#ROWS#</div>';
-    const rowTemplate2 = text2(template, "grid_row_template") || '<div class="row #CSS_CLASSES#">#COLUMNS#</div>';
-    const columnTemplate = text2(template, "grid_column_template") || '<div class="col col-#COLUMN_SPAN_NUMBER# #CSS_CLASSES#" #ATTRIBUTES#>#CONTENT#</div>';
-    const emitLeading = text2(template, "grid_emit_empty_leading_cols") !== "false";
+    const max = Number(text(template, "grid_max_columns")) || 12;
+    const containerTemplate = text(template, "grid_template") || '<div class="container">#ROWS#</div>';
+    const rowTemplate2 = text(template, "grid_row_template") || '<div class="row #CSS_CLASSES#">#COLUMNS#</div>';
+    const columnTemplate = text(template, "grid_column_template") || '<div class="col col-#COLUMN_SPAN_NUMBER# #CSS_CLASSES#" #ATTRIBUTES#>#CONTENT#</div>';
+    const emitLeading = text(template, "grid_emit_empty_leading_cols") !== "false";
     const html = rows.map((row) => {
       const placed = layoutGridRow(
         row.map((column2) => ({
@@ -28561,8 +29646,8 @@ ${onload2.join("\n")}
           COLUMN_SPAN_NUMBER: String(column2.span),
           CSS_CLASSES: column2.classes,
           FIRST_LAST_COLUMN_ATTRIBUTES: [
-            index === 0 ? text2(template, "grid_first_column_attributes") : "",
-            index === columns.length - 1 ? text2(template, "grid_last_column_attributes") : ""
+            index === 0 ? text(template, "grid_first_column_attributes") : "",
+            index === columns.length - 1 ? text(template, "grid_last_column_attributes") : ""
           ].filter(Boolean).join(" "),
           ATTRIBUTES: column2.attributes,
           CONTENT: column2.content
@@ -28625,7 +29710,7 @@ ${onload2.join("\n")}
         ctx.pageId,
         region.id
       );
-    const slots = this.theme.slots.get(text2(template, "id")) ?? /* @__PURE__ */ new Map();
+    const slots = this.theme.slots.get(text(template, "id")) ?? /* @__PURE__ */ new Map();
     const domId = this.regionDomId(region);
     const values = {};
     const append = (slot2, html) => {
@@ -28669,7 +29754,7 @@ ${onload2.join("\n")}
     }
     const options3 = templateOptions(
       strings6(list(region.props, "appearance.templateOptions")),
-      text2(template, "default_template_options")
+      text(template, "default_template_options")
     );
     const icon3 = iconClasses2(
       str(region.props, "appearance.icon") || str(region.props, "icon.iconCssClasses")
@@ -28697,7 +29782,7 @@ ${onload2.join("\n")}
       ),
       REGION_LANDMARK_ATTRIBUTES: `role="region" aria-labelledby="${domId}_heading"`,
       ICON_CSS_CLASSES: icon3,
-      REGION_IMAGE: image ? fill(text2(template, "image_template"), {
+      REGION_IMAGE: image ? fill(text(template, "image_template"), {
         REGION_IMAGE_URL: escapeHtml(this.substitute(ctx.session, image, ctx.page, "RAW"))
       }) : "",
       REGION_IMAGE_URL: escapeHtml(this.substitute(ctx.session, image, ctx.page, "RAW"))
@@ -28710,7 +29795,7 @@ ${onload2.join("\n")}
       });
       if (html !== void 0) return html;
     }
-    return fill(text2(template, "template"), filled);
+    return fill(text(template, "template"), filled);
   }
   regionBody(ctx, region, slots) {
     const type = str(region.props, "type", "staticContent");
@@ -28878,7 +29963,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     const template = this.theme.reports.get(templateId) ?? this.theme.reports.get("standard");
     const cssClasses = templateOptions(
       strings6(list(region.props, "componentAppearance.templateOptions")),
-      text2(template, "preset_template_options").replaceAll(":", " ")
+      text(template, "preset_template_options").replaceAll(":", " ")
     );
     const shared3 = {
       DOM_ID: domId,
@@ -28889,9 +29974,9 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       PAGINATION: pagination2
     };
     if (!rows.length) return `<div class="t-Report-wrap"><span class="nodatafound">${noData}</span></div>`;
-    if (text2(template, "row_template_type") === "NAMED_COLUMNS") {
+    if (text(template, "row_template_type") === "NAMED_COLUMNS") {
       const rowHtml = rows.map(
-        (row, index) => fill(text2(template, "row_template1"), {
+        (row, index) => fill(text(template, "row_template1"), {
           ...Object.fromEntries(Object.keys(row).map((key) => [key, escapeHtml(row[key] ?? "")])),
           ...Object.fromEntries(
             columns.map((column2) => [column2.id.toUpperCase(), this.cell(ctx, region, column2, row)])
@@ -28899,10 +29984,10 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
           ROWNUM: String(index + 1)
         })
       ).join("\n");
-      return fill(text2(template, "row_template_before_rows"), shared3) + rowHtml + fill(text2(template, "row_template_after_rows"), shared3);
+      return fill(text(template, "row_template_before_rows"), shared3) + rowHtml + fill(text(template, "row_template_after_rows"), shared3);
     }
     const headings2 = columns.map(
-      (column2) => fill(text2(template, "column_heading_template"), {
+      (column2) => fill(text(template, "column_heading_template"), {
         COLUMN_HEADER: this.substitute(
           ctx.session,
           str(column2.props, "heading.heading", heading2(column2.id)),
@@ -28916,15 +30001,15 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       })
     ).join("");
     const body4 = rows.map(
-      (row) => text2(template, "row_template_before_first") + columns.map(
-        (column2) => fill(text2(template, "row_template1"), {
+      (row) => text(template, "row_template_before_first") + columns.map(
+        (column2) => fill(text(template, "row_template1"), {
           COLUMN_VALUE: this.cell(ctx, region, column2, row),
           ALIGNMENT: `align="${this.alignment(column2, row[column2.id.toUpperCase()]) === "u-tR" ? "right" : "left"}"`,
           ACCESSIBLE_HEADERS: `headers="${escapeHtml(column2.id.toUpperCase())}"`
         })
-      ).join("") + text2(template, "row_template_after_last")
+      ).join("") + text(template, "row_template_after_last")
     ).join("\n");
-    return fill(text2(template, "row_template_before_rows"), shared3) + text2(template, "before_column_heading") + headings2 + text2(template, "after_column_heading") + body4 + fill(text2(template, "row_template_after_rows"), shared3);
+    return fill(text(template, "row_template_before_rows"), shared3) + text(template, "before_column_heading") + headings2 + text(template, "after_column_heading") + body4 + fill(text(template, "row_template_after_rows"), shared3);
   }
   cards(ctx, region) {
     const sql = this.regionSql(ctx, region);
@@ -28986,9 +30071,9 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     for (let entry = current3; entry && !chain.includes(entry); entry = entries.find((candidate) => candidate.id === ref(entry.props, "layout.parentEntry")))
       chain.unshift(entry);
     const options3 = templateOptions(strings6(list(region.props, "componentAppearance.templateOptions")), "");
-    return fill(text2(template, "before_first"), { COMPONENT_CSS_CLASSES: options3 }) + chain.map(
+    return fill(text(template, "before_first"), { COMPONENT_CSS_CLASSES: options3 }) + chain.map(
       (entry) => fill(
-        entry === current3 ? text2(template, "current_page_option") : text2(template, "non_current_page_option"),
+        entry === current3 ? text(template, "current_page_option") : text(template, "non_current_page_option"),
         {
           NAME: escapeHtml(
             this.substitute(ctx.session, str(entry.props, "name", entry.id), ctx.page, "RAW")
@@ -28996,7 +30081,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
           LINK: escapeHtml(this.link(ctx, get(entry.props, "link.target")))
         }
       )
-    ).join("") + text2(template, "after_last");
+    ).join("") + text(template, "after_last");
   }
   listRegion(ctx, region) {
     const listComponent = this.shared("list", ref(region.props, "source.list"));
@@ -29021,9 +30106,9 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       this.diagnose("warning", `List template @/${templateId} not found`, ctx.pageId, listComponent.id);
       return "";
     }
-    for (const file of text2(template, "javascript_file_urls").split("\n").filter(Boolean))
+    for (const file of text(template, "javascript_file_urls").split("\n").filter(Boolean))
       ctx.jsFiles.add(file);
-    for (const file of text2(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
+    for (const file of text(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
     const nodes = this.listNodes(ctx, listComponent);
     const isCurrent = (node) => node.current || node.children.some(isCurrent);
     const render = (node, level) => {
@@ -29046,23 +30131,23 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       const sub = level > 1;
       const field = kids.length ? sub ? current3 ? "sub_templ_curr_w_child" : "sub_templ_noncurr_w_child" : current3 ? "item_templ_curr_w_child" : "item_templ_noncurr_w_child" : sub ? current3 ? "sub_list_item_current" : "sub_list_item_noncurrent" : current3 ? "list_template_current" : "list_template_noncurrent";
       let html = fill(
-        text2(template, field) || text2(template, current3 ? "list_template_current" : "list_template_noncurrent"),
+        text(template, field) || text(template, current3 ? "list_template_current" : "list_template_noncurrent"),
         values
       );
       if (kids.length) {
-        html += fill(text2(template, "before_sub_list"), values) + kids.map((kid) => render(kid, level + 1)).join("") + fill(text2(template, "after_sub_list"), values);
+        html += fill(text(template, "before_sub_list"), values) + kids.map((kid) => render(kid, level + 1)).join("") + fill(text(template, "after_sub_list"), values);
       }
       return html;
     };
     const shared3 = {
       LIST_ID: listId,
       PARENT_STATIC_ID: parentId,
-      COMPONENT_CSS_CLASSES: templateOptions(options3, text2(template, "default_template_options")),
+      COMPONENT_CSS_CLASSES: templateOptions(options3, text(template, "default_template_options")),
       APEX_CSP_NONCE_ATTRIBUTE: ""
     };
-    if (text2(template, "javascript_code_onload"))
-      ctx.onload.push(fill(text2(template, "javascript_code_onload"), shared3, false));
-    return fill(text2(template, "list_template_before_rows"), shared3) + nodes.map((node) => render(node, 1)).join("") + fill(text2(template, "list_template_after_rows"), shared3);
+    if (text(template, "javascript_code_onload"))
+      ctx.onload.push(fill(text(template, "javascript_code_onload"), shared3, false));
+    return fill(text(template, "list_template_before_rows"), shared3) + nodes.map((node) => render(node, 1)).join("") + fill(text(template, "list_template_after_rows"), shared3);
   }
   /** Top-level entries of a list as a tree: static entries, or the rows of a dynamic list query. */
   listNodes(ctx, listComponent) {
@@ -29269,12 +30354,12 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     }
     const options3 = templateOptions(
       strings6(list(button2.props, "appearance.templateOptions")),
-      text2(template, "default_template_options")
+      text(template, "default_template_options")
     );
     const icon3 = iconClasses2(
       str(button2.props, "appearance.icon") || str(button2.props, "icon.iconCssClasses")
     );
-    return fill(text2(template, hot && text2(template, "hot_template") ? "hot_template" : "template"), {
+    return fill(text(template, hot && text(template, "hot_template") ? "hot_template" : "template"), {
       DOM_ID: domId,
       BUTTON_ID: domId,
       BUTTON_NAME: name,
@@ -29284,7 +30369,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       BUTTON_CSS_CLASSES: [
         options3,
         str(button2.props, "appearance.cssClasses"),
-        hot && !text2(template, "hot_template") ? "t-Button--hot" : ""
+        hot && !text(template, "hot_template") ? "t-Button--hot" : ""
       ].filter(Boolean).join(" "),
       ICON_CSS_CLASSES: icon3,
       BUTTON_ATTRIBUTES: this.substitute(
@@ -29340,21 +30425,21 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       ...this.labelColumns(ctx, item2, span)
     };
     for (const extension of extensions) extension.itemTemplate?.(this, ctx, item2, values);
-    values.ITEM_PRE_TEXT = values.CURRENT_ITEM_PRE_TEXT ? fill(text2(template, "item_pre_text"), values) : "";
-    values.ITEM_POST_TEXT = values.CURRENT_ITEM_POST_TEXT ? fill(text2(template, "item_post_text"), values) : "";
-    values.HELP_TEMPLATE = str(item2.props, "help.helpText") ? fill(text2(template, "help_link"), values) : "";
-    values.INLINE_HELP_TEMPLATE = values.CURRENT_ITEM_INLINE_HELP_TEXT ? fill(text2(template, "inline_help_text"), values) : "";
-    const errorTemplate = `${text2(template, "id")}_ET`;
-    ctx.messageTemplates[errorTemplate] = text2(template, "error_template");
-    values.ERROR_TEMPLATE = `<span id="${name}_error_placeholder" class="a-Form-error${error ? "" : " u-hidden"}" data-template-id="${errorTemplate}">${error ? fill(text2(template, "error_template"), values) : ""}</span>`;
-    const labelHtml = singleCheckbox ? "" : `${fill(text2(template, "template_body1"), values)}${label}${fill(text2(template, "template_body2"), values)}`;
-    return `${fill(text2(template, "before_item"), values)}${labelHtml}${fill(text2(template, "before_element"), values)}${element}${fill(text2(template, "after_element"), values)}${fill(text2(template, "after_item"), values)}`;
+    values.ITEM_PRE_TEXT = values.CURRENT_ITEM_PRE_TEXT ? fill(text(template, "item_pre_text"), values) : "";
+    values.ITEM_POST_TEXT = values.CURRENT_ITEM_POST_TEXT ? fill(text(template, "item_post_text"), values) : "";
+    values.HELP_TEMPLATE = str(item2.props, "help.helpText") ? fill(text(template, "help_link"), values) : "";
+    values.INLINE_HELP_TEMPLATE = values.CURRENT_ITEM_INLINE_HELP_TEXT ? fill(text(template, "inline_help_text"), values) : "";
+    const errorTemplate = `${text(template, "id")}_ET`;
+    ctx.messageTemplates[errorTemplate] = text(template, "error_template");
+    values.ERROR_TEMPLATE = `<span id="${name}_error_placeholder" class="a-Form-error${error ? "" : " u-hidden"}" data-template-id="${errorTemplate}">${error ? fill(text(template, "error_template"), values) : ""}</span>`;
+    const labelHtml = singleCheckbox ? "" : `${fill(text(template, "template_body1"), values)}${label}${fill(text(template, "template_body2"), values)}`;
+    return `${fill(text(template, "before_item"), values)}${labelHtml}${fill(text(template, "before_element"), values)}${element}${fill(text(template, "after_element"), values)}${fill(text(template, "after_item"), values)}`;
   }
   /** Label/input column spans of left-aligned label templates: the label takes Label Column Span
    * (page template default 2) of the item's grid span and the input the rest. */
   labelColumns(ctx, item2, span) {
     if (span === void 0) return { LABEL_COLUMN_SPAN_NUMBER: "null", ITEM_COLUMN_SPAN_NUMBER: "null" };
-    const fallback = Number(text2(this.pageTemplate(ctx), "grid_default_label_col_span") || 2);
+    const fallback = Number(text(this.pageTemplate(ctx), "grid_default_label_col_span") || 2);
     const label = Math.max(
       0,
       Math.min(span, num(item2.props, "layout.labelColumnSpan", Number.isFinite(fallback) ? fallback : 2))
@@ -29365,12 +30450,12 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     };
   }
   element(ctx, item2, type, name, value2) {
-    const extension = itemRenderer(type);
+    const extension = itemRenderer(type) ?? (type.startsWith("plugin/") ? itemRenderer("plugin") : void 0);
     if (extension) return extension(this, ctx, item2, name, value2);
     const v = escapeHtml(value2);
     const width = num(item2.props, "appearance.width", 30);
     const max = num(item2.props, "validation.maxLength", 0);
-    const placeholder2 = str(item2.props, "appearance.placeholder") ? ` placeholder="${escapeHtml(str(item2.props, "appearance.placeholder"))}"` : "";
+    const placeholder3 = str(item2.props, "appearance.placeholder") ? ` placeholder="${escapeHtml(str(item2.props, "appearance.placeholder"))}"` : "";
     const required2 = bool(item2.props, "validation.valueRequired", false) ? " required" : "";
     const readonly = str(item2.props, "readOnly.type") === "always" ? " readonly" : "";
     const lov = () => this.lov(ctx, get(item2.props, "lov"), name);
@@ -29383,18 +30468,18 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       case "popupLov":
       case "autoComplete":
       case "colorPicker":
-        return `<input type="text" id="${name}" name="${name}" class="text_field apex-item-text" value="${v}" size="${width}"${max ? ` maxlength="${max}"` : ""}${placeholder2}${required2}${readonly} data-trim-spaces="BOTH">`;
+        return `<input type="text" id="${name}" name="${name}" class="text_field apex-item-text" value="${v}" size="${width}"${max ? ` maxlength="${max}"` : ""}${placeholder3}${required2}${readonly} data-trim-spaces="BOTH">`;
       case "password":
-        return `<input type="password" id="${name}" name="${name}" class="password apex-item-text" value="" size="${width}"${placeholder2}${required2}>`;
+        return `<input type="password" id="${name}" name="${name}" class="password apex-item-text" value="" size="${width}"${placeholder3}${required2}>`;
       case "numberField":
-        return `<input type="text" inputmode="decimal" id="${name}" name="${name}" class="number_field apex-item-text apex-item-number" value="${v}" size="${width}"${placeholder2}${required2}${readonly} style="text-align:end">`;
+        return `<input type="text" inputmode="decimal" id="${name}" name="${name}" class="number_field apex-item-text apex-item-number" value="${v}" size="${width}"${placeholder3}${required2}${readonly} style="text-align:end">`;
       case "datePicker":
       case "datePickerApex":
         return `<input type="date" id="${name}" name="${name}" class="text_field apex-item-text apex-item-datepicker" value="${v.slice(0, 10)}"${required2}${readonly}>`;
       case "textarea":
       case "richTextEditor":
       case "markdownEditor":
-        return `<div class="apex-item-group apex-item-group--textarea"><textarea name="${name}" id="${name}" rows="${num(item2.props, "appearance.height", 5)}" cols="${width}" class="textarea apex-item-textarea"${placeholder2}${required2}${readonly}>${v}</textarea></div>`;
+        return `<div class="apex-item-group apex-item-group--textarea"><textarea name="${name}" id="${name}" rows="${num(item2.props, "appearance.height", 5)}" cols="${width}" class="textarea apex-item-textarea"${placeholder3}${required2}${readonly}>${v}</textarea></div>`;
       case "selectList":
       case "shuttle":
       case "selectMany":
@@ -29475,21 +30560,21 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
    * values through bind variables, not `&ITEM.` substitution.
    */
   registerServerAction(ctx, actionType, settings2) {
-    const text10 = (key) => typeof settings2[key] === "string" ? settings2[key] : "";
+    const text12 = (key) => typeof settings2[key] === "string" ? settings2[key] : "";
     let entry;
     if (actionType === "executeServerSideCode") {
       entry = {
         kind: "code",
         pageId: ctx.pageId,
         type: "",
-        code: text10("plsqlCode") || text10("code"),
+        code: text12("plsqlCode") || text12("code"),
         submit: itemNames(settings2.itemsToSubmit),
         returns: itemNames(settings2.itemsToReturn)
       };
     } else if (actionType === "setValue") {
-      const type = text10("type") || text10("setType");
+      const type = text12("type") || text12("setType");
       if (!SERVER_VALUE_TYPES.has(type)) return void 0;
-      const code = type === "sqlQuery" ? text10("sqlQuery") || text10("sqlStatement") : type === "plsqlFunctionBody" ? text10("plsqlFunctionBody") : text10("plsqlExpression");
+      const code = type === "sqlQuery" ? text12("sqlQuery") || text12("sqlStatement") : type === "plsqlFunctionBody" ? text12("plsqlFunctionBody") : text12("plsqlExpression");
       entry = {
         kind: "value",
         pageId: ctx.pageId,
@@ -29591,31 +30676,42 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
    * then its `.apex-local`), else `<appRoot>/.apex-local/*.sql`, else supporting-object scripts.
    */
   static seed(db2, appRoot, seedDirs = []) {
-    const sqlFiles = (dir) => fs11.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => path12.join(dir, name));
+    const sqlFiles = (dir) => fs8.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => path10.join(dir, name));
     if (seedDirs.length)
-      return seedDirs.filter((dir) => fs11.existsSync(dir)).flatMap(sqlFiles).flatMap(
+      return seedDirs.filter((dir) => fs8.existsSync(dir)).flatMap(sqlFiles).flatMap(
         (script) => db2.runScript(
-          fs11.readFileSync(script, "utf8"),
-          path12.basename(path12.dirname(script)) + "/" + path12.basename(script)
+          fs8.readFileSync(script, "utf8"),
+          path10.basename(path10.dirname(script)) + "/" + path10.basename(script)
         )
       );
-    const local = path12.join(appRoot, ".apex-local");
-    const scripts = fs11.existsSync(local) ? fs11.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path12.join(local, name)) : [];
-    if (!scripts.length) {
-      const supporting = path12.join(appRoot, "supporting-objects");
-      if (fs11.existsSync(supporting)) {
-        scripts.push(
-          ...fs11.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path12.join(supporting, name))
-        );
-      }
-    }
+    const local = path10.join(appRoot, ".apex-local");
+    const scripts = fs8.existsSync(local) ? fs8.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path10.join(local, name)) : [];
+    if (!scripts.length) scripts.push(...installScripts(appRoot));
     return scripts.flatMap(
-      (script) => db2.runScript(fs11.readFileSync(script, "utf8"), path12.relative(appRoot, script))
+      (script) => db2.runScript(fs8.readFileSync(script, "utf8"), path10.relative(appRoot, script))
     );
   }
 };
+function installScripts(appRoot) {
+  const supporting = path10.join(appRoot, "supporting-objects");
+  if (!fs8.existsSync(supporting)) return [];
+  const declared = path10.join(supporting, "install-scripts.apx");
+  if (fs8.existsSync(declared)) {
+    try {
+      const ordered = parseApexLang(fs8.readFileSync(declared, "utf8"), declared).filter((component) => component.type === "installScript").map((component, index) => ({
+        sequence: Number(str(component.props, "execution.sequence", String((index + 1) * 10))),
+        index,
+        file: str(component.props, "script.contentFile")
+      })).filter((entry) => entry.file).sort((a, b) => a.sequence - b.sequence || a.index - b.index).map((entry) => path10.join(supporting, "install-scripts", entry.file)).filter((file) => fs8.existsSync(file));
+      if (ordered.length) return ordered;
+    } catch {
+    }
+  }
+  return fs8.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path10.join(supporting, name));
+}
 
 // packages/core/src/preview/server.ts
+var DEVELOPER_ROUTES = /* @__PURE__ */ new Set(["debug-log", "session-state", "view-as", "reset-data", "outbox"]);
 var TRANSACTIONAL_ROUTES = /* @__PURE__ */ new Set(["ig-save", "set-value"]);
 function failedResponse(result) {
   if ((result.status ?? 200) >= 400) return true;
@@ -29650,11 +30746,11 @@ var TYPES = {
 function newestApx(root) {
   let newest = 0;
   const visit = (directory) => {
-    for (const entry of fs12.readdirSync(directory, { withFileTypes: true })) {
+    for (const entry of fs9.readdirSync(directory, { withFileTypes: true })) {
       if (entry.name.startsWith(".") || entry.name === "static-files") continue;
-      const full = path13.join(directory, entry.name);
+      const full = path11.join(directory, entry.name);
       if (entry.isDirectory()) visit(full);
-      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs12.statSync(full).mtimeMs);
+      else if (entry.name.endsWith(".apx")) newest = Math.max(newest, fs9.statSync(full).mtimeMs);
     }
   };
   visit(root);
@@ -29678,17 +30774,18 @@ async function formBody(request) {
 }
 var LOOPBACK_NAMES = ["127.0.0.1", "localhost", "[::1]"];
 var WILDCARD_HOSTS = /* @__PURE__ */ new Set(["0.0.0.0", "::", "[::]", ""]);
-function previewRequestRefusal(headers2, method, port, bindHost) {
+function previewRequestRefusal(headers2, method, port, bindHost, publicHosts = []) {
   const names = [...LOOPBACK_NAMES];
   if (bindHost && !WILDCARD_HOSTS.has(bindHost) && !names.includes(bindHost))
     names.push(bindHost.includes(":") && !bindHost.startsWith("[") ? `[${bindHost}]` : bindHost);
-  const allowed = new Set(names.map((name) => `${name}:${port}`.toLowerCase()));
+  const allowed2 = new Set(names.map((name) => `${name}:${port}`.toLowerCase()));
+  for (const name of publicHosts) allowed2.add(name.trim().toLowerCase());
   const host = headers2.host?.trim().toLowerCase();
-  if (!host || !allowed.has(host)) return "Host is not this preview server";
+  if (!host || !allowed2.has(host)) return "Host is not this preview server";
   const safe2 = method === "GET" || method === "HEAD";
-  const origin = headers2.origin?.trim().toLowerCase();
-  if (origin !== void 0 && !safe2 && origin !== `http://${host}`)
-    return "Cross-origin requests are not accepted";
+  const origin2 = headers2.origin?.trim().toLowerCase();
+  const sameOrigin = origin2 === `http://${host}` || publicHosts.length > 0 && origin2 === `https://${host}`;
+  if (origin2 !== void 0 && !safe2 && !sameOrigin) return "Cross-origin requests are not accepted";
   const site = String(headers2["sec-fetch-site"] ?? "").toLowerCase();
   if (site === "cross-site" || site === "same-site") {
     const navigation = headers2["sec-fetch-mode"] === "navigate" && safe2;
@@ -29704,17 +30801,19 @@ var PreviewServer = class {
   /** WebSocket pages: data changes, source reloads and presence (live.ts). */
   live;
   renderer;
+  /** Application mode: receives errors that are not shown to the user. */
+  onError;
   #server;
   #sessions = /* @__PURE__ */ new Map();
   #loadedAt = 0;
   #loadError;
   constructor(options3) {
-    this.options = { ...options3, sourceDir: path13.resolve(options3.sourceDir) };
+    this.options = { ...options3, sourceDir: path11.resolve(options3.sourceDir) };
     this.assets = loadAssets(options3.assetsDir);
-    const file = options3.database ?? (options3.oracle ? ":memory:" : path13.join(this.options.sourceDir, ".apex-local", "preview.sqlite"));
+    const file = options3.database ?? (options3.oracle ? ":memory:" : path11.join(this.options.sourceDir, ".apex-local", "preview.sqlite"));
     if (options3.reset && file !== ":memory:")
-      for (const suffix of ["", "-wal", "-shm"]) fs12.rmSync(file + suffix, { force: true });
-    const fresh = file === ":memory:" || !fs12.existsSync(file);
+      for (const suffix of ["", "-wal", "-shm"]) fs9.rmSync(file + suffix, { force: true });
+    const fresh = file === ":memory:" || !fs9.existsSync(file);
     this.db = new LocalDatabase(file);
     this.seedProblems = fresh && !options3.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options3.seedDirs) : [];
     this.renderer = this.#load();
@@ -29736,6 +30835,7 @@ var PreviewServer = class {
       ...this.options.oracle ? { oracle: this.options.oracle } : {}
     });
     for (const problem of this.seedProblems) renderer.diagnose("warning", `Seed script: ${problem}`);
+    setUpRenderer(renderer);
     for (const warning of this.options.oracle?.warnings ?? [])
       renderer.diagnose("warning", `Connected preview: ${warning}`);
     for (const finding of checkSharedComponentFiles(renderer.app.root, renderer.app.files))
@@ -29777,7 +30877,10 @@ var PreviewServer = class {
     this.#server = http.createServer((request, response) => {
       this.#handle(request, response).catch((error) => {
         if (!response.headersSent) response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
-        response.end(`APEX preview error: ${error.message}`);
+        if (this.options.application) {
+          this.onError?.(error);
+          response.end("The request could not be processed.");
+        } else response.end(`APEX preview error: ${error.message}`);
       }).finally(() => {
         this.#endRequest(response);
         this.#publishWrites(request);
@@ -29788,6 +30891,7 @@ var PreviewServer = class {
       if (pathname !== `${this.renderer.baseUrl}${LOCAL_PREFIX}/live`)
         return rejectUpgrade(socket, 404, "Not Found");
       const port = this.#server?.address()?.port ?? 0;
+      if (this.options.application) return rejectUpgrade(socket, 404, "Not Found");
       if (previewRequestRefusal(request.headers, request.method, port, this.options.host))
         return rejectUpgrade(socket, 403, "Forbidden");
       this.live.upgrade(request, socket, head, this.#existingSession(request));
@@ -29859,13 +30963,74 @@ var PreviewServer = class {
     return cookie ? this.#sessions.get(cookie) : void 0;
   }
   session(request, response) {
-    const existing = this.#existingSession(request);
-    if (existing) return existing;
-    const id = String(Math.floor(Math.random() * 9e15) + 1e15);
-    const session = { id, user: this.options.user ?? "DEVELOPER", items: {}, pagination: {} };
+    const host = typeof request.headers.host === "string" ? request.headers.host.trim() : "";
+    const origin2 = /^[\w.:[\]-]+$/u.test(host) ? `http://${host}` : void 0;
+    const application = this.options.application;
+    let existing = this.#existingSession(request);
+    if (existing && application) {
+      const idle = Date.now() - (existing.lastSeen ?? Date.now());
+      if (idle > (application.sessionTimeoutMs ?? 8 * 36e5)) {
+        this.#sessions.delete(existing.id);
+        existing = void 0;
+      }
+    }
+    if (existing) {
+      if (origin2) existing.origin = origin2;
+      existing.lastSeen = Date.now();
+      return existing;
+    }
+    return this.#newSession(response, origin2);
+  }
+  /** A new session with an unguessable numeric id (APEX session ids are numbers). */
+  #newSession(response, origin2) {
+    const application = this.options.application;
+    const id = BigInt(`0x${randomBytes(8).toString("hex")}`).toString().padStart(20, "1");
+    const session = {
+      id,
+      // Application mode starts signed out, with authorization enforced for a user without roles.
+      user: application ? "nobody" : this.options.user ?? "DEVELOPER",
+      items: {},
+      pagination: {},
+      lastSeen: Date.now(),
+      ...application ? { viewAs: { roles: [], deny: [] } } : {},
+      ...origin2 ? { origin: origin2 } : {}
+    };
+    if (application && this.#sessions.size >= 5e3) {
+      const limit = Date.now() - (application.sessionTimeoutMs ?? 8 * 36e5);
+      for (const [key, entry] of this.#sessions)
+        if ((entry.lastSeen ?? 0) < limit || !entry.authenticated && (entry.lastSeen ?? 0) < Date.now() - 6e5)
+          this.#sessions.delete(key);
+    }
     this.#sessions.set(id, session);
-    response.setHeader("set-cookie", `APEX_LOCAL_SESSION=${id}; Path=/; HttpOnly; SameSite=Lax`);
+    response.setHeader(
+      "set-cookie",
+      `APEX_LOCAL_SESSION=${id}; Path=/; HttpOnly; SameSite=Lax${application?.secureCookies ? "; Secure" : ""}`
+    );
     return session;
+  }
+  /** Whether a page can be opened without signing in (application mode). */
+  #publicPage(pageKey) {
+    const page2 = this.renderer.findPage(pageKey);
+    if (!page2) return false;
+    return this.renderer.isLoginPage(page2.id) || /^(?:publicPage|pageIsPublic)$/u.test(str(page2.props, "security.authentication"));
+  }
+  /** URL of the application's login page, or the built-in sign-in form. */
+  #loginUrl() {
+    const renderer = this.renderer;
+    const configured2 = str(renderer.app.app.props, "navigation.loginUrl.page");
+    const page2 = configured2 && renderer.findPage(configured2) || [...renderer.app.pages.values()].find((candidate) => renderer.isLoginPage(candidate.id));
+    return page2 ? renderer.pagePath(page2) : `${renderer.baseUrl}/__login`;
+  }
+  /** Signs the session in; the session id changes so a pre-login id cannot be reused. */
+  #signIn(response, session, username, password2) {
+    const granted = this.options.application?.authenticate(username, password2);
+    if (!granted) return void 0;
+    this.#sessions.delete(session.id);
+    const next = this.#newSession(response, session.origin);
+    next.user = username.toUpperCase();
+    next.authenticated = true;
+    next.viewAs = { roles: granted.roles ?? [], deny: [] };
+    return next;
   }
   /**
    * Sets the session state of a region's Page Items to Submit before it is rendered or queried
@@ -29888,24 +31053,24 @@ var PreviewServer = class {
       (child) => child.type === "region" && (child.id === regionId || this.renderer.regionDomId(child) === regionId)
     );
     if (!region) return;
-    const allowed = new Set(this.renderer.regionItemsToSubmit(region));
+    const allowed2 = new Set(this.renderer.regionItemsToSubmit(region));
     for (const [name, value2] of Object.entries(values)) {
       const upper4 = name.toUpperCase();
-      if (!allowed.has(upper4)) continue;
+      if (!allowed2.has(upper4)) continue;
       session.items[upper4] = Array.isArray(value2) ? value2.join(":") : value2 === null || value2 === void 0 ? "" : String(value2);
     }
   }
   #static(response, root, relative, cache3) {
-    const target2 = path13.resolve(root, decodeURIComponent(relative));
-    if (!target2.startsWith(root + path13.sep) || !fs12.existsSync(target2) || !fs12.statSync(target2).isFile()) {
+    const target2 = path11.resolve(root, decodeURIComponent(relative));
+    if (!target2.startsWith(root + path11.sep) || !fs9.existsSync(target2) || !fs9.statSync(target2).isFile()) {
       response.writeHead(404, { "content-type": "text/plain" }).end("Not found");
       return;
     }
     response.writeHead(200, {
-      "content-type": TYPES[path13.extname(target2).toLowerCase()] ?? "application/octet-stream",
+      "content-type": TYPES[path11.extname(target2).toLowerCase()] ?? "application/octet-stream",
       "cache-control": cache3 ? "public, max-age=86400" : "no-cache"
     });
-    fs12.createReadStream(target2).pipe(response);
+    fs9.createReadStream(target2).pipe(response);
   }
   #send(response, status, type, content) {
     response.writeHead(status, { "content-type": type, "cache-control": "no-store" }).end(content);
@@ -29926,15 +31091,28 @@ var PreviewServer = class {
   }
   async #handle(request, response) {
     const port = this.#server?.address()?.port ?? 0;
-    const refusal = previewRequestRefusal(request.headers, request.method, port, this.options.host);
+    const application = this.options.application;
+    if (application && request.url === "/healthz") return this.#send(response, 200, "text/plain", "ok");
+    const refusal = previewRequestRefusal(
+      request.headers,
+      request.method,
+      port,
+      this.options.host,
+      application?.publicHosts
+    );
     if (refusal) {
       request.resume();
-      return this.#send(response, 403, "text/plain; charset=utf-8", `APEX preview: ${refusal}.`);
+      return this.#send(
+        response,
+        403,
+        "text/plain; charset=utf-8",
+        application ? "Forbidden" : `APEX preview: ${refusal}.`
+      );
     }
     const url2 = new URL(request.url ?? "/", "http://localhost");
     const pathname = url2.pathname;
     if (pathname.startsWith("/i/"))
-      return this.#static(response, path13.resolve(this.assets.imagesDir), pathname.slice(3), true);
+      return this.#static(response, path11.resolve(this.assets.imagesDir), pathname.slice(3), true);
     const marker3 = pathname.indexOf(`${LOCAL_PREFIX}/`);
     if (marker3 >= 0) {
       const name = pathname.slice(marker3 + LOCAL_PREFIX.length + 1);
@@ -29943,10 +31121,10 @@ var PreviewServer = class {
       if (name === "runtime.css")
         return this.#send(response, 200, TYPES[".css"], RUNTIME_CSS + extensionCss());
       if (name === "messages.js") return this.#send(response, 200, TYPES[".js"], messagesScript(MESSAGES));
-      if (name === "diagnostics")
+      if (name === "diagnostics" && !application)
         return this.#send(response, 200, TYPES[".json"], JSON.stringify(this.diagnostics(), null, 2));
     }
-    this.#refresh();
+    if (!application) this.#refresh();
     if (this.#loadError)
       return this.#send(
         response,
@@ -29985,7 +31163,7 @@ var PreviewServer = class {
     if (rest.startsWith("files/static/v1/"))
       return this.#static(
         response,
-        path13.join(this.options.sourceDir, "shared-components", "static-files"),
+        path11.join(this.options.sourceDir, "shared-components", "static-files"),
         rest.slice(16),
         false
       );
@@ -29994,14 +31172,62 @@ var PreviewServer = class {
       if (!themeDir) return this.#send(response, 404, "text/plain", "Not found");
       return this.#static(response, themeDir, rest.slice(15), false);
     }
+    const pluginFiles = /^files\/plugin\/([\w-]+)\/([\w-]+)\/(.+)$/u.exec(rest);
+    if (pluginFiles)
+      return this.#static(
+        response,
+        path11.join(
+          this.options.sourceDir,
+          "shared-components",
+          "plugins",
+          pluginFiles[1],
+          pluginFiles[2],
+          "static-files"
+        ),
+        pluginFiles[3],
+        false
+      );
     if (rest.startsWith("files/workspace/"))
       return this.#static(
         response,
-        path13.join(this.options.sourceDir, "workspace-components", "static-files"),
+        path11.join(this.options.sourceDir, "workspace-components", "static-files"),
         rest.slice(16),
         false
       );
-    const session = this.session(request, response);
+    let session = this.session(request, response);
+    if (application) {
+      if (rest === "__login") {
+        if (request.method === "POST") {
+          const form = new URLSearchParams(await body3(request, 65536));
+          const signed = this.#signIn(
+            response,
+            session,
+            form.get("username") ?? "",
+            form.get("password") ?? ""
+          );
+          if (signed) {
+            response.writeHead(302, { location: renderer.baseUrl }).end();
+            return;
+          }
+        }
+        return this.#send(
+          response,
+          request.method === "POST" ? 401 : 200,
+          TYPES[".html"],
+          `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in</title><style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f5f5f5}form{background:#fff;padding:2rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);display:grid;gap:.75rem;min-width:18rem}input,button{font:inherit;padding:.5rem}.error{color:#b00020}</style></head><body><form method="post" action="${renderer.baseUrl}/__login"><h1>Sign in</h1>${request.method === "POST" ? '<p class="error" role="alert">Invalid username or password.</p>' : ""}<label>Username <input name="username" autocomplete="username" required autofocus></label><label>Password <input name="password" type="password" autocomplete="current-password" required></label><button type="submit">Sign in</button></form></body></html>`
+        );
+      }
+      if (!session.authenticated && rest !== "__logout") {
+        const posted = rest === "wwv_flow.accept" || rest.startsWith(`${LOCAL_PREFIX.slice(1)}/`);
+        const pageKey = posted ? url2.searchParams.get("page") ?? "" : decodeURIComponent(rest);
+        if (rest !== "wwv_flow.accept" && !(pageKey && this.#publicPage(pageKey))) {
+          if (posted)
+            return this.#send(response, 401, TYPES[".json"], JSON.stringify({ error: "Sign in required" }));
+          response.writeHead(302, { location: this.#loginUrl() }).end();
+          return;
+        }
+      }
+    }
     if (rest === "wwv_flow.accept" && request.method === "POST") {
       const { form, files } = await formBody(request);
       const json5 = JSON.parse(form.getAll("p_json").join("") || "{}");
@@ -30011,6 +31237,37 @@ var PreviewServer = class {
       );
       const page3 = form.get("p_flow_step_id") ?? "";
       const requestValue = form.get("p_request") ?? "";
+      if (application && !session.authenticated) {
+        if (!this.#publicPage(page3))
+          return this.#send(response, 401, TYPES[".json"], JSON.stringify({ error: "Sign in required" }));
+        if (renderer.isLoginPage(page3)) {
+          const find2 = (pattern) => Object.entries(values).find(([name]) => pattern.test(name.toUpperCase()))?.[1] ?? "";
+          const signed = this.#signIn(response, session, find2(/USERNAME$|USER_NAME$/u), find2(/PASSWORD$/u));
+          if (!signed)
+            return this.#send(
+              response,
+              200,
+              TYPES[".json"],
+              JSON.stringify({
+                errors: [
+                  { type: "error", location: ["page"], message: "Invalid Login Credentials", unsafe: false }
+                ],
+                pageSubmissionId: String(Date.now())
+              })
+            );
+          session = signed;
+          const home = renderer.findPage(renderer.homePage());
+          return this.#send(
+            response,
+            200,
+            TYPES[".json"],
+            JSON.stringify({
+              redirectURL: home ? renderer.pagePath(home) : renderer.baseUrl,
+              pageSubmissionId: String(Date.now())
+            })
+          );
+        }
+      }
       const finish = runSubmitExtensions(renderer, session, {
         pageId: page3,
         request: requestValue,
@@ -30024,7 +31281,8 @@ var PreviewServer = class {
         () => {
           let accepted = renderer.isLoginPage(page3) ? renderer.login(session, values) : renderer.accept(session, page3, requestValue, values);
           for (const step of finish) accepted = step(accepted);
-          return accepted;
+          const failed2 = accepted.errors;
+          return failed2?.length ? { ...accepted, errors: renderer.userErrors(failed2) } : accepted;
         },
         this.#failure(response, (accepted) => Boolean(accepted.errors?.length))
       );
@@ -30040,7 +31298,8 @@ var PreviewServer = class {
       return this.#send(response, 200, TYPES[".json"], "{}");
     }
     if (rest.startsWith(`${LOCAL_PREFIX.slice(1)}/x/`)) {
-      const handler = routeHandler(rest.slice(LOCAL_PREFIX.length + 2));
+      const routeName = rest.slice(LOCAL_PREFIX.length + 2);
+      const handler = application && DEVELOPER_ROUTES.has(routeName) ? void 0 : routeHandler(routeName);
       if (!handler) return this.#send(response, 404, "text/plain", "Unknown preview route");
       const posted = request.method === "POST" ? /^multipart\/form-data/iu.test(request.headers["content-type"] ?? "") ? await formBody(request) : { form: void 0, files: [], text: await body3(request) } : { form: void 0, files: [], text: "" };
       this.#submitRegionItems(
@@ -30060,6 +31319,11 @@ var PreviewServer = class {
       return this.#respond(response, result);
     }
     if (rest === "__logout") {
+      if (application) {
+        this.#sessions.delete(session.id);
+        response.writeHead(302, { location: this.#loginUrl() }).end();
+        return;
+      }
       session.items = {};
       session.user = this.options.user ?? "DEVELOPER";
       response.writeHead(302, { location: renderer.baseUrl }).end();
@@ -30119,7 +31383,7 @@ var PreviewServer = class {
         response,
         200,
         TYPES[".json"],
-        JSON.stringify(errors.length ? { ...values, errors } : values)
+        JSON.stringify(errors.length ? { ...values, errors: renderer.userErrors(errors) } : values)
       );
     }
     if (rest === `${LOCAL_PREFIX.slice(1)}/close-dialog`) {
@@ -30137,6 +31401,7 @@ var PreviewServer = class {
       );
     }
     const page2 = renderer.findPage(decodeURIComponent(rest));
+    if (!page2 && application) return this.#send(response, 404, "text/plain", "Not found");
     if (!page2) {
       const links = this.pages().map((entry) => `<li><a href="${entry.url}">${entry.id} \xB7 ${entry.name}</a></li>`).join("");
       return this.#send(
@@ -30212,333 +31477,355 @@ function checkApplication(options3) {
   }
 }
 
-// packages/core/src/preview/service.ts
-var running = /* @__PURE__ */ new Map();
-onPreviewShutdown(async () => {
-  for (const [source, server] of [...running]) await stopServer(source, server);
-});
-var DIAGNOSTICS_LIMIT = 60;
-async function resolveSource(root, explicit) {
-  let source = explicit ? path14.resolve(root, explicit) : void 0;
-  if (!source) {
+// packages/core/src/preview/oracle/app-data.ts
+var TX_BEFORE = "APEXREST_TX_BEFORE";
+var TX_AFTER = "APEXREST_TX_AFTER";
+var DDL = /^\s*(create|alter|drop|truncate|rename|comment|grant|revoke|flashback|purge|analyze)\b/iu;
+function text11(value2) {
+  return value2 === null || value2 === void 0 ? null : String(value2);
+}
+var OracleAppData = class {
+  dialect = "oracle";
+  link;
+  schema;
+  #columns = /* @__PURE__ */ new Map();
+  #keys = /* @__PURE__ */ new Map();
+  #dirty = false;
+  #prefetched = false;
+  /** Commit mode: endRequest(true) commits, and units that end the transaction are not errors. */
+  commit;
+  constructor(link, schema, options3 = {}) {
+    this.link = link;
+    this.schema = schema.toUpperCase();
+    this.commit = options3.commit === true;
+  }
+  /** Runs segments; the failing segment's error is returned, transport failures throw. */
+  #run(parts, dirty = true) {
+    if (dirty) this.#dirty = true;
+    const { text: input, markers } = batch(parts);
+    const texts = segments(this.link.run(input), markers);
+    return { texts, errors: texts.map(segmentError) };
+  }
+  #binds(sql, binds) {
+    return referencedBinds(bindNames(sql), binds);
+  }
+  query(sql, binds = {}, maxRows = 1e4) {
+    const values = this.#binds(sql, binds);
+    const parts = [declareBinds(values), querySegment(sql, maxRows)];
+    const { texts, errors } = this.#run(parts);
+    const error = errors[0] ?? errors[1];
+    if (error) throw error;
+    return jsonRows(texts[1]);
+  }
+  rawQuery(sql, binds = {}, maxRows = 1e4) {
+    const result = this.query(sql, binds, maxRows);
+    return {
+      columns: result.columns,
+      rows: result.rows.map((row) => result.columns.map((column2) => row[column2] ?? null))
+    };
+  }
+  scalar(sql, binds = {}) {
+    const result = this.query(sql, binds, 1);
+    const row = result.rows[0];
+    return row ? row[result.columns[0]] ?? null : null;
+  }
+  execute(sql, binds = {}) {
+    if (DDL.test(sql))
+      throw new OracleError(-20996, "DDL is not run in the connected preview because Oracle commits it");
+    if (/^\s*release\s+savepoint\b/iu.test(sql)) return { changes: 0, lastInsertRowid: 0 };
+    const control2 = /^\s*(savepoint\s+[\w$#]+|rollback\s+to\s+(?:savepoint\s+)?[\w$#]+)\s*;?\s*$/iu.exec(sql);
+    const values = { ...this.#binds(sql, binds), [ROWS_BIND]: null, [ROWID_BIND]: null };
+    const block = control2 ? `begin
+${control2[1]};
+end;` : dmlBlock(sql, true);
+    const { texts, errors } = this.#run([
+      declareBinds(values),
+      plsqlSegment(block),
+      selectBindsSegment([ROWS_BIND, ROWID_BIND])
+    ]);
+    const error = errors[0] ?? errors[1] ?? errors[2];
+    if (error) throw error;
+    const row = jsonRows(texts[2]).rows[0] ?? {};
+    return { changes: Number(row[ROWS_BIND] ?? 0), lastInsertRowid: text11(row[ROWID_BIND]) ?? 0 };
+  }
+  #owned(table) {
+    const parts = table.replaceAll('"', "").toUpperCase().split(".");
+    return parts.length > 1 ? { owner: parts[0], name: parts[1] } : { owner: this.schema, name: parts[0] };
+  }
+  tableColumns(table) {
+    const { owner: owner2, name } = this.#owned(table);
+    const key = `${owner2}.${name}`;
+    let columns = this.#columns.get(key);
+    if (!columns && this.#prefetched && owner2 === this.schema) return [];
+    if (!columns) {
+      const own = owner2 === this.schema;
+      const dictionary = (view) => own ? `user_${view}` : `all_${view}`;
+      const ownedBy = (alias) => own ? "" : ` and ${alias}.owner = :APEXREST_OWNER`;
+      const result = this.query(
+        `select c.column_name, c.data_type, nvl2(p.column_name, 'Y', 'N') is_pk
+           from ${dictionary("tab_columns")} c
+           left join (select kc.column_name
+                        from ${dictionary("constraints")} k
+                        join ${dictionary("cons_columns")} kc on kc.constraint_name = k.constraint_name${own ? "" : " and kc.owner = k.owner"}
+                       where k.table_name = :APEXREST_TABLE and k.constraint_type = 'P'${ownedBy("k")}) p
+             on p.column_name = c.column_name
+          where c.table_name = :APEXREST_TABLE${ownedBy("c")}
+          order by c.column_id`,
+        { APEXREST_OWNER: owner2, APEXREST_TABLE: name }
+      );
+      columns = result.rows.map((row) => ({
+        name: String(row.COLUMN_NAME),
+        pk: row.IS_PK === "Y",
+        type: String(row.DATA_TYPE)
+      }));
+      this.#columns.set(key, columns);
+    }
+    return columns;
+  }
+  /**
+   * Reads column and key metadata for every table and view of the session
+   * schema in two dictionary queries, so the first page does not pay one
+   * dictionary round trip per table. A complete prefetch also answers absent
+   * schema tables; a truncated one leaves the per-table lookups in place.
+   */
+  prefetchSchema(limit = 2e4) {
+    const columns = this.query(
+      `select c.table_name, c.column_name, c.data_type, nvl2(p.column_name, 'Y', 'N') is_pk,
+              case when c.identity_column = 'YES' or c.default_length > 0 then 'Y' else 'N' end has_default
+         from user_tab_columns c
+         left join (select kc.table_name, kc.column_name
+                      from user_constraints k
+                      join user_cons_columns kc on kc.constraint_name = k.constraint_name
+                     where k.constraint_type = 'P') p
+           on p.table_name = c.table_name and p.column_name = c.column_name
+        order by c.table_name, c.column_id`,
+      {},
+      limit
+    );
+    if (columns.rows.length >= limit) return { tables: 0, complete: false };
+    const triggered = new Set(
+      this.query(
+        `select distinct table_name from user_triggers
+          where triggering_event like '%INSERT%' and status = 'ENABLED' and table_name is not null`,
+        {},
+        limit
+      ).rows.map((row) => String(row.TABLE_NAME))
+    );
+    const tables = /* @__PURE__ */ new Map();
+    for (const row of columns.rows) {
+      const table = String(row.TABLE_NAME);
+      const column2 = String(row.COLUMN_NAME);
+      let list4 = tables.get(table);
+      if (!list4) tables.set(table, list4 = []);
+      list4.push({ name: column2, pk: row.IS_PK === "Y", type: String(row.DATA_TYPE) });
+      this.#keys.set(
+        `${this.schema}.${table}.${column2}`,
+        row.HAS_DEFAULT === "Y" || triggered.has(table) ? "default" : "none"
+      );
+    }
+    for (const [table, list4] of tables) this.#columns.set(`${this.schema}.${table}`, list4);
+    this.#prefetched = true;
+    return { tables: tables.size, complete: true };
+  }
+  tableExists(table) {
+    return this.tableColumns(table).length > 0;
+  }
+  /** Oracle fills a key from an identity column, a default or an insert trigger; never max + 1. */
+  keySource(table, column2) {
+    const { owner: owner2, name } = this.#owned(table);
+    const key = `${owner2}.${name}.${column2.toUpperCase()}`;
+    let source = this.#keys.get(key);
+    if (!source && this.#prefetched && owner2 === this.schema) return "none";
+    if (!source) {
+      const own = owner2 === this.schema;
+      const found = this.scalar(
+        `select count(*) from ${own ? "user_tab_columns" : "all_tab_columns"}
+          where table_name = :APEXREST_TABLE and column_name = :APEXREST_COLUMN${own ? "" : " and owner = :APEXREST_OWNER"}
+            and (identity_column = 'YES' or default_length > 0)
+         union all
+         select count(*) from ${own ? "user_triggers" : "all_triggers"}
+          where table_name = :APEXREST_TABLE${own ? "" : " and table_owner = :APEXREST_OWNER"}
+            and triggering_event like '%INSERT%' and status = 'ENABLED'
+         order by 1 desc`,
+        { APEXREST_OWNER: owner2, APEXREST_TABLE: name, APEXREST_COLUMN: column2.toUpperCase() }
+      );
+      source = Number(found) > 0 ? "default" : "none";
+      this.#keys.set(key, source);
+    }
+    return source;
+  }
+  /** One PL/SQL unit with IN OUT binds, optional APEX session context and HTP capture. */
+  plsql(call) {
+    const after = call.after ?? {};
+    const declared = {
+      ...Object.fromEntries(Object.keys(after).map((name) => [name, null])),
+      ...call.binds,
+      [OUTPUT_BIND]: null,
+      ...call.htp ? { [HTP_BIND]: null } : {}
+    };
+    const parts = [declareBinds({ ...declared, [TX_BEFORE]: null, [TX_AFTER]: null })];
+    if (call.apex) parts.push(plsqlSegment(apexContextBlock(call.apex, call.binds)));
+    if (call.htp) parts.push(plsqlSegment(HTP_INIT_BLOCK));
+    parts.push(plsqlSegment(`begin
+  :${TX_BEFORE} := dbms_transaction.local_transaction_id(true);
+end;`));
+    const unit = parts.push(plsqlSegment(call.block)) - 1;
+    parts.push(plsqlSegment(`begin
+  :${TX_AFTER} := dbms_transaction.local_transaction_id;
+end;`));
+    if (Object.keys(after).length)
+      parts.push(
+        plsqlSegment(
+          `begin
+${Object.entries(after).map(([name, expression]) => `  :${bindName(name)} := ${expression};`).join("\n")}
+end;`
+        )
+      );
+    parts.push(plsqlSegment(DBMS_OUTPUT_BLOCK));
+    if (call.htp) parts.push(plsqlSegment(HTP_READ_BLOCK));
+    if (call.apex && this.commit) parts.push(plsqlSegment("begin\n  apex_session.delete_session;\nend;"));
+    const names = [...Object.keys(declared), TX_BEFORE, TX_AFTER].map(bindName);
+    parts.push(selectBindsSegment(names));
+    const { texts, errors } = this.#run(parts);
+    const setup = errors.slice(0, unit).find(Boolean);
+    if (setup) throw setup;
+    const read = errors.at(-1);
+    if (read) throw read;
+    const row = jsonRows(texts.at(-1)).rows[0] ?? {};
+    const values = Object.fromEntries(names.map((name) => [name, text11(row[name])]));
+    const ended = !this.commit && values[TX_BEFORE] !== values[TX_AFTER];
+    delete values[TX_BEFORE];
+    delete values[TX_AFTER];
+    const error = ended ? new OracleError(
+      -20997,
+      "The code ended the Oracle transaction (COMMIT, ROLLBACK or DDL); work done before that point may be committed"
+    ) : errors[unit];
+    return {
+      ...error ? { error } : {},
+      values,
+      output: values[OUTPUT_BIND] ?? "",
+      // owa.get_page starts with the CGI header block; dynamic content needs only the body.
+      htp: (values[HTP_BIND] ?? "").replace(/^(?:[\w-]+:[^\n]*\n)+\n/u, "")
+    };
+  }
+  /**
+   * Whether this session holds a transaction. Under JDBC auto-commit every statement commits at
+   * once and a rollback fails with ORA-17274; the preview must then not run at all.
+   */
+  transactional() {
+    const { errors } = this.#run(["rollback;"], false);
+    if (errors[0]?.code === -17274) return false;
+    if (errors[0]) throw errors[0];
+    return true;
+  }
+  /**
+   * Ends the preview request. Its Oracle work is rolled back, unless the data is in commit mode
+   * and `succeeded` is true: then it is committed, as APEX commits a page request without errors.
+   */
+  endRequest(succeeded = false) {
+    if (!this.#dirty) return;
+    this.#dirty = false;
+    const { errors } = this.#run([this.commit && succeeded ? "commit;" : "rollback;"], false);
+    if (errors[0]) throw errors[0];
+  }
+  close() {
     try {
-      const ctx = await loadProject(root);
-      source = path14.resolve(ctx.root, ctx.config.application.sourceDir);
-    } catch {
-      source = path14.resolve(root);
+      this.endRequest();
+    } finally {
+      this.link.close();
     }
   }
-  if (!fs13.existsSync(path14.join(source, "application.apx")))
-    throw new Fault(
-      "PREVIEW_SOURCE_MISSING",
-      `${source} has no application.apx. Pass sourceDir with the APEXlang application folder.`,
-      2
-    );
-  return fs13.realpathSync(source);
+};
+function apexContextBlock(apex, binds) {
+  const items = Object.entries(binds).filter(([name]) => apex.items.has(name.toUpperCase())).map(([name]) => `  apex_util.set_session_state(${sqlText(name.toUpperCase())}, :${bindName(name)});`);
+  return `begin
+  apex_session.create_session(p_app_id => ${apex.applicationId}, p_page_id => ${apex.pageId}, p_username => ${sqlText(apex.user)});
+${items.join("\n")}
+end;`;
 }
-async function projectData(root, sourceDir) {
-  if (fs13.existsSync(path14.join(sourceDir, ".apex-local"))) return {};
-  let ctx;
-  try {
-    ctx = await loadProject(root);
-  } catch {
-    return {};
+
+// packages/core/src/preview/oracle/bridge.ts
+import fs10 from "node:fs";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+import { MessageChannel, Worker, receiveMessageOnPort } from "node:worker_threads";
+function defaultWorker() {
+  const source = new URL("./worker.ts", import.meta.url);
+  if (fs10.existsSync(fileURLToPath2(source))) return source;
+  return new URL("./preview-oracle-worker.mjs", import.meta.url);
+}
+var WorkerBridge = class {
+  #options;
+  #worker;
+  #port;
+  #flag = new Int32Array(new SharedArrayBuffer(4));
+  #id = 0;
+  constructor(options3) {
+    this.#options = options3;
   }
-  const appDir = path14.resolve(ctx.root, ctx.config.application.sourceDir);
-  if (!fs13.existsSync(appDir) || fs13.realpathSync(appDir) !== sourceDir) return {};
-  return {
-    database: path14.join(ctx.root, ".apexrest", "preview", "preview.sqlite"),
-    seedDirs: [path14.resolve(ctx.root, ctx.config.database.migrationsDir), path14.join(ctx.root, ".apex-local")]
-  };
-}
-function summarize(diagnostics) {
-  const count = (level) => diagnostics.filter((entry) => entry.level === level).length;
-  const ranked = [...diagnostics].sort(
-    (a, b) => ["error", "warning", "info"].indexOf(a.level) - ["error", "warning", "info"].indexOf(b.level)
-  );
-  return {
-    counts: { error: count("error"), warning: count("warning"), info: count("info") },
-    diagnostics: ranked.slice(0, DIAGNOSTICS_LIMIT),
-    truncated: diagnostics.length > DIAGNOSTICS_LIMIT
-  };
-}
-function gapsFor(sourceDir) {
-  let gaps;
-  try {
-    gaps = localGaps(loadApplication(sourceDir));
-  } catch {
-    return {};
+  #start() {
+    if (this.#worker && this.#port) return { worker: this.#worker, port: this.#port };
+    const channel = new MessageChannel();
+    const entry = this.#options.worker ?? defaultWorker();
+    const data = { settings: this.#options.settings, flag: this.#flag.buffer, port: channel.port2 };
+    const worker = entry instanceof URL ? new Worker(entry, { workerData: data, transferList: [channel.port2] }) : new Worker(entry.source, { eval: true, workerData: data, transferList: [channel.port2] });
+    worker.unref();
+    worker.on("error", () => this.#reset());
+    this.#worker = worker;
+    this.#port = channel.port1;
+    return { worker, port: channel.port1 };
   }
-  return gaps.length ? { notAppliedLocally: gaps.slice(0, DIAGNOSTICS_LIMIT) } : {};
-}
-async function assetsReady(assetsDir) {
-  try {
-    loadAssets(assetsDir);
-    return;
-  } catch {
+  #reset() {
+    void this.#worker?.terminate();
+    this.#port?.close();
+    this.#worker = void 0;
+    this.#port = void 0;
   }
-  try {
-    await previewSetup({ assetsDir });
-    loadAssets(assetsDir);
-  } catch (error) {
-    throw new Fault("PREVIEW_ASSETS_MISSING", error.message, 3, "blocked", {
-      nextActions: [
-        "The automatic preview setup failed. Run apexrest preview setup with --zip and a local apex_26.2 zip, or check network access to download.oracle.com."
-      ]
-    });
-  }
-}
-async function previewSetup(input) {
-  const assets = await setupAssets({
-    ...input.assetsDir ? { assetsDir: input.assetsDir } : {},
-    ...input.zip ? { zipPath: input.zip } : {},
-    ...input.sha256 ? { expectedSha256: input.sha256 } : {},
-    onProgress: (message) => process.stderr.write(`[preview] ${message}
-`)
-  });
-  return {
-    assetsDir: assets.dir,
-    apexVersion: assets.manifest.apexVersion,
-    files: assets.manifest.files,
-    sha256: assets.manifest.sha256,
-    source: assets.manifest.source,
-    templates: assets.theme.length
-  };
-}
-async function previewStart(root, input) {
-  const commit = input.commit === true;
-  if (commit && !input.env)
-    throw new Fault(
-      "INVALID_INPUT",
-      "commit needs env: it commits requests to that environment's local Oracle database. The SQLite preview keeps its data anyway.",
-      2
-    );
-  const sourceDir = await resolveSource(root, input.sourceDir);
-  await assetsReady(input.assetsDir);
-  const previous = running.get(sourceDir);
-  if (previous && !input.reset && input.port === void 0 && (previous.options.oracle?.environment ?? void 0) === input.env && previous.options.oracle?.commit === true === commit)
-    return describe(previous, true);
-  if (previous) await stopServer(sourceDir, previous);
-  const oracle = input.env ? await connectOracle(root, input.env, void 0, { commit }) : void 0;
-  const data = await projectData(root, sourceDir);
-  const server = new PreviewServer({
-    ...oracle ? { oracle } : {},
-    ...data.seedDirs ? { seedDirs: data.seedDirs } : {},
-    ...data.database && !oracle ? { database: data.database } : {},
-    sourceDir,
-    ...input.assetsDir ? { assetsDir: input.assetsDir } : {},
-    ...input.port === void 0 ? {} : { port: input.port },
-    ...input.reset ? { reset: true } : {},
-    ...input.sampleRows === void 0 ? {} : { sampleRows: input.sampleRows },
-    ...input.user ? { user: input.user } : {},
-    ...input.toolbar === void 0 ? {} : { toolbar: input.toolbar }
-  });
-  await server.start();
-  running.set(sourceDir, server);
-  const address = new URL(server.url);
-  registerPreview({
-    port: Number(address.port),
-    host: address.hostname.replace(/^\[|\]$/g, ""),
-    url: server.url,
-    sourceDir,
-    ...server.options.oracle ? { environment: server.options.oracle.environment } : {}
-  });
-  return describe(server, false);
-}
-async function stopServer(sourceDir, server) {
-  let port;
-  try {
-    port = Number(new URL(server.url).port);
-  } catch {
-  }
-  await server.stop();
-  running.delete(sourceDir);
-  if (port !== void 0) unregisterPreview(port);
-}
-function describe(server, reused) {
-  return {
-    url: server.url,
-    reused,
-    sourceDir: server.options.sourceDir,
-    database: server.db.file,
-    apexVersion: APEX_FULL_VERSION,
-    pages: server.pages(),
-    note: server.options.oracle ? `Connected preview: application data and PL/SQL run in Oracle environment ${server.options.oracle.environment} (${server.options.oracle.target}); ${server.options.oracle.commit ? "commit mode: successful requests are committed, failed ones rolled back" : "every request is rolled back"}. Rendering is still simulated; not import or browser evidence.` : "Local simulation with Universal Theme 26.2 assets and SQLite. Not Oracle evidence; PL/SQL beyond the local interpreter is skipped.",
-    data: server.options.oracle ? {
-      mode: "oracle",
-      environment: server.options.oracle.environment,
-      target: server.options.oracle.target,
-      commit: server.options.oracle.commit === true
-    } : { mode: "sqlite" },
-    ...summarize(server.diagnostics()),
-    ...gapsFor(server.options.sourceDir)
-  };
-}
-async function listPreviews() {
-  const local = [...running].map(([sourceDir, server]) => ({
-    url: server.url,
-    port: Number(new URL(server.url).port),
-    sourceDir,
-    pid: process.pid,
-    owner: "this-process",
-    ...server.options.oracle ? { environment: server.options.oracle.environment } : {},
-    server
-  }));
-  const others = (await otherPreviews()).map((entry) => ({
-    url: entry.url,
-    port: entry.port,
-    sourceDir: entry.sourceDir,
-    pid: entry.pid,
-    owner: entry.owner,
-    ...entry.environment ? { environment: entry.environment } : {},
-    entry
-  }));
-  return [...local, ...others];
-}
-async function selector(root, input, fallback) {
-  const tests = [];
-  const described = [];
-  const none = input.sourceDir === void 0 && input.project === void 0 && input.port === void 0;
-  if (input.sourceDir !== void 0 || fallback === "project-source" && none) {
-    const source = await resolveSource(root, input.sourceDir);
-    tests.push((entry) => entry.sourceDir === source);
-    described.push(source);
-  } else if (input.project !== void 0) {
-    let projectRoot;
-    try {
-      projectRoot = fs13.realpathSync(path14.resolve(input.project));
-    } catch {
-      throw new Fault("INVALID_INPUT", `Project directory ${input.project} does not exist.`, 2);
-    }
-    tests.push(
-      (entry) => entry.sourceDir === projectRoot || entry.sourceDir.startsWith(projectRoot + path14.sep)
-    );
-    described.push(`project ${projectRoot}`);
-  }
-  if (input.port !== void 0) {
-    const port = input.port;
-    tests.push((entry) => entry.port === port);
-    described.push(`port ${port}`);
-  }
-  return {
-    match: (entry) => tests.every((check) => check(entry)),
-    described: described.join(", ")
-  };
-}
-var summaryOf = (entry) => ({
-  url: entry.url,
-  port: entry.port,
-  sourceDir: entry.sourceDir,
-  pid: entry.pid,
-  owner: entry.owner,
-  ...entry.environment ? { environment: entry.environment } : {},
-  ...entry.server ? summarize(entry.server.diagnostics()).counts : {},
-  ...entry.server ? gapsFor(entry.sourceDir) : {}
-});
-async function previewStop(root, input) {
-  const listed = await listPreviews();
-  const filter = input.all ? void 0 : await selector(root, input, "project-source");
-  const targets = filter ? listed.filter(filter.match) : listed;
-  const stopped = [];
-  const notStopped = [];
-  let hosted = false;
-  for (const target2 of targets) {
-    if (target2.server) {
-      await stopServer(target2.sourceDir, target2.server);
-      stopped.push(target2.sourceDir);
-    } else if (target2.entry?.owner === "cli") {
-      if (await stopOtherPreview(target2.entry)) stopped.push(target2.sourceDir);
-      else
-        notStopped.push({
-          url: target2.url,
-          sourceDir: target2.sourceDir,
-          pid: target2.pid,
-          reason: `Process ${target2.pid} did not close port ${target2.port} within 10 seconds.`
-        });
-    } else {
-      hosted = true;
-      notStopped.push({
-        url: target2.url,
-        sourceDir: target2.sourceDir,
-        pid: target2.pid,
-        reason: `Hosted by another APEXREST MCP process (pid ${target2.pid}); stop it from that session with apexrest_preview action:stop.`
-      });
-    }
-  }
-  if (!stopped.length && notStopped.length)
-    throw new Fault(
-      "PREVIEW_STOP_FAILED",
-      notStopped.map((entry) => `${entry.url}: ${entry.reason}`).join(" "),
-      hosted ? 5 : 1,
-      hosted ? "blocked" : "failed"
-    );
-  if (!stopped.length) {
-    const others = listed.map((entry) => `${entry.url} (${entry.sourceDir})`).join("; ");
-    throw new Fault(
-      "PREVIEW_NOT_RUNNING",
-      `No running preview matches ${filter?.described || "the selection"}; nothing was stopped.` + (others ? ` Running: ${others}.` : " No preview is running."),
-      2,
-      "not_found",
-      {
-        nextActions: [
-          "Run apexrest preview status to list running previews with their source folders and ports."
-        ]
+  #call(request) {
+    const timeoutMs = this.#options.timeoutMs ?? 3e4;
+    const { worker, port } = this.#start();
+    const id = ++this.#id;
+    Atomics.store(this.#flag, 0, 0);
+    worker.postMessage({ id, input: request.input, timeoutMs, ...request.close ? { close: true } : {} });
+    const deadline = Date.now() + timeoutMs + (this.#options.graceMs ?? 15e3);
+    for (; ; ) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0 || Atomics.wait(this.#flag, 0, 0, remaining) === "timed-out") {
+        this.#reset();
+        throw new OracleError(
+          -20994,
+          `Oracle did not answer within ${Math.round(timeoutMs / 1e3)} s; the session was reset and its work rolled back`
+        );
       }
-    );
+      let reply3 = receiveMessageOnPort(port)?.message;
+      while (reply3 && reply3.id !== id) reply3 = receiveMessageOnPort(port)?.message;
+      if (!reply3) {
+        Atomics.store(this.#flag, 0, 0);
+        continue;
+      }
+      if (!reply3.ok)
+        throw new OracleError(-20995, `Oracle session failed: ${reply3.error ?? "unknown error"}`);
+      return reply3.output ?? "";
+    }
   }
-  const remaining = (await listPreviews()).map((entry) => entry.sourceDir);
-  return { stopped, ...notStopped.length ? { notStopped } : {}, running: remaining };
-}
-async function previewStatus(root = process.cwd(), input = {}) {
-  const filter = await selector(root, input, "all");
-  return {
-    assetsDir: defaultAssetsDir(),
-    assetsInstalled: fs13.existsSync(path14.join(defaultAssetsDir(), "manifest.json")),
-    download: APEX_DOWNLOAD_URL,
-    running: (await listPreviews()).filter(filter.match).map(summaryOf)
-  };
-}
-async function previewCheck(root, input) {
-  const sourceDir = await resolveSource(root, input.sourceDir);
-  await assetsReady(input.assetsDir);
-  const oracle = input.env ? await connectOracle(root, input.env) : void 0;
-  const { seedDirs } = await projectData(root, sourceDir);
-  const result = checkApplication({
-    sourceDir,
-    ...oracle ? { oracle } : {},
-    ...seedDirs ? { seedDirs } : {},
-    ...input.assetsDir ? { assetsDir: input.assetsDir } : {},
-    ...input.pages ? { pages: input.pages } : {},
-    ...input.sampleRows === void 0 ? {} : { sampleRows: input.sampleRows },
-    toolbar: false
-  });
-  return { sourceDir, pages: result.pages, ...summarize(result.diagnostics), ...gapsFor(sourceDir) };
-}
-async function previewDispatch(operation2, parsed2, root) {
-  const { action, ...input } = parsed2;
-  const selected = operation2 === "preview" ? String(action) : operation2.slice("preview.".length);
-  if (input.commit && selected !== "start")
-    throw new Fault("INVALID_INPUT", "commit applies only to preview start with env", 2);
-  switch (selected) {
-    case "setup":
-      return previewSetup(input);
-    case "start":
-      return previewStart(root, input);
-    case "check":
-      return previewCheck(root, input);
-    case "stop":
-      return previewStop(root, input);
-    case "status":
-      return operation2 === "preview" ? previewStatus(root, { sourceDir: input.sourceDir, port: input.port }) : previewStatus(root, input);
-    default:
-      throw new Fault("INVALID_INPUT", `Unknown preview action: ${selected}`, 2);
+  run(input) {
+    return this.#call({ input });
   }
-}
+  close() {
+    if (!this.#worker) return;
+    try {
+      this.#call({ input: "", close: true });
+    } catch {
+    }
+    this.#reset();
+  }
+};
+
 export {
-  previewCheck,
-  previewDispatch,
-  previewSetup,
-  previewStart,
-  previewStatus,
-  previewStop
+  localGaps,
+  bindNames,
+  OracleAppData,
+  apexContextBlock,
+  WorkerBridge,
+  PreviewServer,
+  checkApplication
 };

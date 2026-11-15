@@ -268,6 +268,15 @@ export interface PreviewExtension {
 
 export const extensions: PreviewExtension[] = [];
 
+/** Runs once per renderer, after its database is open and seeded (e.g. the application's PL/SQL). */
+const rendererSetups: ((renderer: ApexRenderer) => void)[] = [];
+export function registerRendererSetup(setup: (renderer: ApexRenderer) => void): void {
+  rendererSetups.push(setup);
+}
+export function setUpRenderer(renderer: ApexRenderer): void {
+  for (const setup of rendererSetups) setup(renderer);
+}
+
 export function registerExtension(extension: PreviewExtension): void {
   const existing = extensions.findIndex((entry) => entry.name === extension.name);
   if (existing >= 0) extensions.splice(existing, 1, extension);

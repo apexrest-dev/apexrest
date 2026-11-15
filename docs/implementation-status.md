@@ -4,6 +4,29 @@ The current source and bundled plugin version is **2.7.0**. The current contract
 
 ## Implemented
 
+- `apexrest build webapp` (2026-11-15): writes a standalone Node.js application for an APEXlang application: the sources, the preview's renderer in application mode and a `node-oracledb` driver. Application mode adds real sign-in (accounts file, PL/SQL function or database accounts), login-required pages, enforced authorization, unguessable session ids, a host allowlist and no developer surface. See [build a web application](webapp.md).
+  - **Checked on local Docker.** A built application started from a clean environment; `tests/webapp/e2e.mjs` passed nine steps including a committed form insert read back on a separate connection. Sample Dynamic Actions (27 pages) and Sample Charts (49 pages) rendered against Oracle without a failure; Customers rendered 126 pages without a page error and 37 failing statements after a partly failed install-script run. A 119-page trading application (Trade) passed a 23-step scripted session in headless Chromium, including a posted and unposted document read back on a separate connection, and answered all 118 pages for five accounts with role denials enforced; the script and its results are in `docs/evidence/webapp-build/trade-demo-run/`.
+  - **Recipe catalogs on local Docker (2026-11-15).** One application assembled from the 338 ready component and pattern recipes (376 demo pages) was built and every page requested once after sign-in: no HTTP error, Oracle error, error alert or placeholder remained once the recipes' example tables were installed. Page loads only; no submit, dynamic action or browser check, and no import into APEX. It found the SDO_GEOMETRY map layer and the `RESOURCE` alias fixed in this change.
+  - **Unit tests** cover the build output and refusals, password hashing and application mode without a database.
+  - **Not checked.** A browser session, concurrent users, a remote database, HTTPS behind a proxy, `plsql`/`database` sign-in against real accounts, an APEX session with an imported application. Session state protection is not implemented, one process serves one request at a time, and sessions are in memory.
+
+- Local preview runs the application's database code (2026-11-15): packages, standalone routines, install blocks and BEFORE row triggers from the install scripts, PL/SQL region and item plug-ins (render and ajax callbacks), Oracle outer joins, hierarchical queries in every statement and Oracle dictionary views over the local schema. See [local preview](local-preview.md#application-database-code). `npm run preview:corpus` renders every page of the 33 public Oracle APEX 26.2 applications without a database; the same scorecard before and after the change (same rules, same pinned archive):
+
+  | Measure (1,483 pages, 33 applications)         | Before | After |
+  | ---------------------------------------------- | -----: | ----: |
+  | Pages that failed to render                    |     20 |     0 |
+  | Regions shown as a placeholder                 |    249 |     2 |
+  | Application package calls not run              |  3,066 |    30 |
+  | APEX API calls not run                         |    355 |   102 |
+  | Seed script failures                           |  1,737 |   213 |
+  | SQL failures                                   |    868 |   299 |
+  | Authorization schemes denying for want of data |    938 |   341 |
+  | Tables invented with sample rows               |    103 |    10 |
+  | Computations and conditions not evaluated      |    150 |    21 |
+  | Error diagnostics                              |    312 |   160 |
+  - **Checks.** Unit tests cover seed rules, install order, identity keys, trigger translation, outer joins, the dictionary views, SQL shims, overload resolution, and one application end to end (package state and initialization, package and standalone functions in region SQL, an install block, a region plug-in with attributes, region data, page code and an ajax callback, and an item plug-in). Lint, typecheck and the unit suite pass.
+  - **Limits.** Counts are local preview diagnostics, not Oracle behavior: the preview still interprets a subset of PL/SQL and translates SQL to SQLite. Remaining gaps are listed in [next actions](next-actions.md). The scorecards are in `docs/evidence/preview-corpus/` (not in Git).
+
 - Optional project-scoped OpenAI Decisions component selection through `apexrest_reference mode:select` / `docs select`: one bounded batch, compatible local shortlist, private ENV credentials and explicit local fallback. The current host model composes final APEXlang. Repository tests cover transport fixtures and CLI/MCP contracts; live fixed-case API selection, latency and usage are recorded below. Native-host application authoring remains separate.
 
 - Six skills and twelve composite MCP tools for Codex and Claude Code, backed by one canonical work skill and CLI/runtime. Managed payloads include both marketplaces and bind both MCP adapters to the same Node executable and managed home; Claude retains cache-root expansion.

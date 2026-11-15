@@ -7,6 +7,7 @@ import {
   isObject,
   isRef,
   list,
+  parseApexLang,
   num,
   ref,
   str,
@@ -128,6 +129,14 @@ export interface Session {
   success?: string | undefined;
   errors?: ApexError[] | undefined;
   pagination: Record<string, number>;
+  /** Set after a successful sign-in in application mode (webapp/server.ts). */
+  authenticated?: boolean | undefined;
+  /** Time of the last request, for the application-mode idle timeout. */
+  lastSeen?: number | undefined;
+  /** `http://host:port` of the preview as the browser addressed it (apex_util.host_url). */
+  origin?: string | undefined;
+  /** Session time zone set by apex_util.set_session_time_zone. */
+  timeZone?: string | undefined;
   /** Theme style chosen from the preview toolbar; overrides the application's current style. */
   themeStyle?: string | undefined;
   /**
@@ -378,6 +387,8 @@ export class ApexRenderer {
   readonly options: Required<Omit<RenderOptions, 'oracle'>>;
   #autoTables = new Set<string>();
   #diagnosticKeys = new Set<string>();
+  /** False after the application's error handling function could not be called once. */
+  #errorHandlerUsable = true;
 
   constructor(app: ApxApplication, assets: ApexAssets, db: LocalDatabase, options: RenderOptions = {}) {
     this.app = app;
@@ -394,6 +405,12 @@ export class ApexRenderer {
       seedDirs: options.seedDirs ?? [],
     };
   }
+
+  /**
+   * The page context of the request being rendered most recently. SQL functions that run the
+   * application's PL/SQL outside an interpreter (a package function in region SQL) use its session.
+   */
+  lastContext: RenderContext | undefined;
 
   get baseUrl(): string {
     return `/r/${this.alias}`;
@@ -539,6 +556,8 @@ export class ApexRenderer {
       APP_PAGE_ALIAS: str(page?.props ?? {}, 'alias').toUpperCase(),
       APP_VERSION: '',
       APP_TENANT_ID: '',
+      // The preview's one workspace (dictionary views report it as PREVIEW).
+      WORKSPACE_ID: '1000000000000001',
       BROWSER_LANGUAGE: 'en',
       LOGOUT_URL: `${this.baseUrl}/__logout`,
       APP_IMAGES: `${this.baseUrl}/files/static/v1/`,
@@ -668,8 +687,26 @@ export class ApexRenderer {
       case 'userIsAuthenticated':
         return true;
       case 'userIsThePublicUser':
+      case 'userIsPublicUser':
       case 'never':
         return false;
+      case 'userIsNotPublicUser':
+      case 'userIsNotThePublicUser':
+        return true;
+      // No inline validation errors are pending when a page renders.
+      case 'inlineValidationErrorsDisplayed':
+        return Boolean(ctx.session.errors?.length);
+      case 'inlineValidationErrorsNotDisplayed':
+        return !ctx.session.errors?.length;
+      case 'currentPageIsNotInValue':
+        return !value.split(',').includes(ctx.pageId);
+      case 'currentPageNotEquals':
+      case 'currentPage!=page':
+        return ctx.pageId !== (str(condition, 'page') || value);
+      case 'requestIsNull':
+        return request === '';
+      case 'requestIsNotNull':
+        return request !== '';
       case 'always':
       case '':
         return true;
@@ -1111,6 +1148,12 @@ export class ApexRenderer {
   repairSchema(ctx: RenderContext, region: ApxComponent, sql: string, message: string): boolean {
     if (this.data.dialect === 'oracle') return false;
     const missingTable = /no such table: (?:main\.)?"?([\w$#]+)"?/iu.exec(message)?.[1];
+    // Oracle-owned names are never application tables: a sample table would hide the real problem.
+    if (
+      missingTable &&
+      /^(?:dual|sys|system|public|v\$\w*|gv\$\w*|user_\w+|all_\w+|dba_\w+)$/iu.test(missingTable)
+    )
+      return false;
     if (missingTable) {
       if (/^APEX_/iu.test(missingTable)) {
         this.diagnose(
@@ -1170,62 +1213,13 @@ export class ApexRenderer {
       itemErrors: new Map(),
       messageTemplates: {},
     };
+    this.lastContext = ctx;
     this.trace(ctx, {
       type: 'begin',
       name: `Show page ${page.id}`,
       detail: [str(page.props, 'name'), request && `request ${request}`].filter(Boolean).join(' · '),
     });
-    for (const item of this.pageComponents(ctx, 'pageItem')) {
-      const name = item.id.toUpperCase();
-      if ((session.items[name] ?? '') !== '') continue;
-      const type = str(item.props, 'default.type');
-      const value = str(item.props, 'default.staticValue') || str(item.props, 'default.value');
-      if (value && (type === '' || type === 'static' || type === 'staticValue'))
-        session.items[name] = this.substitute(session, value, page, 'RAW');
-      // hook: PL/SQL defaults and item references are evaluated by extensions (extensions/server.ts)
-      else if (type === 'item')
-        session.items[name] = session.items[str(item.props, 'default.item').toUpperCase()] ?? '';
-      else if (
-        type === 'functionBody' ||
-        type === 'sqlQuerySingleValue' ||
-        (type === 'expression' && str(item.props, 'default.plsqlExpression'))
-      ) {
-        const code =
-          str(item.props, 'default.plsqlFunctionBody') ||
-          str(item.props, 'default.plsqlExpression') ||
-          str(item.props, 'default.sqlQuerySingleValue');
-        const language =
-          type === 'functionBody'
-            ? 'plsqlFunctionBody'
-            : type === 'expression'
-              ? 'plsqlExpression'
-              : 'sqlExpression';
-        const result = evaluateExpression(
-          this,
-          ctx,
-          type === 'sqlQuerySingleValue' ? `(${code})` : code,
-          language,
-        );
-        if (result === undefined) this.diagnose('info', `Default for ${name} not evaluated`, page.id, name);
-        else session.items[name] = result === null || result === false ? '' : String(result);
-      } else if (type === 'sqlQuery' || type === 'expression') {
-        const sql = str(item.props, 'default.sqlQuery') || str(item.props, 'default.sqlExpression');
-        if (sql) {
-          try {
-            session.items[name] = String(
-              this.data.scalar(
-                sql.startsWith('select')
-                  ? sql
-                  : `select ${sql}${this.data.dialect === 'oracle' ? ' from dual' : ''}`,
-                this.binds(session, page),
-              ) ?? '',
-            );
-          } catch {
-            this.diagnose('info', `Default for ${name} not evaluated`, page.id, name);
-          }
-        }
-      }
-    }
+    for (const item of this.pageComponents(ctx, 'pageItem')) this.applyDefault(ctx, item);
     // hook: application computations/processes and authorization (extensions/server.ts)
     const pointErrors = runPointExtensions(this, ctx, 'beforeHeader');
     if (pointErrors.length) session.errors = [...(session.errors ?? []), ...pointErrors];
@@ -1348,6 +1342,60 @@ export class ApexRenderer {
     );
   }
 
+  /** Gives an empty item its declared default (static, item, PL/SQL or SQL). */
+  applyDefault(ctx: RenderContext, item: ApxComponent): void {
+    const { session, page } = ctx;
+    const name = item.id.toUpperCase();
+    if ((session.items[name] ?? '') !== '') return;
+    const type = str(item.props, 'default.type');
+    const value = str(item.props, 'default.staticValue') || str(item.props, 'default.value');
+    if (value && (type === '' || type === 'static' || type === 'staticValue'))
+      session.items[name] = this.substitute(session, value, page, 'RAW');
+    // hook: PL/SQL defaults and item references are evaluated by extensions (extensions/server.ts)
+    else if (type === 'item')
+      session.items[name] = session.items[str(item.props, 'default.item').toUpperCase()] ?? '';
+    else if (
+      type === 'functionBody' ||
+      type === 'sqlQuerySingleValue' ||
+      (type === 'expression' && str(item.props, 'default.plsqlExpression'))
+    ) {
+      const code =
+        str(item.props, 'default.plsqlFunctionBody') ||
+        str(item.props, 'default.plsqlExpression') ||
+        str(item.props, 'default.sqlQuerySingleValue');
+      const language =
+        type === 'functionBody'
+          ? 'plsqlFunctionBody'
+          : type === 'expression'
+            ? 'plsqlExpression'
+            : 'sqlExpression';
+      const result = evaluateExpression(
+        this,
+        ctx,
+        type === 'sqlQuerySingleValue' ? `(${code})` : code,
+        language,
+      );
+      if (result === undefined) this.diagnose('info', `Default for ${name} not evaluated`, page.id, name);
+      else session.items[name] = result === null || result === false ? '' : String(result);
+    } else if (type === 'sqlQuery' || type === 'expression') {
+      const sql = str(item.props, 'default.sqlQuery') || str(item.props, 'default.sqlExpression');
+      if (sql) {
+        try {
+          session.items[name] = String(
+            this.data.scalar(
+              sql.startsWith('select')
+                ? sql
+                : `select ${sql}${this.data.dialect === 'oracle' ? ' from dual' : ''}`,
+              this.binds(session, page),
+            ) ?? '',
+          );
+        } catch {
+          this.diagnose('info', `Default for ${name} not evaluated`, page.id, name);
+        }
+      }
+    }
+  }
+
   initializeForm(ctx: RenderContext, regionId: string | undefined): void {
     const region = this.pageComponents(ctx, 'region').find((candidate) => candidate.id === regionId);
     if (!region) return;
@@ -1357,7 +1405,12 @@ export class ApexRenderer {
     if (!table || !keys.length) return;
     this.ensureTable(ctx, table, this.regionColumns(ctx, region));
     if (keys.some((key) => !ctx.session.items[key.id.toUpperCase()])) {
-      for (const item of items) if (!keys.includes(item)) delete ctx.session.items[item.id.toUpperCase()];
+      // A new row: the form starts empty, then each item takes its default, as in APEX.
+      for (const item of items) {
+        if (keys.includes(item)) continue;
+        delete ctx.session.items[item.id.toUpperCase()];
+        this.applyDefault(ctx, item);
+      }
       return;
     }
     const where = keys
@@ -1473,6 +1526,53 @@ export class ApexRenderer {
     session.user = (username || 'DEVELOPER').toUpperCase();
     const home = this.findPage(this.homePage());
     return { redirectURL: home ? this.pagePath(home) : this.baseUrl };
+  }
+
+  /**
+   * Errors as the application's error handling function words them. APEX passes each error to that
+   * function before showing it; here it runs in the connected Oracle database for errors that carry
+   * an ORA code, which needs the APEX error API (`apex_error`) there. Without it, or when the call
+   * fails, the messages are unchanged.
+   */
+  userErrors<T extends { message: string }>(errors: T[] | undefined): T[] {
+    if (!errors?.length) return errors ?? [];
+    const handler = str(this.app.app.props, 'errorHandling.errorHandlingFunctionName');
+    if (!this.oracle || !this.#errorHandlerUsable || !/^[\w$#]+(?:\.[\w$#]+){0,2}$/u.test(handler))
+      return errors;
+    return errors.map((error) => {
+      const found = /ORA-(\d{5})/u.exec(error.message);
+      if (!found || !this.#errorHandlerUsable) return error;
+      const reply = this.oracle!.data.plsql({
+        block: `declare
+  l_error apex_error.t_error;
+  l_result apex_error.t_error_result;
+begin
+  l_error.message := :EH_MESSAGE;
+  l_error.ora_sqlcode := -to_number(:EH_CODE);
+  l_error.ora_sqlerrm := :EH_SQLERRM;
+  l_error.is_internal_error := false;
+  l_error.display_location := apex_error.c_inline_in_notification;
+  l_result := ${handler}(l_error);
+  :EH_RESULT := substr(l_result.message, 1, 4000);
+end;`,
+        binds: {
+          EH_MESSAGE: error.message.slice(0, 4000),
+          EH_CODE: Number(found[1]),
+          EH_SQLERRM: error.message.slice(found.index, found.index + 4000),
+          EH_RESULT: null,
+        },
+      });
+      if (reply.error) {
+        this.#errorHandlerUsable = false;
+        this.diagnose(
+          'warning',
+          `Error handling function ${handler} could not be called (${reply.error.message.split('\n')[0]}); errors keep their database text`,
+        );
+        return error;
+      }
+      const message = reply.values.EH_RESULT;
+      return message ? { ...error, message } : error;
+    });
   }
 
   /** Implements `wwv_flow.accept` for apex.page.submit (reload on submit = "S"). */
@@ -2095,7 +2195,7 @@ export class ApexRenderer {
     const hidden = (name: string, id: string, value: string) =>
       `<input type="hidden" name="${name}" value="${escapeHtml(value)}" id="${id}" />`;
     const success = ctx.session.success;
-    const errors = ctx.session.errors;
+    const errors = this.userErrors(ctx.session.errors);
     ctx.session.success = undefined;
     ctx.session.errors = undefined;
     const builtins: Record<string, string> = {
@@ -3381,7 +3481,7 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
   }
 
   element(ctx: RenderContext, item: ApxComponent, type: string, name: string, value: string): string {
-    const extension = itemRenderer(type);
+    const extension = itemRenderer(type) ?? (type.startsWith('plugin/') ? itemRenderer('plugin') : undefined);
     if (extension) return extension(this, ctx, item, name, value);
     const v = escapeHtml(value);
     const width = num(item.props, 'appearance.width', 30);
@@ -3671,22 +3771,46 @@ ${pagination ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom"><
           .sort()
           .map((name) => path.join(local, name))
       : [];
-    if (!scripts.length) {
-      const supporting = path.join(appRoot, 'supporting-objects');
-      if (fs.existsSync(supporting)) {
-        scripts.push(
-          ...fs
-            .readdirSync(supporting, { recursive: true, encoding: 'utf8' })
-            .filter((name) => name.endsWith('.sql') && !/deinstall|upgrade/iu.test(name))
-            .sort()
-            .map((name) => path.join(supporting, name)),
-        );
-      }
-    }
+    if (!scripts.length) scripts.push(...installScripts(appRoot));
     return scripts.flatMap((script) =>
       db.runScript(fs.readFileSync(script, 'utf8'), path.relative(appRoot, script)),
     );
   }
+}
+
+/**
+ * Supporting-object install scripts in the order APEX runs them: the `installScript` components of
+ * `supporting-objects/install-scripts.apx` by `execution.sequence`, each reading `script.contentFile`
+ * from `install-scripts/`. Without that file (older exports), every non-deinstall, non-upgrade script
+ * in the folder, sorted by path.
+ */
+export function installScripts(appRoot: string): string[] {
+  const supporting = path.join(appRoot, 'supporting-objects');
+  if (!fs.existsSync(supporting)) return [];
+  const declared = path.join(supporting, 'install-scripts.apx');
+  if (fs.existsSync(declared)) {
+    try {
+      const ordered = parseApexLang(fs.readFileSync(declared, 'utf8'), declared)
+        .filter((component) => component.type === 'installScript')
+        .map((component, index) => ({
+          sequence: Number(str(component.props, 'execution.sequence', String((index + 1) * 10))),
+          index,
+          file: str(component.props, 'script.contentFile'),
+        }))
+        .filter((entry) => entry.file)
+        .sort((a, b) => a.sequence - b.sequence || a.index - b.index)
+        .map((entry) => path.join(supporting, 'install-scripts', entry.file))
+        .filter((file) => fs.existsSync(file));
+      if (ordered.length) return ordered;
+    } catch {
+      // An unreadable declaration falls back to the folder order below.
+    }
+  }
+  return fs
+    .readdirSync(supporting, { recursive: true, encoding: 'utf8' })
+    .filter((name) => name.endsWith('.sql') && !/deinstall|upgrade/iu.test(name))
+    .sort()
+    .map((name) => path.join(supporting, name));
 }
 
 export type { RenderContext };

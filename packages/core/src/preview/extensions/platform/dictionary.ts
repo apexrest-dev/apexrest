@@ -127,12 +127,48 @@ interface Context {
   appId: string;
 }
 
+/** APEX dictionary names of native region types: SOURCE_TYPE and SOURCE_TYPE_CODE. */
+const REGION_SOURCE_TYPES: Record<string, [string, string]> = {
+  staticContent: ['Static Content', 'NATIVE_STATIC'],
+  helpText: ['Help Text', 'NATIVE_HELP_TEXT'],
+  dynamicContent: ['PL/SQL Dynamic Content', 'NATIVE_DYNAMIC_CONTENT'],
+  classicReport: ['Classic Report', 'NATIVE_SQL_REPORT'],
+  interactiveReport: ['Interactive Report', 'NATIVE_IR'],
+  interactiveGrid: ['Interactive Grid', 'NATIVE_IG'],
+  cards: ['Cards', 'NATIVE_CARDS'],
+  chart: ['Chart', 'NATIVE_JET_CHART'],
+  list: ['List', 'NATIVE_LIST'],
+  breadcrumb: ['Breadcrumb', 'NATIVE_BREADCRUMB'],
+  tree: ['Tree', 'NATIVE_JSTREE'],
+  calendar: ['Calendar', 'NATIVE_CSS_CALENDAR'],
+  map: ['Map', 'NATIVE_MAP_REGION'],
+  form: ['Form', 'NATIVE_FORM'],
+  facetedSearch: ['Faceted Search', 'NATIVE_FACETED_SEARCH'],
+  smartFilters: ['Smart Filters', 'NATIVE_SMART_FILTERS'],
+  search: ['Search', 'NATIVE_SEARCH_REGION'],
+  regionDisplaySelector: ['Region Display Selector', 'NATIVE_DISPLAY_SELECTOR'],
+  listView: ['List View', 'NATIVE_JQM_LIST_VIEW'],
+  url: ['URL', 'NATIVE_URL'],
+  workflowDiagram: ['Workflow Diagram', 'NATIVE_WORKFLOW_DIAGRAM'],
+};
+
+function regionSourceType(type: string): [string, string] {
+  const native = REGION_SOURCE_TYPES[type];
+  if (native) return native;
+  const [kind, name = ''] = type.split('/');
+  const upper = name.replace(/([a-z0-9])([A-Z])/gu, '$1_$2').toUpperCase();
+  if (kind === 'themeTemplateComponent') return [name, 'TMPL_THEME_42' + '$' + upper];
+  if (kind === 'plugin' || kind === 'appTemplateComponent') return [name, 'PLUGIN_' + upper];
+  return [type, type.replace(/([a-z])([A-Z])/gu, '$1_$2').toUpperCase()];
+}
+
 function pageRows(context: Context) {
   const { renderer, base } = context;
   const pages: Row[] = [];
   const items: Row[] = [];
   const regions: Row[] = [];
   const buttons: Row[] = [];
+  const trees: Row[] = [];
   for (const page of [...renderer.app.pages.values()].sort((a, b) => Number(a.id) - Number(b.id))) {
     const props = page.props;
     const pageBase = { ...base, page_id: Number(page.id), page_name: str(props, 'name', page.id) };
@@ -152,6 +188,7 @@ function pageRows(context: Context) {
       build_option: refName(get(props, 'config.buildOption')),
       page_comment: str(props, 'comments.comments'),
       page_css_classes: strings(get(props, 'appearance.cssClasses')).join(' '),
+      page_function: str(props, 'appearance.pageMode') === 'modalDialog' ? 'Modal Dialog' : 'Standard',
       ...lastUpdated,
       last_updated_on: now(),
     });
@@ -163,8 +200,20 @@ function pageRows(context: Context) {
         region_id: hashId(context.appId, page.id, 'region', region.id),
         region_name: str(region.props, 'name', region.id),
         static_id: str(region.props, 'advanced.staticId') || region.id,
-        source_type: str(region.props, 'type'),
-        source_type_code: str(region.props, 'type').toUpperCase(),
+        source_type: regionSourceType(str(region.props, 'type'))[0],
+        source_type_code: regionSourceType(str(region.props, 'type'))[1],
+        source_type_plugin_name: regionSourceType(str(region.props, 'type'))[1],
+        template_id: refName(get(region.props, 'appearance.template'))
+          ? hashId(context.appId, '0', 'template', refName(get(region.props, 'appearance.template')))
+          : null,
+        region_template_options: strings(get(region.props, 'appearance.templateOptions')).join(':'),
+        component_template_options: strings(get(region.props, 'componentAppearance.templateOptions')).join(
+          ':',
+        ),
+        list_id: ref(source, 'list') ? hashId(context.appId, 'list', ref(source, 'list')!) : null,
+        list_template_override_id: null,
+        breadcrumb_template_id: null,
+        report_template_id: null,
         display_sequence: Number(get(region.props, 'layout.sequence') ?? 0),
         display_position: str(region.props, 'layout.slot'),
         template: refName(get(region.props, 'appearance.template')),
@@ -178,6 +227,14 @@ function pageRows(context: Context) {
         component_comment: str(region.props, 'comments.comments'),
         ...lastUpdated,
       });
+      if (str(region.props, 'type') === 'tree')
+        trees.push({
+          ...pageBase,
+          region_id: hashId(context.appId, page.id, 'region', region.id),
+          region_name: str(region.props, 'name', region.id),
+          tree_query: str(source, 'sqlQuery'),
+          tree_source: str(source, 'tableName'),
+        });
     }
     for (const item of walk(page.children, 'pageItem')) {
       const region = ref(item.props, 'layout.region');
@@ -218,7 +275,7 @@ function pageRows(context: Context) {
       });
     }
   }
-  return { pages, items, regions, buttons };
+  return { pages, items, regions, buttons, trees };
 }
 
 function listRows(context: Context) {
@@ -274,6 +331,7 @@ function listRows(context: Context) {
       static_id: component.id,
       list_type: str(component.props, 'source.type', 'static'),
       list_entries: count,
+      list_query: str(component.props, 'source.sqlQuery'),
       build_option: refName(get(component.props, 'config.buildOption')),
       component_comment: str(component.props, 'comments.comments'),
       ...lastUpdated,
@@ -579,7 +637,7 @@ function buildDictionary(renderer: ApexRenderer): void {
     application_name: str(app, 'name', renderer.app.app.id),
   };
   const context: Context = { renderer, base, appId };
-  const { pages, items, regions, buttons } = pageRows(context);
+  const { pages, items, regions, buttons, trees } = pageRows(context);
   const { lists, entries } = listRows(context);
   const lovs = lovRows(context);
   const theme = themeRows(context);
@@ -592,7 +650,7 @@ function buildDictionary(renderer: ApexRenderer): void {
     replaceTable(
       db,
       'apex_local_dict_applications',
-      `${COMMON}, alias, owner, pages n, theme_number n, home_link, login_url, authentication_scheme, authorization_scheme, build_status, availability_status, version, compatibility_mode, application_group, logo_type, logo_text, created_on d, last_updated_by, last_updated_on d`,
+      `${COMMON}, alias, owner, pages n, theme_number n, home_link, login_url, authentication_scheme, authorization_scheme, build_status, availability_status, version, compatibility_mode, friendly_url, application_group, logo_type, logo_text, created_on d, last_updated_by, last_updated_on d`,
       [
         {
           ...base,
@@ -612,6 +670,7 @@ function buildDictionary(renderer: ApexRenderer): void {
           availability_status: 'Available',
           version: str(app, 'version'),
           compatibility_mode: str(app, 'runtime.compatibilityMode'),
+          friendly_url: str(app, 'security.friendlyUrl') === 'false' ? 'No' : 'Yes',
           logo_type: str(app, 'logo.type'),
           logo_text: str(app, 'logo.text'),
           created_on: stamp,
@@ -628,14 +687,20 @@ function buildDictionary(renderer: ApexRenderer): void {
     replaceTable(
       db,
       'APEX_APPLICATION_PAGES',
-      `${COMMON}, page_id n, page_name, page_title, page_alias, page_mode, page_group, page_template, help_text, authorization_scheme, page_requires_authentication, build_option, page_comment, page_css_classes, last_updated_by, last_updated_on d`,
+      `${COMMON}, page_id n, page_name, page_title, page_alias, page_mode, page_group, page_template, help_text, authorization_scheme, page_requires_authentication, build_option, page_comment, page_css_classes, page_function, last_updated_by, last_updated_on d`,
       pages,
     );
     replaceTable(
       db,
       'APEX_APPLICATION_PAGE_REGIONS',
-      `${COMMON}, page_id n, page_name, region_id n, region_name, static_id, source_type, source_type_code, display_sequence n, display_position, template, parent_region_id n, location, query_type, table_name, region_source, authorization_scheme, build_option, component_comment, last_updated_by, last_updated_on d`,
+      `${COMMON}, page_id n, page_name, region_id n, region_name, static_id, source_type, source_type_code, source_type_plugin_name, display_sequence n, display_position, template, template_id n, region_template_options, component_template_options, list_id n, list_template_override_id n, breadcrumb_template_id n, report_template_id n, parent_region_id n, location, query_type, table_name, region_source, authorization_scheme, build_option, component_comment, last_updated_by, last_updated_on d`,
       stamped(regions),
+    );
+    replaceTable(
+      db,
+      'APEX_APPLICATION_PAGE_TREES',
+      `${COMMON}, page_id n, page_name, region_id n, region_name, tree_query, tree_source, last_updated_by, last_updated_on d`,
+      stamped(trees),
     );
     replaceTable(
       db,
@@ -652,7 +717,7 @@ function buildDictionary(renderer: ApexRenderer): void {
     replaceTable(
       db,
       'APEX_APPLICATION_LISTS',
-      `${COMMON}, list_id n, list_name, static_id, list_type, list_entries n, build_option, component_comment, last_updated_by, last_updated_on d`,
+      `${COMMON}, list_id n, list_name, static_id, list_type, list_entries n, list_query, build_option, component_comment, last_updated_by, last_updated_on d`,
       stamped(lists),
     );
     replaceTable(
@@ -857,6 +922,9 @@ function stateViews(db: DatabaseSync, base: Row, renderer: ApexRenderer): void {
     'APEX_COLLECTIONS',
     `select collection_name, seq_id, ${cols}, md5_original from apex_local_collection_members where session_id = v('APP_SESSION')`,
   );
+  // Earlier names of the same view.
+  for (const legacy of ['WWV_FLOW_COLLECTIONS', 'HTMLDB_COLLECTIONS'])
+    replaceView(db, legacy, 'select * from APEX_COLLECTIONS');
   replaceView(
     db,
     'APEX_MAIL_QUEUE',

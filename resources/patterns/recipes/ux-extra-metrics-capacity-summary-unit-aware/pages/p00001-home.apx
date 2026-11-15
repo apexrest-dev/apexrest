@@ -131,7 +131,7 @@ page 1 (
             type: sqlQuery
             sqlQuery:
                 ```sql
-                select 'Assigned seats' RESOURCE, 7 USED, 12 CAPACITY, 'Seats' UNIT from dual union all select 'Queue utilization' RESOURCE, 65 USED, 100 CAPACITY, 'Percent' UNIT from dual union all select 'Allocated budget' RESOURCE, 720 USED, 1000 CAPACITY, 'Currency units' UNIT from dual
+                select 'Assigned seats' RESOURCE_NAME, 7 USED, 12 CAPACITY, 'Seats' UNIT from dual union all select 'Queue utilization' RESOURCE_NAME, 65 USED, 100 CAPACITY, 'Percent' UNIT from dual union all select 'Allocated budget' RESOURCE_NAME, 720 USED, 1000 CAPACITY, 'Currency units' UNIT from dual
                 ```
         }
         layout {
@@ -146,7 +146,7 @@ page 1 (
             template: @/standard
             templateOptions: #DEFAULT#
         }
-        column RESOURCE (
+        column RESOURCE_NAME (
             reportColumnQueryId: 1
             derivedColumn: N
             heading {

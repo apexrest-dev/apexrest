@@ -7,7 +7,7 @@ import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-B3XQMZTL.mjs";
+} from "./chunk-GCYH7STV.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   APEX_262_PROFILE,
@@ -15,7 +15,6 @@ import {
   OracleAdapter,
   SCRIPT_RESTRICT_LEVEL,
   SyncStore,
-  VERSION,
   auditUpgradeSource,
   changedFiles,
   checkSnapshot,
@@ -59,7 +58,10 @@ import {
   syncPath,
   targetIdentitySql,
   withConnectedReads
-} from "./chunk-5MAXHXR5.mjs";
+} from "./chunk-F4DDWU7G.mjs";
+import {
+  VERSION
+} from "./chunk-64FD5OTX.mjs";
 import {
   environment,
   identifier,
@@ -10911,6 +10913,14 @@ var schemas = {
     pages: external_exports.array(external_exports.string().min(1).max(255)).min(1).max(500).optional()
   }),
   "preview.stop": external_exports.strictObject({ ...previewSelect, all: external_exports.boolean().default(false) }),
+  "build.webapp": external_exports.strictObject({
+    ...previewSource,
+    out: external_exports.string().min(1).max(4096).describe("Output folder: new, empty, or a previous build"),
+    auth: external_exports.enum(["users", "plsql", "database", "open"]).optional().describe("Sign-in of the built application; users (accounts file) by default"),
+    authFunction: external_exports.string().min(1).max(255).optional().describe("auth plsql: function(p_username, p_password) return boolean"),
+    includeAssets: external_exports.boolean().optional().describe("Copy the locally extracted APEX browser files (Oracle software) into the output"),
+    assetsDir: external_exports.string().min(1).max(4096).optional()
+  }),
   "preview.status": external_exports.strictObject(previewSelect),
   // Composite MCP operations. Each routes to the operations above so the CLI
   // keeps its granular commands while the agent sees one tool per concern.
@@ -16296,8 +16306,12 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       );
       return { ...result, operation };
     }
+    if (operation === "build.webapp") {
+      const { buildWebappOperation } = await import("./chunk-TI5V4IZC.mjs");
+      return success(operation, await buildWebappOperation(root, parsed));
+    }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-7WTSFVMB.mjs");
+      const { previewDispatch } = await import("./chunk-TI5V4IZC.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -16324,29 +16338,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-MYGLWUWF.mjs");
+        const { ToolchainService } = await import("./chunk-JIVNNPNN.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-LISS65ST.mjs");
+        const { uninstallTools } = await import("./chunk-F6OQ23KK.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup: setup2 } = await import("./chunk-4SW36ODO.mjs");
+        const { setup: setup2 } = await import("./chunk-CQVAFFU4.mjs");
         data = await setup2(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-4SW36ODO.mjs");
+        const { validateNative } = await import("./chunk-CQVAFFU4.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-4SW36ODO.mjs");
+        const { uninstallNative } = await import("./chunk-CQVAFFU4.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

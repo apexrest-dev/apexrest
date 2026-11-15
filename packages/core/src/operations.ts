@@ -286,6 +286,25 @@ export const schemas = {
     pages: z.array(z.string().min(1).max(255)).min(1).max(500).optional(),
   }),
   'preview.stop': z.strictObject({ ...previewSelect, all: z.boolean().default(false) }),
+  'build.webapp': z.strictObject({
+    ...previewSource,
+    out: z.string().min(1).max(4096).describe('Output folder: new, empty, or a previous build'),
+    auth: z
+      .enum(['users', 'plsql', 'database', 'open'])
+      .optional()
+      .describe('Sign-in of the built application; users (accounts file) by default'),
+    authFunction: z
+      .string()
+      .min(1)
+      .max(255)
+      .optional()
+      .describe('auth plsql: function(p_username, p_password) return boolean'),
+    includeAssets: z
+      .boolean()
+      .optional()
+      .describe('Copy the locally extracted APEX browser files (Oracle software) into the output'),
+    assetsDir: z.string().min(1).max(4096).optional(),
+  }),
   'preview.status': z.strictObject(previewSelect),
   // Composite MCP operations. Each routes to the operations above so the CLI
   // keeps its granular commands while the agent sees one tool per concern.

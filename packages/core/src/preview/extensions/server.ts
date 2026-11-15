@@ -8,6 +8,9 @@ import { enforcing, hasRole } from './devtools/view-as.ts';
 import { rememberRenderer, setAuthorizer, type Runtime } from './server/apex-api.ts';
 import { itemText, runPlsql, truthy, type ExecResult, type PlsqlOwner } from './server/plsql.ts';
 import { pageRowValidation } from './server/rows.ts';
+import './server/apis.ts';
+import './server/library.ts';
+import './server/plugins.ts';
 
 /**
  * Server-side logic for the local preview: a PL/SQL subset interpreter wired into processes,

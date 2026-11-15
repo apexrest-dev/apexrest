@@ -1,0 +1,115 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Build a web application · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/webapp/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/webapp/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.7.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features and videos</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li></ul></li><li class="nav-group"><span>Application work</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/webapp/" aria-current="page">Build a web application</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/status/">Development status</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Application work / Build a web application</div><h1 id="build-a-web-application">Build a web application</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#build">Build</a></li><li><a href="#run">Run</a></li><li><a href="#what-works">What works</a></li><li><a href="#limits">Limits</a></li><li><a href="#verification">Verification</a></li></ul></details>
+<p><code>apexrest build webapp</code> turns an APEXlang application into a standalone Node.js web application. The application renders the pages with Universal Theme, runs their SQL and PL/SQL in your existing Oracle database through <code>node-oracledb</code>, and needs no APEX runtime or ORDS in front of it.</p>
+<p>It is the <a href="/apexrest/local-preview/">local preview</a> renderer in application mode. What the preview renders, the built application renders; what the preview reports as not simulated, the built application does not do. It is not Oracle APEX, and a page that works here is not evidence of how it behaves on APEX.</p>
+<h2 id="build">Build</h2>
+<pre><code class="language-sh">apexrest build webapp --project /abs/project --out /abs/output
+apexrest build webapp --source-dir /abs/app --out /abs/output --include-assets
+</code></pre>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>--out PATH</code></td>
+<td>Output folder: new, empty, or a previous build of this command</td>
+</tr>
+<tr>
+<td><code>--auth users|plsql|database|open</code></td>
+<td>Sign-in of the built application; <code>users</code> by default</td>
+</tr>
+<tr>
+<td><code>--auth-function NAME</code></td>
+<td><code>plsql</code>: a database function <code>f(p_username, p_password) return boolean</code></td>
+</tr>
+<tr>
+<td><code>--include-assets</code></td>
+<td>Copy the locally extracted APEX browser files into the output</td>
+</tr>
+<tr>
+<td><code>--assets-dir PATH</code></td>
+<td>Where those files are; defaults to the preview&#39;s cache (<code>apexrest preview setup</code>)</td>
+</tr>
+</tbody></table>
+</div>
+<p>The build only writes files. It never connects to a database, and it refuses an output folder that is not empty unless an earlier build wrote it. A rebuild replaces <code>app/</code> and <code>runtime/</code> and keeps <code>config/</code> and <code>.env</code>; the same sources give a byte-identical <code>build-manifest.json</code>.</p>
+<p>Output:</p>
+<pre><code>package.json          depends on oracledb only
+server.mjs            starts the application
+app/                  the APEXlang sources
+runtime/              the renderer and the Oracle driver as plain JavaScript
+config/default.json   port, host names, session timeout, sign-in
+config/users.json     accounts for auth type users
+.env.example          Oracle connection
+Dockerfile, README.md, build-manifest.json
+</code></pre>
+<h2 id="run">Run</h2>
+<pre><code class="language-sh">cd /abs/output
+npm install
+cp .env.example .env      # ORACLE_USER, ORACLE_PASSWORD, ORACLE_CONNECT_STRING
+npm start                 # http://127.0.0.1:8080/r/&lt;alias&gt;
+</code></pre>
+<p>Node.js 24 or later is required. The database user must be able to read and change the application&#39;s tables; set <code>schema</code> in <code>config/default.json</code> when another schema owns them. Each HTTP request is one transaction: it is committed when the request succeeds and rolled back when page processing fails, and package state is reset between requests.</p>
+<h3 id="apex-browser-files">APEX browser files</h3>
+<p>The APEX look comes from Oracle&#39;s own JavaScript, CSS, fonts and Universal Theme. They are Oracle software and are never part of this plugin. Either pass <code>--include-assets</code> to copy the files you extracted from your own APEX 26.2 download into the output, or set <code>APEX_ASSETS_DIR</code> on the server to such a folder. Whether you may use or distribute them outside an APEX installation depends on your Oracle license; the build records your choice in <code>build-manifest.json</code>.</p>
+<h3 id="sign-in-and-authorization">Sign-in and authorization</h3>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th><code>auth.type</code></th>
+<th>Accounts</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>users</code></td>
+<td><code>config/users.json</code>: <code>[{ &quot;username&quot;, &quot;password&quot;, &quot;roles&quot; }]</code>; hash a password with <code>node server.mjs hash-password &lt;password&gt;</code></td>
+</tr>
+<tr>
+<td><code>plsql</code></td>
+<td><code>auth.function</code>, a database function <code>f(p_username, p_password) return boolean</code></td>
+</tr>
+<tr>
+<td><code>database</code></td>
+<td>Oracle database accounts</td>
+</tr>
+<tr>
+<td><code>open</code></td>
+<td>Any name without a password; only for a closed test network</td>
+</tr>
+</tbody></table>
+</div>
+<p>A page needs a signed-in session unless its authentication is &quot;Page Is Public&quot;. The application&#39;s login page is used when it has one, otherwise a built-in form. Sign-in issues a new session id, five failed attempts lock a user name for a minute, and an idle session ends after <code>sessionTimeoutMinutes</code>.</p>
+<p>Authorization schemes are enforced on pages and components. Roles decide &quot;is in role&quot; schemes and <code>apex_acl</code> checks: list them per user (<code>users</code>) or set <code>auth.rolesQuery</code>, a query that returns the role static IDs of <code>:APP_USER</code>. PL/SQL and SQL schemes run in Oracle. A scheme type the runtime cannot evaluate allows access.</p>
+<h3 id="deployment">Deployment</h3>
+<ul>
+<li>Put the application behind HTTPS, set <code>publicHosts</code> (or <code>PUBLIC_HOSTS</code>) to the host names it is reached by and <code>secureCookies: true</code>. Requests for other host names and cross-origin state changes are refused.</li>
+<li><code>HOST=0.0.0.0</code> listens on all interfaces (the Dockerfile sets it). <code>GET /healthz</code> answers <code>ok</code> without a database call.</li>
+<li>The developer toolbar, session-state editor, &quot;view as&quot;, diagnostics endpoint, hot reload and live socket of the preview do not exist in a built application, and errors shown to users carry no internal detail.</li>
+</ul>
+<h2 id="what-works">What works</h2>
+<p>Everything the local preview supports in <a href="/apexrest/local-preview/#connected-oracle-mode">connected mode</a>, without its SQLcl limits: reports, interactive grids with saves, forms, charts (SVG), cards, faceted search, trees, calendars, maps, page items, dynamic actions, validations, computations, processes and branches, with region SQL and PL/SQL running untranslated in Oracle. CLOB values and HTP output have no 32 KB limit.</p>
+<p>When the application declares an error handling function and the database has the APEX error API (<code>apex_error</code>), an error that carries an ORA code is passed to that function in Oracle and its message is shown, as APEX does. Without the function or the API, the user sees the database error text, including its <code>ORA-06512</code> lines.</p>
+<p>With APEX installed in the database and <code>applicationId</code> set in <code>config/default.json</code> (the application imported there), database code gets an APEX session, so <code>v()</code> and <code>apex_util</code> work inside packages. Without it, page items reach PL/SQL as bind variables and <code>v()</code> returns NULL in stored code.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Session state protection is not implemented.</strong> URL checksums and item-level restrictions do not exist. Do not rely on hidden or read-only items for security; check values in database code.</li>
+<li><strong>One request at a time.</strong> One process handles requests one after another and keeps sessions in memory: a restart signs users out, and a second process does not share sessions.</li>
+<li><strong>Not Oracle JET.</strong> Charts are drawn as SVG; the rich text editor is a simple stand-in.</li>
+<li><strong>Not run.</strong> Workflows, generative AI, push notifications, dynamic action and process plug-ins, report subscriptions.</li>
+<li><strong>The web user is not visible to database code without an APEX session.</strong> <code>sys_context(&#39;APEX$SESSION&#39;, &#39;APP_USER&#39;)</code> is empty there, so audit columns and menus that database code derives from the APEX user see the database account.</li>
+<li><strong>A denied page answers HTTP 200</strong> with the scheme&#39;s error message, as the preview does.</li>
+<li><strong>Kept in memory.</strong> Uploaded files, collections and e-mail; e-mail is not sent. BLOB columns are not served from Oracle.</li>
+<li><strong>DDL from page components is refused</strong>; PL/SQL may still run it.</li>
+</ul>
+<h2 id="verification">Verification</h2>
+<p>Checked on 2026-11-15 on local Docker (database 23.26.3, APEX 26.2 installed, a schema without an APEX workspace):</p>
+<ul>
+<li>A built application (Bitcoin Price Monitor, six pages) started from a clean environment with <code>npm install</code> and <code>npm start</code>. <code>tests/webapp/e2e.mjs</code> passed nine steps: anonymous requests redirected or refused, a wrong password refused, sign-in with a new session id, reports reading Oracle rows, a form insert committed (read back on a separate connection), a failing submit changing nothing, and sign-out.</li>
+<li>Three Oracle sample applications with their own install scripts loaded into the schema, every page rendered through the driver: Sample Dynamic Actions 27 pages and Sample Charts 49 pages without a failure; Customers 126 pages without a page error and 37 failing statements, mostly tables missing after a partly failed script run.</li>
+<li>A 119-page trading application (Trade: 106 tables, 70 views, 37 packages, 217 triggers, its own Theme Roller style) built in 0.4 s and run against a schema without an APEX workspace. A scripted session in headless Chromium passed 23 steps without a JavaScript error or a failed request: sign-in and a refused password, a tree-filtered report, six report pages, a dialog form whose trigger error was worded by the application&#39;s error handling function and wrote nothing, a committed row, a goods receipt saved through popup LOVs and an interactive grid, posted and unposted with the stock register read back on a separate connection, a PL/SQL print form, and sign-out. All 118 pages answered for five accounts: the administrator opened every page, the four role accounts were denied 40 to 55 pages each by &quot;is in role&quot; schemes. Server time per page for the administrator: median 18 ms, slowest 90 ms.</li>
+<li>Unit tests cover the build output and its refusals, password hashing, and application mode (sign-in, public pages, enforced roles, closed developer routes, host names) without a database.</li>
+</ul>
+<p>Not checked: a person using a browser, a comparison with the same pages on APEX, concurrent users, a remote database, HTTPS behind a proxy, <code>plsql</code> and <code>database</code> sign-in against real accounts, an APEX session with an imported application. Next steps are in <a href="/apexrest/next-actions/">next actions</a>.</p>
+<p class="source-link"><a href="https://github.com/apexrest-dev/apexrest/blob/main/docs/webapp.md">View this page source</a></p></main></div><footer>APEXREST · Apache-2.0 · Source build 2.7.0 · Not an official Oracle or OpenAI product</footer></body></html>
