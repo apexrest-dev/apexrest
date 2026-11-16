@@ -315,7 +315,8 @@ export function loadApplication(root: string, deployment = 'default'): ApxApplic
   const shared: ApxComponent[] = [];
   let app: ApxComponent | undefined;
   for (const file of files) {
-    const relative = path.relative(root, file);
+    // Component files use '/' on every platform; diagnostics and lint messages print them.
+    const relative = path.relative(root, file).split(path.sep).join('/');
     const text = fs
       .readFileSync(file, 'utf8')
       .replace(

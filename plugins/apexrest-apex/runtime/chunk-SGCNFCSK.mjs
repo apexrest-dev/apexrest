@@ -5,7 +5,7 @@ import {
 import {
   loadApplication,
   str
-} from "./chunk-VJRFADO6.mjs";
+} from "./chunk-ZSUJQJQG.mjs";
 import {
   VERSION
 } from "./chunk-33BV6A47.mjs";

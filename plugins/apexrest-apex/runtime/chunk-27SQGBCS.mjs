@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   get,
   parseApexLang
-} from "./chunk-VJRFADO6.mjs";
+} from "./chunk-ZSUJQJQG.mjs";
 import {
   resourceRoot,
   sourceRelease

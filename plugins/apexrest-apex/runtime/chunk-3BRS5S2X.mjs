@@ -12,7 +12,7 @@ import {
   WorkerBridge,
   checkApplication,
   localGaps
-} from "./chunk-46S3HU25.mjs";
+} from "./chunk-IMKPABS2.mjs";
 import {
   APEX_DOWNLOAD_URL,
   APEX_FULL_VERSION,
@@ -22,7 +22,7 @@ import {
 } from "./chunk-P2HQPB2E.mjs";
 import {
   loadApplication
-} from "./chunk-VJRFADO6.mjs";
+} from "./chunk-ZSUJQJQG.mjs";
 import "./chunk-N3KQBIVW.mjs";
 import {
   OracleAdapter,
@@ -575,7 +575,7 @@ async function previewDispatch(operation, parsed, root) {
   }
 }
 async function buildWebappOperation(root, input) {
-  const { buildWebapp } = await import("./chunk-4AW7ZWSA.mjs");
+  const { buildWebapp } = await import("./chunk-SGCNFCSK.mjs");
   const sourceDir = await resolveSource(root, input.sourceDir);
   return buildWebapp({
     sourceDir,

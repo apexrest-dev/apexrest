@@ -249,7 +249,7 @@ function loadApplication(root, deployment = "default") {
   const shared = [];
   let app;
   for (const file of files) {
-    const relative = path.relative(root, file);
+    const relative = path.relative(root, file).split(path.sep).join("/");
     const text = fs.readFileSync(file, "utf8").replace(
       /@([A-Z][A-Z0-9_]*)@/gu,
       (whole, name) => substitutions[name] ?? (name === "APP_ALIAS" ? path.basename(root).toLowerCase() : name === "APP_NAME" ? path.basename(root) : whole)

@@ -276,10 +276,13 @@ function runHelper(args: string[], env: Record<string, string>) {
 }
 
 const hasJq = spawnSync('jq', ['--version']).status === 0;
+// The helper is a bash script for the Omarchy (Arch Linux) desktop and never runs on Windows.
+const helperSkip =
+  process.platform === 'win32' ? 'Omarchy helper is Linux-only' : !hasJq && 'jq not installed';
 
 test(
   'omarchy helper composes one snapshot and follows the current project',
-  { skip: !hasJq && 'jq not installed' },
+  { skip: helperSkip },
   async (t) => {
     const { project, cli, log } = await stubCli(t);
     const result = runHelper(['snapshot'], { APEXREST_CLI: cli });
@@ -297,7 +300,7 @@ test(
 
 test(
   'omarchy helper maps settings toggles to the CLI and refuses anything else',
-  { skip: !hasJq && 'jq not installed' },
+  { skip: helperSkip },
   async (t) => {
     const { root, project, cli, log } = await stubCli(t);
     for (const args of [

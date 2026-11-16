@@ -16386,11 +16386,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "build.webapp") {
-      const { buildWebappOperation } = await import("./chunk-GJ7SXSYC.mjs");
+      const { buildWebappOperation } = await import("./chunk-3BRS5S2X.mjs");
       return success(operation, await buildWebappOperation(root, parsed));
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-GJ7SXSYC.mjs");
+      const { previewDispatch } = await import("./chunk-3BRS5S2X.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -16456,7 +16456,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-RRW6ONCQ.mjs");
+        const { scaffold } = await import("./chunk-27SQGBCS.mjs");
         data = await scaffold(await loadProject(root), text2("specFile"), text2("env"));
         break;
       }
