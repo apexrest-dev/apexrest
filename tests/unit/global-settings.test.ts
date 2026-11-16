@@ -99,6 +99,30 @@ test('successful project operations set the current project; status reads do not
   assert.equal(recent[0]!.projectId, 'fixture');
 });
 
+test('a project run from its folder or with a relative --project becomes current', async (t) => {
+  await home(t);
+  const { ctx } = await fixture();
+  const other = await fixture();
+  const cwd = process.cwd();
+  t.after(async () => {
+    process.chdir(cwd);
+    await rm(ctx.root, { recursive: true, force: true });
+    await rm(other.ctx.root, { recursive: true, force: true });
+  });
+  process.chdir(ctx.root);
+  assert.equal((await dispatch('project.inspect', {})).ok, true);
+  assert.equal((await recentProjects())[0]?.path, ctx.root);
+  assert.equal(
+    (await dispatch('project.inspect', { project: path.relative(ctx.root, other.ctx.root) })).ok,
+    true,
+  );
+  assert.equal((await recentProjects())[0]?.path, other.ctx.root);
+  // Reads the Omarchy panel polls from its own folder never switch projects.
+  await dispatch('connection.list', {});
+  await dispatch('preview.status', {});
+  assert.equal((await recentProjects())[0]?.path, other.ctx.root);
+});
+
 test('statistics files are no longer written and recent projects never create APEXREST_HOME', async (t) => {
   const dir = await home(t);
   const { ctx } = await fixture();

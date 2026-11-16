@@ -671,7 +671,7 @@ async function dispatchObserved(
         }
       }
     }
-    if (!observationOnly.has(operation)) await rememberProject(parsed.project);
+    if (!observationOnly.has(operation)) await rememberProject(root);
     return success(operation, data);
   } catch (error) {
     return failure(operation, error);
@@ -686,12 +686,18 @@ const observationOnly = new Set([
   'settings.status',
   'jobs.status',
   'peer.status',
+  // Polled by the Omarchy panel on every refresh.
+  'connection.list',
+  'preview.status',
 ]);
-/** The project a successful operation named becomes the machine's current project. */
-async function rememberProject(project: unknown) {
-  if (typeof project !== 'string' || !path.isAbsolute(project)) return;
+/**
+ * The project a successful operation ran in becomes the machine's current
+ * project: the --project it named (absolute or relative), else the working
+ * directory when that directory holds apexrest.json.
+ */
+async function rememberProject(root: string) {
   try {
-    const ctx = await loadProject(project);
+    const ctx = await loadProject(path.resolve(root));
     await recordProject(ctx.root, ctx.config.projectId);
   } catch {
     /* not a configured project: nothing to remember */

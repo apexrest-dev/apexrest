@@ -11193,7 +11193,51 @@ import path16 from "node:path";
 
 // packages/core/src/doctor.ts
 import path6 from "node:path";
-async function doctor() {
+function checkLockedSqlcl(lock, lockFile, probeOutput, os = process.platform, arch = process.arch) {
+  const pinned = lock.artifacts?.find(
+    (a) => a.id === "sqlcl" && (a.os ?? os) === os && (a.arch ?? arch) === arch
+  );
+  if (!pinned) return { status: "unpinned" };
+  const found = /\bBuild:? (\d+(?:\.\d+)+)\b/.exec(probeOutput ?? "")?.[1] ?? null;
+  return {
+    status: found === null ? "unknown" : found === pinned.version ? "match" : "mismatch",
+    lockFile,
+    expected: pinned.version,
+    found
+  };
+}
+function lockDiagnostics(check) {
+  if (check.status === "mismatch")
+    return [
+      {
+        severity: "warning",
+        code: "TOOLCHAIN_SQLCL_MISMATCH",
+        message: `The selected SQLcl is build ${check.found}, but ${check.lockFile} pins ${check.expected}. APEXLang validation and deploys may fail with INVALID_VERSION.`,
+        hint: `Install SQLcl ${check.expected} with apexrest dependencies install, or point APEXREST_SQLCL at its bin/sql.`
+      }
+    ];
+  if (check.status === "unknown")
+    return [
+      {
+        severity: "warning",
+        code: "TOOLCHAIN_SQLCL_UNVERIFIED",
+        message: `Could not read the selected SQLcl build to compare with ${check.lockFile}, which pins ${check.expected}.`
+      }
+    ];
+  return [];
+}
+async function projectSqlclCheck(root, probeOutput) {
+  let lockFile, lock;
+  try {
+    const ctx = await loadProject(root);
+    lockFile = ctx.config.toolchain.lockFile;
+    lock = await readJson(await contained(ctx.root, lockFile));
+  } catch {
+    return { status: "no-project" };
+  }
+  return checkLockedSqlcl(lock, lockFile, probeOutput);
+}
+async function doctor(root = process.cwd()) {
   const state = await runtimeState();
   const java = process.env.APEXREST_JAVA_HOME ? path6.join(process.env.APEXREST_JAVA_HOME, "bin", process.platform === "win32" ? "java.exe" : "java") : state.java ?? "java";
   const probes = await Promise.all(
@@ -11224,6 +11268,7 @@ async function doctor() {
       }
     })
   );
+  const toolchainLock = await projectSqlclCheck(root, probes[1]?.version);
   return {
     platform: process.platform,
     architecture: process.arch,
@@ -11237,6 +11282,7 @@ async function doctor() {
     ),
     sqlcl: await sqlclConfig(),
     probes,
+    toolchainLock,
     database: "not-configured",
     nativeHost: "requires-host-verification",
     telemetry: false
@@ -16357,9 +16403,12 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "version":
         data = { version: VERSION, node: process.version };
         break;
-      case "doctor":
-        data = await doctor();
-        break;
+      case "doctor": {
+        const report = await doctor(root);
+        const result = success(operation, report);
+        result.diagnostics.push(...lockDiagnostics(report.toolchainLock));
+        return result;
+      }
       case "sqlcl.status":
         data = await sqlclConfig();
         break;
@@ -16730,7 +16779,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         }
       }
     }
-    if (!observationOnly.has(operation)) await rememberProject(parsed.project);
+    if (!observationOnly.has(operation)) await rememberProject(root);
     return success(operation, data);
   } catch (error) {
     return failure(operation, error);
@@ -16743,12 +16792,14 @@ var observationOnly = /* @__PURE__ */ new Set([
   "version",
   "settings.status",
   "jobs.status",
-  "peer.status"
+  "peer.status",
+  // Polled by the Omarchy panel on every refresh.
+  "connection.list",
+  "preview.status"
 ]);
-async function rememberProject(project2) {
-  if (typeof project2 !== "string" || !path16.isAbsolute(project2)) return;
+async function rememberProject(root) {
   try {
-    const ctx = await loadProject(project2);
+    const ctx = await loadProject(path16.resolve(root));
     await recordProject(ctx.root, ctx.config.projectId);
   } catch {
   }
