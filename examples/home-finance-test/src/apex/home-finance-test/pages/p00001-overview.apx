@@ -7,14 +7,36 @@ page 1 (
         templateOptions: #DEFAULT#
     }
     region r1 (
-        name: "This month — fictional EUR data"
+        name: "This month by currency"
         type: cards
         source {
             location: localDatabase
             type: sqlQuery
             sqlQuery:
                 ```sql
-                with transactions as (select 1 transaction_id, trunc(sysdate,'MM') + 0 transaction_date, 'Salary' description, 'Income' category, 4200 amount from dual union all select 2 transaction_id, trunc(sysdate,'MM') + 1 transaction_date, 'Freelance' description, 'Income' category, 650 amount from dual union all select 3 transaction_id, trunc(sysdate,'MM') + 2 transaction_date, 'Rent' description, 'Housing' category, -1450 amount from dual union all select 4 transaction_id, trunc(sysdate,'MM') + 3 transaction_date, 'Groceries' description, 'Food' category, -380 amount from dual union all select 5 transaction_id, trunc(sysdate,'MM') + 4 transaction_date, 'Electricity' description, 'Utilities' category, -95 amount from dual union all select 6 transaction_id, trunc(sysdate,'MM') + 5 transaction_date, 'Internet' description, 'Utilities' category, -45 amount from dual union all select 7 transaction_id, trunc(sysdate,'MM') + 6 transaction_date, 'Train pass' description, 'Transport' category, -65 amount from dual union all select 8 transaction_id, trunc(sysdate,'MM') + 7 transaction_date, 'Dining out' description, 'Leisure' category, -120 amount from dual union all select 9 transaction_id, trunc(sysdate,'MM') + 8 transaction_date, 'Streaming' description, 'Leisure' category, -25 amount from dual union all select 10 transaction_id, trunc(sysdate,'MM') + 9 transaction_date, 'Insurance' description, 'Insurance' category, -110 amount from dual) select 'Income (EUR)' title, to_char(sum(case when amount>0 then amount else 0 end),'FM999G990D00') value from transactions union all select 'Expenses (EUR)',to_char(-sum(case when amount<0 then amount else 0 end),'FM999G990D00') from transactions union all select 'Available (EUR)',to_char(sum(amount),'FM999G990D00') from transactions
+                with monthly as (
+                    select currency_code,
+                           sum(case when amount > 0 then amount else 0 end) income,
+                           -sum(case when amount < 0 then amount else 0 end) expenses,
+                           sum(amount) available
+                    from hf_transactions
+                    where transaction_date >= trunc(sysdate, 'MM')
+                      and transaction_date < add_months(trunc(sysdate, 'MM'), 1)
+                    group by currency_code
+                ), active_currencies as (
+                    select currency_code from monthly union select 'EUR' from dual
+                ), metrics as (
+                    select 1 sequence, 'Income' label from dual union all
+                    select 2, 'Expenses' from dual union all select 3, 'Available' from dual
+                )
+                select metrics.label || ' (' || c.currency_code || ')' title,
+                       to_char(case metrics.sequence when 1 then nvl(m.income, 0)
+                               when 2 then nvl(m.expenses, 0) else nvl(m.available, 0) end,
+                               case when c.minor_units = 0 then 'FM999G999G999G990'
+                                    else 'FM999G999G999G990D00' end) || ' ' || c.currency_code value
+                from active_currencies a join hf_currencies c on c.currency_code = a.currency_code
+                left join monthly m on m.currency_code = a.currency_code
+                cross join metrics order by c.currency_code, metrics.sequence
                 ```
         }
         layout {
@@ -34,7 +56,7 @@ page 1 (
     )
 
     region r2 (
-        name: "Monthly spending by category"
+        name: "Spending by category and currency (original amounts)"
         type: chart
         layout {
             sequence: 20
@@ -56,10 +78,10 @@ page 1 (
         )
         axis y (
             name: y
-            title: "EUR"
+            title: "Amount in labeled currency"
         )
         series values (
-            name: "Monthly spending by category"
+            name: "Spending by category and currency (original amounts)"
             execution {
                 sequence: 10
             }
@@ -68,7 +90,12 @@ page 1 (
                 type: sqlQuery
                 sqlQuery:
                     ```sql
-                    with transactions as (select 1 transaction_id, trunc(sysdate,'MM') + 0 transaction_date, 'Salary' description, 'Income' category, 4200 amount from dual union all select 2 transaction_id, trunc(sysdate,'MM') + 1 transaction_date, 'Freelance' description, 'Income' category, 650 amount from dual union all select 3 transaction_id, trunc(sysdate,'MM') + 2 transaction_date, 'Rent' description, 'Housing' category, -1450 amount from dual union all select 4 transaction_id, trunc(sysdate,'MM') + 3 transaction_date, 'Groceries' description, 'Food' category, -380 amount from dual union all select 5 transaction_id, trunc(sysdate,'MM') + 4 transaction_date, 'Electricity' description, 'Utilities' category, -95 amount from dual union all select 6 transaction_id, trunc(sysdate,'MM') + 5 transaction_date, 'Internet' description, 'Utilities' category, -45 amount from dual union all select 7 transaction_id, trunc(sysdate,'MM') + 6 transaction_date, 'Train pass' description, 'Transport' category, -65 amount from dual union all select 8 transaction_id, trunc(sysdate,'MM') + 7 transaction_date, 'Dining out' description, 'Leisure' category, -120 amount from dual union all select 9 transaction_id, trunc(sysdate,'MM') + 8 transaction_date, 'Streaming' description, 'Leisure' category, -25 amount from dual union all select 10 transaction_id, trunc(sysdate,'MM') + 9 transaction_date, 'Insurance' description, 'Insurance' category, -110 amount from dual) select category label, -sum(amount) value from transactions where amount<0 group by category order by 2 desc
+                select category || ' (' || currency_code || ')' label, -sum(amount) value
+                    from hf_transactions
+                    where amount < 0
+                      and transaction_date >= trunc(sysdate, 'MM')
+                      and transaction_date < add_months(trunc(sysdate, 'MM'), 1)
+                    group by category, currency_code order by currency_code, value desc
                     ```
             }
             columnMapping {

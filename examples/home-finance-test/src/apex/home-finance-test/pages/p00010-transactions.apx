@@ -1,21 +1,18 @@
 page 10 (
-    name: "Transactions"
-    alias: "TRANSACTIONS"
-    title: "Transactions"
+    name: Transactions
+    alias: TRANSACTIONS
+    title: Transactions
     appearance {
         pageTemplate: @/standard
         templateOptions: #DEFAULT#
     }
     region r1 (
-        name: "Sample transactions"
-        type: interactiveReport
+        name: "Transactions — positive income, negative expenses"
+        type: interactiveGrid
         source {
             location: localDatabase
             type: sqlQuery
-            sqlQuery:
-                ```sql
-                with transactions as (select 1 transaction_id, trunc(sysdate,'MM') + 0 transaction_date, 'Salary' description, 'Income' category, 4200 amount from dual union all select 2 transaction_id, trunc(sysdate,'MM') + 1 transaction_date, 'Freelance' description, 'Income' category, 650 amount from dual union all select 3 transaction_id, trunc(sysdate,'MM') + 2 transaction_date, 'Rent' description, 'Housing' category, -1450 amount from dual union all select 4 transaction_id, trunc(sysdate,'MM') + 3 transaction_date, 'Groceries' description, 'Food' category, -380 amount from dual union all select 5 transaction_id, trunc(sysdate,'MM') + 4 transaction_date, 'Electricity' description, 'Utilities' category, -95 amount from dual union all select 6 transaction_id, trunc(sysdate,'MM') + 5 transaction_date, 'Internet' description, 'Utilities' category, -45 amount from dual union all select 7 transaction_id, trunc(sysdate,'MM') + 6 transaction_date, 'Train pass' description, 'Transport' category, -65 amount from dual union all select 8 transaction_id, trunc(sysdate,'MM') + 7 transaction_date, 'Dining out' description, 'Leisure' category, -120 amount from dual union all select 9 transaction_id, trunc(sysdate,'MM') + 8 transaction_date, 'Streaming' description, 'Leisure' category, -25 amount from dual union all select 10 transaction_id, trunc(sysdate,'MM') + 9 transaction_date, 'Insurance' description, 'Insurance' category, -110 amount from dual) select * from transactions order by transaction_date desc
-                ```
+            sqlQuery: select transaction_id, transaction_date, description, category, currency_code, amount from hf_transactions
         }
         layout {
             sequence: 10
@@ -25,113 +22,211 @@ page 10 (
             template: @/interactive-report
             templateOptions: #DEFAULT#
         }
+        edit {
+            enabled: true
+            allowedOperations: [
+                add
+                update
+            ]
+        }
         pagination {
-            type: rowRangesXToYOfZ
+            type: page
         }
-        messages {
-            whenNoDataFound: "No rows found. Clear filters or add source data."
+        toolbar {
+            controls: [
+                searchCol
+                searchField
+                actionsMenu
+                resetButton
+                saveButton
+            ]
         }
-        link {
-            linkColumn: exclude
-        }
-        column TRANSACTION_ID (
-            type: plainText
-            heading {
-                heading: "Transaction Id"
-            }
+        column APEX$ROW_ACTION (
+            type: actionsMenu
             layout {
-                sequence: 1
+                sequence: 10
+            }
+        )
+        column APEX$ROW_SELECTOR (
+            type: rowSelector
+            layout {
+                sequence: 20
+            }
+        )
+        column TRANSACTION_ID (
+            type: hidden
+            layout {
+                sequence: 30
             }
             source {
-                dataType: varchar2
-            }
-            advanced {
-                endUserAlias: A
-            }
-            accessibility {
-                valueIdentifiesRow: true
+                databaseColumn: TRANSACTION_ID
+                dataType: number
+                primaryKey: true
             }
         )
         column TRANSACTION_DATE (
-            type: plainText
+            type: datePickerJquery
             heading {
-                heading: "Transaction Date"
+                heading: Date
+            }
+            settings {
+                navigationListFor: month
             }
             layout {
-                sequence: 2
+                sequence: 40
             }
             source {
+                databaseColumn: TRANSACTION_DATE
                 dataType: date
-            }
-            advanced {
-                endUserAlias: B
             }
         )
         column DESCRIPTION (
-            type: plainText
+            type: textField
             heading {
-                heading: "Description"
+                heading: Description
             }
             layout {
-                sequence: 3
+                sequence: 50
+            }
+            validation {
+                maxLength: 200
             }
             source {
+                databaseColumn: DESCRIPTION
                 dataType: varchar2
-            }
-            advanced {
-                endUserAlias: C
             }
         )
         column CATEGORY (
-            type: plainText
+            type: selectList
             heading {
-                heading: "Category"
+                heading: Category
             }
             layout {
-                sequence: 4
+                sequence: 60
             }
             source {
+                databaseColumn: CATEGORY
                 dataType: varchar2
             }
-            advanced {
-                endUserAlias: D
+            lov {
+                type: sqlQuery
+                sqlQuery: select category d, category r from (select 'Income' category from dual union all select 'Housing' from dual union all select 'Food' from dual union all select 'Utilities' from dual union all select 'Transport' from dual union all select 'Leisure' from dual union all select 'Insurance' from dual union all select 'Health' from dual union all select 'Other' from dual) order by 1
+            }
+            columnFilter {
+                lovType: useLov
+            }
+        )
+        column CURRENCY_CODE (
+            type: selectList
+            heading {
+                heading: Currency
+            }
+            layout {
+                sequence: 65
+            }
+            source {
+                databaseColumn: CURRENCY_CODE
+                dataType: varchar2
+            }
+            lov {
+                type: sqlQuery
+                sqlQuery: select currency_code || ' - ' || currency_name d, currency_code r from hf_currencies order by currency_code
+            }
+            default {
+                type: static
+                staticValue: EUR
+            }
+            columnFilter {
+                lovType: useLov
             }
         )
         column AMOUNT (
-            type: plainText
+            type: numberField
             heading {
                 heading: "Amount"
+                alignment: end
+            }
+            settings {
+                numberAlignment: end
+                virtualKeyboard: text
             }
             layout {
-                sequence: 5
+                sequence: 70
+                columnAlignment: end
             }
             source {
+                databaseColumn: AMOUNT
                 dataType: number
             }
-            advanced {
-                endUserAlias: E
-            }
         )
-        savedReport 1001 (
-            visibility: primaryDefault
+        savedReport 10101 (
+            visibility: primary
             view {
+                default: grid
                 rowsPerPage: 25
             }
-            displayColumn TRANSACTION_ID (
-                sequence: 1
+            singleRowView {
+                displayedColumns: true
+            }
+            displayColumn (
+                column: @APEX$ROW_ACTION
+                layout {
+                    sequence: 1
+                }
             )
-            displayColumn TRANSACTION_DATE (
-                sequence: 2
+            displayColumn (
+                column: @TRANSACTION_DATE
+                layout {
+                    sequence: 2
+                }
             )
-            displayColumn DESCRIPTION (
-                sequence: 3
+            displayColumn (
+                column: @DESCRIPTION
+                layout {
+                    sequence: 3
+                }
             )
-            displayColumn CATEGORY (
-                sequence: 4
+            displayColumn (
+                column: @CATEGORY
+                layout {
+                    sequence: 4
+                }
             )
-            displayColumn AMOUNT (
-                sequence: 5
+            displayColumn (
+                column: @CURRENCY_CODE
+                layout {
+                    sequence: 5
+                }
+            )
+            displayColumn (
+                column: @AMOUNT
+                layout {
+                    sequence: 6
+                }
             )
         )
+    )
+    process save-transactions (
+        name: "Save Transactions"
+        type: interactiveGridAutoRowProcessing
+        editableRegion: @r1
+        execution {
+            sequence: 10
+            point: afterSubmit
+        }
+        advanced {
+            executionMappingIdentifier: 16250000000000010001
+        }
+        target {
+            targetType: regionSource
+            returnPksAfterInsert: true
+        }
+        lockRow {
+            preventLostUpdates: true
+            lockRow: true
+        }
+        error {
+            displayLocation: inlineInNotification
+        }
     )
 )
