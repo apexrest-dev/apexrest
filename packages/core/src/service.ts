@@ -2,7 +2,7 @@ import { withSqlclTimings, sqlclTimings } from './sqlcl-timings.ts';
 import { composePlan, composeMaterialize } from './composer/service.ts';
 import { VERSION } from './version.ts';
 import path from 'node:path';
-import { doctor } from './doctor.ts';
+import { doctor, lockDiagnostics } from './doctor.ts';
 import { referenceSearch, referenceRead, referenceSync } from './references.ts';
 import { referenceSelect } from './reference-selection.ts';
 import { failure, Fault, success, type Result } from './result.ts';
@@ -280,9 +280,12 @@ async function dispatchObserved(
       case 'version':
         data = { version: VERSION, node: process.version };
         break;
-      case 'doctor':
-        data = await doctor();
-        break;
+      case 'doctor': {
+        const report = await doctor(root);
+        const result = success(operation, report);
+        result.diagnostics.push(...lockDiagnostics(report.toolchainLock));
+        return result;
+      }
       case 'sqlcl.status':
         data = await sqlclConfig();
         break;
