@@ -3223,9 +3223,9 @@ var require_timestamp = __commonJS({
         const match2 = str.match(timestamp.test);
         if (!match2)
           throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
-        const [, year, month, day2, hour, minute, second] = match2.map(Number);
+        const [, year, month, day, hour, minute, second] = match2.map(Number);
         const millisec = match2[7] ? Number((match2[7] + "00").substr(1, 3)) : 0;
-        let date = Date.UTC(year, month - 1, day2, hour || 0, minute || 0, second || 0, millisec);
+        let date = Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0, millisec);
         const tz = match2[8];
         if (tz && tz !== "Z") {
           let d = parseSexagesimal(tz, false);
@@ -11898,7 +11898,7 @@ async function referenceSearch(query, version2, options = {}) {
   let ranked = index.queries.get(key);
   if (!ranked) {
     const total = index.searchable.length;
-    const counts2 = new Uint8Array(total);
+    const counts = new Uint8Array(total);
     for (const term of terms) {
       const positions = /* @__PURE__ */ new Set();
       for (const alternative of term.alternatives) {
@@ -11907,7 +11907,7 @@ async function referenceSearch(query, version2, options = {}) {
         sets.sort((a, b) => a.size - b.size);
         for (const position of sets[0]) if (sets.every((set) => set.has(position))) positions.add(position);
       }
-      for (const position of positions) counts2[position]++;
+      for (const position of positions) counts[position]++;
     }
     const phrase = queryPhrase(terms);
     const navigational = navigationalQuery(query);
@@ -11932,7 +11932,7 @@ async function referenceSearch(query, version2, options = {}) {
         phrase,
         navigational,
         exact: reference === exactId,
-        matched: counts2[position],
+        matched: counts[position],
         titleText: entry2.titleText,
         titleStems: entry2.titleStems,
         // A production name wins outright; in prose queries the template of that family does.
@@ -11952,7 +11952,7 @@ async function referenceSearch(query, version2, options = {}) {
     const half = terms.length / 2;
     for (let position = 0; position < total; position++) {
       const r = index.searchable[position].reference;
-      if (counts2[position] < half && r !== exactId) continue;
+      if (counts[position] < half && r !== exactId) continue;
       if (!versionMatches(r.version, filterVersion) || options.kind && r.kind !== options.kind || options.family && r.family !== options.family && !r.family?.startsWith(options.family + "/"))
         continue;
       const score = scoreAt(position, false);
@@ -11963,7 +11963,7 @@ async function referenceSearch(query, version2, options = {}) {
     if (terms.length > 1) {
       let budget = 8e5;
       for (const { position } of first) {
-        const full = counts2[position] === terms.length;
+        const full = counts[position] === terms.length;
         budget -= index.searchable[position].reference.text.length;
         if (pool >= 400 || budget < 0 && pool >= 60 || !full && pool >= 120) break;
         pool++;
@@ -12117,7 +12117,6 @@ var globalSettingsSchema = external_exports.strictObject({
   catalog: external_exports.strictObject({ enabled: external_exports.boolean().default(true) }).optional()
 });
 var settingsFile = () => path9.join(managedHome(), "settings.json");
-var usageFile = () => path9.join(managedHome(), "catalog-usage.json");
 var recentFile = () => path9.join(managedHome(), "recent-projects.json");
 var empty = { schemaVersion: 1 };
 async function globalSettings() {
@@ -12167,93 +12166,8 @@ async function requireCatalog() {
       "blocked"
     );
 }
-var counts = external_exports.strictObject({
-  search: external_exports.number().int().min(0).default(0),
-  read: external_exports.number().int().min(0).default(0),
-  select: external_exports.number().int().min(0).default(0),
-  decisions: external_exports.number().int().min(0).default(0),
-  // OpenAI Decisions tokens as reported by the API response, and its request time.
-  inputTokens: external_exports.number().int().min(0).default(0),
-  cachedTokens: external_exports.number().int().min(0).default(0),
-  outputTokens: external_exports.number().int().min(0).default(0),
-  totalTokens: external_exports.number().int().min(0).default(0),
-  apiMs: external_exports.number().int().min(0).default(0),
-  apiCalls: external_exports.number().int().min(0).default(0)
-});
-var usageSchema = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
-  total: counts,
-  days: external_exports.record(external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/), counts),
-  lastUsedAt: external_exports.string().optional()
-});
-var USAGE_DAYS = 30;
-var zero = () => ({
-  search: 0,
-  read: 0,
-  select: 0,
-  decisions: 0,
-  inputTokens: 0,
-  cachedTokens: 0,
-  outputTokens: 0,
-  totalTokens: 0,
-  apiMs: 0,
-  apiCalls: 0
-});
-var day = (at) => at.toISOString().slice(0, 10);
 var usageOff = () => /^(?:0|false|off)$/i.test(process.env.APEXREST_USAGE ?? "");
 var recordable = async () => !usageOff() && await exists(managedHome());
-async function readUsage() {
-  const file = usageFile();
-  try {
-    return await exists(file) ? parse(usageSchema, await readJson(file)) : { schemaVersion: 1, total: zero(), days: {} };
-  } catch {
-    return { schemaVersion: 1, total: zero(), days: {} };
-  }
-}
-async function recordCatalogUse(kind, decisions = false, at = /* @__PURE__ */ new Date(), api) {
-  if (!await recordable()) return;
-  try {
-    await withLock(path9.join(managedHome(), "catalog-usage.lock"), async () => {
-      const usage = await readUsage();
-      const today = day(at);
-      const bucket = usage.days[today] ??= zero();
-      for (const target of [usage.total, bucket]) {
-        target[kind]++;
-        if (decisions) target.decisions++;
-        if (api) {
-          target.inputTokens += api.inputTokens;
-          target.cachedTokens += api.cachedTokens;
-          target.outputTokens += api.outputTokens;
-          target.totalTokens += api.totalTokens;
-          if (api.apiMs !== void 0) {
-            target.apiMs += Math.round(api.apiMs);
-            target.apiCalls++;
-          }
-        }
-      }
-      const kept = Object.keys(usage.days).sort().slice(-USAGE_DAYS);
-      usage.days = Object.fromEntries(kept.map((d) => [d, usage.days[d]]));
-      usage.lastUsedAt = at.toISOString();
-      await writeJson(usageFile(), usage);
-    });
-  } catch {
-  }
-}
-async function catalogUsage(now = /* @__PURE__ */ new Date()) {
-  const usage = await readUsage();
-  const today = usage.days[day(now)] ?? zero();
-  const since = day(new Date(now.getTime() - 6 * 864e5));
-  const week = zero();
-  for (const [d, c] of Object.entries(usage.days))
-    if (d >= since) for (const k of Object.keys(week)) week[k] += c[k];
-  return {
-    recording: !usageOff(),
-    today,
-    last7Days: week,
-    total: usage.total,
-    ...usage.lastUsedAt ? { lastUsedAt: usage.lastUsedAt } : {}
-  };
-}
 async function catalogInfo() {
   const count2 = async (...parts) => {
     try {
@@ -12271,75 +12185,6 @@ async function catalogInfo() {
     components: await count2("components", "index.json"),
     patterns: await count2("patterns", "index.json")
   };
-}
-var timingEntry = external_exports.strictObject({
-  count: external_exports.number().int().min(0),
-  failed: external_exports.number().int().min(0),
-  totalMs: external_exports.number().int().min(0),
-  maxMs: external_exports.number().int().min(0),
-  lastMs: external_exports.number().int().min(0),
-  sqlclMs: external_exports.number().int().min(0),
-  lastAt: external_exports.string(),
-  lastOk: external_exports.boolean()
-});
-var timingsSchema = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
-  operations: external_exports.record(external_exports.string().regex(/^[a-z][a-z0-9.-]{0,60}$/), timingEntry)
-});
-var timingsFile = () => path9.join(managedHome(), "operation-timings.json");
-var MAX_OPERATIONS = 100;
-async function readTimings() {
-  try {
-    const file = timingsFile();
-    return await exists(file) ? parse(timingsSchema, await readJson(file)) : { schemaVersion: 1, operations: {} };
-  } catch {
-    return { schemaVersion: 1, operations: {} };
-  }
-}
-async function recordOperationTiming(operation, durationMs, ok, sqlclMs = 0, at = /* @__PURE__ */ new Date()) {
-  if (!/^[a-z][a-z0-9.-]{0,60}$/.test(operation) || !await recordable()) return;
-  try {
-    await withLock(path9.join(managedHome(), "operation-timings.lock"), async () => {
-      const timings = await readTimings();
-      const ms = Math.max(0, Math.round(durationMs));
-      const entry2 = timings.operations[operation] ??= {
-        count: 0,
-        failed: 0,
-        totalMs: 0,
-        maxMs: 0,
-        lastMs: 0,
-        sqlclMs: 0,
-        lastAt: at.toISOString(),
-        lastOk: ok
-      };
-      entry2.count++;
-      if (!ok) entry2.failed++;
-      entry2.totalMs += ms;
-      entry2.maxMs = Math.max(entry2.maxMs, ms);
-      entry2.lastMs = ms;
-      entry2.sqlclMs += Math.max(0, Math.round(sqlclMs));
-      entry2.lastAt = at.toISOString();
-      entry2.lastOk = ok;
-      const names = Object.keys(timings.operations).sort((a, b) => timings.operations[b].lastAt.localeCompare(timings.operations[a].lastAt)).slice(0, MAX_OPERATIONS);
-      timings.operations = Object.fromEntries(names.map((n) => [n, timings.operations[n]]));
-      await writeJson(timingsFile(), timings);
-    });
-  } catch {
-  }
-}
-async function operationTimings() {
-  const { operations } = await readTimings();
-  return Object.entries(operations).map(([operation, e]) => ({
-    operation,
-    count: e.count,
-    failed: e.failed,
-    averageMs: e.count ? Math.round(e.totalMs / e.count) : 0,
-    maxMs: e.maxMs,
-    lastMs: e.lastMs,
-    averageSqlclMs: e.count ? Math.round(e.sqlclMs / e.count) : 0,
-    lastAt: e.lastAt,
-    lastOk: e.lastOk
-  })).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
 }
 var recentSchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
@@ -12399,11 +12244,9 @@ async function settingsStatus() {
     },
     catalog: {
       enabled: settings.catalog?.enabled !== false,
-      ...await catalogInfo(),
-      usage: await catalogUsage()
+      ...await catalogInfo()
     },
-    recentProjects: await recentProjects(),
-    timings: await operationTimings()
+    recentProjects: await recentProjects()
   };
 }
 
@@ -12412,7 +12255,7 @@ var model = "gpt-6-luna";
 var endpoint = "https://api.openai.com/v1/decisions";
 var VALUES_BYTES = 1500;
 var count = external_exports.number().int().nonnegative();
-var usageSchema2 = external_exports.object({
+var usageSchema = external_exports.object({
   input_tokens: count,
   input_tokens_details: external_exports.object({ cached_tokens: count, cache_write_tokens: count }),
   output_tokens: count,
@@ -12428,7 +12271,7 @@ var responseSchema = external_exports.object({
       probability: external_exports.number().min(0).max(1)
     })
   ).max(64),
-  usage: usageSchema2
+  usage: usageSchema
 });
 function cancelled(signal) {
   if (signal?.aborted) throw new Fault("CANCELLED", "Component selection cancelled.", 6, "cancelled");
@@ -12518,7 +12361,7 @@ async function referenceSelect(input, signal, fetcher = fetch) {
         } else {
           phase = "invalid_response";
           const raw = await responseJson(response);
-          const measured = usageSchema2.safeParse(raw?.usage);
+          const measured = usageSchema.safeParse(raw?.usage);
           if (measured.success) usage = measured.data;
           if (Array.isArray(raw?.answers) && raw.answers.some((answer) => answer?.type === "refusal"))
             fallbackReason = "refusal";
@@ -16416,19 +16259,11 @@ function routeReference(parsed) {
 }
 async function dispatch(operation, input = {}, signal, progress) {
   return withSqlclTimings(async () => {
-    const started = performance.now();
     const result = await dispatchObserved(operation, input, signal, progress);
     const timings = sqlclTimings().map(({ statementMs, ...r }) => ({
       ...r,
       ...input.debugTimings === true && statementMs ? { statementMs } : {}
     }));
-    if (!untimed.has(operation) && !/^(?:setup|plugin\.|dependencies\.)/.test(operation) && input.dryRun !== true)
-      await recordOperationTiming(
-        operation,
-        performance.now() - started,
-        result.ok,
-        timings.reduce((sum, r) => sum + r.totalMs, 0)
-      );
     if (operation === "metadata.read" && result.ok) {
       return {
         ...result,
@@ -16623,20 +16458,10 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "docs.search":
         await requireCatalog();
         data = await referenceSearch(text2("query"), text2("version"), schemas["docs.search"].parse(parsed));
-        await recordCatalogUse("search");
         break;
       case "docs.select":
         await requireCatalog();
         data = await referenceSelect(schemas["docs.select"].parse(parsed), signal);
-        {
-          const selection = data.selection;
-          await recordCatalogUse(
-            "select",
-            selection?.method === "openai-decisions",
-            /* @__PURE__ */ new Date(),
-            decisionsUse(selection)
-          );
-        }
         break;
       case "docs.read":
         await requireCatalog();
@@ -16647,7 +16472,6 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           text2("project"),
           text2("version")
         );
-        await recordCatalogUse("read");
         break;
       case "docs.sync":
         data = await referenceSync(text2("version"), Boolean(parsed.dryRun));
@@ -16911,33 +16735,6 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
   } catch (error) {
     return failure(operation, error);
   }
-}
-var untimed = /* @__PURE__ */ new Set([
-  "project",
-  "reference",
-  "job",
-  "peer",
-  "panel.status",
-  "status",
-  "doctor",
-  "version",
-  "settings.status",
-  "sqlcl.status",
-  "connection.list",
-  "preview.status",
-  "jobs.status",
-  "peer.status"
-]);
-function decisionsUse(selection) {
-  if (!selection?.usage && selection?.apiDurationMs === void 0) return void 0;
-  const usage = selection.usage;
-  return {
-    inputTokens: usage?.input_tokens ?? 0,
-    cachedTokens: usage?.input_tokens_details?.cached_tokens ?? 0,
-    outputTokens: usage?.output_tokens ?? 0,
-    totalTokens: usage?.total_tokens ?? 0,
-    ...selection.apiDurationMs !== void 0 ? { apiMs: selection.apiDurationMs } : {}
-  };
 }
 var observationOnly = /* @__PURE__ */ new Set([
   "panel.status",

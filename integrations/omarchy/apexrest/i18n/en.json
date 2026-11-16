@@ -23,7 +23,6 @@
   "section.catalog": "Component catalog",
   "section.sqlcl": "SQLcl",
   "info.runtimePath": "APEXREST",
-  "info.changes": "Uncommitted changes",
   "info.lastDeployment": "Last deployment",
   "info.ago": "%1 ago",
   "info.validation": "Validation",
@@ -60,13 +59,6 @@
   "value.off": "off",
   "catalog.contents": "%1 components · %2 patterns · %3 Oracle references",
   "catalog.offAbout": "Off: catalog search, read and select return CATALOG_DISABLED and agents write without lookups.",
-  "catalog.usageLine": "%1 searches · %2 reads · %3 selections",
-  "catalog.today": "Today",
-  "catalog.week": "Last 7 days",
-  "catalog.total": "Total",
-  "catalog.decisionsUsed": "Ranked by Decisions",
-  "catalog.lastUsed": "Last used",
-  "catalog.notRecording": "Usage counting is off (APEXREST_USAGE=0).",
   "sqlcl.mode": "Backend",
   "sqlcl.transport": "Transport",
   "sqlcl.direct": "Direct",
@@ -76,21 +68,5 @@
   "sqlcl.references": "Connection references",
   "sqlcl.noReferences": "None. Add one with apexrest connection add.",
   "sqlcl.saved": "Saved SQLcl connections",
-  "sqlcl.noSaved": "None",
-  "section.usage": "Tokens and timing",
-  "tokens.about": "OpenAI Decisions tokens. Coding-agent tokens are in Omarchy's Agents panel.",
-  "tokens.line": "%1 tokens · %2 cached · %3 out",
-  "tokens.apiTime": "Decisions API time",
-  "tokens.apiTimeValue": {
-    "one": "avg %1 · %2 request",
-    "other": "avg %1 · %2 requests"
-  },
-  "timing.header": "Operation timing (this computer)",
-  "timing.none": "No APEXREST operations timed yet.",
-  "timing.line": "%1× · avg %2 · last %3",
-  "timing.failed": {
-    "one": "%1 failed",
-    "other": "%1 failed"
-  },
-  "timing.detail": "max %1 · SQLcl avg %2 · %3"
+  "sqlcl.noSaved": "None"
 }

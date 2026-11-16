@@ -21,15 +21,7 @@ import { ArtifactService } from './artifacts.ts';
 import { jobToolResult, JobService, type JobPhase } from './jobs.ts';
 import { configureSqlcl, sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { PanelService } from './panel.ts';
-import {
-  configureGlobalSettings,
-  recordCatalogUse,
-  recordOperationTiming,
-  recordProject,
-  type DecisionsUse,
-  requireCatalog,
-  settingsStatus,
-} from './global-settings.ts';
+import { configureGlobalSettings, recordProject, requireCatalog, settingsStatus } from './global-settings.ts';
 import { peerReview, peerReviewGate, peerStatus, type PeerVendor } from './peer-review.ts';
 import {
   fallbackCompilerDiagnostics,
@@ -178,24 +170,11 @@ export async function dispatch(
   progress?: (phase: JobPhase) => void,
 ): Promise<Result> {
   return withSqlclTimings(async () => {
-    const started = performance.now();
     const result = await dispatchObserved(operation, input, signal, progress);
     const timings = sqlclTimings().map(({ statementMs, ...r }) => ({
       ...r,
       ...(input.debugTimings === true && statementMs ? { statementMs } : {}),
     }));
-    // Installer operations and dry runs promise to leave APEXREST_HOME as it is.
-    if (
-      !untimed.has(operation) &&
-      !/^(?:setup|plugin\.|dependencies\.)/.test(operation) &&
-      input.dryRun !== true
-    )
-      await recordOperationTiming(
-        operation,
-        performance.now() - started,
-        result.ok,
-        timings.reduce((sum, r) => sum + r.totalMs, 0),
-      );
     if (operation === 'metadata.read' && result.ok) {
       return {
         ...result,
@@ -408,20 +387,10 @@ async function dispatchObserved(
       case 'docs.search':
         await requireCatalog();
         data = await referenceSearch(text('query'), text('version'), schemas['docs.search'].parse(parsed));
-        await recordCatalogUse('search');
         break;
       case 'docs.select':
         await requireCatalog();
         data = await referenceSelect(schemas['docs.select'].parse(parsed), signal);
-        {
-          const selection = (data as { selection?: SelectionSummary }).selection;
-          await recordCatalogUse(
-            'select',
-            selection?.method === 'openai-decisions',
-            new Date(),
-            decisionsUse(selection),
-          );
-        }
         break;
       case 'docs.read':
         await requireCatalog();
@@ -432,7 +401,6 @@ async function dispatchObserved(
           text('project'),
           text('version'),
         );
-        await recordCatalogUse('read');
         break;
       case 'docs.sync':
         data = await referenceSync(text('version'), Boolean(parsed.dryRun));
@@ -705,46 +673,6 @@ async function dispatchObserved(
   } catch (error) {
     return failure(operation, error);
   }
-}
-// Composite MCP routes are timed through the granular operation they dispatch, and
-// status reads (polled by desktop widgets) would only drown the real work.
-const untimed = new Set([
-  'project',
-  'reference',
-  'job',
-  'peer',
-  'panel.status',
-  'status',
-  'doctor',
-  'version',
-  'settings.status',
-  'sqlcl.status',
-  'connection.list',
-  'preview.status',
-  'jobs.status',
-  'peer.status',
-]);
-type SelectionSummary = {
-  method?: string;
-  apiDurationMs?: number;
-  usage?: {
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-    input_tokens_details?: { cached_tokens?: number };
-  };
-};
-/** Token use of a Decisions request; only actual API responses carry `usage`. */
-function decisionsUse(selection?: SelectionSummary): DecisionsUse | undefined {
-  if (!selection?.usage && selection?.apiDurationMs === undefined) return undefined;
-  const usage = selection.usage;
-  return {
-    inputTokens: usage?.input_tokens ?? 0,
-    cachedTokens: usage?.input_tokens_details?.cached_tokens ?? 0,
-    outputTokens: usage?.output_tokens ?? 0,
-    totalTokens: usage?.total_tokens ?? 0,
-    ...(selection.apiDurationMs !== undefined ? { apiMs: selection.apiDurationMs } : {}),
-  };
 }
 // Status reads (including desktop widgets polling them) never change the current project.
 const observationOnly = new Set([

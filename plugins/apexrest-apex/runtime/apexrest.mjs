@@ -10,7 +10,7 @@ import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-YNNDU62W.mjs";
+} from "./chunk-GJWARS3X.mjs";
 import "./chunk-3EQFJZ4V.mjs";
 import "./chunk-OJN2TMPE.mjs";
 import "./chunk-YI25QNSI.mjs";
@@ -248,7 +248,7 @@ function help() {
       "--decision-api: default OpenAI Decisions selection; a project decisionApi in apexrest.json overrides it.",
       "The global default reads the key only from the environment variable named by --api-key-env.",
       "--catalog off: reference search, read and select return CATALOG_DISABLED.",
-      "settings status adds local catalog usage counts and recent projects; APEXREST_USAGE=0 stops recording them."
+      "settings status adds catalog sizes and recent projects; APEXREST_USAGE=0 stops recording recent projects."
     );
   if (key === "sqlcl.configure" || key === "sqlcl.status")
     lines.push(
@@ -286,7 +286,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-MX7CTSVC.mjs");
+    const { startMcp } = await import("./chunk-6BD4PWSG.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

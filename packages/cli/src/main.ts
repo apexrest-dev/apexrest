@@ -267,7 +267,7 @@ function help() {
       '--decision-api: default OpenAI Decisions selection; a project decisionApi in apexrest.json overrides it.',
       'The global default reads the key only from the environment variable named by --api-key-env.',
       '--catalog off: reference search, read and select return CATALOG_DISABLED.',
-      'settings status adds local catalog usage counts and recent projects; APEXREST_USAGE=0 stops recording them.',
+      'settings status adds catalog sizes and recent projects; APEXREST_USAGE=0 stops recording recent projects.',
     );
   if (key === 'sqlcl.configure' || key === 'sqlcl.status')
     lines.push(

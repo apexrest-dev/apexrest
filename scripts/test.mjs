@@ -23,7 +23,7 @@ const result = spawnSync(
   ['--test', ...files.map((f) => path.join(root, f.replace(/\.ts$/, '.mjs')))],
   {
     stdio: 'inherit',
-    // Tests never add local usage counts, timings or recent projects to the developer's APEXREST home.
+    // Tests never add recent projects to the developer's APEXREST home.
     env: { ...process.env, APEXREST_RESOURCES: path.resolve('dist/resources'), APEXREST_USAGE: '0' },
   },
 );

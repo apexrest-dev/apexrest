@@ -79,7 +79,7 @@ claude plugin marketplace add apexrest-dev/apexrest
 claude plugin install apexrest@apexrest
 ```
 
-**Omarchy (optional):** a bar widget for APEXREST status and machine-wide settings (Decisions API, catalog, SQLcl, previews, current project, Decisions token use and operation timing); see [APEXREST for Omarchy](integrations/omarchy/apexrest/README.md).
+**Omarchy (optional):** a bar widget for APEXREST status and machine-wide settings (Decisions API, catalog, SQLcl, previews, current project); see [APEXREST for Omarchy](integrations/omarchy/apexrest/README.md).
 
 **CLI only** (optional; the same runtime without a host plugin):
 

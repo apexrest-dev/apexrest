@@ -15,8 +15,8 @@ import { Fault } from './result.ts';
  * - `catalog.enabled`: false turns off the reference catalog tools (search, read,
  *   select) for every host on this machine.
  *
- * Local catalog usage counts live beside it in catalog-usage.json, and the projects
- * APEXREST last worked in live in recent-projects.json. Neither leaves the machine.
+ * The projects APEXREST last worked in live beside it in recent-projects.json, which
+ * never leaves the machine.
  */
 export const globalSettingsSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -36,7 +36,6 @@ export type GlobalSettings = z.infer<typeof globalSettingsSchema>;
 type DecisionSettings = NonNullable<ProjectContext['config']['decisionApi']>;
 
 const settingsFile = () => path.join(managedHome(), 'settings.json');
-const usageFile = () => path.join(managedHome(), 'catalog-usage.json');
 const recentFile = () => path.join(managedHome(), 'recent-projects.json');
 const empty: GlobalSettings = { schemaVersion: 1 };
 
@@ -110,119 +109,9 @@ export async function requireCatalog() {
     );
 }
 
-/* ---------- Local catalog usage counters ---------- */
-
-export type CatalogUse = 'search' | 'read' | 'select';
-const counts = z.strictObject({
-  search: z.number().int().min(0).default(0),
-  read: z.number().int().min(0).default(0),
-  select: z.number().int().min(0).default(0),
-  decisions: z.number().int().min(0).default(0),
-  // OpenAI Decisions tokens as reported by the API response, and its request time.
-  inputTokens: z.number().int().min(0).default(0),
-  cachedTokens: z.number().int().min(0).default(0),
-  outputTokens: z.number().int().min(0).default(0),
-  totalTokens: z.number().int().min(0).default(0),
-  apiMs: z.number().int().min(0).default(0),
-  apiCalls: z.number().int().min(0).default(0),
-});
-type Counts = z.infer<typeof counts>;
-/** What one Decisions request reported; absent when selection stayed local. */
-export interface DecisionsUse {
-  inputTokens: number;
-  cachedTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  apiMs?: number;
-}
-const usageSchema = z.strictObject({
-  schemaVersion: z.literal(1),
-  total: counts,
-  days: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), counts),
-  lastUsedAt: z.string().optional(),
-});
-const USAGE_DAYS = 30;
-const zero = (): Counts => ({
-  search: 0,
-  read: 0,
-  select: 0,
-  decisions: 0,
-  inputTokens: 0,
-  cachedTokens: 0,
-  outputTokens: 0,
-  totalTokens: 0,
-  apiMs: 0,
-  apiCalls: 0,
-});
-const day = (at: Date) => at.toISOString().slice(0, 10);
 const usageOff = () => /^(?:0|false|off)$/i.test(process.env.APEXREST_USAGE ?? '');
 /** Local records never create APEXREST_HOME: a machine without one stays untouched. */
 const recordable = async () => !usageOff() && (await exists(managedHome()));
-
-async function readUsage() {
-  const file = usageFile();
-  try {
-    return (await exists(file))
-      ? parse(usageSchema, await readJson(file))
-      : { schemaVersion: 1 as const, total: zero(), days: {} };
-  } catch {
-    // A damaged counter file starts over; counts are informational only.
-    return { schemaVersion: 1 as const, total: zero(), days: {} };
-  }
-}
-
-/** Count one successful catalog call. Best effort: counting never fails the operation. */
-export async function recordCatalogUse(
-  kind: CatalogUse,
-  decisions = false,
-  at = new Date(),
-  api?: DecisionsUse,
-) {
-  if (!(await recordable())) return;
-  try {
-    await withLock(path.join(managedHome(), 'catalog-usage.lock'), async () => {
-      const usage = await readUsage();
-      const today = day(at);
-      const bucket = (usage.days[today] ??= zero());
-      for (const target of [usage.total, bucket]) {
-        target[kind]++;
-        if (decisions) target.decisions++;
-        if (api) {
-          target.inputTokens += api.inputTokens;
-          target.cachedTokens += api.cachedTokens;
-          target.outputTokens += api.outputTokens;
-          target.totalTokens += api.totalTokens;
-          if (api.apiMs !== undefined) {
-            target.apiMs += Math.round(api.apiMs);
-            target.apiCalls++;
-          }
-        }
-      }
-      const kept = Object.keys(usage.days).sort().slice(-USAGE_DAYS);
-      usage.days = Object.fromEntries(kept.map((d) => [d, usage.days[d]!]));
-      usage.lastUsedAt = at.toISOString();
-      await writeJson(usageFile(), usage);
-    });
-  } catch {
-    /* informational only */
-  }
-}
-
-export async function catalogUsage(now = new Date()) {
-  const usage = await readUsage();
-  const today = usage.days[day(now)] ?? zero();
-  const since = day(new Date(now.getTime() - 6 * 86400000));
-  const week = zero();
-  for (const [d, c] of Object.entries(usage.days))
-    if (d >= since) for (const k of Object.keys(week) as (keyof Counts)[]) week[k] += c[k];
-  return {
-    recording: !usageOff(),
-    today,
-    last7Days: week,
-    total: usage.total,
-    ...(usage.lastUsedAt ? { lastUsedAt: usage.lastUsedAt } : {}),
-  };
-}
 
 /** Record counts of the bundled catalogs. Reads only the shipped index files. */
 export async function catalogInfo() {
@@ -242,97 +131,6 @@ export async function catalogInfo() {
     components: await count('components', 'index.json'),
     patterns: await count('patterns', 'index.json'),
   };
-}
-
-/* ---------- Operation timings ---------- */
-
-const timingEntry = z.strictObject({
-  count: z.number().int().min(0),
-  failed: z.number().int().min(0),
-  totalMs: z.number().int().min(0),
-  maxMs: z.number().int().min(0),
-  lastMs: z.number().int().min(0),
-  sqlclMs: z.number().int().min(0),
-  lastAt: z.string(),
-  lastOk: z.boolean(),
-});
-const timingsSchema = z.strictObject({
-  schemaVersion: z.literal(1),
-  operations: z.record(z.string().regex(/^[a-z][a-z0-9.-]{0,60}$/), timingEntry),
-});
-const timingsFile = () => path.join(managedHome(), 'operation-timings.json');
-const MAX_OPERATIONS = 100;
-
-async function readTimings() {
-  try {
-    const file = timingsFile();
-    return (await exists(file))
-      ? parse(timingsSchema, await readJson(file))
-      : { schemaVersion: 1 as const, operations: {} };
-  } catch {
-    return { schemaVersion: 1 as const, operations: {} };
-  }
-}
-
-/** Add one finished operation to the local timing totals. Best effort, local only. */
-export async function recordOperationTiming(
-  operation: string,
-  durationMs: number,
-  ok: boolean,
-  sqlclMs = 0,
-  at = new Date(),
-) {
-  if (!/^[a-z][a-z0-9.-]{0,60}$/.test(operation) || !(await recordable())) return;
-  try {
-    await withLock(path.join(managedHome(), 'operation-timings.lock'), async () => {
-      const timings = await readTimings();
-      const ms = Math.max(0, Math.round(durationMs));
-      const entry = (timings.operations[operation] ??= {
-        count: 0,
-        failed: 0,
-        totalMs: 0,
-        maxMs: 0,
-        lastMs: 0,
-        sqlclMs: 0,
-        lastAt: at.toISOString(),
-        lastOk: ok,
-      });
-      entry.count++;
-      if (!ok) entry.failed++;
-      entry.totalMs += ms;
-      entry.maxMs = Math.max(entry.maxMs, ms);
-      entry.lastMs = ms;
-      entry.sqlclMs += Math.max(0, Math.round(sqlclMs));
-      entry.lastAt = at.toISOString();
-      entry.lastOk = ok;
-      // Keep the most recently used operations when an old file grows past the bound.
-      const names = Object.keys(timings.operations)
-        .sort((a, b) => timings.operations[b]!.lastAt.localeCompare(timings.operations[a]!.lastAt))
-        .slice(0, MAX_OPERATIONS);
-      timings.operations = Object.fromEntries(names.map((n) => [n, timings.operations[n]!]));
-      await writeJson(timingsFile(), timings);
-    });
-  } catch {
-    /* informational only */
-  }
-}
-
-/** Timing totals per operation, most recently run first. */
-export async function operationTimings() {
-  const { operations } = await readTimings();
-  return Object.entries(operations)
-    .map(([operation, e]) => ({
-      operation,
-      count: e.count,
-      failed: e.failed,
-      averageMs: e.count ? Math.round(e.totalMs / e.count) : 0,
-      maxMs: e.maxMs,
-      lastMs: e.lastMs,
-      averageSqlclMs: e.count ? Math.round(e.sqlclMs / e.count) : 0,
-      lastAt: e.lastAt,
-      lastOk: e.lastOk,
-    }))
-    .sort((a, b) => b.lastAt.localeCompare(a.lastAt));
 }
 
 /* ---------- Recent projects ---------- */
@@ -405,9 +203,7 @@ export async function settingsStatus() {
     catalog: {
       enabled: settings.catalog?.enabled !== false,
       ...(await catalogInfo()),
-      usage: await catalogUsage(),
     },
     recentProjects: await recentProjects(),
-    timings: await operationTimings(),
   };
 }

@@ -77,12 +77,10 @@ apexrest settings configure --decision-api on --catalog on --json
 <p><code>settings status</code> also reports, without any database, network or credential read:</p>
 <ul>
 <li>whether the key variable is set in the calling process (never its value);</li>
-<li>the bundled catalog sizes and local usage counts of reference search, read and select (today, the last seven days and in total, plus selections ranked by Decisions), kept for 30 days in <code>catalog-usage.json</code>;</li>
-<li>OpenAI Decisions token use (input, cached, output and total, as the API reports it) and request time, in the same counts;</li>
-<li>operation timing in <code>operation-timings.json</code>: per operation, the number of runs and failures and the average, last and maximum duration with its SQLcl share. Status reads and composite MCP routes are not timed; the operation they dispatch is;</li>
+<li>the bundled catalog sizes;</li>
 <li>recent projects in <code>recent-projects.json</code>: a successful operation with <code>--project</code> makes that project current; status reads do not.</li>
 </ul>
-<p>Counts, timings and recent projects stay on the computer and are written only when APEXREST_HOME already exists; installer operations and dry runs are not timed. Set <code>APEXREST_USAGE=0</code> to stop recording them; the repository test runner sets it.</p>
+<p>Recent projects stay on the computer and are written only when APEXREST_HOME already exists. APEXREST keeps no usage, token or timing statistics. Set <code>APEXREST_USAGE=0</code> to stop recording recent projects; the repository test runner sets it.</p>
 <h2 id="configure-an-environment">Configure an environment</h2>
 <p>Add an entry such as <code>environments.dev</code> to the generated <code>apexrest.json</code>:</p>
 <pre><code class="language-json">{

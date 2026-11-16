@@ -96,30 +96,6 @@ Panel {
     savedProc.running = true
   }
 
-  function usageLine(c) {
-    return strings.t("catalog.usageLine")
-      .arg(Commons.I18n.formatNumber(c.search))
-      .arg(Commons.I18n.formatNumber(c.read))
-      .arg(Commons.I18n.formatNumber(c.select))
-  }
-
-  function tokenLine(c) {
-    if (c.totalTokens === 0) return "—"
-    return strings.t("tokens.line")
-      .arg(Commons.I18n.formatNumber(c.totalTokens))
-      .arg(Commons.I18n.formatNumber(c.cachedTokens))
-      .arg(Commons.I18n.formatNumber(c.outputTokens))
-  }
-
-  function timingLine(t) {
-    var line = strings.t("timing.line")
-      .arg(Commons.I18n.formatNumber(t.count))
-      .arg(Model.duration(t.averageMs))
-      .arg(Model.duration(t.lastMs))
-    if (t.failed > 0) line += "  ·  " + strings.tn("timing.failed", t.failed).arg(Commons.I18n.formatNumber(t.failed))
-    return line
-  }
-
   function askAgent(kind, env) {
     if (!current) return
     var prompt = Model.agentPrompt(kind, env)
@@ -396,11 +372,6 @@ Panel {
 
               InfoPair {
                 visible: !!root.current && root.current.configured
-                label: strings.t("info.changes")
-                value: root.current ? Commons.I18n.formatNumber(root.current.changeCount) : ""
-              }
-              InfoPair {
-                visible: !!root.current && root.current.configured
                 label: strings.t("info.lastDeployment")
                 value: !root.current || !root.current.lastDeployment ? "—"
                   : root.current.lastDeployment.status + "  ·  " + strings.t("info.ago").arg(Model.age(root.current.lastDeployment.at, root.nowMs))
@@ -628,63 +599,6 @@ Panel {
             }
           }
 
-          // ---------- Tokens and timing (Status page) ----------
-          Column {
-            visible: root.usable && root.page === "status" && root.snap.settingsSupported
-            width: parent.width
-            spacing: Style.spacing.labelGap
-
-            PanelSeparator { foreground: root.bar.foreground }
-
-            PanelSectionHeader {
-              text: strings.t("section.usage")
-              foreground: root.bar.foreground
-              fontFamily: root.bar.fontFamily
-            }
-            Caption { text: strings.t("tokens.about") }
-            InfoPair { label: strings.t("catalog.today"); value: root.tokenLine(root.snap.catalog.today) }
-            InfoPair { label: strings.t("catalog.week"); value: root.tokenLine(root.snap.catalog.week) }
-            InfoPair { label: strings.t("catalog.total"); value: root.tokenLine(root.snap.catalog.total) }
-            InfoPair {
-              label: strings.t("tokens.apiTime")
-              value: root.snap.catalog.total.apiCalls === 0 ? "—"
-                : strings.tn("tokens.apiTimeValue", root.snap.catalog.total.apiCalls)
-                    .arg(Model.duration(root.snap.catalog.total.apiMs / root.snap.catalog.total.apiCalls))
-                    .arg(Commons.I18n.formatNumber(root.snap.catalog.total.apiCalls))
-            }
-
-            PlainText {
-              text: strings.t("timing.header")
-              opacity: 0.6
-              font.pixelSize: Style.font.caption
-              topPadding: Style.space(6)
-            }
-            Caption {
-              visible: root.snap.timings.length === 0
-              text: strings.t("timing.none")
-            }
-            Repeater {
-              model: root.snap.timings
-              Column {
-                id: timingRow
-                required property var modelData
-                width: parent.width
-                InfoPair {
-                  label: (timingRow.modelData.lastOk ? "" : "✕ ") + timingRow.modelData.label
-                  value: root.timingLine(timingRow.modelData)
-                }
-                Caption {
-                  visible: timingRow.modelData.averageSqlclMs > 0 || timingRow.modelData.maxMs > timingRow.modelData.averageMs
-                  text: strings.t("timing.detail")
-                    .arg(Model.duration(timingRow.modelData.maxMs))
-                    .arg(Model.duration(timingRow.modelData.averageSqlclMs))
-                    .arg(strings.t("info.ago").arg(Model.age(timingRow.modelData.lastAt, root.nowMs)))
-                  horizontalAlignment: Text.AlignRight
-                }
-              }
-            }
-          }
-
           // ================= SETTINGS PAGE =================
           Column {
             visible: root.usable && root.page === "settings"
@@ -737,21 +651,6 @@ Panel {
                       .arg(Commons.I18n.formatNumber(root.snap.catalog.patterns))
                       .arg(Commons.I18n.formatNumber(root.snap.catalog.references))
                   : strings.t("catalog.offAbout")
-              }
-              InfoPair { label: strings.t("catalog.today"); value: root.usageLine(root.snap.catalog.today) }
-              InfoPair { label: strings.t("catalog.week"); value: root.usageLine(root.snap.catalog.week) }
-              InfoPair { label: strings.t("catalog.total"); value: root.usageLine(root.snap.catalog.total) }
-              InfoPair {
-                label: strings.t("catalog.decisionsUsed")
-                value: Commons.I18n.formatNumber(root.snap.catalog.total.decisions)
-              }
-              InfoPair {
-                label: strings.t("catalog.lastUsed")
-                value: root.snap.catalog.lastUsedAt ? strings.t("info.ago").arg(Model.age(root.snap.catalog.lastUsedAt, root.nowMs)) : "—"
-              }
-              Caption {
-                visible: !root.snap.catalog.recording
-                text: strings.t("catalog.notRecording")
               }
             }
 

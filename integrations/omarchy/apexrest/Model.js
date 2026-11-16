@@ -10,7 +10,6 @@ var MAX_ENVIRONMENTS = 8
 var MAX_PREVIEWS = 6
 var MAX_RECENT = 5
 var MAX_CONNECTIONS = 12
-var MAX_TIMINGS = 8
 
 function text(value, limit) {
   if (value === undefined || value === null) return ""
@@ -91,38 +90,6 @@ function data(result) {
   return r && r.ok === true ? obj(r.data) : null
 }
 
-function usageCounts(value) {
-  var c = obj(value) || {}
-  return {
-    search: count(c.search),
-    read: count(c.read),
-    select: count(c.select),
-    decisions: count(c.decisions),
-    inputTokens: count(c.inputTokens),
-    cachedTokens: count(c.cachedTokens),
-    outputTokens: count(c.outputTokens),
-    totalTokens: count(c.totalTokens),
-    apiMs: count(c.apiMs),
-    apiCalls: count(c.apiCalls)
-  }
-}
-
-// Milliseconds → "850 ms", "4.2 s", "2 m 05 s".
-function duration(ms) {
-  var n = count(ms)
-  if (n < 1000) return n + " ms"
-  if (n < 60000) return (Math.round(n / 100) / 10).toFixed(1) + " s"
-  var s = Math.round(n / 1000)
-  var m = Math.floor(s / 60)
-  var r = s % 60
-  return m + " m " + (r < 10 ? "0" : "") + r + " s"
-}
-
-// Readable operation names: "apex.validate" → "apex validate".
-function operationLabel(name) {
-  return text(String(name || "").replace(/\./g, " "), 40)
-}
-
 function emptySnapshot() {
   return {
     loaded: false,
@@ -137,19 +104,13 @@ function emptySnapshot() {
       enabled: true,
       references: 0,
       components: 0,
-      patterns: 0,
-      today: usageCounts(null),
-      week: usageCounts(null),
-      total: usageCounts(null),
-      lastUsedAt: "",
-      recording: true
+      patterns: 0
     },
     sqlcl: { mode: "", transport: "direct", restrictLevel: "" },
     connections: [],
     previewAssets: false,
     previews: [],
     recent: [],
-    timings: [],
     project: null
   }
 }
@@ -192,29 +153,6 @@ function snapshot(raw) {
     out.catalog.references = count(refs["26.1"]) + count(refs["26.2"])
     out.catalog.components = count(c.components)
     out.catalog.patterns = count(c.patterns)
-    var usage = obj(c.usage) || {}
-    out.catalog.today = usageCounts(usage.today)
-    out.catalog.week = usageCounts(usage.last7Days)
-    out.catalog.total = usageCounts(usage.total)
-    out.catalog.lastUsedAt = text(usage.lastUsedAt, 40)
-    out.catalog.recording = usage.recording !== false
-    var timings = Array.isArray(settings.timings) ? settings.timings : []
-    for (var t = 0; t < timings.length && out.timings.length < MAX_TIMINGS; t++) {
-      var tm = obj(timings[t])
-      if (!tm || typeof tm.operation !== "string" || !/^[a-z][a-z0-9.-]{0,60}$/.test(tm.operation)) continue
-      out.timings.push({
-        operation: tm.operation,
-        label: operationLabel(tm.operation),
-        count: count(tm.count),
-        failed: count(tm.failed),
-        averageMs: count(tm.averageMs),
-        lastMs: count(tm.lastMs),
-        maxMs: count(tm.maxMs),
-        averageSqlclMs: count(tm.averageSqlclMs),
-        lastAt: text(tm.lastAt, 40),
-        lastOk: tm.lastOk !== false
-      })
-    }
     var recent = Array.isArray(settings.recentProjects) ? settings.recentProjects : []
     for (var i = 0; i < recent.length && out.recent.length < MAX_RECENT; i++) {
       var r = obj(recent[i])
@@ -269,7 +207,6 @@ function project(result, path) {
     profile: "",
     decisionOverride: "",   // "", "on" or "off": a project decisionApi wins over the global default
     environments: [],
-    changeCount: 0,
     lastDeployment: null
   }
   var r = obj(result)
@@ -308,8 +245,6 @@ function project(result, path) {
       applicationId: typeof e.applicationId === "number" && isFinite(e.applicationId) ? String(Math.floor(e.applicationId)) : ""
     })
   }
-  var changes = obj(d.changes) || {}
-  out.changeCount = Array.isArray(changes.files) ? Math.min(changes.files.length, 100000) : 0
   var deps = Array.isArray(d.deployments) ? d.deployments : []
   if (deps.length && obj(deps[0])) out.lastDeployment = { status: text(deps[0].status, 24), at: text(deps[0].at, 40) }
   return out

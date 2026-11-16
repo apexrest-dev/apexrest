@@ -124,27 +124,15 @@ test('omarchy model reads the global snapshot with bounded, typed values', async
   assert.deepEqual(snap.decisions, { enabled: true, apiKeyEnv: 'MY_KEY', keyInEnvironment: false });
   assert.equal(snap.catalog.enabled, false);
   assert.equal(snap.catalog.references, 5942);
-  assert.equal(snap.catalog.today.totalTokens, 1240);
-  assert.equal(snap.catalog.today.cachedTokens, 800);
-  assert.equal(snap.catalog.today.apiCalls, 1);
-  assert.equal(snap.catalog.week.totalTokens, 0);
-  assert.deepEqual(
-    snap.timings.map((x: any) => [x.label, x.count, x.failed, x.averageMs, x.lastOk]),
-    [['apex validate', 2, 1, 4200, false]],
-  );
-  assert.deepEqual(
-    [model.duration(850), model.duration(4250), model.duration(125000), model.duration(-5)],
-    ['850 ms', '4.3 s', '2 m 05 s', '0 ms'],
-  );
-  assert.deepEqual(
-    [
-      snap.catalog.total.search,
-      snap.catalog.total.read,
-      snap.catalog.total.select,
-      snap.catalog.total.decisions,
-    ],
-    [20, 0, 0, 1],
-  );
+  // Usage counts and timings from an older runtime are ignored.
+  assert.deepEqual(snap.catalog, {
+    enabled: false,
+    references: 5942,
+    components: 617,
+    patterns: 406,
+  });
+  assert.equal('timings' in snap, false);
+  assert.equal(model.duration, undefined);
   assert.deepEqual(snap.sqlcl, { mode: 'mcp', transport: 'ords', restrictLevel: '4' });
   assert.deepEqual(snap.connections, [
     { name: 'local-dev', kind: 'sqlcl-store', target: 'apexrest-local-dev' },
@@ -167,7 +155,8 @@ test('omarchy model reads the current project, its override and environments', a
   assert.equal(project.name, 'home-finance-test');
   assert.equal(project.profile, '26.2');
   assert.equal(project.decisionOverride, 'off');
-  assert.equal(project.changeCount, 2);
+  // Git changes cover the enclosing repository, not the project, so they are not shown.
+  assert.equal('changeCount' in project, false);
   assert.deepEqual(
     project.environments.map((e: any) => [e.name, e.deployable, e.readRef, e.applicationId]),
     [

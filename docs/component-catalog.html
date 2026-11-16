@@ -190,7 +190,7 @@ apexrest docs search --corpus components --version 26.1 --kind template --query 
 </div>
 <p>The final APEXlang is composed by the current Codex or Claude Code model.</p>
 <h3 id="configure-selection">Configure selection</h3>
-<p>Selection is local unless <code>decisionApi.enabled</code> is true in <code>apexrest.json</code>, or the project has no <code>decisionApi</code> and the <a href="/apexrest/configuration/#machine-wide-settings">machine-wide default</a> is on (<code>apexrest settings configure --decision-api on</code>). The selection result reports <code>settingsSource</code> (<code>project</code>, <code>global</code> or <code>default</code>). The same settings can turn the whole catalog off and show its local usage counts.</p>
+<p>Selection is local unless <code>decisionApi.enabled</code> is true in <code>apexrest.json</code>, or the project has no <code>decisionApi</code> and the <a href="/apexrest/configuration/#machine-wide-settings">machine-wide default</a> is on (<code>apexrest settings configure --decision-api on</code>). The selection result reports <code>settingsSource</code> (<code>project</code>, <code>global</code> or <code>default</code>). The same settings can turn the whole catalog off.</p>
 <pre><code class="language-json">{
   &quot;decisionApi&quot;: {
     &quot;enabled&quot;: true,
