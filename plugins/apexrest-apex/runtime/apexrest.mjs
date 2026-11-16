@@ -10,7 +10,7 @@ import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-LXJKHWW3.mjs";
+} from "./chunk-YNNDU62W.mjs";
 import "./chunk-3EQFJZ4V.mjs";
 import "./chunk-OJN2TMPE.mjs";
 import "./chunk-YI25QNSI.mjs";
@@ -71,7 +71,15 @@ var booleans = /* @__PURE__ */ new Set([
   "all",
   "includeAssets"
 ]);
-var numbers = /* @__PURE__ */ new Set(["appId", "offset", "limit", "waitSeconds", "port", "sampleRows"]);
+var numbers = /* @__PURE__ */ new Set([
+  "appId",
+  "offset",
+  "limit",
+  "waitSeconds",
+  "port",
+  "sampleRows",
+  "decisionTimeoutMs"
+]);
 var BANNER = "APEXREST for Codex and Claude Code \u2014 independent Oracle APEX developer tools";
 var EXIT_CODES = "Exit codes: 0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown/cancelled.";
 var command = (op) => op.replace(".", " ");
@@ -232,6 +240,16 @@ function help() {
       "Example: apexrest connection add --name REF --ords-url https://msboard.apex.rest/ords/megasport/ --ords-username megasport --password-file PATH --json",
       "Configure each project read/deploy reference. Updating ORDS preserves its direct SQLcl alias."
     );
+  if (key === "settings.configure" || key === "settings.status")
+    lines.push(
+      "",
+      "Machine-wide settings in APEXREST_HOME/settings.json for every project and host on this computer.",
+      "apexrest settings configure --decision-api on|off --catalog on|off --json",
+      "--decision-api: default OpenAI Decisions selection; a project decisionApi in apexrest.json overrides it.",
+      "The global default reads the key only from the environment variable named by --api-key-env.",
+      "--catalog off: reference search, read and select return CATALOG_DISABLED.",
+      "settings status adds local catalog usage counts and recent projects; APEXREST_USAGE=0 stops recording them."
+    );
   if (key === "sqlcl.configure" || key === "sqlcl.status")
     lines.push(
       "",
@@ -268,7 +286,7 @@ try {
     }
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-6EAIIMAU.mjs");
+    const { startMcp } = await import("./chunk-MX7CTSVC.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

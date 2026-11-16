@@ -13,6 +13,7 @@ import { readLocalEnv } from './local-env.ts';
 import { Fault, sanitized } from './result.ts';
 import { fitResults, type CodeBlock } from './reference-index.ts';
 import { referenceCandidates, referenceRead, referenceSearch } from './references.ts';
+import { effectiveDecisionApi } from './global-settings.ts';
 import type { SelectionCandidate } from './selection-index.ts';
 
 const model = 'gpt-6-luna';
@@ -108,7 +109,7 @@ export async function referenceSelect(
   const version = input.version ?? ctx.config.toolchain.profile ?? '26.1';
   const candidates = await referenceCandidates(input.request, version);
   cancelled(signal);
-  const settings = ctx.config.decisionApi;
+  const { settings, source: settingsSource } = await effectiveDecisionApi(ctx);
   let selected: Scored[] = candidates;
   let method: 'local' | 'openai-decisions' = 'local';
   let fallbackReason: Fallback | undefined;
@@ -239,6 +240,7 @@ export async function referenceSelect(
   const selection = {
     method,
     version,
+    settingsSource,
     candidateCount: candidates.length,
     ...(settings?.enabled && apiDurationMs !== undefined ? { model, apiDurationMs } : {}),
     ...(fallbackReason ? { fallbackReason } : {}),

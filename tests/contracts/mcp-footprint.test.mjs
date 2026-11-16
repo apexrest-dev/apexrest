@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import {
   assertByteBudget,
   catalogFootprint,
@@ -28,6 +28,8 @@ test('built MCP catalog and representative retrieval responses stay within byte 
       command: process.execPath,
       args: [path.resolve('dist/runtime/mcp.mjs')],
       stderr: 'pipe',
+      // The SDK's default environment, without adding local usage records to the developer's home.
+      env: { ...getDefaultEnvironment(), APEXREST_USAGE: '0' },
     }),
   );
   catalogFootprint(await client.listTools());

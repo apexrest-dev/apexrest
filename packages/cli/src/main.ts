@@ -57,7 +57,15 @@ const booleans = new Set([
   'all',
   'includeAssets',
 ]);
-const numbers = new Set(['appId', 'offset', 'limit', 'waitSeconds', 'port', 'sampleRows']);
+const numbers = new Set([
+  'appId',
+  'offset',
+  'limit',
+  'waitSeconds',
+  'port',
+  'sampleRows',
+  'decisionTimeoutMs',
+]);
 const BANNER = 'APEXREST for Codex and Claude Code — independent Oracle APEX developer tools';
 const EXIT_CODES =
   'Exit codes: 0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown/cancelled.';
@@ -250,6 +258,16 @@ function help() {
       'Use --password-file PATH to read the password from a local file; omit it to keep an existing password.',
       'Example: apexrest connection add --name REF --ords-url https://msboard.apex.rest/ords/megasport/ --ords-username megasport --password-file PATH --json',
       'Configure each project read/deploy reference. Updating ORDS preserves its direct SQLcl alias.',
+    );
+  if (key === 'settings.configure' || key === 'settings.status')
+    lines.push(
+      '',
+      'Machine-wide settings in APEXREST_HOME/settings.json for every project and host on this computer.',
+      'apexrest settings configure --decision-api on|off --catalog on|off --json',
+      '--decision-api: default OpenAI Decisions selection; a project decisionApi in apexrest.json overrides it.',
+      'The global default reads the key only from the environment variable named by --api-key-env.',
+      '--catalog off: reference search, read and select return CATALOG_DISABLED.',
+      'settings status adds local catalog usage counts and recent projects; APEXREST_USAGE=0 stops recording them.',
     );
   if (key === 'sqlcl.configure' || key === 'sqlcl.status')
     lines.push(

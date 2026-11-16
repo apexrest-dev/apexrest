@@ -2,8 +2,18 @@
 
 ## Local test environment after cleanup
 
-- User applications, application schemas and local evidence folders were explicitly selected for deletion on 2026-11-15. Recreate a development workspace/schema and reconfigure connections before further app deployment. Existing saved connections and deployment history do not establish a valid current database baseline.
-- Home Finance source remains under `examples/home-finance-test/`; app 16250 was deleted. Re-run required qualification to produce fresh evidence before release claims; deleted evidence paths below are historical references.
+- The latest requested cleanup deleted Home Finance app 16250, workspace `DEV`, its developer account and schema `DEV_APP`, including transaction/currency data. SQL readback confirmed zero user apps, application schemas and user workspaces. Oracle/APEX internals, ORDS and administrator accounts remain.
+- Recreate the development schema, workspace and developer credentials before redeploying the retained Home Finance source. Inspect the new target and reconcile deployment history against its actual state; saved connections and past migrations do not establish a valid current baseline.
+- `docs/evidence/` has zero subfolders. Re-run required qualification to produce fresh evidence before release claims; deleted evidence paths below are historical references. Browser transaction/currency behavior was not verified before deletion.
+
+## Machine-wide settings and Omarchy panel
+
+- Click through every Omarchy panel control in a running shell (both switches, SQLcl choices, connection test, preview start/stop, validate, agent, terminal, recent-project switch) and record observations; only rendering and helper-level calls were checked.
+- Installed Claude Code and Codex plugins keep their older runtime until updated; the panel then shows "no machine-wide settings". Release and update the plugin, or point `apexrestCommand` at a newer runtime.
+- Decide whether the global Decisions default should support a private ENV file (today only the environment variable) and whether `settings` needs an MCP tool for agents.
+- Preview operations return before current-project recording; decide whether preview start should make a project current.
+- Decide whether to publish the Omarchy plugin as its own Git repository so `omarchy plugin add <git-url>` and `omarchy plugin update` work.
+- Qualify against later Omarchy shell releases; the panel relies on the `qs.Ui` `Panel`, `KeyboardPanel`, `Button`, `ButtonGroup`, `ToggleSwitch` and `PanelActionButton` contracts. A changed `Panel.qml` needs `omarchy restart shell`; a plugin rescan kept the old compiled component.
 
 ## Creation/update optimization qualification
 

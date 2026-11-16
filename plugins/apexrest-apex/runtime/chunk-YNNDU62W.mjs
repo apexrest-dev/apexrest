@@ -210,17 +210,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node2, visitor, path16) {
-      const ctrl = callVisitor(key, node2, visitor, path16);
+    function visit_(key, node2, visitor, path17) {
+      const ctrl = callVisitor(key, node2, visitor, path17);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path16, ctrl);
-        return visit_(key, ctrl, visitor, path16);
+        replaceNode(key, path17, ctrl);
+        return visit_(key, ctrl, visitor, path17);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path16 = Object.freeze(path16.concat(node2));
+          path17 = Object.freeze(path17.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = visit_(i, node2.items[i], visitor, path16);
+            const ci = visit_(i, node2.items[i], visitor, path17);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -231,13 +231,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path16 = Object.freeze(path16.concat(node2));
-          const ck = visit_("key", node2.key, visitor, path16);
+          path17 = Object.freeze(path17.concat(node2));
+          const ck = visit_("key", node2.key, visitor, path17);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = visit_("value", node2.value, visitor, path16);
+          const cv = visit_("value", node2.value, visitor, path17);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -258,17 +258,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node2, visitor, path16) {
-      const ctrl = await callVisitor(key, node2, visitor, path16);
+    async function visitAsync_(key, node2, visitor, path17) {
+      const ctrl = await callVisitor(key, node2, visitor, path17);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path16, ctrl);
-        return visitAsync_(key, ctrl, visitor, path16);
+        replaceNode(key, path17, ctrl);
+        return visitAsync_(key, ctrl, visitor, path17);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path16 = Object.freeze(path16.concat(node2));
+          path17 = Object.freeze(path17.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = await visitAsync_(i, node2.items[i], visitor, path16);
+            const ci = await visitAsync_(i, node2.items[i], visitor, path17);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -279,13 +279,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path16 = Object.freeze(path16.concat(node2));
-          const ck = await visitAsync_("key", node2.key, visitor, path16);
+          path17 = Object.freeze(path17.concat(node2));
+          const ck = await visitAsync_("key", node2.key, visitor, path17);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = await visitAsync_("value", node2.value, visitor, path16);
+          const cv = await visitAsync_("value", node2.value, visitor, path17);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -312,23 +312,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node2, visitor, path16) {
+    function callVisitor(key, node2, visitor, path17) {
       if (typeof visitor === "function")
-        return visitor(key, node2, path16);
+        return visitor(key, node2, path17);
       if (identity.isMap(node2))
-        return visitor.Map?.(key, node2, path16);
+        return visitor.Map?.(key, node2, path17);
       if (identity.isSeq(node2))
-        return visitor.Seq?.(key, node2, path16);
+        return visitor.Seq?.(key, node2, path17);
       if (identity.isPair(node2))
-        return visitor.Pair?.(key, node2, path16);
+        return visitor.Pair?.(key, node2, path17);
       if (identity.isScalar(node2))
-        return visitor.Scalar?.(key, node2, path16);
+        return visitor.Scalar?.(key, node2, path17);
       if (identity.isAlias(node2))
-        return visitor.Alias?.(key, node2, path16);
+        return visitor.Alias?.(key, node2, path17);
       return void 0;
     }
-    function replaceNode(key, path16, node2) {
-      const parent = path16[path16.length - 1];
+    function replaceNode(key, path17, node2) {
+      const parent = path17[path17.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node2;
       } else if (identity.isPair(parent)) {
@@ -940,10 +940,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path16, value) {
+    function collectionFromPath(schema, path17, value) {
       let v = value;
-      for (let i = path16.length - 1; i >= 0; --i) {
-        const k = path16[i];
+      for (let i = path17.length - 1; i >= 0; --i) {
+        const k = path17[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -962,7 +962,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path16) => path16 == null || typeof path16 === "object" && !!path16[Symbol.iterator]().next().done;
+    var isEmptyPath = (path17) => path17 == null || typeof path17 === "object" && !!path17[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -992,11 +992,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path16, value) {
-        if (isEmptyPath(path16))
+      addIn(path17, value) {
+        if (isEmptyPath(path17))
           this.add(value);
         else {
-          const [key, ...rest] = path16;
+          const [key, ...rest] = path17;
           const node2 = this.get(key, true);
           if (identity.isCollection(node2))
             node2.addIn(rest, value);
@@ -1010,8 +1010,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path16) {
-        const [key, ...rest] = path16;
+      deleteIn(path17) {
+        const [key, ...rest] = path17;
         if (rest.length === 0)
           return this.delete(key);
         const node2 = this.get(key, true);
@@ -1025,8 +1025,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path16, keepScalar) {
-        const [key, ...rest] = path16;
+      getIn(path17, keepScalar) {
+        const [key, ...rest] = path17;
         const node2 = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node2) ? node2.value : node2;
@@ -1044,8 +1044,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path16) {
-        const [key, ...rest] = path16;
+      hasIn(path17) {
+        const [key, ...rest] = path17;
         if (rest.length === 0)
           return this.has(key);
         const node2 = this.get(key, true);
@@ -1055,8 +1055,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path16, value) {
-        const [key, ...rest] = path16;
+      setIn(path17, value) {
+        const [key, ...rest] = path17;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3223,9 +3223,9 @@ var require_timestamp = __commonJS({
         const match2 = str.match(timestamp.test);
         if (!match2)
           throw new Error("!!timestamp expects a date, starting with yyyy-mm-dd");
-        const [, year, month, day, hour, minute, second] = match2.map(Number);
+        const [, year, month, day2, hour, minute, second] = match2.map(Number);
         const millisec = match2[7] ? Number((match2[7] + "00").substr(1, 3)) : 0;
-        let date = Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0, millisec);
+        let date = Date.UTC(year, month - 1, day2, hour || 0, minute || 0, second || 0, millisec);
         const tz = match2[8];
         if (tz && tz !== "Z") {
           let d = parseSexagesimal(tz, false);
@@ -3571,9 +3571,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path16, value) {
+      addIn(path17, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path16, value);
+          this.contents.addIn(path17, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3648,14 +3648,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path16) {
-        if (Collection.isEmptyPath(path16)) {
+      deleteIn(path17) {
+        if (Collection.isEmptyPath(path17)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path16) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path17) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3670,10 +3670,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path16, keepScalar) {
-        if (Collection.isEmptyPath(path16))
+      getIn(path17, keepScalar) {
+        if (Collection.isEmptyPath(path17))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path16, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path17, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3684,10 +3684,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path16) {
-        if (Collection.isEmptyPath(path16))
+      hasIn(path17) {
+        if (Collection.isEmptyPath(path17))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path16) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path17) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3704,13 +3704,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path16, value) {
-        if (Collection.isEmptyPath(path16)) {
+      setIn(path17, value) {
+        if (Collection.isEmptyPath(path17)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path16), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path17), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path16, value);
+          this.contents.setIn(path17, value);
         }
       }
       /**
@@ -5671,9 +5671,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path16) => {
+    visit.itemAtPath = (cst, path17) => {
       let item2 = cst;
-      for (const [field, index] of path16) {
+      for (const [field, index] of path17) {
         const tok = item2?.[field];
         if (tok && "items" in tok) {
           item2 = tok.items[index];
@@ -5682,23 +5682,23 @@ var require_cst_visit = __commonJS({
       }
       return item2;
     };
-    visit.parentCollection = (cst, path16) => {
-      const parent = visit.itemAtPath(cst, path16.slice(0, -1));
-      const field = path16[path16.length - 1][0];
+    visit.parentCollection = (cst, path17) => {
+      const parent = visit.itemAtPath(cst, path17.slice(0, -1));
+      const field = path17[path17.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path16, item2, visitor) {
-      let ctrl = visitor(item2, path16);
+    function _visit(path17, item2, visitor) {
+      let ctrl = visitor(item2, path17);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item2[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path16.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path17.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5709,10 +5709,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item2, path16);
+            ctrl = ctrl(item2, path17);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item2, path16) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item2, path17) : ctrl;
     }
     exports.visit = visit;
   }
@@ -10702,7 +10702,7 @@ async function composePlan(ctx, request, oracle = new OracleAdapter(), signal) {
     planDigest: plan.digest,
     artifactId,
     diagnostics: plan.diagnostics,
-    operations: plan.operations.map(({ path: path16, reason, before, after }) => ({ path: path16, reason, before, after })),
+    operations: plan.operations.map(({ path: path17, reason, before, after }) => ({ path: path17, reason, before, after })),
     allocationCount: Object.keys(plan.allocations).length,
     compiler,
     databaseEffects: [],
@@ -10794,6 +10794,13 @@ var schemas = {
     databaseTransport: databaseTransport.optional()
   }),
   "panel.status": external_exports.strictObject(base),
+  "settings.status": external_exports.strictObject({}),
+  "settings.configure": external_exports.strictObject({
+    decisionApi: external_exports.enum(["on", "off"]).optional().describe("Default OpenAI Decisions selection for projects without decisionApi"),
+    apiKeyEnv: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional().describe("Environment variable with the OpenAI key (default OPENAI_API_KEY)"),
+    decisionTimeoutMs: external_exports.number().int().min(250).max(1e4).optional(),
+    catalog: external_exports.enum(["on", "off"]).optional().describe("Reference catalog tools (search, read, select)")
+  }),
   setup: external_exports.strictObject(setup),
   "dependencies.install": external_exports.strictObject(dependencies),
   "dependencies.uninstall": external_exports.strictObject({
@@ -11182,7 +11189,7 @@ var toolCatalog = [
 ];
 
 // packages/core/src/service.ts
-import path15 from "node:path";
+import path16 from "node:path";
 
 // packages/core/src/doctor.ts
 import path6 from "node:path";
@@ -11891,7 +11898,7 @@ async function referenceSearch(query, version2, options = {}) {
   let ranked = index.queries.get(key);
   if (!ranked) {
     const total = index.searchable.length;
-    const counts = new Uint8Array(total);
+    const counts2 = new Uint8Array(total);
     for (const term of terms) {
       const positions = /* @__PURE__ */ new Set();
       for (const alternative of term.alternatives) {
@@ -11900,7 +11907,7 @@ async function referenceSearch(query, version2, options = {}) {
         sets.sort((a, b) => a.size - b.size);
         for (const position of sets[0]) if (sets.every((set) => set.has(position))) positions.add(position);
       }
-      for (const position of positions) counts[position]++;
+      for (const position of positions) counts2[position]++;
     }
     const phrase = queryPhrase(terms);
     const navigational = navigationalQuery(query);
@@ -11925,7 +11932,7 @@ async function referenceSearch(query, version2, options = {}) {
         phrase,
         navigational,
         exact: reference === exactId,
-        matched: counts[position],
+        matched: counts2[position],
         titleText: entry2.titleText,
         titleStems: entry2.titleStems,
         // A production name wins outright; in prose queries the template of that family does.
@@ -11945,7 +11952,7 @@ async function referenceSearch(query, version2, options = {}) {
     const half = terms.length / 2;
     for (let position = 0; position < total; position++) {
       const r = index.searchable[position].reference;
-      if (counts[position] < half && r !== exactId) continue;
+      if (counts2[position] < half && r !== exactId) continue;
       if (!versionMatches(r.version, filterVersion) || options.kind && r.kind !== options.kind || options.family && r.family !== options.family && !r.family?.startsWith(options.family + "/"))
         continue;
       const score = scoreAt(position, false);
@@ -11956,7 +11963,7 @@ async function referenceSearch(query, version2, options = {}) {
     if (terms.length > 1) {
       let budget = 8e5;
       for (const { position } of first) {
-        const full = counts[position] === terms.length;
+        const full = counts2[position] === terms.length;
         budget -= index.searchable[position].reference.text.length;
         if (pool >= 400 || budget < 0 && pool >= 60 || !full && pool >= 120) break;
         pool++;
@@ -12097,12 +12104,315 @@ async function referenceSync(version2, dryRun) {
   };
 }
 
+// packages/core/src/global-settings.ts
+import path9 from "node:path";
+import { readFile as readFile9 } from "node:fs/promises";
+var globalSettingsSchema = external_exports.strictObject({
+  schemaVersion: external_exports.literal(1),
+  decisionApi: external_exports.strictObject({
+    enabled: external_exports.boolean().default(false),
+    apiKeyEnv: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).default("OPENAI_API_KEY"),
+    timeoutMs: external_exports.number().int().min(250).max(1e4).default(3e3)
+  }).optional(),
+  catalog: external_exports.strictObject({ enabled: external_exports.boolean().default(true) }).optional()
+});
+var settingsFile = () => path9.join(managedHome(), "settings.json");
+var usageFile = () => path9.join(managedHome(), "catalog-usage.json");
+var recentFile = () => path9.join(managedHome(), "recent-projects.json");
+var empty = { schemaVersion: 1 };
+async function globalSettings() {
+  const file = settingsFile();
+  return await exists(file) ? parse(globalSettingsSchema, await readJson(file)) : empty;
+}
+async function configureGlobalSettings(change) {
+  if (change.decisionApi === void 0 && change.apiKeyEnv === void 0 && change.decisionTimeoutMs === void 0 && change.catalog === void 0)
+    throw new Fault(
+      "INVALID_INPUT",
+      "Name a setting to change: --decision-api, --api-key-env, --decision-timeout-ms or --catalog.",
+      2
+    );
+  return withLock(path9.join(managedHome(), "settings.lock"), async () => {
+    const previous = await globalSettings();
+    const decisionChanged = change.decisionApi !== void 0 || change.apiKeyEnv !== void 0 || change.decisionTimeoutMs !== void 0;
+    const next2 = parse(globalSettingsSchema, {
+      ...previous,
+      ...decisionChanged ? {
+        decisionApi: {
+          ...previous.decisionApi,
+          ...change.decisionApi !== void 0 ? { enabled: change.decisionApi } : {},
+          ...change.apiKeyEnv !== void 0 ? { apiKeyEnv: change.apiKeyEnv } : {},
+          ...change.decisionTimeoutMs !== void 0 ? { timeoutMs: change.decisionTimeoutMs } : {}
+        }
+      } : {},
+      ...change.catalog !== void 0 ? { catalog: { enabled: change.catalog } } : {}
+    });
+    await writeJson(settingsFile(), next2);
+    return next2;
+  });
+}
+async function effectiveDecisionApi(ctx) {
+  if (ctx.config.decisionApi) return { settings: ctx.config.decisionApi, source: "project" };
+  const global = (await globalSettings()).decisionApi;
+  return global ? { settings: global, source: "global" } : { source: "default" };
+}
+async function catalogEnabled() {
+  return (await globalSettings()).catalog?.enabled !== false;
+}
+async function requireCatalog() {
+  if (!await catalogEnabled())
+    throw new Fault(
+      "CATALOG_DISABLED",
+      "The reference catalog is turned off in APEXREST settings. Continue without catalog lookups: write APEXlang from the project sources and fix compiler diagnostics. The user can turn it on with: apexrest settings configure --catalog on",
+      3,
+      "blocked"
+    );
+}
+var counts = external_exports.strictObject({
+  search: external_exports.number().int().min(0).default(0),
+  read: external_exports.number().int().min(0).default(0),
+  select: external_exports.number().int().min(0).default(0),
+  decisions: external_exports.number().int().min(0).default(0),
+  // OpenAI Decisions tokens as reported by the API response, and its request time.
+  inputTokens: external_exports.number().int().min(0).default(0),
+  cachedTokens: external_exports.number().int().min(0).default(0),
+  outputTokens: external_exports.number().int().min(0).default(0),
+  totalTokens: external_exports.number().int().min(0).default(0),
+  apiMs: external_exports.number().int().min(0).default(0),
+  apiCalls: external_exports.number().int().min(0).default(0)
+});
+var usageSchema = external_exports.strictObject({
+  schemaVersion: external_exports.literal(1),
+  total: counts,
+  days: external_exports.record(external_exports.string().regex(/^\d{4}-\d{2}-\d{2}$/), counts),
+  lastUsedAt: external_exports.string().optional()
+});
+var USAGE_DAYS = 30;
+var zero = () => ({
+  search: 0,
+  read: 0,
+  select: 0,
+  decisions: 0,
+  inputTokens: 0,
+  cachedTokens: 0,
+  outputTokens: 0,
+  totalTokens: 0,
+  apiMs: 0,
+  apiCalls: 0
+});
+var day = (at) => at.toISOString().slice(0, 10);
+var usageOff = () => /^(?:0|false|off)$/i.test(process.env.APEXREST_USAGE ?? "");
+var recordable = async () => !usageOff() && await exists(managedHome());
+async function readUsage() {
+  const file = usageFile();
+  try {
+    return await exists(file) ? parse(usageSchema, await readJson(file)) : { schemaVersion: 1, total: zero(), days: {} };
+  } catch {
+    return { schemaVersion: 1, total: zero(), days: {} };
+  }
+}
+async function recordCatalogUse(kind, decisions = false, at = /* @__PURE__ */ new Date(), api) {
+  if (!await recordable()) return;
+  try {
+    await withLock(path9.join(managedHome(), "catalog-usage.lock"), async () => {
+      const usage = await readUsage();
+      const today = day(at);
+      const bucket = usage.days[today] ??= zero();
+      for (const target of [usage.total, bucket]) {
+        target[kind]++;
+        if (decisions) target.decisions++;
+        if (api) {
+          target.inputTokens += api.inputTokens;
+          target.cachedTokens += api.cachedTokens;
+          target.outputTokens += api.outputTokens;
+          target.totalTokens += api.totalTokens;
+          if (api.apiMs !== void 0) {
+            target.apiMs += Math.round(api.apiMs);
+            target.apiCalls++;
+          }
+        }
+      }
+      const kept = Object.keys(usage.days).sort().slice(-USAGE_DAYS);
+      usage.days = Object.fromEntries(kept.map((d) => [d, usage.days[d]]));
+      usage.lastUsedAt = at.toISOString();
+      await writeJson(usageFile(), usage);
+    });
+  } catch {
+  }
+}
+async function catalogUsage(now = /* @__PURE__ */ new Date()) {
+  const usage = await readUsage();
+  const today = usage.days[day(now)] ?? zero();
+  const since = day(new Date(now.getTime() - 6 * 864e5));
+  const week = zero();
+  for (const [d, c] of Object.entries(usage.days))
+    if (d >= since) for (const k of Object.keys(week)) week[k] += c[k];
+  return {
+    recording: !usageOff(),
+    today,
+    last7Days: week,
+    total: usage.total,
+    ...usage.lastUsedAt ? { lastUsedAt: usage.lastUsedAt } : {}
+  };
+}
+async function catalogInfo() {
+  const count2 = async (...parts) => {
+    try {
+      const value = JSON.parse(await readFile9(path9.join(resourceRoot(), ...parts), "utf8"));
+      return Array.isArray(value) ? value.length : 0;
+    } catch {
+      return 0;
+    }
+  };
+  return {
+    references: {
+      "26.1": await count2("references", "index.json"),
+      "26.2": await count2("references", "26.2", "index.json")
+    },
+    components: await count2("components", "index.json"),
+    patterns: await count2("patterns", "index.json")
+  };
+}
+var timingEntry = external_exports.strictObject({
+  count: external_exports.number().int().min(0),
+  failed: external_exports.number().int().min(0),
+  totalMs: external_exports.number().int().min(0),
+  maxMs: external_exports.number().int().min(0),
+  lastMs: external_exports.number().int().min(0),
+  sqlclMs: external_exports.number().int().min(0),
+  lastAt: external_exports.string(),
+  lastOk: external_exports.boolean()
+});
+var timingsSchema = external_exports.strictObject({
+  schemaVersion: external_exports.literal(1),
+  operations: external_exports.record(external_exports.string().regex(/^[a-z][a-z0-9.-]{0,60}$/), timingEntry)
+});
+var timingsFile = () => path9.join(managedHome(), "operation-timings.json");
+var MAX_OPERATIONS = 100;
+async function readTimings() {
+  try {
+    const file = timingsFile();
+    return await exists(file) ? parse(timingsSchema, await readJson(file)) : { schemaVersion: 1, operations: {} };
+  } catch {
+    return { schemaVersion: 1, operations: {} };
+  }
+}
+async function recordOperationTiming(operation, durationMs, ok, sqlclMs = 0, at = /* @__PURE__ */ new Date()) {
+  if (!/^[a-z][a-z0-9.-]{0,60}$/.test(operation) || !await recordable()) return;
+  try {
+    await withLock(path9.join(managedHome(), "operation-timings.lock"), async () => {
+      const timings = await readTimings();
+      const ms = Math.max(0, Math.round(durationMs));
+      const entry2 = timings.operations[operation] ??= {
+        count: 0,
+        failed: 0,
+        totalMs: 0,
+        maxMs: 0,
+        lastMs: 0,
+        sqlclMs: 0,
+        lastAt: at.toISOString(),
+        lastOk: ok
+      };
+      entry2.count++;
+      if (!ok) entry2.failed++;
+      entry2.totalMs += ms;
+      entry2.maxMs = Math.max(entry2.maxMs, ms);
+      entry2.lastMs = ms;
+      entry2.sqlclMs += Math.max(0, Math.round(sqlclMs));
+      entry2.lastAt = at.toISOString();
+      entry2.lastOk = ok;
+      const names = Object.keys(timings.operations).sort((a, b) => timings.operations[b].lastAt.localeCompare(timings.operations[a].lastAt)).slice(0, MAX_OPERATIONS);
+      timings.operations = Object.fromEntries(names.map((n) => [n, timings.operations[n]]));
+      await writeJson(timingsFile(), timings);
+    });
+  } catch {
+  }
+}
+async function operationTimings() {
+  const { operations } = await readTimings();
+  return Object.entries(operations).map(([operation, e]) => ({
+    operation,
+    count: e.count,
+    failed: e.failed,
+    averageMs: e.count ? Math.round(e.totalMs / e.count) : 0,
+    maxMs: e.maxMs,
+    lastMs: e.lastMs,
+    averageSqlclMs: e.count ? Math.round(e.sqlclMs / e.count) : 0,
+    lastAt: e.lastAt,
+    lastOk: e.lastOk
+  })).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+}
+var recentSchema = external_exports.strictObject({
+  schemaVersion: external_exports.literal(1),
+  projects: external_exports.array(
+    external_exports.strictObject({
+      path: external_exports.string().min(1).max(4096),
+      projectId: external_exports.string().max(200).optional(),
+      at: external_exports.string()
+    })
+  ).max(20)
+});
+var RECENT_LIMIT = 10;
+async function recordProject(root, projectId, at = /* @__PURE__ */ new Date()) {
+  if (!path9.isAbsolute(root) || !await recordable()) return;
+  try {
+    await withLock(path9.join(managedHome(), "recent-projects.lock"), async () => {
+      const file = recentFile();
+      let projects = [];
+      try {
+        if (await exists(file)) projects = parse(recentSchema, await readJson(file)).projects;
+      } catch {
+        projects = [];
+      }
+      const entry2 = { path: root, ...projectId ? { projectId } : {}, at: at.toISOString() };
+      projects = [entry2, ...projects.filter((p) => p.path !== root)].slice(0, RECENT_LIMIT);
+      await writeJson(file, { schemaVersion: 1, projects });
+    });
+  } catch {
+  }
+}
+async function recentProjects() {
+  try {
+    const file = recentFile();
+    if (!await exists(file)) return [];
+    const projects = parse(recentSchema, await readJson(file)).projects;
+    const live = [];
+    for (const p of projects) if (await exists(path9.join(p.path, "apexrest.json"))) live.push(p);
+    return live;
+  } catch {
+    return [];
+  }
+}
+async function settingsStatus() {
+  const settings = await globalSettings();
+  const decision = settings.decisionApi;
+  const keyEnv = decision?.apiKeyEnv ?? "OPENAI_API_KEY";
+  return {
+    file: settingsFile(),
+    settings,
+    decisionApi: {
+      enabled: decision?.enabled ?? false,
+      apiKeyEnv: keyEnv,
+      timeoutMs: decision?.timeoutMs ?? 3e3,
+      // Presence only; the value is never read into the result.
+      keyInEnvironment: Boolean(process.env[keyEnv]?.trim()),
+      note: "A project decisionApi in apexrest.json overrides this default."
+    },
+    catalog: {
+      enabled: settings.catalog?.enabled !== false,
+      ...await catalogInfo(),
+      usage: await catalogUsage()
+    },
+    recentProjects: await recentProjects(),
+    timings: await operationTimings()
+  };
+}
+
 // packages/core/src/reference-selection.ts
 var model = "gpt-6-luna";
 var endpoint = "https://api.openai.com/v1/decisions";
 var VALUES_BYTES = 1500;
 var count = external_exports.number().int().nonnegative();
-var usageSchema = external_exports.object({
+var usageSchema2 = external_exports.object({
   input_tokens: count,
   input_tokens_details: external_exports.object({ cached_tokens: count, cache_write_tokens: count }),
   output_tokens: count,
@@ -12118,7 +12428,7 @@ var responseSchema = external_exports.object({
       probability: external_exports.number().min(0).max(1)
     })
   ).max(64),
-  usage: usageSchema
+  usage: usageSchema2
 });
 function cancelled(signal) {
   if (signal?.aborted) throw new Fault("CANCELLED", "Component selection cancelled.", 6, "cancelled");
@@ -12149,7 +12459,7 @@ async function referenceSelect(input, signal, fetcher = fetch) {
   const version2 = input.version ?? ctx.config.toolchain.profile ?? "26.1";
   const candidates = await referenceCandidates(input.request, version2);
   cancelled(signal);
-  const settings = ctx.config.decisionApi;
+  const { settings, source: settingsSource } = await effectiveDecisionApi(ctx);
   let selected = candidates;
   let method = "local";
   let fallbackReason;
@@ -12208,7 +12518,7 @@ async function referenceSelect(input, signal, fetcher = fetch) {
         } else {
           phase = "invalid_response";
           const raw = await responseJson(response);
-          const measured = usageSchema.safeParse(raw?.usage);
+          const measured = usageSchema2.safeParse(raw?.usage);
           if (measured.success) usage = measured.data;
           if (Array.isArray(raw?.answers) && raw.answers.some((answer) => answer?.type === "refusal"))
             fallbackReason = "refusal";
@@ -12265,6 +12575,7 @@ async function referenceSelect(input, signal, fetcher = fetch) {
   const selection = {
     method,
     version: version2,
+    settingsSource,
     candidateCount: candidates.length,
     ...settings?.enabled && apiDurationMs !== void 0 ? { model, apiDurationMs } : {},
     ...fallbackReason ? { fallbackReason } : {},
@@ -12361,8 +12672,8 @@ async function referenceSelect(input, signal, fetcher = fetch) {
 }
 
 // packages/core/src/deploy.ts
-import path10 from "node:path";
-import { readFile as readFile10, mkdir as mkdir5, cp as cp3, open as open2, readdir as readdir4, rename, rm as rm3, rmdir } from "node:fs/promises";
+import path11 from "node:path";
+import { readFile as readFile11, mkdir as mkdir5, cp as cp3, open as open2, readdir as readdir4, rename, rm as rm3, rmdir } from "node:fs/promises";
 import { randomUUID as randomUUID4 } from "node:crypto";
 
 // packages/core/src/sql-review.ts
@@ -12707,8 +13018,8 @@ function inspectSql(sql, depth = 0) {
 }
 
 // packages/core/src/sync-normalization.ts
-import path9 from "node:path";
-import { readFile as readFile9 } from "node:fs/promises";
+import path10 from "node:path";
+import { readFile as readFile10 } from "node:fs/promises";
 var DEPLOYMENT_FILE = "deployments/default.json";
 var SUPPORTING_OBJECTS = "supporting-objects/supporting-objects.apx";
 var DEINSTALL_BLOCK = /^([ \t]*)deinstall \{\r?\n[ \t]*scriptFile: ([^\s]+)\r?\n\1\}\r?\n/mu;
@@ -12725,7 +13036,7 @@ function withoutAppId(value) {
 }
 async function generatedSourceNormalizations(localRoot, serverRoot, local, server, applicationId) {
   const differing = [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(server)])].filter((file) => local[file] !== server[file]).sort();
-  const read = async (root, file) => readFile9(await contained(root, file), "utf8");
+  const read = async (root, file) => readFile10(await contained(root, file), "utf8");
   const result = [];
   const explained = /* @__PURE__ */ new Set();
   if (differing.includes(DEPLOYMENT_FILE) && local[DEPLOYMENT_FILE] && server[DEPLOYMENT_FILE]) {
@@ -12748,7 +13059,7 @@ async function generatedSourceNormalizations(localRoot, serverRoot, local, serve
     const localText = await read(localRoot, SUPPORTING_OBJECTS);
     const match2 = DEINSTALL_BLOCK.exec(localText);
     if (!match2) return void 0;
-    const script = path9.posix.normalize(path9.posix.join(path9.posix.dirname(SUPPORTING_OBJECTS), match2[2]));
+    const script = path10.posix.normalize(path10.posix.join(path10.posix.dirname(SUPPORTING_OBJECTS), match2[2]));
     if (script.startsWith("..") || !local[script] || server[script]) return void 0;
     if ((await read(localRoot, script)).trim() !== "") return void 0;
     const stripped = localText.slice(0, match2.index) + localText.slice(match2.index + match2[0].length);
@@ -12992,7 +13303,7 @@ function securityAttributes(text2) {
   return out;
 }
 async function securityChanged(local, server) {
-  const read = async (root, files, file) => files[file] === void 0 ? [] : securityAttributes(await readFile10(await contained(root, file), "utf8"));
+  const read = async (root, files, file) => files[file] === void 0 ? [] : securityAttributes(await readFile11(await contained(root, file), "utf8"));
   for (const file of /* @__PURE__ */ new Set([...Object.keys(server.files), ...Object.keys(local.files)])) {
     if (local.files[file] === server.files[file]) continue;
     if (/authenticat|authoriz/i.test(file)) return true;
@@ -13036,7 +13347,7 @@ async function authorizePlan(ctx, plan, env2, local = false) {
     );
 }
 var migrationName = /^(\d{4,})__[A-Za-z0-9_-]+\.sql$/;
-var migrationVersion = (file) => BigInt(migrationName.exec(path10.basename(file))?.[1] ?? "-1");
+var migrationVersion = (file) => BigInt(migrationName.exec(path11.basename(file))?.[1] ?? "-1");
 function operationOrder(a, b) {
   const kind = (a.kind === "migration" ? 0 : 1) - (b.kind === "migration" ? 0 : 1);
   if (kind) return kind;
@@ -13120,19 +13431,19 @@ async function sourceInventory(ctx) {
       for (const [file, sha] of Object.entries(await inventory(dir))) files[relative + "/" + file] = sha;
   }
   for (const relative of ["package.json", "package-lock.json"])
-    if (await exists(path10.join(ctx.root, relative)))
-      files[relative] = hash(await readFile10(await contained(ctx.root, relative)));
+    if (await exists(path11.join(ctx.root, relative)))
+      files[relative] = hash(await readFile11(await contained(ctx.root, relative)));
   return Object.fromEntries(Object.entries(files).sort());
 }
 async function appendJournal(runDir, event) {
-  const journal2 = await open2(path10.join(runDir, "journal.jsonl"), "a", 384);
+  const journal2 = await open2(path11.join(runDir, "journal.jsonl"), "a", 384);
   try {
     await journal2.writeFile(JSON.stringify(event) + "\n");
     await journal2.sync();
   } finally {
     await journal2.close();
   }
-  await writeJson(path10.join(runDir, "state.json"), event);
+  await writeJson(path11.join(runDir, "state.json"), event);
 }
 var DeploymentService = class {
   constructor(oracle = new OracleAdapter()) {
@@ -13152,7 +13463,7 @@ var DeploymentService = class {
     const databaseOperations = [];
     for (const operation of plan.operations) {
       if (!operation.file || !["migration", "package"].includes(operation.kind)) continue;
-      const sql = await readFile10(await contained(ctx.root, operation.file), "utf8");
+      const sql = await readFile11(await contained(ctx.root, operation.file), "utf8");
       for (const described of inspectSql(sql)) {
         let dependencies2 = [], dependenciesStatus = "not-applicable";
         if (described.object && ["drop-table", "rename-column", "alter-table", "rename-object"].includes(described.action)) {
@@ -13373,13 +13684,13 @@ var DeploymentService = class {
         const syncId = randomUUID4(), backupId = randomUUID4();
         const baselineDir = ".apexrest/sync/" + targetDigest(env2) + "/baselines/" + syncId + "/application";
         const baselineRoot = await syncPath(ctx, baselineDir), backupRoot = await syncPath(ctx, ".apexrest/backups/" + backupId);
-        await mkdir5(path10.dirname(baselineRoot), { recursive: true, mode: 448 });
+        await mkdir5(path11.dirname(baselineRoot), { recursive: true, mode: 448 });
         await privateCopy(exported.directory, baselineRoot);
         const baseline = { directory: baselineDir, files: exported.files, digest: exported.digest };
         await checkSnapshot(ctx, baseline);
         await mkdir5(backupRoot, { recursive: true, mode: 448 });
-        await privateCopy(exported.directory, path10.join(backupRoot, "application"));
-        await writeJson(path10.join(backupRoot, "backup.json"), {
+        await privateCopy(exported.directory, path11.join(backupRoot, "application"));
+        await writeJson(path11.join(backupRoot, "backup.json"), {
           schemaVersion: 1,
           backupId,
           targetDigest: targetDigest(env2),
@@ -13412,7 +13723,7 @@ var DeploymentService = class {
           targetDigest: targetDigest(env2),
           target,
           sourceDir: ctx.config.application.sourceDir,
-          toolchainDigest: hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))),
+          toolchainDigest: hash(await readFile11(await contained(ctx.root, ctx.config.toolchain.lockFile))),
           runtimeVersion: VERSION,
           compilerVersion: exported.compiler.version,
           exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -13471,7 +13782,7 @@ var DeploymentService = class {
             }
           }
         } else {
-          await mkdir5(path10.dirname(source2), { recursive: true });
+          await mkdir5(path11.dirname(source2), { recursive: true });
           const replacement = await syncPath(
             ctx,
             ".apexrest/sync/" + targetDigest(env2) + "/baselines/" + syncId + "/new-working-copy"
@@ -13538,7 +13849,7 @@ var DeploymentService = class {
           let pending = false;
           for (const [file, sha] of Object.entries(sources)) {
             if (file.startsWith(ctx.config.database.migrationsDir + "/")) {
-              const previous = applied.get(path10.basename(file));
+              const previous = applied.get(path11.basename(file));
               if (previous && previous !== sha)
                 throw new Fault("MIGRATION_HISTORY_CONFLICT", "Applied migration changed.", 5);
               if (!previous) pending = true;
@@ -13670,7 +13981,7 @@ var DeploymentService = class {
           continue;
         }
         if (file.startsWith(ctx.config.database.migrationsDir + "/")) {
-          const old = history.get(path10.basename(file));
+          const old = history.get(path11.basename(file));
           if (!old) return fallback(["database-operations-require-full-import"]);
           if (old.checksum !== sha)
             throw new Fault("MIGRATION_HISTORY_CONFLICT", "Applied migration changed.", 5);
@@ -13723,7 +14034,7 @@ var DeploymentService = class {
         sourceDigest: hash(canonical(sources)),
         sources,
         configurationDigest: hash(canonical(ctx.config)),
-        toolchainDigest: hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))),
+        toolchainDigest: hash(await readFile11(await contained(ctx.root, ctx.config.toolchain.lockFile))),
         compiler: validation.compiler.version,
         targetDigest: targetDigest(env2),
         target: current.target,
@@ -13847,11 +14158,11 @@ var DeploymentService = class {
       if (!migration && !pkg) continue;
       if (!file.endsWith(".sql"))
         throw new Fault("UNSUPPORTED_DB_SOURCE", "Database execution directories accept .sql files only.", 3);
-      const sql = await readFile10(await contained(ctx.root, file), "utf8");
-      const runs = migration ? !history.has(path10.basename(file)) : packageHistory[file] !== sha256;
+      const sql = await readFile11(await contained(ctx.root, file), "utf8");
+      const runs = migration ? !history.has(path11.basename(file)) : packageHistory[file] !== sha256;
       if (runs) risks.push(...migrationRisk(sql).map((r) => `${r}:${file}`));
       if (migration) {
-        const version2 = path10.basename(file);
+        const version2 = path11.basename(file);
         if (!/^\d{4,}__[A-Za-z0-9_-]+\.sql$/.test(version2))
           throw new Fault(
             "INVALID_MIGRATION_NAME",
@@ -13876,11 +14187,11 @@ var DeploymentService = class {
             root: await contained(ctx.root, ctx.config.application.sourceDir),
             files: applicationFiles(ctx, sources)
           },
-          { root: path10.resolve(ctx.root, current.exported.directory), files: current.exported.files }
+          { root: path11.resolve(ctx.root, current.exported.directory), files: current.exported.files }
         ))
           risks.push("authentication-or-authorization-change");
         if (!working || fresh)
-          await this.keepPlanObservation(ctx, id, path10.resolve(ctx.root, current.exported.directory));
+          await this.keepPlanObservation(ctx, id, path11.resolve(ctx.root, current.exported.directory));
       } finally {
         if (!working || fresh)
           await this.oracle.discardStage?.(current.exported.stage);
@@ -13903,7 +14214,7 @@ var DeploymentService = class {
       sourceDigest: hash(canonical(sources)),
       sources,
       configurationDigest: hash(canonical(ctx.config)),
-      toolchainDigest: hash(await readFile10(lock)),
+      toolchainDigest: hash(await readFile11(lock)),
       compiler: validation.compiler.version,
       targetDigest: targetDigest(env2),
       target: current.target,
@@ -13979,7 +14290,7 @@ var DeploymentService = class {
     const lifetime = Date.parse(plan.expiresAt) - Date.parse(plan.createdAt);
     if (!(lifetime > 0 && lifetime <= PLAN_LIFETIME_MS) || Date.parse(plan.createdAt) > Date.now() + 6e4)
       throw new Fault("PLAN_TAMPERED", "Plan lifetime exceeds the reviewed plan limit.", 5);
-    if (plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))) || plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))))
+    if (plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))) || plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile11(await contained(ctx.root, ctx.config.toolchain.lockFile))))
       throw new Fault("SOURCE_DRIFT", "Sources, configuration or toolchain lock changed after review.", 5);
     const databaseOnly = plan.scope === "database-only";
     if (plan.backupRequired !== (!databaseOnly && Boolean(plan.target.application)))
@@ -14001,13 +14312,13 @@ var DeploymentService = class {
         if (!kind) continue;
         if (!file.endsWith(".sql"))
           throw new Fault("UNSUPPORTED_DB_SOURCE", "Database sources must be SQL files.", 5);
-        const previous = history.get(path10.basename(file));
+        const previous = history.get(path11.basename(file));
         if (kind === "migration" && previous && (previous.checksum !== sha256 || previous.status !== "succeeded"))
           throw new Fault("MIGRATION_HISTORY_CONFLICT", "Migration requires reconciliation.", 5);
         const runs = kind === "migration" ? !previous : plan.packageHistory?.[file] !== sha256;
         if (!runs) continue;
         expected.push({ kind, file, sha256 });
-        const risks = migrationRisk(await readFile10(await contained(ctx.root, file), "utf8")).map(
+        const risks = migrationRisk(await readFile11(await contained(ctx.root, file), "utf8")).map(
           (r) => `${r}:${file}`
         );
         if (risks.some((r) => !plan.risks.includes(r)))
@@ -14100,8 +14411,8 @@ var DeploymentService = class {
     let working = await this.checkWorkingPlan(ctx, plan);
     const syncStore = new SyncStore(ctx, env2, plan.environment);
     const prepare = !plan.restore && plan.scope !== "database-only" && !!this.oracle.prepareImport;
-    const runDir = path10.join(ctx.root, ".apexrest/deployments", runId);
-    const importDirectory = prepare && selection ? path10.join(runDir, "snapshot", ctx.config.application.sourceDir) : void 0;
+    const runDir = path11.join(ctx.root, ".apexrest/deployments", runId);
+    const importDirectory = prepare && selection ? path11.join(runDir, "snapshot", ctx.config.application.sourceDir) : void 0;
     if (importDirectory) await mkdir5(importDirectory, { recursive: true, mode: 448 });
     const warmImport = prepare ? await this.oracle.prepareImport(
       await contained(ctx.root, ctx.config.application.sourceDir),
@@ -14125,7 +14436,7 @@ var DeploymentService = class {
     } finally {
       await warmImport?.close().catch(() => {
       });
-      for (let directory = importDirectory; directory && directory.startsWith(runDir); directory = path10.dirname(directory)) {
+      for (let directory = importDirectory; directory && directory.startsWith(runDir); directory = path11.dirname(directory)) {
         try {
           await rmdir(directory);
         } catch {
@@ -14204,7 +14515,7 @@ var DeploymentService = class {
     }
     if (signal?.aborted)
       throw new Fault("CANCELLED", "Deployment cancelled before lease acquisition.", 6, "cancelled");
-    const runs = path10.join(ctx.root, ".apexrest/deployments"), runDir = path10.join(runs, runId);
+    const runs = path11.join(ctx.root, ".apexrest/deployments"), runDir = path11.join(runs, runId);
     await mkdir5(runDir, { recursive: true, mode: 448 });
     let state = "planned", writeStarted = false, importConfirmed = false, importRejected = false, syncMarked = false, syncSucceeded = false;
     let freshBackupId = null;
@@ -14233,7 +14544,7 @@ var DeploymentService = class {
       timingCursor = sqlclTimings().length;
       await appendJournal(runDir, event);
     };
-    await writeJson(path10.join(runDir, "plan.json"), plan);
+    await writeJson(path11.join(runDir, "plan.json"), plan);
     await record("approved");
     await this.lease(env2, runId, false);
     try {
@@ -14244,14 +14555,14 @@ var DeploymentService = class {
       if (!databaseOnly && (plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
         const backup = backupSource ?? await this.oracle.exportApplication(env2, readConnection, "APEXLANG");
         try {
-          const backupId = randomUUID4(), directory = path10.join(ctx.root, ".apexrest/backups", backupId);
+          const backupId = randomUUID4(), directory = path11.join(ctx.root, ".apexrest/backups", backupId);
           await mkdir5(directory, { recursive: true, mode: 448 });
           const backupPath = backup.directory.startsWith(".apexrest/") ? await syncPath(ctx, backup.directory) : backup.directory;
-          await privateCopy(backupPath, path10.join(directory, "application"));
-          const files = await inventory(path10.join(directory, "application"));
+          await privateCopy(backupPath, path11.join(directory, "application"));
+          const files = await inventory(path11.join(directory, "application"));
           if (!scoped && !Object.keys(files).length || hash(canonical(files)) !== backup.digest)
             throw new Fault("BACKUP_INVALID", "Backup copy failed checksum verification.", 1);
-          await writeJson(path10.join(directory, "backup.json"), {
+          await writeJson(path11.join(directory, "backup.json"), {
             schemaVersion: 1,
             backupId,
             runId,
@@ -14267,7 +14578,7 @@ var DeploymentService = class {
             restoreProcedure: "Reviewed APEXlang import in the recorded scope; newly created components have no previous source to restore. Schema/data recovery is separate."
           });
           freshBackupId = backupId;
-          await writeJson(path10.join(runDir, "backup.json"), {
+          await writeJson(path11.join(runDir, "backup.json"), {
             backupId,
             checksum: backup.digest,
             targetDigest: plan.targetDigest
@@ -14286,20 +14597,20 @@ var DeploymentService = class {
           await this.oracle.discardStage?.(after.exported?.stage);
         }
       }
-      const snapshot2 = path10.join(runDir, "snapshot");
+      const snapshot2 = path11.join(runDir, "snapshot");
       await mkdir5(snapshot2, { recursive: true, mode: 448 });
       for (const [file, sha] of Object.entries(plan.sources)) {
         const source2 = await contained(ctx.root, file), destination = await contained(snapshot2, file);
-        await mkdir5(path10.dirname(destination), { recursive: true });
+        await mkdir5(path11.dirname(destination), { recursive: true });
         await cp3(source2, destination);
-        if (hash(await readFile10(destination)) !== sha)
+        if (hash(await readFile11(destination)) !== sha)
           throw new Fault("SOURCE_DRIFT", "Source changed while freezing deployment.", 5);
       }
       if (selection) {
         await checkSnapshot(ctx, selection.effective);
-        const application = path10.join(snapshot2, ctx.config.application.sourceDir);
+        const application = path11.join(snapshot2, ctx.config.application.sourceDir);
         for (const entry2 of await readdir4(application))
-          await rm3(path10.join(application, entry2), { recursive: true });
+          await rm3(path11.join(application, entry2), { recursive: true });
         await privateCopy(await syncPath(ctx, selection.effective.directory), application);
         if (canonical(await inventory(application)) !== canonical(selection.effective.files))
           throw new Fault("SOURCE_DRIFT", "Selected source changed while freezing deployment.", 5);
@@ -14359,7 +14670,7 @@ var DeploymentService = class {
         if (operation.kind === "migration")
           await new LocalDeploymentControl(env2).migration(
             runId,
-            path10.basename(file),
+            path11.basename(file),
             operation.sha256,
             "started"
           );
@@ -14378,7 +14689,7 @@ prompt ${marker}`,
         if (!scriptCompleted(executed?.output, marker))
           throw new Fault(
             "SCRIPT_INCOMPLETE",
-            `SQLcl did not confirm that ${path10.basename(file)} ran to completion.`,
+            `SQLcl did not confirm that ${path11.basename(file)} ran to completion.`,
             6,
             "outcome_unknown"
           );
@@ -14392,12 +14703,12 @@ prompt ${marker}`,
         if (operation.kind === "migration") {
           await new LocalDeploymentControl(env2).migration(
             runId,
-            path10.basename(file),
+            path11.basename(file),
             operation.sha256,
             "succeeded"
           );
           completedMigrations.push({
-            version: path10.basename(file),
+            version: path11.basename(file),
             checksum: operation.sha256,
             status: "succeeded",
             run_id: runId
@@ -14418,7 +14729,7 @@ prompt ${marker}`,
         );
         if (hash(canonical(await inventory(backupRoot))) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
-        const frozen = path10.join(runDir, "restore");
+        const frozen = path11.join(runDir, "restore");
         await privateCopy(backupRoot, frozen);
         const files = await inventory(frozen);
         if (hash(canonical(files)) !== plan.restore.checksum)
@@ -14442,7 +14753,7 @@ prompt ${marker}`,
         await this.oracle.restoreApplication(
           env2,
           deployConnection,
-          path10.join(frozen, main[0]),
+          path11.join(frozen, main[0]),
           controller.signal
         );
       } else {
@@ -14454,13 +14765,13 @@ prompt ${marker}`,
           )
         ) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
-        if (selection && canonical(await inventory(path10.join(snapshot2, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
+        if (selection && canonical(await inventory(path11.join(snapshot2, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
           throw new Fault("SOURCE_DRIFT", "Frozen selected source changed before import.", 5);
         if (controller.signal.aborted)
           throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
-        let importSource = path10.join(snapshot2, ctx.config.application.sourceDir);
+        let importSource = path11.join(snapshot2, ctx.config.application.sourceDir);
         if (plan.restore && !selection) {
-          const frozen = path10.join(runDir, "restore");
+          const frozen = path11.join(runDir, "restore");
           await privateCopy(
             await syncPath(ctx, ".apexrest/backups/" + plan.restore.backupId + "/application"),
             frozen
@@ -14562,7 +14873,7 @@ ${error.message}`,
               policy: "exact-bytes",
               normalizations: []
             };
-            await writeJson(path10.join(runDir, "readback-verification.json"), {
+            await writeJson(path11.join(runDir, "readback-verification.json"), {
               ...comparison,
               scope: scoped ? "selected" : "full",
               sourceObservationScope: selection.exportScope ?? "full",
@@ -14711,13 +15022,13 @@ ${error.message}`,
   async recoveryRead(ctx, runId) {
     parse(external_exports.uuid(), runId);
     const directory = await contained(ctx.root, ".apexrest/deployments/" + runId);
-    if (!await exists(path10.join(directory, "plan.json")))
+    if (!await exists(path11.join(directory, "plan.json")))
       throw new Fault(
         "DEPLOYMENT_RUN_NOT_FOUND",
         `No deployment run ${runId} exists in this project. Pass the deploymentRunId from the failed apexrest_ship result (data.deploymentRunId), not the result's runId or a jobId.`,
         2
       );
-    const plan = parse(deployPlanSchema, await readJson(path10.join(directory, "plan.json")));
+    const plan = parse(deployPlanSchema, await readJson(path11.join(directory, "plan.json")));
     const env2 = environment(ctx, plan.environment);
     if (plan.digest !== planDigest2(plan) || plan.projectRoot !== ctx.root || plan.projectId !== ctx.config.projectId || plan.targetDigest !== targetDigest(env2))
       throw new Fault("PLAN_TARGET_MISMATCH", "Reconciliation must use the original project and target.", 5);
@@ -14743,7 +15054,7 @@ ${error.message}`,
         "The actual server/application identity changed before reconciliation.",
         5
       );
-    const state = await readJson(path10.join(directory, "state.json"));
+    const state = await readJson(path11.join(directory, "state.json"));
     const expectedDirectory = selection?.effective?.directory ?? ".apexrest/deployments/" + runId + "/snapshot/" + ctx.config.application.sourceDir;
     const expectedInventory = selection?.effective?.files ?? applicationFiles(ctx, plan.sources);
     const expectedFiles = scoped ? pickFiles(expectedInventory, selection.files) : expectedInventory;
@@ -14832,7 +15143,7 @@ ${error.message}`,
           "Server content differs from both reviewed desired and baseline sources. Preserve the server snapshot and resolve these files: " + result.conflictFiles.join(", "),
           5
         );
-      if (plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile10(await contained(ctx.root, ctx.config.toolchain.lockFile))) || plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))))
+      if (plan.configurationDigest !== hash(canonical(ctx.config)) || plan.toolchainDigest !== hash(await readFile11(await contained(ctx.root, ctx.config.toolchain.lockFile))) || plan.sourceDigest !== hash(canonical(await sourceInventory(ctx))))
         throw new Fault(
           "SOURCE_DRIFT",
           "Local sources/configuration/toolchain changed; recovery cannot repeat a different task.",
@@ -14942,9 +15253,9 @@ ${error.message}`,
   async restorePlan(ctx, backupId) {
     parse(external_exports.uuid(), backupId);
     const directory = await contained(ctx.root, ".apexrest/backups/" + backupId);
-    const backup = await readJson(path10.join(directory, "backup.json"));
+    const backup = await readJson(path11.join(directory, "backup.json"));
     await refuseProductionDeployment(environment(ctx, backup.environment), backup.environment);
-    const files = await inventory(path10.join(directory, "application"));
+    const files = await inventory(path11.join(directory, "application"));
     if (hash(canonical(files)) !== backup.digest)
       throw new Fault("BACKUP_INVALID", "Backup digest does not match.", 5);
     let plan;
@@ -14963,7 +15274,7 @@ ${error.message}`,
       const context2 = await syncPath(ctx, ".apexrest/restore-context/" + randomUUID4());
       await overlaySelection(
         await syncPath(ctx, ctx.config.application.sourceDir),
-        path10.join(directory, "application"),
+        path11.join(directory, "application"),
         backup.selectedFiles,
         context2
       );
@@ -14981,7 +15292,7 @@ ${error.message}`,
         await rm3(context2, { recursive: true, force: true });
       }
     } else {
-      if (backup.format === "APEXLANG") await this.oracle.validate(path10.join(directory, "application"));
+      if (backup.format === "APEXLANG") await this.oracle.validate(path11.join(directory, "application"));
       plan = await this.plan(ctx, backup.environment, true);
     }
     if (plan.targetDigest !== backup.targetDigest)
@@ -15001,7 +15312,7 @@ ${error.message}`,
 };
 
 // packages/core/src/panel.ts
-import path11 from "node:path";
+import path12 from "node:path";
 import { readdir as readdir5, realpath as realpath4, stat as stat3 } from "node:fs/promises";
 var safe = (value) => sanitized(value);
 var historyLimit = 2e3;
@@ -15024,7 +15335,7 @@ var PanelService = class {
       const dated = await Promise.all(
         entries.map(async (entry2) => ({
           entry: entry2,
-          at: (await stat3(path11.join(base2, entry2.name)).catch(() => null))?.mtimeMs ?? 0
+          at: (await stat3(path12.join(base2, entry2.name)).catch(() => null))?.mtimeMs ?? 0
         }))
       );
       omitted = entries.length - historyLimit;
@@ -15169,14 +15480,14 @@ var PanelService = class {
 };
 
 // packages/core/src/peer-review.ts
-import path14 from "node:path";
+import path15 from "node:path";
 import { randomUUID as randomUUID5 } from "node:crypto";
-import { mkdir as mkdir6, readFile as readFile12, rm as rm4 } from "node:fs/promises";
+import { mkdir as mkdir6, readFile as readFile13, rm as rm4 } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/cli-command.ts
-import path12 from "node:path";
-import { readFile as readFile11, stat as stat4 } from "node:fs/promises";
+import path13 from "node:path";
+import { readFile as readFile12, stat as stat4 } from "node:fs/promises";
 var SHIM_LIMIT = 64 * 1024;
 var NODE_FLAG = /^--?[A-Za-z0-9][\w-]*(?:=[\w./:-]*)?$/u;
 function npmShimTarget(text2) {
@@ -15212,12 +15523,12 @@ async function resolveCliCommand(command, args, host = {}) {
       3,
       "dependency_missing"
     );
-  const extension = path12.extname(located).toLowerCase();
+  const extension = path13.extname(located).toLowerCase();
   if (extension === ".cmd" || extension === ".bat") {
-    const content = await readFile11(located);
+    const content = await readFile12(located);
     const shim = content.length <= SHIM_LIMIT ? npmShimTarget(content.toString("utf8")) : void 0;
     if (shim) {
-      const target = path12.join(path12.dirname(located), ...shim.target.split(/[\\/]/u));
+      const target = path13.join(path13.dirname(located), ...shim.target.split(/[\\/]/u));
       if (await isFile(target))
         return shim.node ? { executable: host.execPath ?? process.execPath, args: [...shim.nodeArgs, target, ...args] } : { executable: target, args };
     }
@@ -15231,7 +15542,7 @@ async function resolveCliCommand(command, args, host = {}) {
 }
 
 // packages/core/src/ship.ts
-import path13 from "node:path";
+import path14 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -15276,23 +15587,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source2 = path13.resolve(root, input.sourceDir);
-  if (!await exists(path13.join(source2, "application.apx")))
+  const source2 = path14.resolve(root, input.sourceDir);
+  if (!await exists(path14.join(source2, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source2} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path13.join(source2, ".apex", "apexlang.json");
+  const own = path14.join(source2, ".apex", "apexlang.json");
   if (await exists(own)) return { source: source2, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path13.resolve(input.project));
-  for (let dir = path13.dirname(source2); ; dir = path13.dirname(dir)) {
-    if (await exists(path13.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path14.resolve(input.project));
+  for (let dir = path14.dirname(source2); ; dir = path14.dirname(dir)) {
+    if (await exists(path14.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path13.dirname(dir) === dir) break;
+    if (path14.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -15301,7 +15612,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file = path13.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file = path14.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file)) return { source: source2, metadata: { origin: "project", file } };
   }
   throw new Fault(
@@ -15806,8 +16117,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID5());
   await mkdir6(scratch, { recursive: true });
   try {
-    const schemaFile = path14.join(scratch, "verdict.schema.json");
-    const lastFile = path14.join(scratch, "last-message.json");
+    const schemaFile = path15.join(scratch, "verdict.schema.json");
+    const lastFile = path15.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -15858,7 +16169,7 @@ async function runPeer(vendor, ctx, prompt, options) {
         `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
         1
       );
-    if (vendor === "codex") return parseVerdict(await readFile12(lastFile, "utf8"));
+    if (vendor === "codex") return parseVerdict(await readFile13(lastFile, "utf8"));
     const envelope = JSON.parse(result.stdout);
     if (envelope.is_error)
       throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
@@ -16014,7 +16325,7 @@ function prewarmCompiler(project2) {
       try {
         const ctx = await loadProject(project2);
         const source2 = await contained(ctx.root, ctx.config.application.sourceDir);
-        if (!await exists(path15.join(source2, ".apex/apexlang.json"))) {
+        if (!await exists(path16.join(source2, ".apex/apexlang.json"))) {
           compilerPrewarms.delete(project2);
           return;
         }
@@ -16105,11 +16416,19 @@ function routeReference(parsed) {
 }
 async function dispatch(operation, input = {}, signal, progress) {
   return withSqlclTimings(async () => {
+    const started = performance.now();
     const result = await dispatchObserved(operation, input, signal, progress);
     const timings = sqlclTimings().map(({ statementMs, ...r }) => ({
       ...r,
       ...input.debugTimings === true && statementMs ? { statementMs } : {}
     }));
+    if (!untimed.has(operation) && !/^(?:setup|plugin\.|dependencies\.)/.test(operation) && input.dryRun !== true)
+      await recordOperationTiming(
+        operation,
+        performance.now() - started,
+        result.ok,
+        timings.reduce((sum, r) => sum + r.totalMs, 0)
+      );
     if (operation === "metadata.read" && result.ok) {
       return {
         ...result,
@@ -16249,7 +16568,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text2("directory"),
           text2("template"),
-          text2("alias") ?? path15.basename(path15.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text2("alias") ?? path16.basename(path16.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "project.scaffold": {
@@ -16290,13 +16609,37 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         if (parsed.saved) data = { name: text2("name"), ...data };
         break;
+      case "settings.status":
+        data = await settingsStatus();
+        break;
+      case "settings.configure":
+        data = await configureGlobalSettings({
+          ...parsed.decisionApi ? { decisionApi: parsed.decisionApi === "on" } : {},
+          ...parsed.apiKeyEnv ? { apiKeyEnv: text2("apiKeyEnv") } : {},
+          ...parsed.decisionTimeoutMs !== void 0 ? { decisionTimeoutMs: Number(parsed.decisionTimeoutMs) } : {},
+          ...parsed.catalog ? { catalog: parsed.catalog === "on" } : {}
+        });
+        break;
       case "docs.search":
+        await requireCatalog();
         data = await referenceSearch(text2("query"), text2("version"), schemas["docs.search"].parse(parsed));
+        await recordCatalogUse("search");
         break;
       case "docs.select":
+        await requireCatalog();
         data = await referenceSelect(schemas["docs.select"].parse(parsed), signal);
+        {
+          const selection = data.selection;
+          await recordCatalogUse(
+            "select",
+            selection?.method === "openai-decisions",
+            /* @__PURE__ */ new Date(),
+            decisionsUse(selection)
+          );
+        }
         break;
       case "docs.read":
+        await requireCatalog();
         data = await referenceRead(
           text2("id"),
           Number(parsed.offset),
@@ -16304,6 +16647,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           text2("project"),
           text2("version")
         );
+        await recordCatalogUse("read");
         break;
       case "docs.sync":
         data = await referenceSync(text2("version"), Boolean(parsed.dryRun));
@@ -16562,9 +16906,54 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         }
       }
     }
+    if (!observationOnly.has(operation)) await rememberProject(parsed.project);
     return success(operation, data);
   } catch (error) {
     return failure(operation, error);
+  }
+}
+var untimed = /* @__PURE__ */ new Set([
+  "project",
+  "reference",
+  "job",
+  "peer",
+  "panel.status",
+  "status",
+  "doctor",
+  "version",
+  "settings.status",
+  "sqlcl.status",
+  "connection.list",
+  "preview.status",
+  "jobs.status",
+  "peer.status"
+]);
+function decisionsUse(selection) {
+  if (!selection?.usage && selection?.apiDurationMs === void 0) return void 0;
+  const usage = selection.usage;
+  return {
+    inputTokens: usage?.input_tokens ?? 0,
+    cachedTokens: usage?.input_tokens_details?.cached_tokens ?? 0,
+    outputTokens: usage?.output_tokens ?? 0,
+    totalTokens: usage?.total_tokens ?? 0,
+    ...selection.apiDurationMs !== void 0 ? { apiMs: selection.apiDurationMs } : {}
+  };
+}
+var observationOnly = /* @__PURE__ */ new Set([
+  "panel.status",
+  "status",
+  "doctor",
+  "version",
+  "settings.status",
+  "jobs.status",
+  "peer.status"
+]);
+async function rememberProject(project2) {
+  if (typeof project2 !== "string" || !path16.isAbsolute(project2)) return;
+  try {
+    const ctx = await loadProject(project2);
+    await recordProject(ctx.root, ctx.config.projectId);
+  } catch {
   }
 }
 

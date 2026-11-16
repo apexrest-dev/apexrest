@@ -101,6 +101,20 @@ export const schemas = {
     databaseTransport: databaseTransport.optional(),
   }),
   'panel.status': z.strictObject(base),
+  'settings.status': z.strictObject({}),
+  'settings.configure': z.strictObject({
+    decisionApi: z
+      .enum(['on', 'off'])
+      .optional()
+      .describe('Default OpenAI Decisions selection for projects without decisionApi'),
+    apiKeyEnv: z
+      .string()
+      .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+      .optional()
+      .describe('Environment variable with the OpenAI key (default OPENAI_API_KEY)'),
+    decisionTimeoutMs: z.number().int().min(250).max(10000).optional(),
+    catalog: z.enum(['on', 'off']).optional().describe('Reference catalog tools (search, read, select)'),
+  }),
   setup: z.strictObject(setup),
   'dependencies.install': z.strictObject(dependencies),
   'dependencies.uninstall': z.strictObject({

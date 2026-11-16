@@ -21,6 +21,10 @@ await build({
 const result = spawnSync(
   process.execPath,
   ['--test', ...files.map((f) => path.join(root, f.replace(/\.ts$/, '.mjs')))],
-  { stdio: 'inherit', env: { ...process.env, APEXREST_RESOURCES: path.resolve('dist/resources') } },
+  {
+    stdio: 'inherit',
+    // Tests never add local usage counts, timings or recent projects to the developer's APEXREST home.
+    env: { ...process.env, APEXREST_RESOURCES: path.resolve('dist/resources'), APEXREST_USAGE: '0' },
+  },
 );
 process.exitCode = result.status ?? 1;

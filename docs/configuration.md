@@ -10,11 +10,11 @@ This page describes the project file `apexrest.json`, environments, connection r
 
 ## Optional project settings
 
-| Setting             | Purpose                                         | Values                                                                                                                                                                                   |
-| ------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `toolchain.profile` | Selects `26.1` or `26.2` authoring references   | `26.1`, `26.2`                                                                                                                                                                           |
-| `decisionApi`       | Configures component selection only             | `enabled` (default false), `apiKeyEnv` (default `OPENAI_API_KEY`), optional project-relative `envFile`, and `timeoutMs` (default 3000, range 250–10000)                                  |
-| `peerReview`        | Enables cross-vendor review of saved ship plans | `mode` (`off` default, `advisory`, `required`), `vendor` (`auto` default, `codex`, `claude`), optional `model` passed to the peer CLI, and `timeoutSeconds` (default 600, range 60–1800) |
+| Setting             | Purpose                                                                                           | Values                                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `toolchain.profile` | Selects `26.1` or `26.2` authoring references                                                     | `26.1`, `26.2`                                                                                                                                                                           |
+| `decisionApi`       | Configures component selection only; overrides the [machine-wide default](#machine-wide-settings) | `enabled` (default false), `apiKeyEnv` (default `OPENAI_API_KEY`), optional project-relative `envFile`, and `timeoutMs` (default 3000, range 250–10000)                                  |
+| `peerReview`        | Enables cross-vendor review of saved ship plans                                                   | `mode` (`off` default, `advisory`, `required`), `vendor` (`auto` default, `codex`, `claude`), optional `model` passed to the peer CLI, and `timeoutSeconds` (default 600, range 60–1800) |
 
 - `toolchain.profile`: existing projects without it retain 26.1 behavior; selecting a profile does not upgrade a database or rewrite Oracle source metadata. See [APEX 26.2 support](apex-26.2.md) for the matching compiler lock and partial-import requirements.
 - `decisionApi`: the key comes from the process environment first, then the explicitly configured private ignored ENV file. Selection falls back locally on API/credential failures; ordinary reference search/read remain local. See [Decisions selection](component-catalog.md#optional-openai-decisions-selection) for configuration and CLI/MCP examples.
@@ -26,6 +26,32 @@ This page describes the project file `apexrest.json`, environments, connection r
 - The default `{"browserMode":"codex"}` is the legacy name of `host` and behaves identically.
 - `apexrest_browser_open` accepts `browserMode` to override it for one call.
 - `apexrest_status` `detail:project` reports the current value.
+
+## Machine-wide settings
+
+`apexrest settings` holds settings for every project and host on this computer, in `APEXREST_HOME/settings.json` (default `~/.apexrest`):
+
+```sh
+apexrest settings status --json
+apexrest settings configure --decision-api on --catalog on --json
+```
+
+| Option                    | Effect                                                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--decision-api on\|off`  | Default OpenAI Decisions selection for projects whose `apexrest.json` has no `decisionApi`. A project `decisionApi` always wins.                    |
+| `--api-key-env NAME`      | Environment variable holding the key for the global default (`OPENAI_API_KEY`). The global default never reads an ENV file; that stays per project. |
+| `--decision-timeout-ms N` | Timeout for the global default, 250–10000 (3000).                                                                                                   |
+| `--catalog on\|off`       | `off` turns off reference search, read and select for every host: they return `CATALOG_DISABLED` and agents continue without lookups.               |
+
+`settings status` also reports, without any database, network or credential read:
+
+- whether the key variable is set in the calling process (never its value);
+- the bundled catalog sizes and local usage counts of reference search, read and select (today, the last seven days and in total, plus selections ranked by Decisions), kept for 30 days in `catalog-usage.json`;
+- OpenAI Decisions token use (input, cached, output and total, as the API reports it) and request time, in the same counts;
+- operation timing in `operation-timings.json`: per operation, the number of runs and failures and the average, last and maximum duration with its SQLcl share. Status reads and composite MCP routes are not timed; the operation they dispatch is;
+- recent projects in `recent-projects.json`: a successful operation with `--project` makes that project current; status reads do not.
+
+Counts, timings and recent projects stay on the computer and are written only when APEXREST_HOME already exists; installer operations and dry runs are not timed. Set `APEXREST_USAGE=0` to stop recording them; the repository test runner sets it.
 
 ## Configure an environment
 

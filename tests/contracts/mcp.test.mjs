@@ -5,7 +5,7 @@ import { spawnSync, spawn } from 'node:child_process';
 import { cp, mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 const runtime = path.resolve('dist/runtime');
 test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', async (t) => {
   const client = new Client({ name: 'contract-test', version: '1.0.0' });
@@ -14,6 +14,8 @@ test('real stdio MCP initialize/list/call, CLI parity and bounded catalog', asyn
     command: process.execPath,
     args: [path.join(runtime, 'mcp.mjs')],
     stderr: 'pipe',
+    // The SDK's default environment, without adding local usage records to the developer's home.
+    env: { ...getDefaultEnvironment(), APEXREST_USAGE: '0' },
   });
   const start = performance.now();
   await client.connect(transport);
@@ -188,6 +190,8 @@ test('MCP project tools require an explicit absolute path before dispatch or job
       args: [path.join(runtime, 'mcp.mjs')],
       cwd: runtime,
       stderr: 'pipe',
+      // The SDK's default environment, without adding local usage records to the developer's home.
+      env: { ...getDefaultEnvironment(), APEXREST_USAGE: '0' },
     }),
   );
   const inputs = {

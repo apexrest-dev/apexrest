@@ -165,7 +165,7 @@ The final APEXlang is composed by the current Codex or Claude Code model.
 
 ### Configure selection
 
-Selection is local unless `decisionApi.enabled` is true in `apexrest.json`:
+Selection is local unless `decisionApi.enabled` is true in `apexrest.json`, or the project has no `decisionApi` and the [machine-wide default](configuration.md#machine-wide-settings) is on (`apexrest settings configure --decision-api on`). The selection result reports `settingsSource` (`project`, `global` or `default`). The same settings can turn the whole catalog off and show its local usage counts.
 
 ```json
 {
