@@ -95,6 +95,8 @@ What these checks do and do not cover:
 
 With `--env`, it also runs at most five guarded `ship` applies of a page title on that DEV/QA/TEST target and records their phases.
 
+`node scripts/bench/export-direct.mjs --connection NAME --app ID --page N [--shared TYPE:ID] [--reps 5] [--out FILE]` compares SQLcl `apex export` with `APEX_EXPORT.GET_APPLICATION` (read-only). `node scripts/benchmark-preview-oracle.mjs --project PATH --env ENV [--pages 1,10] [--reps 5] [--out FILE]` profiles connected preview requests (round trips, APEX sessions, main-thread blocking); every request is rolled back.
+
 The benchmark only runs when invoked. Write its output under `docs/evidence/`. Rows it cannot run are marked `not_run` with their prerequisite.
 
 ## Host and Oracle checks

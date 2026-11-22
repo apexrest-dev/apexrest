@@ -1,5 +1,99 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Implementation status · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/implementation-status/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/implementation-status/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.8.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/" aria-current="page">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Project / Implementation status</div><h1 id="implementation-status">Implementation status</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#compound-edits-and-recipes-slice-f-2026-11-22-local-uncommitted">Compound edits and recipes, Slice F (2026-11-22, local, uncommitted)</a></li><li><a href="#warm-state-and-session-qualification-slice-e-2026-11-22-local-uncommitted">Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)</a></li><li><a href="#reviewed-database-reconciliation-2026-11-22-local-uncommitted">Reviewed database reconciliation (2026-11-22, local, uncommitted)</a></li><li><a href="#development-broker-slice-d-2026-11-22-local-uncommitted">Development broker, Slice D (2026-11-22, local, uncommitted)</a></li><li><a href="#incremental-preview-slice-c-2026-11-22-local-uncommitted">Incremental preview, Slice C (2026-11-22, local, uncommitted)</a></li><li><a href="#semantic-page-edits-slice-b-2026-11-22-local-uncommitted">Semantic page edits, Slice B (2026-11-22, local, uncommitted)</a></li><li><a href="#fast-development-slice-a-2026-11-22-local-uncommitted">Fast-development Slice A (2026-11-22, local, uncommitted)</a></li><li><a href="#preview-review-comments-and-fast-development-slice-2026-11-22-local-uncommitted">Preview review comments and fast-development slice (2026-11-22, local, uncommitted)</a></li><li><a href="#npm-280-qualification-2026-11-18">npm 2.8.0 qualification (2026-11-18)</a></li><li><a href="#codex-waits-and-offline-references-2026-11-18">Codex waits and offline references (2026-11-18)</a></li><li><a href="#production-qualification-2026-11-18">Production qualification (2026-11-18)</a></li><li><a href="#local-verification-2026-11-17">Local verification (2026-11-17)</a></li><li><a href="#release-review-remediation-2026-11-17">Release review remediation (2026-11-17)</a></li><li><a href="#home-finance-qualification-2026-11-17">Home Finance qualification (2026-11-17)</a></li><li><a href="#implemented">Implemented</a></li><li><a href="#verification">Verification</a></li><li><a href="#repository-automation">Repository automation</a></li><li><a href="#documentation-website">Documentation website</a></li></ul></details>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'"><meta name="description" content="APEXREST for Codex and Claude Code: Oracle APEX development, APEX 26.2 partial imports, and source-backed verification."><title>Implementation status · APEXREST</title><link rel="canonical" href="https://apexrest-dev.github.io/apexrest/implementation-status/"><link rel="alternate" hreflang="en" href="https://apexrest-dev.github.io/apexrest/implementation-status/"><link rel="icon" href="/apexrest/assets/apexrest-logo.svg" type="image/svg+xml"><link rel="stylesheet" href="/apexrest/assets/styles.css"><script src="/apexrest/assets/search.js" defer></script></head><body data-base="/apexrest/" data-search-empty="No matching documentation." data-search-error="Search index unavailable. Use the navigation links."><a class="skip" href="#main">Skip to content</a><header class="top"><a class="brand" href="/apexrest/"><img src="/apexrest/assets/apexrest-logo.svg" width="40" height="40" alt=""><span>APEXREST<span class="brand-subtitle">Documentation</span></span></a><div class="top-links"><a href="https://github.com/apexrest-dev/apexrest">GitHub</a><span class="badge">2.8.0</span></div></header><div class="layout"><aside class="sidebar"><div class="search"><label class="search-label" for="search">Search documentation</label><input id="search" type="search" placeholder="Try “partial import”" autocomplete="off" aria-controls="search-results"><ul class="search-results" id="search-results" aria-live="polite"></ul></div><details open><summary>Documentation</summary><nav aria-label="Documentation"><ul><li class="nav-group"><span>Start here</span><ul><li><a href="/apexrest/">Overview</a></li><li><a href="/apexrest/features/">Features</a></li><li><a href="/apexrest/install/">Install</a></li><li><a href="/apexrest/getting-started/">Getting started</a></li><li><a href="/apexrest/docs/">Documentation</a></li><li><a href="/apexrest/apex-design-race/">Field report: with and without the plugin</a></li></ul></li><li class="nav-group"><span>Build applications</span><ul><li><a href="/apexrest/chat-workflow/">Work in a conversation</a></li><li><a href="/apexrest/existing-app/">Existing applications</a></li><li><a href="/apexrest/local-preview/">Local preview</a></li><li><a href="/apexrest/component-catalog/">Component catalog</a></li><li><a href="/apexrest/pattern-catalog/">Pattern catalog</a></li><li><a href="/apexrest/internet-template-sources/">Public APEXlang templates</a></li><li><a href="/apexrest/testing/">Testing</a></li><li><a href="/apexrest/troubleshooting/">Troubleshooting</a></li></ul></li><li class="nav-group"><span>Run and deploy</span><ul><li><a href="/apexrest/apex-26.2/">APEX 26.2 partial imports</a></li><li><a href="/apexrest/deployment/">Deployment safety</a></li><li><a href="/apexrest/clean-apex-deployment/">Clean APEX deployment</a></li><li><a href="/apexrest/configuration/">Configuration</a></li><li><a href="/apexrest/ords/">SQL through ORDS</a></li><li><a href="/apexrest/codex-cloud/">Codex Cloud</a></li><li><a href="/apexrest/status/">Development status</a></li></ul></li><li class="nav-group"><span>Reference</span><ul><li><a href="/apexrest/versions/">Supported versions</a></li><li><a href="/apexrest/architecture/">Architecture</a></li><li><a href="/apexrest/oracle-apexlang-coverage/">Oracle APEXlang coverage</a></li><li><a href="/apexrest/composer/">Composer (experimental)</a></li><li><a href="/apexrest/codex-integration/">Host integration</a></li><li><a href="/apexrest/codex-automation/">Programmatic automation</a></li><li><a href="/apexrest/plugin-qualification-harness/">Plugin qualification harness</a></li></ul></li><li class="nav-group"><span>Project</span><ul><li><a href="/apexrest/releases/">Releases</a></li><li><a href="/apexrest/security/">Security and privacy</a></li><li><a href="/apexrest/contributing/">Contributing</a></li><li><a href="/apexrest/implementation-status/" aria-current="page">Implementation status</a></li><li><a href="/apexrest/next-actions/">Next actions</a></li><li><a href="/apexrest/publishing/">Publishing policy</a></li><li><a href="/apexrest/release-notes/">Current release notes</a></li><li><a href="/apexrest/changelog/">Changelog</a></li></ul></li></ul></nav></details></aside><main id="main" tabindex="-1"><div class="eyebrow">Project / Implementation status</div><h1 id="implementation-status">Implementation status</h1><details class="on-this-page"><summary>On this page</summary><ul><li><a href="#measured-oracle-optimizations-slice-g-2026-11-22-local">Measured Oracle optimizations, Slice G (2026-11-22, local)</a></li><li><a href="#compound-edits-and-recipes-slice-f-2026-11-22-local-uncommitted">Compound edits and recipes, Slice F (2026-11-22, local, uncommitted)</a></li><li><a href="#warm-state-and-session-qualification-slice-e-2026-11-22-local-uncommitted">Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)</a></li><li><a href="#reviewed-database-reconciliation-2026-11-22-local-uncommitted">Reviewed database reconciliation (2026-11-22, local, uncommitted)</a></li><li><a href="#development-broker-slice-d-2026-11-22-local-uncommitted">Development broker, Slice D (2026-11-22, local, uncommitted)</a></li><li><a href="#incremental-preview-slice-c-2026-11-22-local-uncommitted">Incremental preview, Slice C (2026-11-22, local, uncommitted)</a></li><li><a href="#semantic-page-edits-slice-b-2026-11-22-local-uncommitted">Semantic page edits, Slice B (2026-11-22, local, uncommitted)</a></li><li><a href="#fast-development-slice-a-2026-11-22-local-uncommitted">Fast-development Slice A (2026-11-22, local, uncommitted)</a></li><li><a href="#preview-review-comments-and-fast-development-slice-2026-11-22-local-uncommitted">Preview review comments and fast-development slice (2026-11-22, local, uncommitted)</a></li><li><a href="#npm-280-qualification-2026-11-18">npm 2.8.0 qualification (2026-11-18)</a></li><li><a href="#codex-waits-and-offline-references-2026-11-18">Codex waits and offline references (2026-11-18)</a></li><li><a href="#production-qualification-2026-11-18">Production qualification (2026-11-18)</a></li><li><a href="#local-verification-2026-11-17">Local verification (2026-11-17)</a></li><li><a href="#release-review-remediation-2026-11-17">Release review remediation (2026-11-17)</a></li><li><a href="#home-finance-qualification-2026-11-17">Home Finance qualification (2026-11-17)</a></li><li><a href="#implemented">Implemented</a></li><li><a href="#verification">Verification</a></li><li><a href="#repository-automation">Repository automation</a></li><li><a href="#documentation-website">Documentation website</a></li></ul></details>
 <p>The current source and bundled plugin version is <strong>2.8.0</strong>. The current contract is described in <a href="/apexrest/architecture/">architecture</a>, <a href="/apexrest/testing/">testing</a> and the <a href="/apexrest/acceptance.json">acceptance matrix</a>.</p>
+<h2 id="measured-oracle-optimizations-slice-g-2026-11-22-local">Measured Oracle optimizations, Slice G (2026-11-22, local)</h2>
+<p>All measurements are on the local APEX 26.2.0 / Oracle 23.26.4 target with SQLcl 26.3, application 26220. The evidence is in ignored <code>docs/evidence/fast-dev/export-direct-2026-11-22.json</code> and <code>preview-oracle-2026-11-22.json</code>. No optimization in this slice was adopted; each decision keeps the existing path.</p>
+<p><strong>Scoped export, direct versus SQLcl (<a href="https://linear.app/apexrest/issue/APE-385">APE-385</a>, <a href="https://linear.app/apexrest/issue/APE-387">APE-387</a>).</strong> <code>node scripts/bench/export-direct.mjs</code> compares <code>apex export -exptype APEXLANG -skipExportDate -expOriginalIds</code> with the documented <code>APEX_EXPORT.GET_APPLICATION(p_type =&gt; &#39;APEXLANG&#39;, p_with_original_ids =&gt; true, p_with_date =&gt; false)</code> on the same scope. It is read-only, and the two modes alternate across 5 repetitions.</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Cold, own SQLcl process (SQLcl / direct)</th>
+<th>Warm, one session (SQLcl / direct)</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Page 10</td>
+<td>3,151 / 3,133 ms</td>
+<td>1,421 / 1,402 ms</td>
+<td>Same file; canonically equal</td>
+</tr>
+<tr>
+<td>Full application (27 files)</td>
+<td>3,486 / 3,507 ms</td>
+<td>1,943 / 1,757 ms</td>
+<td>Same files; text canonically equal; binary static files need a separate encoding through a query</td>
+</tr>
+</tbody></table>
+</div>
+<ul>
+<li><strong>Selection limits are identical.</strong> Both interfaces accept only one component per APEXlang call: a list such as <code>PAGE:10,PAGE:1</code> fails with ORA-20987. A shared LOV is not an APEXlang export component in either interface (ORA-20987).</li>
+<li><strong>Export identity is unchanged by the switch.</strong> Both interfaces export with original ids and without the export date.</li>
+<li><strong>Where the time goes.</strong> About 1.7 s of a cold page export is SQLcl startup and connect; the server-side export is about 1.4 s.</li>
+<li><strong>Decision.</strong> The direct export brings no material benefit (under 2% for a page) and would need its own file transport for binary content. The SQLcl adapter is kept, so the backup, readback and canonical-comparison paths are unchanged.</li>
+</ul>
+<p><strong>Validation reuse (<a href="https://linear.app/apexrest/issue/APE-389">APE-389</a>).</strong> A repeated validation of an unchanged snapshot costs 77–104 ms warm (2.4–2.7 s cold) against a 9–14 s page ship. Planning validates the whole source and then the selected effective snapshot in one process, so the second run is already warm. Reuse would save under 1% of a ship. Decision: not implemented. The separate pre-import validation and Oracle&#39;s import validation are unchanged.</p>
+<p><strong>Connected preview profile (<a href="https://linear.app/apexrest/issue/APE-379">APE-379</a>).</strong> <code>node scripts/benchmark-preview-oracle.mjs</code> wraps the preview&#39;s Oracle link and counts, per page request:</p>
+<ul>
+<li>round trips;</li>
+<li>batch segments;</li>
+<li>APEX session creations;</li>
+<li>time the main thread is blocked in <code>Atomics.wait</code>.</li>
+</ul>
+<p>Starting the connection costs 2.3 s and 9 round trips. That includes the schema prefetch and one APEX session warm-up.</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Page</th>
+<th>Request, median of 10</th>
+<th>Main thread blocked</th>
+<th>Round trips (segments)</th>
+<th>Queries</th>
+<th>APEX sessions</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>10 (report)</td>
+<td>21.7 ms</td>
+<td>19.0 ms</td>
+<td>2 (3)</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>20 (dashboard)</td>
+<td>16.5 ms</td>
+<td>14.7 ms</td>
+<td>2 (3)</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>30 (dashboard)</td>
+<td>40.7 ms</td>
+<td>38.0 ms</td>
+<td>3 (5)</td>
+<td>2</td>
+<td>0</td>
+</tr>
+<tr>
+<td>1, 80 (no data)</td>
+<td>under 1 ms</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody></table>
+</div>
+<ul>
+<li><strong>Round trips.</strong> Each request with data makes one batched round trip for its queries and one for the closing rollback. A round trip takes about 9–15 ms.</li>
+<li><strong>Blocking.</strong> About 90% of a request is main-thread blocking, and the worst event-loop delay equals the Oracle wait (17–35 ms).</li>
+<li><strong>Edit loop.</strong> A title edit on page 10 appears in the connected page in 27.6 ms median, with 2 round trips.</li>
+<li><strong>Not exercised.</strong> These pages run no PL/SQL with APEX context, so per-request APEX context initialization was not measured.</li>
+</ul>
+<p><strong>Batching and context reuse (<a href="https://linear.app/apexrest/issue/APE-396">APE-396</a>).</strong> Queries are already batched. Merging the closing rollback into the last batch would save one round trip, about 10 ms per request. A browser reload dominates that, so it is not material for the edit loop. Request-scoped APEX context reuse has nothing to save on this workload, which had no per-request APEX sessions. Decision: deferred. It needs a page with APEX-context PL/SQL first.</p>
+<p><strong>Main-thread blocking (<a href="https://linear.app/apexrest/issue/APE-395">APE-395</a>).</strong> A request blocks the event loop for at most about 40 ms on these pages, and the preview serves one developer. Decision: deferred, with this measurement as evidence. Moving a whole request to a worker is reconsidered if a page blocks for a noticeable time (hundreds of milliseconds).</p>
 <h2 id="compound-edits-and-recipes-slice-f-2026-11-22-local-uncommitted">Compound edits and recipes, Slice F (2026-11-22, local, uncommitted)</h2>
 <p><strong>Page context (<a href="https://linear.app/apexrest/issue/APE-381">APE-381</a>).</strong> <code>project context</code> (CLI) or <code>apexrest_project action:context</code> returns, for one page:</p>
 <ul>

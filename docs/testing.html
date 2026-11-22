@@ -145,6 +145,7 @@
 <li>the cold and warm offline compiler.</li>
 </ul>
 <p>With <code>--env</code>, it also runs at most five guarded <code>ship</code> applies of a page title on that DEV/QA/TEST target and records their phases.</p>
+<p><code>node scripts/bench/export-direct.mjs --connection NAME --app ID --page N [--shared TYPE:ID] [--reps 5] [--out FILE]</code> compares SQLcl <code>apex export</code> with <code>APEX_EXPORT.GET_APPLICATION</code> (read-only). <code>node scripts/benchmark-preview-oracle.mjs --project PATH --env ENV [--pages 1,10] [--reps 5] [--out FILE]</code> profiles connected preview requests (round trips, APEX sessions, main-thread blocking); every request is rolled back.</p>
 <p>The benchmark only runs when invoked. Write its output under <code>docs/evidence/</code>. Rows it cannot run are marked <code>not_run</code> with their prerequisite.</p>
 <h2 id="host-and-oracle-checks">Host and Oracle checks</h2>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>

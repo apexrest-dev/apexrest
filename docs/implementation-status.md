@@ -2,6 +2,49 @@
 
 The current source and bundled plugin version is **2.8.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
+## Measured Oracle optimizations, Slice G (2026-11-22, local)
+
+All measurements are on the local APEX 26.2.0 / Oracle 23.26.4 target with SQLcl 26.3, application 26220. The evidence is in ignored `docs/evidence/fast-dev/export-direct-2026-11-22.json` and `preview-oracle-2026-11-22.json`. No optimization in this slice was adopted; each decision keeps the existing path.
+
+**Scoped export, direct versus SQLcl ([APE-385](https://linear.app/apexrest/issue/APE-385), [APE-387](https://linear.app/apexrest/issue/APE-387)).** `node scripts/bench/export-direct.mjs` compares `apex export -exptype APEXLANG -skipExportDate -expOriginalIds` with the documented `APEX_EXPORT.GET_APPLICATION(p_type => 'APEXLANG', p_with_original_ids => true, p_with_date => false)` on the same scope. It is read-only, and the two modes alternate across 5 repetitions.
+
+| Scope                       | Cold, own SQLcl process (SQLcl / direct) | Warm, one session (SQLcl / direct) | Content                                                                                          |
+| --------------------------- | ---------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Page 10                     | 3,151 / 3,133 ms                         | 1,421 / 1,402 ms                   | Same file; canonically equal                                                                     |
+| Full application (27 files) | 3,486 / 3,507 ms                         | 1,943 / 1,757 ms                   | Same files; text canonically equal; binary static files need a separate encoding through a query |
+
+- **Selection limits are identical.** Both interfaces accept only one component per APEXlang call: a list such as `PAGE:10,PAGE:1` fails with ORA-20987. A shared LOV is not an APEXlang export component in either interface (ORA-20987).
+- **Export identity is unchanged by the switch.** Both interfaces export with original ids and without the export date.
+- **Where the time goes.** About 1.7 s of a cold page export is SQLcl startup and connect; the server-side export is about 1.4 s.
+- **Decision.** The direct export brings no material benefit (under 2% for a page) and would need its own file transport for binary content. The SQLcl adapter is kept, so the backup, readback and canonical-comparison paths are unchanged.
+
+**Validation reuse ([APE-389](https://linear.app/apexrest/issue/APE-389)).** A repeated validation of an unchanged snapshot costs 77–104 ms warm (2.4–2.7 s cold) against a 9–14 s page ship. Planning validates the whole source and then the selected effective snapshot in one process, so the second run is already warm. Reuse would save under 1% of a ship. Decision: not implemented. The separate pre-import validation and Oracle's import validation are unchanged.
+
+**Connected preview profile ([APE-379](https://linear.app/apexrest/issue/APE-379)).** `node scripts/benchmark-preview-oracle.mjs` wraps the preview's Oracle link and counts, per page request:
+
+- round trips;
+- batch segments;
+- APEX session creations;
+- time the main thread is blocked in `Atomics.wait`.
+
+Starting the connection costs 2.3 s and 9 round trips. That includes the schema prefetch and one APEX session warm-up.
+
+| Page            | Request, median of 10 | Main thread blocked | Round trips (segments) | Queries | APEX sessions |
+| --------------- | --------------------- | ------------------- | ---------------------- | ------- | ------------- |
+| 10 (report)     | 21.7 ms               | 19.0 ms             | 2 (3)                  | 1       | 0             |
+| 20 (dashboard)  | 16.5 ms               | 14.7 ms             | 2 (3)                  | 1       | 0             |
+| 30 (dashboard)  | 40.7 ms               | 38.0 ms             | 3 (5)                  | 2       | 0             |
+| 1, 80 (no data) | under 1 ms            | 0                   | 0                      | 0       | 0             |
+
+- **Round trips.** Each request with data makes one batched round trip for its queries and one for the closing rollback. A round trip takes about 9–15 ms.
+- **Blocking.** About 90% of a request is main-thread blocking, and the worst event-loop delay equals the Oracle wait (17–35 ms).
+- **Edit loop.** A title edit on page 10 appears in the connected page in 27.6 ms median, with 2 round trips.
+- **Not exercised.** These pages run no PL/SQL with APEX context, so per-request APEX context initialization was not measured.
+
+**Batching and context reuse ([APE-396](https://linear.app/apexrest/issue/APE-396)).** Queries are already batched. Merging the closing rollback into the last batch would save one round trip, about 10 ms per request. A browser reload dominates that, so it is not material for the edit loop. Request-scoped APEX context reuse has nothing to save on this workload, which had no per-request APEX sessions. Decision: deferred. It needs a page with APEX-context PL/SQL first.
+
+**Main-thread blocking ([APE-395](https://linear.app/apexrest/issue/APE-395)).** A request blocks the event loop for at most about 40 ms on these pages, and the preview serves one developer. Decision: deferred, with this measurement as evidence. Moving a whole request to a worker is reconsidered if a page blocks for a noticeable time (hundreds of milliseconds).
+
 ## Compound edits and recipes, Slice F (2026-11-22, local, uncommitted)
 
 **Page context ([APE-381](https://linear.app/apexrest/issue/APE-381)).** `project context` (CLI) or `apexrest_project action:context` returns, for one page:
