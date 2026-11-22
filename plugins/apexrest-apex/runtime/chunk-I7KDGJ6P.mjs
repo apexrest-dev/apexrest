@@ -6,24 +6,24 @@ import {
   renderRegion,
   scaffoldSchema,
   validateSpec
-} from "./chunk-HGNRVHRN.mjs";
+} from "./chunk-RXHSNCBH.mjs";
 import {
   declarations,
   editSpans,
   get,
   parseApexLang
-} from "./chunk-7K63TNLW.mjs";
+} from "./chunk-7AO4HJGA.mjs";
 import {
   resourceRoot,
   sourceRelease
-} from "./chunk-NHAXPBYT.mjs";
-import "./chunk-6H3NFORN.mjs";
+} from "./chunk-JOEBWJ2Z.mjs";
+import "./chunk-FIBD7CLZ.mjs";
 import "./chunk-MPKKOQVI.mjs";
 import "./chunk-IIUPXDVT.mjs";
 import {
   environment,
   parse
-} from "./chunk-LIG5PZ4K.mjs";
+} from "./chunk-N2LQCPJ4.mjs";
 import {
   atomicWrite,
   canonical,
@@ -34,7 +34,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-26MTCOZK.mjs";
+} from "./chunk-ODTVYBFG.mjs";
 import {
   Fault,
   external_exports

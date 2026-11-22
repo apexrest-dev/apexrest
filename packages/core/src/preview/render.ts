@@ -35,6 +35,7 @@ import {
   validationHandler,
 } from './extensions.ts';
 import './extensions/index.ts';
+import { takeSearchBarSlot } from './extensions/reports/shared.ts';
 import {
   canonicalDate,
   formatOracle,
@@ -2864,10 +2865,7 @@ end;`,
           : '';
 
     if (mode === 'interactive') {
-      const searchBar =
-        slots.RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR ?? slots.RIGHTOFINTERACTIVEREPORTSEARCHBAR ?? '';
-      delete slots.RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR;
-      delete slots.RIGHTOFINTERACTIVEREPORTSEARCHBAR;
+      const searchBar = takeSearchBarSlot(slots);
       const header = `${linkColumn ? '<th class="a-IRR-header a-IRR-header--linkColumn" id="' + domId + '_link"><span class="u-VisuallyHidden">Link</span></th>' : ''}${columns
         .map(
           (column) =>

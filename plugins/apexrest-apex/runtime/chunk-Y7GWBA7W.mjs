@@ -5,7 +5,7 @@ import {
   registerPreview,
   stopOtherPreview,
   unregisterPreview
-} from "./chunk-PFOHMLO4.mjs";
+} from "./chunk-XUHVNFPS.mjs";
 import {
   PATCH_PROPERTIES,
   pageContext,
@@ -13,8 +13,8 @@ import {
   recordRevision,
   revisionOf,
   sourceInventory
-} from "./chunk-CXNC64GA.mjs";
-import "./chunk-XJUE6CM7.mjs";
+} from "./chunk-ZGFNLKQD.mjs";
+import "./chunk-2UWMCWCO.mjs";
 import {
   bool,
   get,
@@ -26,7 +26,7 @@ import {
   parseApexLang,
   ref,
   str
-} from "./chunk-7K63TNLW.mjs";
+} from "./chunk-7AO4HJGA.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -55,8 +55,8 @@ import {
   OracleAdapter,
   resolveConnection,
   targetIdentitySql
-} from "./chunk-NHAXPBYT.mjs";
-import "./chunk-6H3NFORN.mjs";
+} from "./chunk-JOEBWJ2Z.mjs";
+import "./chunk-FIBD7CLZ.mjs";
 import "./chunk-MPKKOQVI.mjs";
 import "./chunk-IIUPXDVT.mjs";
 import {
@@ -64,8 +64,8 @@ import {
   isProductionTarget,
   loadProject,
   managedHome
-} from "./chunk-LIG5PZ4K.mjs";
-import "./chunk-26MTCOZK.mjs";
+} from "./chunk-N2LQCPJ4.mjs";
+import "./chunk-ODTVYBFG.mjs";
 import {
   Fault
 } from "./chunk-CI5IU2PI.mjs";
@@ -21907,6 +21907,16 @@ function peekState(session, key) {
 function resetState(session, key) {
   STATES.get(session)?.delete(key);
 }
+function takeSearchBarSlot(slots) {
+  const keys = [
+    "RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR",
+    "RIGHTOFINTERACTIVEREPORTSEARCHBAR",
+    "RIGHT_OF_IR_SEARCH_BAR"
+  ];
+  const html = keys.map((key) => slots[key] ?? "").join("");
+  for (const key of keys) delete slots[key];
+  return html;
+}
 function sequenceOf2(component) {
   return num(component.props, "layout.sequence", num(component.props, "sequence", 0));
 }
@@ -25626,9 +25636,7 @@ function interactiveReport(renderer, ctx, region, slots) {
   const finder = searchField && get(region.props, "searchBar.finderDropDown") !== false;
   const rowsSelector = searchBar && bool(region.props, "searchBar.rowsPerPageSelector", false);
   const goLabel = str(region.props, "searchBar.searchButtonLabel", "Go");
-  const right = slots.RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR ?? slots.RIGHTOFINTERACTIVEREPORTSEARCHBAR ?? "";
-  delete slots.RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR;
-  delete slots.RIGHTOFINTERACTIVEREPORTSEARCHBAR;
+  const right = takeSearchBarSlot(slots);
   const reports = reportList(region, selection);
   const currentReport = reports.find((report2) => report2.id === selection.current) ?? reports.find((report2) => report2.primary);
   const reportsSelect = searchBar && get(region.props, "searchBar.reportsSelectList") !== false && reports.length > 1;
@@ -32721,9 +32729,7 @@ ${onload2.join("\n")}
     const paginate = (target3, label, cls) => `<button type="button" class="t-Button t-Button--small t-Button--noUI t-Report-paginationLink ${cls}" data-apex-local-page="${target3}" data-region="${escapeHtml(domId)}">${label}</button>`;
     const pagination2 = result.rows.length > perPage || pageNumber > 1 ? `<tr><td>${pageNumber > 1 ? paginate(pageNumber - 1, '<span class="a-Icon icon-left-arrow"></span>Previous', "t-Report-paginationLink--prev") : ""}<span class="t-Report-paginationText">${first} - ${last}</span>${last < result.rows.length ? paginate(pageNumber + 1, 'Next<span class="a-Icon icon-right-arrow"></span>', "t-Report-paginationLink--next") : ""}</td></tr>` : rows.length ? `<tr><td><span class="t-Report-paginationText">${first} - ${last}</span></td></tr>` : "";
     if (mode === "interactive") {
-      const searchBar = slots.RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR ?? slots.RIGHTOFINTERACTIVEREPORTSEARCHBAR ?? "";
-      delete slots.RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR;
-      delete slots.RIGHTOFINTERACTIVEREPORTSEARCHBAR;
+      const searchBar = takeSearchBarSlot(slots);
       const header2 = `${linkColumn ? '<th class="a-IRR-header a-IRR-header--linkColumn" id="' + domId + '_link"><span class="u-VisuallyHidden">Link</span></th>' : ""}${columns.map(
         (column2) => `<th class="a-IRR-header ${this.alignment(column2, rows[0]?.[column2.id.toUpperCase()])}" id="${escapeHtml(domId)}_${escapeHtml(column2.id)}"><a class="a-IRR-headerLink" href="#" data-column="${escapeHtml(column2.id)}">${this.substitute(ctx.session, str(column2.props, "heading.heading", heading2(column2.id)), ctx.page, "HTML")}</a></th>`
       ).join("")}`;

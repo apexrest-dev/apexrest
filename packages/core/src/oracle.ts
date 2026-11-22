@@ -13,7 +13,17 @@ import {
   ordsCredentials,
   type OrdsCredentials,
 } from './connections.ts';
-import { atomicWrite, canonical, contained, exists, hash, inventory, readJson, writeJson } from './fs.ts';
+import {
+  atomicWrite,
+  canonical,
+  contained,
+  exists,
+  hash,
+  inventory,
+  readJson,
+  withoutPreviewState,
+  writeJson,
+} from './fs.ts';
 import { Fault } from './result.ts';
 import { runProcess, SQLCL_READ_TIMEOUT_MS, SQLCL_WRITE_TIMEOUT_MS } from './process.ts';
 import type { ProcessRequest, ProcessResult } from './process.ts';
@@ -820,7 +830,7 @@ export class OracleAdapter {
     const stage = await this.stage(),
       copy = path.join(stage, 'application');
     try {
-      await cp(source, copy, { recursive: true });
+      await cp(source, copy, { recursive: true, filter: withoutPreviewState(source) });
       const help = (await this.session('help codescan', undefined, false, signal)).output;
       if (!/\.apx\b/i.test(help) || !/-extensions\b/i.test(help))
         return {
@@ -909,7 +919,7 @@ export class OracleAdapter {
       copy = path.join(stage, 'application');
     let result;
     try {
-      await cp(source, copy, { recursive: true });
+      await cp(source, copy, { recursive: true, filter: withoutPreviewState(source) });
       if (!before['.apex/apexlang.json']) {
         await mkdir(path.join(copy, '.apex'), { recursive: true });
         await cp(metadataFile, path.join(copy, '.apex/apexlang.json'));
@@ -1961,7 +1971,7 @@ export async function installSources(source: string, root: string, destination: 
   await mkdir(path.dirname(target), { recursive: true });
   const staging = await mkdtemp(path.join(path.dirname(target), '.apexrest-copy-'));
   await inventory(source);
-  await cp(source, staging, { recursive: true });
+  await cp(source, staging, { recursive: true, filter: withoutPreviewState(source) });
   await rename(staging, target);
   return { directory: target, files: await inventory(target) };
 }

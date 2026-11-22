@@ -106,6 +106,18 @@ async function containedPath(root: string, candidate: string, child: boolean): P
     throw new Fault('PATH_ESCAPE', 'Path must be inside, not equal to, the permitted root.', 2);
   return target;
 }
+/**
+ * Local preview state (seed SQL, REST mocks and the live preview.sqlite) under
+ * an application source root. It is never application source: inventories and
+ * recursive source copies skip it, so a running preview cannot change source
+ * digests or reach validation stages, bundles, snapshots or backups.
+ */
+export const PREVIEW_STATE_DIR = '.apex-local';
+/** cp() filter that leaves the root-level preview state directory behind. */
+export const withoutPreviewState = (root: string) => (source: string) => {
+  const rel = path.relative(root, source);
+  return rel !== PREVIEW_STATE_DIR && !rel.startsWith(PREVIEW_STATE_DIR + path.sep);
+};
 export async function inventory(root: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   const files: string[] = [];
@@ -114,6 +126,7 @@ export async function inventory(root: string): Promise<Record<string, string>> {
       const file = path.join(dir, entry.name);
       if (entry.isSymbolicLink())
         throw new Fault('SYMLINK_NOT_ALLOWED', 'Source and bundle inventories reject symlinks.', 2);
+      if (dir === root && entry.name === PREVIEW_STATE_DIR && entry.isDirectory()) continue;
       if (entry.isDirectory()) await walk(file);
       else if (entry.isFile()) files.push(file);
       else throw new Fault('SPECIAL_FILE_NOT_ALLOWED', 'Source inventories accept regular files only.', 2);

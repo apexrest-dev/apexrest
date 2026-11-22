@@ -3,7 +3,17 @@ import { lstat, mkdir, readdir, realpath, open, cp, chmod } from 'node:fs/promis
 import { z } from 'zod';
 import type { Environment, ProjectContext } from './config.ts';
 import { isProductionTarget, relativePath, targetDigest } from './config.ts';
-import { canonical, contained, exists, hash, inventory, readJson, withLock, writeJson } from './fs.ts';
+import {
+  canonical,
+  contained,
+  exists,
+  hash,
+  inventory,
+  readJson,
+  withLock,
+  withoutPreviewState,
+  writeJson,
+} from './fs.ts';
 import { Fault } from './result.ts';
 import { LocalDeploymentControl } from './deployment-control.ts';
 import { VERSION } from './version.ts';
@@ -69,7 +79,7 @@ export async function syncPath(ctx: ProjectContext, relative: string) {
   return file;
 }
 export async function privateCopy(source: string, destination: string) {
-  await cp(source, destination, { recursive: true });
+  await cp(source, destination, { recursive: true, filter: withoutPreviewState(source) });
   async function secure(directory: string) {
     await chmod(directory, 0o700);
     for (const entry of await readdir(directory, { withFileTypes: true })) {

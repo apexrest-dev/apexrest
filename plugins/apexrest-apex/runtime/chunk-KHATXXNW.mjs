@@ -1,24 +1,24 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-NISQUS3W.mjs";
+} from "./chunk-MEQQJNXO.mjs";
 import {
   renderPageBody,
   renderRegion,
   scaffoldSchema
-} from "./chunk-HGNRVHRN.mjs";
+} from "./chunk-RXHSNCBH.mjs";
 import {
   browserPreferences
-} from "./chunk-DJPW35KJ.mjs";
+} from "./chunk-WSKQSGQR.mjs";
 import {
   brokerStatus,
   startBroker,
   stopBroker
-} from "./chunk-XXAYOABN.mjs";
+} from "./chunk-6FAGLVAZ.mjs";
 import {
   JobService,
   jobToolResult
-} from "./chunk-NFYN6CEE.mjs";
+} from "./chunk-U4M3RT3C.mjs";
 import {
   ApexLangDocument,
   DeploymentService,
@@ -36,7 +36,7 @@ import {
   sourceChange,
   sourceInventory,
   sourceRevision
-} from "./chunk-CXNC64GA.mjs";
+} from "./chunk-ZGFNLKQD.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -44,15 +44,15 @@ import {
   composeMaterialize,
   composePlan,
   metadataRead
-} from "./chunk-XJUE6CM7.mjs";
+} from "./chunk-2UWMCWCO.mjs";
 import {
   parseApexLang
-} from "./chunk-7K63TNLW.mjs";
+} from "./chunk-7AO4HJGA.mjs";
 import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-GX74KOAM.mjs";
+} from "./chunk-7IHEE3DI.mjs";
 import {
   CODE_LIMIT,
   LocalDeploymentControl,
@@ -97,7 +97,7 @@ import {
   scoreReference,
   sqlclConfig,
   stemmedReference
-} from "./chunk-NHAXPBYT.mjs";
+} from "./chunk-JOEBWJ2Z.mjs";
 import {
   runProcess,
   sqlclTimings,
@@ -116,7 +116,7 @@ import {
   refuseProductionDeployment,
   targetDigest,
   updatePolicy
-} from "./chunk-LIG5PZ4K.mjs";
+} from "./chunk-N2LQCPJ4.mjs";
 import {
   atomicWrite,
   canonical,
@@ -126,7 +126,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-26MTCOZK.mjs";
+} from "./chunk-ODTVYBFG.mjs";
 import {
   Fault,
   artifactPage,
@@ -3491,7 +3491,7 @@ async function compilerPrewarmed(project) {
   await compilerPrewarms.get(project);
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-DNAZ633T.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-ONRLLXHC.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -3667,7 +3667,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-LFEZQNWG.mjs");
+      const { previewDispatch } = await import("./chunk-Y7GWBA7W.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -3697,29 +3697,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-PGCQMPWC.mjs");
+        const { ToolchainService } = await import("./chunk-6FXA762Y.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-YXUTQKBI.mjs");
+        const { uninstallTools } = await import("./chunk-OXP7DSZP.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-3PHGNWCP.mjs");
+        const { setup } = await import("./chunk-U5KAOARA.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-3PHGNWCP.mjs");
+        const { validateNative } = await import("./chunk-U5KAOARA.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-3PHGNWCP.mjs");
+        const { uninstallNative } = await import("./chunk-U5KAOARA.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -3733,7 +3733,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-DDVW2CDT.mjs");
+        const { scaffold } = await import("./chunk-I7KDGJ6P.mjs");
         data = await scaffold(await loadProject(root), text("specFile"), text("env"));
         break;
       }
@@ -4079,7 +4079,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "browser.open": {
-            const { openVerificationBrowser } = await import("./chunk-XJ7FW7XH.mjs");
+            const { openVerificationBrowser } = await import("./chunk-OIE5WDM2.mjs");
             data = await openVerificationBrowser(
               ctx,
               text("env"),

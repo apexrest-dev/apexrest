@@ -2,34 +2,34 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   dispatch
-} from "./chunk-B5VW34DL.mjs";
+} from "./chunk-KHATXXNW.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-NISQUS3W.mjs";
-import "./chunk-HGNRVHRN.mjs";
-import "./chunk-DJPW35KJ.mjs";
-import "./chunk-XXAYOABN.mjs";
+} from "./chunk-MEQQJNXO.mjs";
+import "./chunk-RXHSNCBH.mjs";
+import "./chunk-WSKQSGQR.mjs";
+import "./chunk-6FAGLVAZ.mjs";
 import {
   executeJob,
   failQueuedJob
-} from "./chunk-NFYN6CEE.mjs";
+} from "./chunk-U4M3RT3C.mjs";
 import {
   setPreviewOwner
-} from "./chunk-PFOHMLO4.mjs";
-import "./chunk-CXNC64GA.mjs";
-import "./chunk-XJUE6CM7.mjs";
-import "./chunk-7K63TNLW.mjs";
-import "./chunk-GX74KOAM.mjs";
-import "./chunk-NHAXPBYT.mjs";
-import "./chunk-6H3NFORN.mjs";
+} from "./chunk-XUHVNFPS.mjs";
+import "./chunk-ZGFNLKQD.mjs";
+import "./chunk-2UWMCWCO.mjs";
+import "./chunk-7AO4HJGA.mjs";
+import "./chunk-7IHEE3DI.mjs";
+import "./chunk-JOEBWJ2Z.mjs";
+import "./chunk-FIBD7CLZ.mjs";
 import "./chunk-MPKKOQVI.mjs";
 import "./chunk-IIUPXDVT.mjs";
 import {
   loadProject
-} from "./chunk-LIG5PZ4K.mjs";
-import "./chunk-26MTCOZK.mjs";
+} from "./chunk-N2LQCPJ4.mjs";
+import "./chunk-ODTVYBFG.mjs";
 import {
   Fault,
   failure
@@ -307,12 +307,12 @@ try {
     }
   } else if (argv[0] === "--broker") {
     if (argv.length !== 2) throw new Fault("INVALID_INPUT", "Invalid internal broker request.", 2);
-    const { runBroker } = await import("./chunk-DDB7LGMR.mjs");
+    const { runBroker } = await import("./chunk-KLGEZVDE.mjs");
     await runBroker(await loadProject(argv[1]), dispatch);
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-VSPC52KJ.mjs");
+    const { startMcp } = await import("./chunk-SOTZAD43.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

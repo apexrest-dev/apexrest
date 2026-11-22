@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   closeSqlclReadScope,
   runPooledSqlcl
-} from "./chunk-6H3NFORN.mjs";
+} from "./chunk-FIBD7CLZ.mjs";
 import {
   SQLCL_READ_TIMEOUT_MS,
   SQLCL_WRITE_TIMEOUT_MS,
@@ -28,7 +28,7 @@ import {
   refName,
   relativePath,
   targetDigest
-} from "./chunk-LIG5PZ4K.mjs";
+} from "./chunk-N2LQCPJ4.mjs";
 import {
   atomicWrite,
   canonical,
@@ -38,8 +38,9 @@ import {
   inventory,
   readJson,
   withLock,
+  withoutPreviewState,
   writeJson
-} from "./chunk-26MTCOZK.mjs";
+} from "./chunk-ODTVYBFG.mjs";
 import {
   Fault,
   __export,
@@ -481,7 +482,7 @@ async function syncPath(ctx, relative) {
   return file;
 }
 async function privateCopy(source, destination) {
-  await cp(source, destination, { recursive: true });
+  await cp(source, destination, { recursive: true, filter: withoutPreviewState(source) });
   async function secure(directory) {
     await chmod(directory, 448);
     for (const entry of await readdir2(directory, { withFileTypes: true })) {
@@ -3681,7 +3682,7 @@ prompt ${marker}
       };
     const stage = await this.stage(), copy = path13.join(stage, "application");
     try {
-      await cp3(source, copy, { recursive: true });
+      await cp3(source, copy, { recursive: true, filter: withoutPreviewState(source) });
       const help = (await this.session("help codescan", void 0, false, signal)).output;
       if (!/\.apx\b/i.test(help) || !/-extensions\b/i.test(help))
         return {
@@ -3767,7 +3768,7 @@ prompt ${marker}
     const stage = await this.stage(), copy = path13.join(stage, "application");
     let result;
     try {
-      await cp3(source, copy, { recursive: true });
+      await cp3(source, copy, { recursive: true, filter: withoutPreviewState(source) });
       if (!before[".apex/apexlang.json"]) {
         await mkdir5(path13.join(copy, ".apex"), { recursive: true });
         await cp3(metadataFile, path13.join(copy, ".apex/apexlang.json"));
@@ -4658,7 +4659,7 @@ async function installSources(source, root, destination) {
   await mkdir5(path13.dirname(target), { recursive: true });
   const staging = await mkdtemp(path13.join(path13.dirname(target), ".apexrest-copy-"));
   await inventory(source);
-  await cp3(source, staging, { recursive: true });
+  await cp3(source, staging, { recursive: true, filter: withoutPreviewState(source) });
   await rename3(staging, target);
   return { directory: target, files: await inventory(target) };
 }

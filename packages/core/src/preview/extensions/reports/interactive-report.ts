@@ -40,6 +40,7 @@ import {
   stateKey,
   stringList,
   type ReportState,
+  takeSearchBarSlot,
 } from './shared.ts';
 
 export const ROWS_PER_PAGE = [1, 5, 10, 15, 20, 25, 50, 100, 200, 500, 1000];
@@ -515,9 +516,7 @@ export function interactiveReport(
   const finder = searchField && get(region.props, 'searchBar.finderDropDown') !== false;
   const rowsSelector = searchBar && bool(region.props, 'searchBar.rowsPerPageSelector', false);
   const goLabel = str(region.props, 'searchBar.searchButtonLabel', 'Go');
-  const right = slots.RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR ?? slots.RIGHTOFINTERACTIVEREPORTSEARCHBAR ?? '';
-  delete slots.RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR;
-  delete slots.RIGHTOFINTERACTIVEREPORTSEARCHBAR;
+  const right = takeSearchBarSlot(slots);
 
   const reports = reportList(region, selection);
   const currentReport =

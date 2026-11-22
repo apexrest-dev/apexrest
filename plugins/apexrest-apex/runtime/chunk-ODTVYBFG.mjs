@@ -89,6 +89,11 @@ async function containedPath(root, candidate, child) {
     throw new Fault("PATH_ESCAPE", "Path must be inside, not equal to, the permitted root.", 2);
   return target;
 }
+var PREVIEW_STATE_DIR = ".apex-local";
+var withoutPreviewState = (root) => (source) => {
+  const rel = path.relative(root, source);
+  return rel !== PREVIEW_STATE_DIR && !rel.startsWith(PREVIEW_STATE_DIR + path.sep);
+};
 async function inventory(root) {
   const out = {};
   const files = [];
@@ -97,6 +102,7 @@ async function inventory(root) {
       const file = path.join(dir, entry.name);
       if (entry.isSymbolicLink())
         throw new Fault("SYMLINK_NOT_ALLOWED", "Source and bundle inventories reject symlinks.", 2);
+      if (dir === root && entry.name === PREVIEW_STATE_DIR && entry.isDirectory()) continue;
       if (entry.isDirectory()) await walk(file);
       else if (entry.isFile()) files.push(file);
       else throw new Fault("SPECIAL_FILE_NOT_ALLOWED", "Source inventories accept regular files only.", 2);
@@ -234,6 +240,7 @@ export {
   exists,
   contained,
   containedChild,
+  withoutPreviewState,
   inventory,
   withLock
 };

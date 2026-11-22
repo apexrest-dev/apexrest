@@ -72,6 +72,22 @@ export function resetState(session: Session, key: string): void {
   STATES.get(session)?.delete(key);
 }
 
+/**
+ * Take the buttons placed right of the interactive report search bar. Oracle
+ * accepts the canonical rightOfInteractiveReportSearchBar slot and the legacy
+ * RIGHT_OF_IR_SEARCH_BAR spelling; both render in the same place.
+ */
+export function takeSearchBarSlot(slots: Record<string, string>): string {
+  const keys = [
+    'RIGHT_OF_INTERACTIVE_REPORT_SEARCH_BAR',
+    'RIGHTOFINTERACTIVEREPORTSEARCHBAR',
+    'RIGHT_OF_IR_SEARCH_BAR',
+  ];
+  const html = keys.map((key) => slots[key] ?? '').join('');
+  for (const key of keys) delete slots[key];
+  return html;
+}
+
 export function sequenceOf(component: ApxComponent): number {
   return num(component.props, 'layout.sequence', num(component.props, 'sequence', 0));
 }
