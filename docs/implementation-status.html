@@ -312,15 +312,29 @@
 <li><strong>Editable master–detail grid.</strong> Saving a new note filled <code>CUSTOMER_ID</code> from the selected master row. After <code>ROW_VERSION</code> was changed in the database, a stale grid save was refused, and a grid row delete removed the note.</li>
 <li><strong>Faceted search.</strong> The search facet filtered to 0 rows and back to 1, and the Status checkbox facet showed and applied its count.</li>
 </ul>
-<p>Bug found and fixed: generated grids had no Save button, search or Actions menu, because APEXlang grids need explicit toolbar <code>controls</code>. The emitter now sets them (Save only on editable grids), and the fixed pages were shipped and checked again.</p>
-<p>Not observed:</p>
+<p>Two bugs found and fixed:</p>
 <ul>
-<li>The report refresh after a dialog closes: after the first open, the in-app browser did not show the dialog again, though APEX requested the dialog page successfully, so the edit and delete paths were checked on the dialog page opened directly.</li>
-<li>An increment of <code>ROW_VERSION</code> on update: APEX only compares it, so the table needs a trigger.</li>
+<li><strong>Grid toolbar.</strong> Generated grids had no Save button, search or Actions menu, because APEXlang grids need explicit toolbar <code>controls</code>. The emitter now sets them, with Save only on editable grids.</li>
+<li><strong>Dialog cancel.</strong> The generated Cancel dynamic action lacked <code>fireOnInit: false</code>, so its <code>cancelDialog</code> ran as the dialog page loaded and closed the dialog at once. It looked like a browser problem until the close was traced to that action.</li>
 </ul>
+<p>The fixed pages were shipped and checked again: a dialog opened from <strong>Add customer</strong> stayed open, Create closed it and the report refreshed without a page reload. Edit and then Delete in the dialog removed the row, and the report showed no rows.</p>
+<p>Not observed: an increment of <code>ROW_VERSION</code> on update. APEX only compares it, so the table needs a trigger.</p>
 <p>The test rows were deleted afterwards.</p>
 <p>Tests: <code>scaffold-recipes.test.ts</code>.</p>
-<p><strong>Not done in this slice:</strong> merging the Composer emitters with scaffold (APE-357 beyond the shared scaffold emitter).</p>
+<p><strong>Shared generator primitives (<a href="https://linear.app/apexrest/issue/APE-357">APE-357</a>).</strong> <code>packages/core/src/apexlang-writer.ts</code> holds the APEXlang writing primitives used by both scaffold (and so <code>project insert</code>) and the Composer block emitter:</p>
+<ul>
+<li>indentation, property groups and components;</li>
+<li>fenced code;</li>
+<li>template appearance;</li>
+<li>the refresh dynamic-action step.</li>
+</ul>
+<p>Each construct is now written one way. The change is byte-identical: regenerating the recipe pages produced no diff, and the Composer unit and contract tests pass. The Composer generator identity (<code>resources/blocks/generator.json</code>) was refreshed because its sources changed. The block compiler evidence was already bound to older identities before this change.</p>
+<p>Component identities stay stable:</p>
+<ul>
+<li>scaffold uses explicit region ids (or ordinal <code>rN</code>), and ownership hashes turn manual edits into precise conflicts;</li>
+<li>Composer keys components by its allocation prefix.</li>
+</ul>
+<p>The two specification models (scaffold pages and Composer blueprints/blocks) stay separate.</p>
 <h2 id="warm-state-and-session-qualification-slice-e-2026-11-22-local-uncommitted">Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)</h2>
 <p><strong>Where import time goes.</strong> On the local APEX 26.2.0 target, a page import spends 2.5 s on the fresh pre-write export, 0.65 s connecting and 3.1 s in Oracle&#39;s import. The prepared import server&#39;s JVM is already started off the critical path (spawn 0 ms). Each database script costs about 1.7–1.9 s in its own SQLcl process.</p>
 <p><strong>JVM and compiler reuse (<a href="https://linear.app/apexrest/issue/APE-382">APE-382</a>, <a href="https://linear.app/apexrest/issue/APE-388">APE-388</a>).</strong> Not kept across imports: there is no measurable gain, and a server is bound to one frozen import directory. The fallback rules now have tests: a server without the HOST refusal, or one that fails to connect, submits nothing and falls back; after submission a failure or cancellation is reported as an interrupted import; the server runs one import only.</p>

@@ -115,7 +115,9 @@ test('a modal editable form gets native DML buttons, row processing, close and c
   ]);
   const processes = nodes.filter((node) => node.type === 'process').map((node) => node.props.type);
   assert.deepEqual(processes, ['formInitialization', 'formAutoRowProcessing', 'closeDialog']);
-  assert.ok(nodes.some((node) => node.type === 'dynamicAction' && node.id === 'cancel-customer-form'));
+  const cancel = nodes.find((node) => node.type === 'dynamicAction' && node.id === 'cancel-customer-form')!;
+  // The cancel must not run when the dialog page initializes.
+  assert.equal((cancel.children[0]!.props.execution as Record<string, unknown>).fireOnInit, false);
   // The key stays query-only; edited columns are written.
   const name = nodes.find((node) => node.id === 'P41_NAME')!;
   assert.equal((name.props.source as Record<string, unknown>).queryOnly, undefined);

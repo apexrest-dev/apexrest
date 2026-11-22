@@ -1,5 +1,13 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  appearance,
+  fence,
+  group,
+  indent,
+  node,
+  refreshAction
+} from "./chunk-7K63TNLW.mjs";
+import {
   Fault,
   external_exports
 } from "./chunk-CI5IU2PI.mjs";
@@ -232,16 +240,8 @@ var scaffoldSchema = external_exports.strictObject({
 
 // packages/core/src/scaffold-renderer.ts
 var q = (v) => JSON.stringify(v);
-var indent = (v) => v.split("\n").map((line) => line ? "    " + line : line).join("\n");
-var g = (name, value) => `${name} {
-${indent(value)}
-}`;
-var n = (kind, id2, value) => `${kind} ${id2} (
-${indent(value.filter(Boolean).join("\n"))}
-)
-`;
-var fence = (language, value) => `
-${indent("```" + language + "\n" + value + "\n```")}`;
+var g = group;
+var n = (kind, id2, value) => node(kind, id2, value);
 var invalid = (message) => {
   throw new Fault("INVALID_INPUT", message, 2);
 };
@@ -287,10 +287,6 @@ function query2(value, location = true) {
       `sqlQuery:${fence("sql", value.sql)}`
     ].filter(Boolean).join("\n")
   );
-}
-function appearance(template) {
-  return g("appearance", `template: @/${template}
-templateOptions: #DEFAULT#`);
 }
 var reportAlias = (index) => {
   let alias = "";
@@ -698,7 +694,11 @@ templateOptions: #DEFAULT#`
             g("when", `event: click
 selectionType: button
 button: ${ref(`cancel-${control.form}`)}`),
-            n("action", "cancel-dialog", ["action: cancelDialog", g("execution", "sequence: 10")])
+            // Without fireOnInit: false the cancel runs when the dialog loads and closes it at once.
+            n("action", "cancel-dialog", [
+              "action: cancelDialog",
+              g("execution", "sequence: 10\nfireOnInit: false")
+            ])
           ])
         )
       );
@@ -774,12 +774,7 @@ point: processing`)
           g("when", `event: apexafterclosedialog
 selectionType: region
 region: ${ref(id2)}`),
-          n("action", "refresh", [
-            "action: refresh",
-            g("affectedElements", `selectionType: region
-region: ${ref(id2)}`),
-            g("execution", "sequence: 10\nfireOnInit: false")
-          ])
+          refreshAction("refresh", id2, 10)
         ])
       )
     );
@@ -827,13 +822,7 @@ sequence: ${(i + 1) * 10}`),
 selectionType: items
 items: ${refresh.items.join(",")}`),
           ...refresh.regions.map(
-            (region2, ordinal) => n("action", `refresh-${ordinal + 1}`, [
-              "action: refresh",
-              g("affectedElements", `selectionType: region
-region: ${ref(region2)}`),
-              g("execution", `sequence: ${(ordinal + 1) * 10}
-fireOnInit: false`)
-            ])
+            (region2, ordinal) => refreshAction(`refresh-${ordinal + 1}`, region2, (ordinal + 1) * 10)
           )
         ])
       )

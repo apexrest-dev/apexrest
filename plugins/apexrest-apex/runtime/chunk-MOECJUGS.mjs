@@ -1,10 +1,15 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  appearance,
   declarations,
+  fence,
+  group,
   inventorySymbols,
+  node,
   parseApexLang,
+  refreshAction,
   threeWay
-} from "./chunk-NGNFSMKO.mjs";
+} from "./chunk-7K63TNLW.mjs";
 import {
   APEX_262_PROFILE,
   OracleAdapter,
@@ -989,12 +994,12 @@ var require_stringifyComment = __commonJS({
   "node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
     var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
-    function indentComment(comment, indent2) {
+    function indentComment(comment, indent) {
       if (/^\n+$/.test(comment))
         return comment.substring(1);
-      return indent2 ? comment.replace(/^(?! *$)/gm, indent2) : comment;
+      return indent ? comment.replace(/^(?! *$)/gm, indent) : comment;
     }
-    var lineComment = (str, indent2, comment) => str.endsWith("\n") ? indentComment(comment, indent2) : comment.includes("\n") ? "\n" + indentComment(comment, indent2) : (str.endsWith(" ") ? "" : " ") + comment;
+    var lineComment = (str, indent, comment) => str.endsWith("\n") ? indentComment(comment, indent) : comment.includes("\n") ? "\n" + indentComment(comment, indent) : (str.endsWith(" ") ? "" : " ") + comment;
     exports.indentComment = indentComment;
     exports.lineComment = lineComment;
     exports.stringifyComment = stringifyComment;
@@ -1008,17 +1013,17 @@ var require_foldFlowLines = __commonJS({
     var FOLD_FLOW = "flow";
     var FOLD_BLOCK = "block";
     var FOLD_QUOTED = "quoted";
-    function foldFlowLines(text2, indent2, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
+    function foldFlowLines(text2, indent, mode = "flow", { indentAtStart, lineWidth = 80, minContentWidth = 20, onFold, onOverflow } = {}) {
       if (!lineWidth || lineWidth < 0)
         return text2;
       if (lineWidth < minContentWidth)
         minContentWidth = 0;
-      const endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent2.length);
+      const endStep = Math.max(1 + minContentWidth, 1 + lineWidth - indent.length);
       if (text2.length <= endStep)
         return text2;
       const folds = [];
       const escapedFolds = {};
-      let end = lineWidth - indent2.length;
+      let end = lineWidth - indent.length;
       if (typeof indentAtStart === "number") {
         if (indentAtStart > lineWidth - Math.max(2, minContentWidth))
           folds.push(0);
@@ -1032,7 +1037,7 @@ var require_foldFlowLines = __commonJS({
       let escStart = -1;
       let escEnd = -1;
       if (mode === FOLD_BLOCK) {
-        i = consumeMoreIndentedLines(text2, i, indent2.length);
+        i = consumeMoreIndentedLines(text2, i, indent.length);
         if (i !== -1)
           end = i + endStep;
       }
@@ -1056,8 +1061,8 @@ var require_foldFlowLines = __commonJS({
         }
         if (ch === "\n") {
           if (mode === FOLD_BLOCK)
-            i = consumeMoreIndentedLines(text2, i, indent2.length);
-          end = i + indent2.length + endStep;
+            i = consumeMoreIndentedLines(text2, i, indent.length);
+          end = i + indent.length + endStep;
           split = void 0;
         } else {
           if (ch === " " && prev && prev !== " " && prev !== "\n" && prev !== "	") {
@@ -1102,22 +1107,22 @@ var require_foldFlowLines = __commonJS({
         const end2 = folds[i2 + 1] || text2.length;
         if (fold === 0)
           res = `
-${indent2}${text2.slice(0, end2)}`;
+${indent}${text2.slice(0, end2)}`;
         else {
           if (mode === FOLD_QUOTED && escapedFolds[fold])
             res += `${text2[fold]}\\`;
           res += `
-${indent2}${text2.slice(fold + 1, end2)}`;
+${indent}${text2.slice(fold + 1, end2)}`;
         }
       }
       return res;
     }
-    function consumeMoreIndentedLines(text2, i, indent2) {
+    function consumeMoreIndentedLines(text2, i, indent) {
       let end = i;
       let start = i + 1;
       let ch = text2[start];
       while (ch === " " || ch === "	") {
-        if (i < start + indent2) {
+        if (i < start + indent) {
           ch = text2[++i];
         } else {
           do {
@@ -1173,7 +1178,7 @@ var require_stringifyString = __commonJS({
         return json;
       const { implicitKey } = ctx;
       const minMultiLineLength = ctx.options.doubleQuotedMinMultiLineLength;
-      const indent2 = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
       let str = "";
       let start = 0;
       for (let i = 0, ch = json[i]; ch; ch = json[++i]) {
@@ -1188,8 +1193,8 @@ var require_stringifyString = __commonJS({
             case "u":
               {
                 str += json.slice(start, i);
-                const code2 = json.substr(i + 2, 4);
-                switch (code2) {
+                const code = json.substr(i + 2, 4);
+                switch (code) {
                   case "0000":
                     str += "\\0";
                     break;
@@ -1215,8 +1220,8 @@ var require_stringifyString = __commonJS({
                     str += "\\P";
                     break;
                   default:
-                    if (code2.substr(0, 2) === "00")
-                      str += "\\x" + code2.substr(2);
+                    if (code.substr(0, 2) === "00")
+                      str += "\\x" + code.substr(2);
                     else
                       str += json.substr(i, 6);
                 }
@@ -1233,7 +1238,7 @@ var require_stringifyString = __commonJS({
                   str += "\n";
                   i += 2;
                 }
-                str += indent2;
+                str += indent;
                 if (json[i + 2] === " ")
                   str += "\\";
                 i += 1;
@@ -1245,15 +1250,15 @@ var require_stringifyString = __commonJS({
           }
       }
       str = start ? str + json.slice(start) : json;
-      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent2, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
     }
     function singleQuotedString(value, ctx) {
       if (ctx.options.singleQuote === false || ctx.implicitKey && value.includes("\n") || /[ \t]\n|\n[ \t]/.test(value))
         return doubleQuotedString(value, ctx);
-      const indent2 = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
+      const indent = ctx.indent || (containsDocumentMarker(value) ? "  " : "");
       const res = "'" + value.replace(/'/g, "''").replace(/\n+/g, `$&
-${indent2}`) + "'";
-      return ctx.implicitKey ? res : foldFlowLines.foldFlowLines(res, indent2, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+${indent}`) + "'";
+      return ctx.implicitKey ? res : foldFlowLines.foldFlowLines(res, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
     }
     function quotedString(value, ctx) {
       const { singleQuote } = ctx.options;
@@ -1283,8 +1288,8 @@ ${indent2}`) + "'";
       if (!blockQuote || /\n[\t ]+$/.test(value)) {
         return quotedString(value, ctx);
       }
-      const indent2 = ctx.indent || (ctx.forceBlockIndent || containsDocumentMarker(value) ? "  " : "");
-      const literal = blockQuote === "literal" ? true : blockQuote === "folded" || type === Scalar.Scalar.BLOCK_FOLDED ? false : type === Scalar.Scalar.BLOCK_LITERAL ? true : !lineLengthOverLimit(value, lineWidth, indent2.length);
+      const indent = ctx.indent || (ctx.forceBlockIndent || containsDocumentMarker(value) ? "  " : "");
+      const literal = blockQuote === "literal" ? true : blockQuote === "folded" || type === Scalar.Scalar.BLOCK_FOLDED ? false : type === Scalar.Scalar.BLOCK_LITERAL ? true : !lineLengthOverLimit(value, lineWidth, indent.length);
       if (!value)
         return literal ? "|\n" : ">\n";
       let chomp;
@@ -1309,7 +1314,7 @@ ${indent2}`) + "'";
         value = value.slice(0, -end.length);
         if (end[end.length - 1] === "\n")
           end = end.slice(0, -1);
-        end = end.replace(blockEndNewlines, `$&${indent2}`);
+        end = end.replace(blockEndNewlines, `$&${indent}`);
       }
       let startWithSpace = false;
       let startEnd;
@@ -1326,9 +1331,9 @@ ${indent2}`) + "'";
       let start = value.substring(0, startNlPos < startEnd ? startNlPos + 1 : startEnd);
       if (start) {
         value = value.substring(start.length);
-        start = start.replace(/\n+/g, `$&${indent2}`);
+        start = start.replace(/\n+/g, `$&${indent}`);
       }
-      const indentSize = indent2 ? "2" : "1";
+      const indentSize = indent ? "2" : "1";
       let header = (startWithSpace ? indentSize : "") + chomp;
       if (comment) {
         header += " " + commentString(comment.replace(/ ?[\r\n]+/g, " "));
@@ -1336,7 +1341,7 @@ ${indent2}`) + "'";
           onComment();
       }
       if (!literal) {
-        const foldedValue = value.replace(/\n+/g, "\n$&").replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, "$1$2").replace(/\n+/g, `$&${indent2}`);
+        const foldedValue = value.replace(/\n+/g, "\n$&").replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, "$1$2").replace(/\n+/g, `$&${indent}`);
         let literalFallback = false;
         const foldOptions = getFoldOptions(ctx, true);
         if (blockQuote !== "folded" && type !== Scalar.Scalar.BLOCK_FOLDED) {
@@ -1344,18 +1349,18 @@ ${indent2}`) + "'";
             literalFallback = true;
           };
         }
-        const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent2, foldFlowLines.FOLD_BLOCK, foldOptions);
+        const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent, foldFlowLines.FOLD_BLOCK, foldOptions);
         if (!literalFallback)
           return `>${header}
-${indent2}${body}`;
+${indent}${body}`;
       }
-      value = value.replace(/\n+/g, `$&${indent2}`);
+      value = value.replace(/\n+/g, `$&${indent}`);
       return `|${header}
-${indent2}${start}${value}${end}`;
+${indent}${start}${value}${end}`;
     }
     function plainString(item2, ctx, onComment, onChompKeep) {
       const { type, value } = item2;
-      const { actualString, implicitKey, indent: indent2, indentStep, inFlow } = ctx;
+      const { actualString, implicitKey, indent, indentStep, inFlow } = ctx;
       if (implicitKey && value.includes("\n") || inFlow && /[[\]{},]/.test(value)) {
         return quotedString(value, ctx);
       }
@@ -1366,22 +1371,22 @@ ${indent2}${start}${value}${end}`;
         return blockString(item2, ctx, onComment, onChompKeep);
       }
       if (containsDocumentMarker(value)) {
-        if (indent2 === "") {
+        if (indent === "") {
           ctx.forceBlockIndent = true;
           return blockString(item2, ctx, onComment, onChompKeep);
-        } else if (implicitKey && indent2 === indentStep) {
+        } else if (implicitKey && indent === indentStep) {
           return quotedString(value, ctx);
         }
       }
       const str = value.replace(/\n+/g, `$&
-${indent2}`);
+${indent}`);
       if (actualString) {
         const test = (tag) => tag.default && tag.tag !== "tag:yaml.org,2002:str" && tag.test?.test(str);
         const { compat, tags } = ctx.doc.schema;
         if (tags.some(test) || compat?.some(test))
           return quotedString(value, ctx);
       }
-      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent2, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
+      return implicitKey ? str : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
     }
     function stringifyString(item2, ctx, onComment, onChompKeep) {
       const { implicitKey, inFlow } = ctx;
@@ -1553,7 +1558,7 @@ var require_stringifyPair = __commonJS({
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
     function stringifyPair({ key, value }, ctx, onComment, onChompKeep) {
-      const { allNullValues, doc, indent: indent2, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
+      const { allNullValues, doc, indent, indentStep, options: { commentString, indentSeq, simpleKeys } } = ctx;
       let keyComment = identity.isNode(key) && key.comment || null;
       if (simpleKeys) {
         if (keyComment) {
@@ -1568,7 +1573,7 @@ var require_stringifyPair = __commonJS({
       ctx = Object.assign({}, ctx, {
         allNullValues: false,
         implicitKey: !explicitKey && (simpleKeys || !allNullValues),
-        indent: indent2 + indentStep
+        indent: indent + indentStep
       });
       let keyCommentDone = false;
       let chompKeep = false;
@@ -1598,7 +1603,7 @@ var require_stringifyPair = __commonJS({
         if (keyComment)
           str += stringifyComment.lineComment(str, ctx.indent, commentString(keyComment));
         str = `? ${str}
-${indent2}:`;
+${indent}:`;
       } else {
         str = `${str}:`;
         if (keyComment)
@@ -1876,7 +1881,7 @@ var require_stringifyCollection = __commonJS({
       return stringify2(collection, ctx, options);
     }
     function stringifyBlockCollection({ comment, items }, ctx, { blockItemPrefix, flowChars, itemIndent, onChompKeep, onComment }) {
-      const { indent: indent2, options: { commentString } } = ctx;
+      const { indent, options: { commentString } } = ctx;
       const itemCtx = Object.assign({}, ctx, { indent: itemIndent, type: null });
       let chompKeep = false;
       const lines = [];
@@ -1913,11 +1918,11 @@ var require_stringifyCollection = __commonJS({
         for (let i = 1; i < lines.length; ++i) {
           const line = lines[i];
           str += line ? `
-${indent2}${line}` : "\n";
+${indent}${line}` : "\n";
         }
       }
       if (comment) {
-        str += "\n" + stringifyComment.indentComment(commentString(comment), indent2);
+        str += "\n" + stringifyComment.indentComment(commentString(comment), indent);
         if (onComment)
           onComment();
       } else if (chompKeep && onChompKeep)
@@ -1925,7 +1930,7 @@ ${indent2}${line}` : "\n";
       return str;
     }
     function stringifyFlowCollection({ items }, ctx, { flowChars, itemIndent }) {
-      const { indent: indent2, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
+      const { indent, indentStep, flowCollectionPadding: fcPadding, options: { commentString } } = ctx;
       itemIndent += indentStep;
       const itemCtx = Object.assign({}, ctx, {
         indent: itemIndent,
@@ -1994,19 +1999,19 @@ ${indent2}${line}` : "\n";
           let str = start;
           for (const line of lines)
             str += line ? `
-${indentStep}${indent2}${line}` : "\n";
+${indentStep}${indent}${line}` : "\n";
           return `${str}
-${indent2}${end}`;
+${indent}${end}`;
         } else {
           return `${start}${fcPadding}${lines.join(" ")}${fcPadding}${end}`;
         }
       }
     }
-    function addCommentBefore({ indent: indent2, options: { commentString } }, lines, comment, chompKeep) {
+    function addCommentBefore({ indent, options: { commentString } }, lines, comment, chompKeep) {
       if (comment && chompKeep)
         comment = comment.replace(/^\n+/, "");
       if (comment) {
-        const ic = stringifyComment.indentComment(commentString(comment), indent2);
+        const ic = stringifyComment.indentComment(commentString(comment), indent);
         lines.push(ic.trimStart());
       }
     }
@@ -3715,22 +3720,22 @@ var require_errors = __commonJS({
   "node_modules/yaml/dist/errors.js"(exports) {
     "use strict";
     var YAMLError = class extends Error {
-      constructor(name2, pos, code2, message) {
+      constructor(name2, pos, code, message) {
         super();
         this.name = name2;
-        this.code = code2;
+        this.code = code;
         this.message = message;
         this.pos = pos;
       }
     };
     var YAMLParseError = class extends YAMLError {
-      constructor(pos, code2, message) {
-        super("YAMLParseError", pos, code2, message);
+      constructor(pos, code, message) {
+        super("YAMLParseError", pos, code, message);
       }
     };
     var YAMLWarning = class extends YAMLError {
-      constructor(pos, code2, message) {
-        super("YAMLWarning", pos, code2, message);
+      constructor(pos, code, message) {
+        super("YAMLWarning", pos, code, message);
       }
     };
     var prettifyError = (src, lc) => (error) => {
@@ -3956,10 +3961,10 @@ var require_util_flow_indent_check = __commonJS({
   "node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
     "use strict";
     var utilContainsNewline = require_util_contains_newline();
-    function flowIndentCheck(indent2, fc, onError) {
+    function flowIndentCheck(indent, fc, onError) {
       if (fc?.type === "flow-collection") {
         const end = fc.end[0];
-        if (end.indent === indent2 && (end.source === "]" || end.source === "}") && utilContainsNewline.containsNewline(fc)) {
+        if (end.indent === indent && (end.source === "]" || end.source === "}") && utilContainsNewline.containsNewline(fc)) {
           const msg = "Flow end indicator should be more indented than parent";
           onError(end, "BAD_INDENT", msg, true);
         }
@@ -4477,17 +4482,17 @@ var require_resolve_block_scalar = __commonJS({
       let offset = scalar2.offset + header.length;
       let contentStart = 0;
       for (let i = 0; i < chompStart; ++i) {
-        const [indent2, content] = lines[i];
+        const [indent, content] = lines[i];
         if (content === "" || content === "\r") {
-          if (header.indent === 0 && indent2.length > trimIndent)
-            trimIndent = indent2.length;
+          if (header.indent === 0 && indent.length > trimIndent)
+            trimIndent = indent.length;
         } else {
-          if (indent2.length < trimIndent) {
+          if (indent.length < trimIndent) {
             const message = "Block scalars with more-indented leading empty lines must use an explicit indentation indicator";
-            onError(offset + indent2.length, "MISSING_CHAR", message);
+            onError(offset + indent.length, "MISSING_CHAR", message);
           }
           if (header.indent === 0)
-            trimIndent = indent2.length;
+            trimIndent = indent.length;
           contentStart = i;
           if (trimIndent === 0 && !ctx.atRoot) {
             const message = "Block scalar values in collections must be indented";
@@ -4495,7 +4500,7 @@ var require_resolve_block_scalar = __commonJS({
           }
           break;
         }
-        offset += indent2.length + content.length + 1;
+        offset += indent.length + content.length + 1;
       }
       for (let i = lines.length - 1; i >= chompStart; --i) {
         if (lines[i][0].length > trimIndent)
@@ -4507,26 +4512,26 @@ var require_resolve_block_scalar = __commonJS({
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
       for (let i = contentStart; i < chompStart; ++i) {
-        let [indent2, content] = lines[i];
-        offset += indent2.length + content.length + 1;
+        let [indent, content] = lines[i];
+        offset += indent.length + content.length + 1;
         const crlf = content[content.length - 1] === "\r";
         if (crlf)
           content = content.slice(0, -1);
-        if (content && indent2.length < trimIndent) {
+        if (content && indent.length < trimIndent) {
           const src = header.indent ? "explicit indentation indicator" : "first line";
           const message = `Block scalar lines must not be less indented than their ${src}`;
           onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message);
-          indent2 = "";
+          indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep + indent2.slice(trimIndent) + content;
+          value += sep + indent.slice(trimIndent) + content;
           sep = "\n";
-        } else if (indent2.length > trimIndent || content[0] === "	") {
+        } else if (indent.length > trimIndent || content[0] === "	") {
           if (sep === " ")
             sep = "\n";
           else if (!prevMoreIndented && sep === "\n")
             sep = "\n\n";
-          value += sep + indent2.slice(trimIndent) + content;
+          value += sep + indent.slice(trimIndent) + content;
           sep = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
@@ -4562,7 +4567,7 @@ var require_resolve_block_scalar = __commonJS({
       }
       const { source: source2 } = props[0];
       const mode = source2[0];
-      let indent2 = 0;
+      let indent = 0;
       let chomp = "";
       let error = -1;
       for (let i = 1; i < source2.length; ++i) {
@@ -4571,8 +4576,8 @@ var require_resolve_block_scalar = __commonJS({
           chomp = ch;
         else {
           const n = Number(ch);
-          if (!indent2 && n)
-            indent2 = n;
+          if (!indent && n)
+            indent = n;
           else if (error === -1)
             error = offset + i;
         }
@@ -4613,7 +4618,7 @@ var require_resolve_block_scalar = __commonJS({
           }
         }
       }
-      return { mode, indent: indent2, chomp, comment, length };
+      return { mode, indent, chomp, comment, length };
     }
     function splitLines(source2) {
       const split = source2.split(/\n( *)/);
@@ -4639,7 +4644,7 @@ var require_resolve_flow_scalar = __commonJS({
       const { offset, type, source: source2, end } = scalar2;
       let _type;
       let value;
-      const _onError = (rel, code2, msg) => onError(offset + rel, code2, msg);
+      const _onError = (rel, code, msg) => onError(offset + rel, code, msg);
       switch (type) {
         case "scalar":
           _type = Scalar.Scalar.PLAIN;
@@ -4837,9 +4842,9 @@ var require_resolve_flow_scalar = __commonJS({
     function parseCharCode(source2, offset, length, onError) {
       const cc = source2.substr(offset, length);
       const ok = cc.length === length && /^[0-9a-fA-F]+$/.test(cc);
-      const code2 = ok ? parseInt(cc, 16) : NaN;
+      const code = ok ? parseInt(cc, 16) : NaN;
       try {
-        return String.fromCodePoint(code2);
+        return String.fromCodePoint(code);
       } catch {
         const raw = source2.substr(offset - 2, length + 2);
         onError(offset - 2, "BAD_DQ_ESCAPE", `Invalid escape sequence ${raw}`);
@@ -5161,12 +5166,12 @@ var require_composer = __commonJS({
         this.prelude = [];
         this.errors = [];
         this.warnings = [];
-        this.onError = (source2, code2, message, warning) => {
+        this.onError = (source2, code, message, warning) => {
           const pos = getErrorPos(source2);
           if (warning)
-            this.warnings.push(new errors.YAMLWarning(pos, code2, message));
+            this.warnings.push(new errors.YAMLWarning(pos, code, message));
           else
-            this.errors.push(new errors.YAMLParseError(pos, code2, message));
+            this.errors.push(new errors.YAMLParseError(pos, code, message));
         };
         this.directives = new directives.Directives({ version: options.version || "1.2" });
         this.options = options;
@@ -5328,12 +5333,12 @@ var require_cst_scalar = __commonJS({
     var stringifyString = require_stringifyString();
     function resolveAsScalar(token, strict = true, onError) {
       if (token) {
-        const _onError = (pos, code2, message) => {
+        const _onError = (pos, code, message) => {
           const offset = typeof pos === "number" ? pos : Array.isArray(pos) ? pos[0] : pos.offset;
           if (onError)
-            onError(offset, code2, message);
+            onError(offset, code, message);
           else
-            throw new errors.YAMLParseError([offset, offset + 1], code2, message);
+            throw new errors.YAMLParseError([offset, offset + 1], code, message);
         };
         switch (token.type) {
           case "scalar":
@@ -5347,15 +5352,15 @@ var require_cst_scalar = __commonJS({
       return null;
     }
     function createScalarToken(value, context2) {
-      const { implicitKey = false, indent: indent2, inFlow = false, offset = -1, type = "PLAIN" } = context2;
+      const { implicitKey = false, indent, inFlow = false, offset = -1, type = "PLAIN" } = context2;
       const source2 = stringifyString.stringifyString({ type, value }, {
         implicitKey,
-        indent: indent2 > 0 ? " ".repeat(indent2) : "",
+        indent: indent > 0 ? " ".repeat(indent) : "",
         inFlow,
         options: { blockQuote: true, lineWidth: -1 }
       });
       const end = context2.end ?? [
-        { type: "newline", offset: -1, indent: indent2, source: "\n" }
+        { type: "newline", offset: -1, indent, source: "\n" }
       ];
       switch (source2[0]) {
         case "|":
@@ -5364,25 +5369,25 @@ var require_cst_scalar = __commonJS({
           const head = source2.substring(0, he);
           const body = source2.substring(he + 1) + "\n";
           const props = [
-            { type: "block-scalar-header", offset, indent: indent2, source: head }
+            { type: "block-scalar-header", offset, indent, source: head }
           ];
           if (!addEndtoBlockProps(props, end))
-            props.push({ type: "newline", offset: -1, indent: indent2, source: "\n" });
-          return { type: "block-scalar", offset, indent: indent2, props, source: body };
+            props.push({ type: "newline", offset: -1, indent, source: "\n" });
+          return { type: "block-scalar", offset, indent, props, source: body };
         }
         case '"':
-          return { type: "double-quoted-scalar", offset, indent: indent2, source: source2, end };
+          return { type: "double-quoted-scalar", offset, indent, source: source2, end };
         case "'":
-          return { type: "single-quoted-scalar", offset, indent: indent2, source: source2, end };
+          return { type: "single-quoted-scalar", offset, indent, source: source2, end };
         default:
-          return { type: "scalar", offset, indent: indent2, source: source2, end };
+          return { type: "scalar", offset, indent, source: source2, end };
       }
     }
     function setScalarValue(token, value, context2 = {}) {
       let { afterKey = false, implicitKey = false, inFlow = false, type } = context2;
-      let indent2 = "indent" in token ? token.indent : null;
-      if (afterKey && typeof indent2 === "number")
-        indent2 += 2;
+      let indent = "indent" in token ? token.indent : null;
+      if (afterKey && typeof indent === "number")
+        indent += 2;
       if (!type)
         switch (token.type) {
           case "single-quoted-scalar":
@@ -5402,8 +5407,8 @@ var require_cst_scalar = __commonJS({
             type = "PLAIN";
         }
       const source2 = stringifyString.stringifyString({ type, value }, {
-        implicitKey: implicitKey || indent2 === null,
-        indent: indent2 !== null && indent2 > 0 ? " ".repeat(indent2) : "",
+        implicitKey: implicitKey || indent === null,
+        indent: indent !== null && indent > 0 ? " ".repeat(indent) : "",
         inFlow,
         options: { blockQuote: true, lineWidth: -1 }
       });
@@ -5434,16 +5439,16 @@ var require_cst_scalar = __commonJS({
         token.source = body;
       } else {
         const { offset } = token;
-        const indent2 = "indent" in token ? token.indent : -1;
+        const indent = "indent" in token ? token.indent : -1;
         const props = [
-          { type: "block-scalar-header", offset, indent: indent2, source: head }
+          { type: "block-scalar-header", offset, indent, source: head }
         ];
         if (!addEndtoBlockProps(props, "end" in token ? token.end : void 0))
-          props.push({ type: "newline", offset: -1, indent: indent2, source: "\n" });
+          props.push({ type: "newline", offset: -1, indent, source: "\n" });
         for (const key of Object.keys(token))
           if (key !== "type" && key !== "offset")
             delete token[key];
-        Object.assign(token, { type: "block-scalar", indent: indent2, props, source: body });
+        Object.assign(token, { type: "block-scalar", indent, props, source: body });
       }
     }
     function addEndtoBlockProps(props, end) {
@@ -5488,12 +5493,12 @@ var require_cst_scalar = __commonJS({
           break;
         }
         default: {
-          const indent2 = "indent" in token ? token.indent : -1;
+          const indent = "indent" in token ? token.indent : -1;
           const end = "end" in token && Array.isArray(token.end) ? token.end.filter((st) => st.type === "space" || st.type === "comment" || st.type === "newline") : [];
           for (const key of Object.keys(token))
             if (key !== "type" && key !== "offset")
               delete token[key];
-          Object.assign(token, { type, indent: indent2, source: source2, end });
+          Object.assign(token, { type, indent, source: source2, end });
         }
       }
     }
@@ -5799,15 +5804,15 @@ var require_lexer = __commonJS({
       continueScalar(offset) {
         let ch = this.buffer[offset];
         if (this.indentNext > 0) {
-          let indent2 = 0;
+          let indent = 0;
           while (ch === " ")
-            ch = this.buffer[++indent2 + offset];
+            ch = this.buffer[++indent + offset];
           if (ch === "\r") {
-            const next = this.buffer[indent2 + offset + 1];
+            const next = this.buffer[indent + offset + 1];
             if (next === "\n" || !next && !this.atEnd)
-              return offset + indent2 + 1;
+              return offset + indent + 1;
           }
-          return ch === "\n" || indent2 >= this.indentNext || !ch && !this.atEnd ? offset + indent2 : -1;
+          return ch === "\n" || indent >= this.indentNext || !ch && !this.atEnd ? offset + indent : -1;
         }
         if (ch === "-" || ch === ".") {
           const dt = this.buffer.substr(offset, 3);
@@ -5976,12 +5981,12 @@ var require_lexer = __commonJS({
       }
       *parseFlowCollection() {
         let nl, sp;
-        let indent2 = -1;
+        let indent = -1;
         do {
           nl = yield* this.pushNewline();
           if (nl > 0) {
             sp = yield* this.pushSpaces(false);
-            this.indentValue = indent2 = sp;
+            this.indentValue = indent = sp;
           } else {
             sp = 0;
           }
@@ -5990,8 +5995,8 @@ var require_lexer = __commonJS({
         const line = this.getLine();
         if (line === null)
           return this.setNext("flow");
-        if (indent2 !== -1 && indent2 < this.indentNext && line[0] !== "#" || indent2 === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
-          const atFlowEndMarker = indent2 === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
+        if (indent !== -1 && indent < this.indentNext && line[0] !== "#" || indent === 0 && (line.startsWith("---") || line.startsWith("...")) && isEmpty(line[3])) {
+          const atFlowEndMarker = indent === this.indentNext - 1 && this.flowLevel === 1 && (line[0] === "]" || line[0] === "}");
           if (!atFlowEndMarker) {
             this.flowLevel = 0;
             yield cst.FLOW_END;
@@ -6099,16 +6104,16 @@ var require_lexer = __commonJS({
       }
       *parseBlockScalar() {
         let nl = this.pos - 1;
-        let indent2 = 0;
+        let indent = 0;
         let ch;
         loop: for (let i2 = this.pos; ch = this.buffer[i2]; ++i2) {
           switch (ch) {
             case " ":
-              indent2 += 1;
+              indent += 1;
               break;
             case "\n":
               nl = i2;
-              indent2 = 0;
+              indent = 0;
               break;
             case "\r": {
               const next = this.buffer[i2 + 1];
@@ -6124,9 +6129,9 @@ var require_lexer = __commonJS({
         }
         if (!ch && !this.atEnd)
           return this.setNext("block-scalar");
-        if (indent2 >= this.indentNext) {
+        if (indent >= this.indentNext) {
           if (this.blockScalarIndent === -1)
-            this.indentNext = indent2;
+            this.indentNext = indent;
           else {
             this.indentNext = this.blockScalarIndent + (this.indentNext === 0 ? 1 : this.indentNext);
           }
@@ -6159,7 +6164,7 @@ var require_lexer = __commonJS({
             const lastChar = i2;
             while (ch2 === " ")
               ch2 = this.buffer[--i2];
-            if (ch2 === "\n" && i2 >= this.pos && i2 + 1 + indent2 > lastChar)
+            if (ch2 === "\n" && i2 >= this.pos && i2 + 1 + indent > lastChar)
               nl = i2;
             else
               break;
@@ -7175,10 +7180,10 @@ var require_parser = __commonJS({
         }
         return null;
       }
-      atIndentedComment(start, indent2) {
+      atIndentedComment(start, indent) {
         if (this.type !== "comment")
           return false;
-        if (this.indent <= indent2)
+        if (this.indent <= indent)
           return false;
         return start.every((st) => st.type === "newline" || st.type === "space");
       }
@@ -7300,8 +7305,8 @@ var require_public_api = __commonJS({
       if (typeof options === "string")
         options = options.length;
       if (typeof options === "number") {
-        const indent2 = Math.round(options);
-        options = indent2 < 1 ? void 0 : indent2 > 8 ? { indent: 8 } : { indent: indent2 };
+        const indent = Math.round(options);
+        options = indent < 1 ? void 0 : indent > 8 ? { indent: 8 } : { indent };
       }
       if (value === void 0) {
         const { keepUndefined } = options ?? replacer ?? {};
@@ -9257,14 +9262,6 @@ function bind(blueprint, instance, metadata) {
 }
 
 // packages/core/src/composer/emitter.ts
-var indent = (value, depth = 4) => value.split("\n").map((line) => line ? " ".repeat(depth) + line : "").join("\n");
-var group = (key, value) => `${key} {
-${indent(value)}
-}`;
-var node = (kind, key, value) => `${kind} ${key} (
-${indent(value)}
-)
-`;
 var scalar = (value) => {
   if (/[\r\n\x00-\x1f\x7f{}()`]/.test(value))
     throw new Fault("PARAMETER_UNSUPPORTED", "Labels must be single-line literal values.", 2);
@@ -9281,14 +9278,8 @@ var sqlLiteral = (value) => {
     throw new Fault("LITERAL_UNSAFE", "Literal values must be single-line text without backticks.", 2);
   return "'" + value.replaceAll("'", "''") + "'";
 };
-var code = (language, source2) => `
-    \`\`\`${language}
-${indent(source2, 4)}
-    \`\`\``;
 var layout = (sequence, slot = "body") => group("layout", `sequence: ${sequence}
 slot: ${slot}`);
-var appearance = (template) => group("appearance", `template: @/${template}
-templateOptions: #DEFAULT#`);
 var page = (allocation, title, body, dialog = false) => node(
   "page",
   String(dialog ? allocation.dialog : allocation.page),
@@ -9309,7 +9300,7 @@ var source = (sql, submit) => group(
   `location: localDatabase
 type: sqlQuery
 ${submit ? `pageItemsToSubmit: ${submit}
-` : ""}sqlQuery:${code("sql", sql)}`
+` : ""}sqlQuery:${fence("sql", sql)}`
 );
 var reportDataType = (type) => ["integer", "decimal"].includes(type) ? "number" : ["date", "timestamp"].includes(type) ? "date" : type === "boolean" ? "boolean" : "varchar2";
 var button = (key, label, region, behavior) => node(
@@ -9336,23 +9327,13 @@ ${selection}`)}
 ${actions}`
   );
 }
-function refresh(key, region, sequence) {
-  return node(
-    "action",
-    key,
-    `action: refresh
-${group("affectedElements", `selectionType: region
-region: @${region}`)}
-${group("execution", `sequence: ${sequence}
-fireOnInit: false`)}`
-  );
-}
+var refresh = refreshAction;
 function jsAction(key, javascript) {
   return node(
     "action",
     key,
     `action: executeJsCode
-${group("settings", `jsCode:${code("javascript", javascript)}`)}
+${group("settings", `jsCode:${fence("javascript", javascript)}`)}
 ${group("execution", "sequence: 10\nfireOnInit: false")}`
   );
 }
@@ -9362,7 +9343,7 @@ function process2(key, mapping, point, sql) {
     key,
     `name: ${key}
 type: executeCode
-${mapping === void 0 ? "" : group("advanced", `executionMappingIdentifier: ${mapping}`) + "\n"}${group("source", `plsqlCode:${code("plsql", sql)}`)}
+${mapping === void 0 ? "" : group("advanced", `executionMappingIdentifier: ${mapping}`) + "\n"}${group("source", `plsqlCode:${fence("plsql", sql)}`)}
 ${group("execution", `sequence: 10
 point: ${point}`)}`
   );
@@ -9798,17 +9779,17 @@ var extensionUnsafe = () => new Fault(
 );
 function extensionCode(source2) {
   if (/```|[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]|\b[nN]?[qQ]'/.test(source2)) throw extensionUnsafe();
-  let code2 = "", at = 0;
+  let code = "", at = 0;
   while (at < source2.length) {
     if (source2.startsWith("--", at)) {
       const end = source2.indexOf("\n", at);
       at = end < 0 ? source2.length : end;
-      code2 += " ";
+      code += " ";
     } else if (source2.startsWith("/*", at)) {
       const end = source2.indexOf("*/", at + 2);
       if (end < 0) throw extensionUnsafe();
       at = end + 2;
-      code2 += " ";
+      code += " ";
     } else if (source2[at] === "'") {
       let end = at + 1;
       for (; ; ) {
@@ -9818,15 +9799,15 @@ function extensionCode(source2) {
         else break;
       }
       at = end + 1;
-      code2 += "''";
+      code += "''";
     } else if (source2[at] === '"') {
       const end = source2.indexOf('"', at + 1);
       if (end < 0) throw extensionUnsafe();
-      code2 += " " + source2.slice(at + 1, end) + " ";
+      code += " " + source2.slice(at + 1, end) + " ";
       at = end + 1;
-    } else code2 += source2[at++];
+    } else code += source2[at++];
   }
-  const normalized = code2.replace(/\s+/g, " ");
+  const normalized = code.replace(/\s+/g, " ");
   if (/\b(?:commit|rollback|savepoint|grant|revoke|host|connect|autonomous_transaction)\b|\bexecute\s+immediate\b|\b(?:dbms_sql|dbms_sys_sql|dbms_job|dbms_scheduler|dbms_pipe|dbms_java|dbms_aq\w*|dbms_xml(?:gen|query|store|save)|utl_\w+)\b|\bsys\s*\.|\bapex_exec\s*\.\s*execute_plsql\b|\bapex_plugin_util\s*\.\s*execute_plsql_code\b|\bapex_plugin_util\s*\.\s*get_(?:data|data2)\b/i.test(
     normalized
   ))

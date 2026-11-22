@@ -9,7 +9,7 @@ import {
   composeMaterializeInput,
   composePlanInput,
   metadataInputSchema
-} from "./chunk-ESGGZIAY.mjs";
+} from "./chunk-MOECJUGS.mjs";
 import {
   databaseTransport,
   ordsUrl,

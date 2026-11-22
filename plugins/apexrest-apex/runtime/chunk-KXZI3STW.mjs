@@ -6,13 +6,13 @@ import {
   renderRegion,
   scaffoldSchema,
   validateSpec
-} from "./chunk-UHBGYMSW.mjs";
+} from "./chunk-HGNRVHRN.mjs";
 import {
   declarations,
   editSpans,
   get,
   parseApexLang
-} from "./chunk-NGNFSMKO.mjs";
+} from "./chunk-7K63TNLW.mjs";
 import {
   resourceRoot,
   sourceRelease

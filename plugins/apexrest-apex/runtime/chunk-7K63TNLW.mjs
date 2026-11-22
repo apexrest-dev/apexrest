@@ -12,33 +12,33 @@ function declarations(source) {
     throw new Fault("TRANSFORM_UNSUPPORTED", "Source exceeds the bounded reader limit.", 5);
   const lines = [...source.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/g)].filter((m) => m[0].length);
   const stack = [], out = [];
-  let fence = false;
+  let fence2 = false;
   for (const line of lines) {
     const text = line[0].replace(/[\r\n]+$/, "");
     if (/^\s*```/.test(text)) {
-      fence = !fence;
+      fence2 = !fence2;
       continue;
     }
-    if (fence) continue;
+    if (fence2) continue;
     const open = text.match(/^( *)([A-Za-z][\w]*)(?:\s+(.*?))?\s*\(\s*$/);
     if (open) stack.push({ kind: open[2], key: open[3] ?? "", start: line.index, depth: open[1].length });
     else if (/^ *\)\s*$/.test(text)) {
-      const node = stack.pop();
-      if (!node || node.depth !== text.indexOf(")"))
+      const node2 = stack.pop();
+      if (!node2 || node2.depth !== text.indexOf(")"))
         throw new Fault("TRANSFORM_UNSUPPORTED", "Unbalanced declaration boundary.", 5);
       const end = line.index + line[0].length;
-      out.push({ ...node, end, digest: hash(source.slice(node.start, end)) });
+      out.push({ ...node2, end, digest: hash(source.slice(node2.start, end)) });
     }
   }
-  if (fence || stack.length) throw new Fault("TRANSFORM_UNSUPPORTED", "Unclosed literal or declaration.", 5);
+  if (fence2 || stack.length) throw new Fault("TRANSFORM_UNSUPPORTED", "Unclosed literal or declaration.", 5);
   return out.sort((a, b) => a.start - b.start);
 }
 function inventorySymbols(sources) {
   const pages = /* @__PURE__ */ new Set(), symbols = /* @__PURE__ */ new Set();
   for (const source of Object.values(sources))
-    for (const node of declarations(source)) {
-      if (node.kind === "page" && /^\d+$/.test(node.key)) pages.add(Number(node.key));
-      if (node.key) symbols.add(node.key.toUpperCase());
+    for (const node2 of declarations(source)) {
+      if (node2.kind === "page" && /^\d+$/.test(node2.key)) pages.add(Number(node2.key));
+      if (node2.key) symbols.add(node2.key.toUpperCase());
     }
   return { pages, symbols };
 }
@@ -58,12 +58,12 @@ function threeWay(base, local, next) {
   const variants = [base, local, next], roots = variants.map(declarations);
   const rootDepth = roots[0]?.[0]?.depth;
   if (rootDepth !== void 0 && roots.every((nodes) => nodes[0]?.depth === rootDepth)) {
-    const children = roots.map((nodes) => nodes.filter((node) => node.depth === rootDepth + 4));
+    const children = roots.map((nodes) => nodes.filter((node2) => node2.depth === rootDepth + 4));
     const maps = children.map(
       (nodes, i) => new Map(
-        nodes.map((node) => [
-          node.kind + ":" + node.key,
-          { node, content: variants[i].slice(node.start, node.end) }
+        nodes.map((node2) => [
+          node2.kind + ":" + node2.key,
+          { node: node2, content: variants[i].slice(node2.start, node2.end) }
         ])
       )
     );
@@ -71,7 +71,7 @@ function threeWay(base, local, next) {
       throw new Fault("COMPOSITION_CONFLICT", "Repeated sibling anchors are unsupported.", 5);
     const scaffold = (value, nodes) => editSpans(
       value,
-      nodes.map((node) => ({ ...node, expectedDigest: node.digest, content: "" }))
+      nodes.map((node2) => ({ ...node2, expectedDigest: node2.digest, content: "" }))
     );
     const wrappers = variants.map((v, i) => scaffold(v, children[i]));
     const wrapper = mergeLines(wrappers[0], wrappers[1], wrappers[2]);
@@ -204,15 +204,15 @@ function inlineArray(text) {
 }
 function stripComments(lines) {
   let block = false;
-  let fence = false;
+  let fence2 = false;
   return lines.map((line) => {
     const trimmed = line.trim();
-    if (fence) {
-      if (trimmed === "```") fence = false;
+    if (fence2) {
+      if (trimmed === "```") fence2 = false;
       return line;
     }
     if (trimmed.startsWith("```")) {
-      fence = !(trimmed.length >= 6 && trimmed.endsWith("```"));
+      fence2 = !(trimmed.length >= 6 && trimmed.endsWith("```"));
       return line;
     }
     if (block) {
@@ -241,13 +241,13 @@ function parseApexLang(source, file = "<memory>") {
   };
   const readFence = () => {
     const opening = lines[index] ?? "";
-    const indent = opening.length - opening.trimStart().length;
+    const indent2 = opening.length - opening.trimStart().length;
     const body = [];
     index += 1;
     while (index < lines.length && (lines[index] ?? "").trim() !== "```") {
       const line = lines[index] ?? "";
       const leading = line.length - line.trimStart().length;
-      body.push(line.slice(Math.min(indent, leading)));
+      body.push(line.slice(Math.min(indent2, leading)));
       index += 1;
     }
     if (index >= lines.length) fail("unterminated ``` block");
@@ -295,11 +295,11 @@ function parseApexLang(source, file = "<memory>") {
         props[unquote(property[1])] = readValue(property[2]);
         continue;
       }
-      const group = GROUP.exec(text);
-      if (group) {
+      const group2 = GROUP.exec(text);
+      if (group2) {
         const nested = readBlock("}", children);
-        const existing = props[group[1]];
-        props[group[1]] = isObject(existing) ? { ...existing, ...nested } : nested;
+        const existing = props[group2[1]];
+        props[group2[1]] = isObject(existing) ? { ...existing, ...nested } : nested;
         continue;
       }
       const component = COMPONENT.exec(text);
@@ -434,6 +434,27 @@ function parseFile(file, relative, root, substitutions) {
   }
 }
 
+// packages/core/src/apexlang-writer.ts
+var indent = (value, depth = 4) => value.split("\n").map((line) => line ? " ".repeat(depth) + line : line).join("\n");
+var group = (name, value) => `${name} {
+${indent(value)}
+}`;
+var node = (kind, id, value) => `${kind} ${id} (
+${indent(Array.isArray(value) ? value.filter(Boolean).join("\n") : value)}
+)
+`;
+var fence = (language, value) => `
+${indent("```" + language + "\n" + value + "\n```")}`;
+var appearance = (template) => group("appearance", `template: @/${template}
+templateOptions: #DEFAULT#`);
+var refreshAction = (key, region, sequence) => node("action", key, [
+  "action: refresh",
+  group("affectedElements", `selectionType: region
+region: @${region}`),
+  group("execution", `sequence: ${sequence}
+fireOnInit: false`)
+]);
+
 export {
   declarations,
   inventorySymbols,
@@ -448,5 +469,11 @@ export {
   bool,
   ref,
   list,
-  loadApplication
+  loadApplication,
+  indent,
+  group,
+  node,
+  fence,
+  appearance,
+  refreshAction
 };

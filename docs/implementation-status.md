@@ -237,18 +237,34 @@ Invalid references are refused before writing: an unknown master column, a facet
 - **Editable master–detail grid.** Saving a new note filled `CUSTOMER_ID` from the selected master row. After `ROW_VERSION` was changed in the database, a stale grid save was refused, and a grid row delete removed the note.
 - **Faceted search.** The search facet filtered to 0 rows and back to 1, and the Status checkbox facet showed and applied its count.
 
-Bug found and fixed: generated grids had no Save button, search or Actions menu, because APEXlang grids need explicit toolbar `controls`. The emitter now sets them (Save only on editable grids), and the fixed pages were shipped and checked again.
+Two bugs found and fixed:
 
-Not observed:
+- **Grid toolbar.** Generated grids had no Save button, search or Actions menu, because APEXlang grids need explicit toolbar `controls`. The emitter now sets them, with Save only on editable grids.
+- **Dialog cancel.** The generated Cancel dynamic action lacked `fireOnInit: false`, so its `cancelDialog` ran as the dialog page loaded and closed the dialog at once. It looked like a browser problem until the close was traced to that action.
 
-- The report refresh after a dialog closes: after the first open, the in-app browser did not show the dialog again, though APEX requested the dialog page successfully, so the edit and delete paths were checked on the dialog page opened directly.
-- An increment of `ROW_VERSION` on update: APEX only compares it, so the table needs a trigger.
+The fixed pages were shipped and checked again: a dialog opened from **Add customer** stayed open, Create closed it and the report refreshed without a page reload. Edit and then Delete in the dialog removed the row, and the report showed no rows.
+
+Not observed: an increment of `ROW_VERSION` on update. APEX only compares it, so the table needs a trigger.
 
 The test rows were deleted afterwards.
 
 Tests: `scaffold-recipes.test.ts`.
 
-**Not done in this slice:** merging the Composer emitters with scaffold (APE-357 beyond the shared scaffold emitter).
+**Shared generator primitives ([APE-357](https://linear.app/apexrest/issue/APE-357)).** `packages/core/src/apexlang-writer.ts` holds the APEXlang writing primitives used by both scaffold (and so `project insert`) and the Composer block emitter:
+
+- indentation, property groups and components;
+- fenced code;
+- template appearance;
+- the refresh dynamic-action step.
+
+Each construct is now written one way. The change is byte-identical: regenerating the recipe pages produced no diff, and the Composer unit and contract tests pass. The Composer generator identity (`resources/blocks/generator.json`) was refreshed because its sources changed. The block compiler evidence was already bound to older identities before this change.
+
+Component identities stay stable:
+
+- scaffold uses explicit region ids (or ordinal `rN`), and ownership hashes turn manual edits into precise conflicts;
+- Composer keys components by its allocation prefix.
+
+The two specification models (scaffold pages and Composer blueprints/blocks) stay separate.
 
 ## Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)
 

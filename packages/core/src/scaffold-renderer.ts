@@ -1,4 +1,5 @@
 import { Fault } from './result.ts';
+import { appearance, fence, group, indent, node, refreshAction } from './apexlang-writer.ts';
 import {
   scaffoldSchema,
   type ScaffoldPage,
@@ -11,15 +12,8 @@ import {
 export { scaffoldSchema };
 type Release = '26.1' | '26.2';
 const q = (v: string) => JSON.stringify(v);
-const indent = (v: string) =>
-  v
-    .split('\n')
-    .map((line) => (line ? '    ' + line : line))
-    .join('\n');
-const g = (name: string, value: string) => `${name} {\n${indent(value)}\n}`;
-const n = (kind: string, id: string, value: string[]) =>
-  `${kind} ${id} (\n${indent(value.filter(Boolean).join('\n'))}\n)\n`;
-const fence = (language: string, value: string) => `\n${indent('```' + language + '\n' + value + '\n```')}`;
+const g = group;
+const n = (kind: string, id: string, value: string[]) => node(kind, id, value);
 const invalid = (message: string): never => {
   throw new Fault('INVALID_INPUT', message, 2);
 };
@@ -76,9 +70,6 @@ function query(value: { sql: string; itemsToSubmit?: string[] | undefined }, loc
       .filter(Boolean)
       .join('\n'),
   );
-}
-function appearance(template: string) {
-  return g('appearance', `template: @/${template}\ntemplateOptions: #DEFAULT#`);
 }
 const reportAlias = (index: number) => {
   let alias = '';
@@ -511,7 +502,11 @@ export function renderPageBody(page: ScaffoldPage, release: Release, options: { 
             'name: Cancel dialog',
             g('execution', 'sequence: 10'),
             g('when', `event: click\nselectionType: button\nbutton: ${ref(`cancel-${control.form}`)}`),
-            n('action', 'cancel-dialog', ['action: cancelDialog', g('execution', 'sequence: 10')]),
+            // Without fireOnInit: false the cancel runs when the dialog loads and closes it at once.
+            n('action', 'cancel-dialog', [
+              'action: cancelDialog',
+              g('execution', 'sequence: 10\nfireOnInit: false'),
+            ]),
           ]),
         ),
       );
@@ -589,11 +584,7 @@ export function renderPageBody(page: ScaffoldPage, release: Release, options: { 
             `name: ${q('Refresh ' + region.name + ' after dialog')}`,
             g('execution', `sequence: ${(page.refreshes?.length ?? 0) * 10 + (i + 1) * 10}`),
             g('when', `event: apexafterclosedialog\nselectionType: region\nregion: ${ref(id)}`),
-            n('action', 'refresh', [
-              'action: refresh',
-              g('affectedElements', `selectionType: region\nregion: ${ref(id)}`),
-              g('execution', 'sequence: 10\nfireOnInit: false'),
-            ]),
+            refreshAction('refresh', id, 10),
           ]),
         ),
       );
@@ -637,11 +628,7 @@ export function renderPageBody(page: ScaffoldPage, release: Release, options: { 
           g('execution', `sequence: ${(i + 1) * 10}`),
           g('when', `event: change\nselectionType: items\nitems: ${refresh.items.join(',')}`),
           ...refresh.regions.map((region, ordinal) =>
-            n('action', `refresh-${ordinal + 1}`, [
-              'action: refresh',
-              g('affectedElements', `selectionType: region\nregion: ${ref(region)}`),
-              g('execution', `sequence: ${(ordinal + 1) * 10}\nfireOnInit: false`),
-            ]),
+            refreshAction(`refresh-${ordinal + 1}`, region, (ordinal + 1) * 10),
           ),
         ]),
       ),

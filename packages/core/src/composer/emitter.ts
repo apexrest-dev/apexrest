@@ -3,15 +3,9 @@ import { bind, expression } from './binding.ts';
 import { Fault } from '../result.ts';
 import { COMPOSER_262_PROFILE } from './profiles.ts';
 import { sharedEnumValuesSupported } from './shared-lovs.ts';
+import { appearance, fence as code, group, node, refreshAction } from '../apexlang-writer.ts';
 
 type Binding = ReturnType<typeof bind>;
-const indent = (value: string, depth = 4) =>
-  value
-    .split('\n')
-    .map((line) => (line ? ' '.repeat(depth) + line : ''))
-    .join('\n');
-const group = (key: string, value: string) => `${key} {\n${indent(value)}\n}`;
-const node = (kind: string, key: string, value: string) => `${kind} ${key} (\n${indent(value)}\n)\n`;
 const scalar = (value: string) => {
   if (/[\r\n\x00-\x1f\x7f{}()`]/.test(value))
     throw new Fault('PARAMETER_UNSUPPORTED', 'Labels must be single-line literal values.', 2);
@@ -30,11 +24,7 @@ const sqlLiteral = (value: string) => {
     throw new Fault('LITERAL_UNSAFE', 'Literal values must be single-line text without backticks.', 2);
   return "'" + value.replaceAll("'", "''") + "'";
 };
-const code = (language: string, source: string) =>
-  `\n    \`\`\`${language}\n${indent(source, 4)}\n    \`\`\``;
 const layout = (sequence: number, slot = 'body') => group('layout', `sequence: ${sequence}\nslot: ${slot}`);
-const appearance = (template: string) =>
-  group('appearance', `template: @/${template}\ntemplateOptions: #DEFAULT#`);
 const page = (allocation: Allocation, title: string, body: string, dialog = false) =>
   node(
     'page',
@@ -86,13 +76,7 @@ function dynamic(key: string, event: string, selection: string, actions: string)
     `name: ${key}\n${group('execution', 'sequence: 10')}\n${group('when', `event: ${event}\n${selection}`)}\n${actions}`,
   );
 }
-function refresh(key: string, region: string, sequence: number) {
-  return node(
-    'action',
-    key,
-    `action: refresh\n${group('affectedElements', `selectionType: region\nregion: @${region}`)}\n${group('execution', `sequence: ${sequence}\nfireOnInit: false`)}`,
-  );
-}
+const refresh = refreshAction;
 function jsAction(key: string, javascript: string) {
   return node(
     'action',
