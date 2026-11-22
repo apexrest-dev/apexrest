@@ -230,6 +230,16 @@
 <li>A selected-file import names its files relative to SQLcl&#39;s working directory, so its server starts in the run&#39;s frozen source directory, which is created empty and then filled in place.</li>
 <li>SQL restores, database scripts, ORDS and <code>mcp</code> mode keep the import process.</li>
 <li><code>APEXREST_WARM_IMPORT=0</code> disables it.</li>
+<li>Its JVM starts while the target is observed, so it costs no time on the critical path (spawn 0 ms measured locally). It is not kept across imports: a server stays bound to one frozen import directory.</li>
+</ul>
+</li>
+<li><strong>Database scripts of one apply</strong> (<code>sqlcl-warm.ts</code> ScriptSession). When an apply has more than one migration or package script, they share one restricted server (<code>-R 2 -mcp</code>) on the saved direct connection.<ul>
+<li>Every start proves the HOST refusal before it connects.</li>
+<li>Each script runs with the fail-stop preamble, an explicit <code>COMMIT</code> (as the process&#39;s final <code>EXIT</code> did) and its completion marker. History is recorded only after the marker.</li>
+<li>After each script the session is reset: <code>ROLLBACK</code>, package-state reinitialization, <code>current_schema</code> set to the session user.</li>
+<li>A script without its marker discards the server and is classified exactly like an interrupted process (<code>OUTCOME_UNKNOWN</code>, no replay). So does a transport failure, a cancellation or a failed reset. (In server mode an error drops the connection but leaves SQLcl running.)</li>
+<li>Nothing submitted yet means the script runs in its own process. ORDS, <code>mcp</code> mode and single scripts keep one process per script.</li>
+<li><code>APEXREST_SCRIPT_SESSION=0</code> disables it. Qualified with <code>scripts/bench/session-reuse.mjs</code> on SQLcl 26.3 and Oracle 23.26.4.</li>
 </ul>
 </li>
 </ul>

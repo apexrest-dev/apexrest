@@ -2225,66 +2225,80 @@ export class DeploymentService {
       await record('migrating');
       // Once writes begin, ownership is never automatically reclaimed. It must be reconciled.
       await new LocalDeploymentControl(env).markWriting(runId);
-      for (const operation of plan.operations.filter((o) => ['migration', 'package'].includes(o.kind))) {
-        if (controller.signal.aborted)
-          throw new Fault(
-            'LEASE_OR_CANCELLATION',
-            'Execution was interrupted.',
-            6,
-            writeStarted ? 'outcome_unknown' : 'cancelled',
+      const scripts = plan.operations.filter((o) => ['migration', 'package'].includes(o.kind));
+      // Several scripts share one restricted, reset server (sqlcl-warm.ts ScriptSession); a single
+      // script, or any script that could not use it before submission, runs in its own process.
+      const scriptSession =
+        scripts.length > 1
+          ? await this.oracle.prepareScripts?.(deployConnection).catch(() => undefined)
+          : undefined;
+      try {
+        for (const operation of scripts) {
+          if (controller.signal.aborted)
+            throw new Fault(
+              'LEASE_OR_CANCELLATION',
+              'Execution was interrupted.',
+              6,
+              writeStarted ? 'outcome_unknown' : 'cancelled',
+            );
+          await this.lease(env, runId, false);
+          const file = await contained(snapshot, operation.file!);
+          if (operation.kind === 'migration')
+            await new LocalDeploymentControl(env).migration(
+              runId,
+              path.basename(file),
+              operation.sha256!,
+              'started',
+            );
+          writeStarted = true;
+          // User scripts run restricted (no host/spool/save); level 2 still allows @file.
+          // A per-run marker printed after the script proves SQLcl reached its end:
+          // a script that exits early or consumes the remaining stdin (ACCEPT,
+          // PAUSE) must not be recorded as applied.
+          const marker = scriptCompletionMarker();
+          const executed = await this.oracle.session(
+            `@${sqlclToken(file)}\nprompt ${marker}`,
+            deployConnection,
+            true,
+            controller.signal,
+            undefined,
+            'text',
+            SCRIPT_RESTRICT_LEVEL,
+            false,
+            'session',
+            scriptSession?.usable ? scriptSession : undefined,
           );
-        await this.lease(env, runId, false);
-        const file = await contained(snapshot, operation.file!);
-        if (operation.kind === 'migration')
-          await new LocalDeploymentControl(env).migration(
-            runId,
-            path.basename(file),
-            operation.sha256!,
-            'started',
-          );
-        writeStarted = true;
-        // User scripts run restricted (no host/spool/save); level 2 still allows @file.
-        // A per-run marker printed after the script proves SQLcl reached its end:
-        // a script that exits early or consumes the remaining stdin (ACCEPT,
-        // PAUSE) must not be recorded as applied.
-        const marker = scriptCompletionMarker();
-        const executed = await this.oracle.session(
-          `@${sqlclToken(file)}\nprompt ${marker}`,
-          deployConnection,
-          true,
-          controller.signal,
-          undefined,
-          'text',
-          SCRIPT_RESTRICT_LEVEL,
-        );
-        if (!scriptCompleted(executed?.output, marker))
-          throw new Fault(
-            'SCRIPT_INCOMPLETE',
-            `SQLcl did not confirm that ${path.basename(file)} ran to completion.`,
-            6,
-            'outcome_unknown',
-          );
-        if (operation.kind === 'package')
-          await new LocalDeploymentControl(env).packageApplied(
-            runId,
-            ctx.config.projectId,
-            operation.file!,
-            operation.sha256!,
-          );
-        if (operation.kind === 'migration') {
-          await new LocalDeploymentControl(env).migration(
-            runId,
-            path.basename(file),
-            operation.sha256!,
-            'succeeded',
-          );
-          completedMigrations.push({
-            version: path.basename(file),
-            checksum: operation.sha256!,
-            status: 'succeeded',
-            run_id: runId,
-          });
+          if (!scriptCompleted(executed?.output, marker))
+            throw new Fault(
+              'SCRIPT_INCOMPLETE',
+              `SQLcl did not confirm that ${path.basename(file)} ran to completion.`,
+              6,
+              'outcome_unknown',
+            );
+          if (operation.kind === 'package')
+            await new LocalDeploymentControl(env).packageApplied(
+              runId,
+              ctx.config.projectId,
+              operation.file!,
+              operation.sha256!,
+            );
+          if (operation.kind === 'migration') {
+            await new LocalDeploymentControl(env).migration(
+              runId,
+              path.basename(file),
+              operation.sha256!,
+              'succeeded',
+            );
+            completedMigrations.push({
+              version: path.basename(file),
+              checksum: operation.sha256!,
+              status: 'succeeded',
+              run_id: runId,
+            });
+          }
         }
+      } finally {
+        await scriptSession?.close();
       }
       if (databaseOnly) {
         // The application was not imported, so its working copy and sync state stay as they were.

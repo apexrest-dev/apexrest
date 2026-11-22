@@ -25,7 +25,7 @@ import {
   sqlclMode,
   sqlclRestriction,
   targetIdentitySql
-} from "./chunk-QHMPNNGG.mjs";
+} from "./chunk-52OVPJZH.mjs";
 import {
   environment,
   identifier,

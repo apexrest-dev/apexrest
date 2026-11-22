@@ -38,13 +38,19 @@ export class WarmImportServer {
   private taken = false;
   private closed = false;
   warmMs: number | undefined;
-  constructor(private readonly request: WarmImportRequest) {
-    this.client = new SqlclMcpClient({
-      executable: request.executable,
-      args: ['-R', request.restrictLevel, '-mcp'],
-      cwd: request.cwd,
-      ...(request.env ? { env: request.env } : {}),
-    });
+  /** `client` replaces the SQLcl server process in tests of the fallback and failure rules. */
+  constructor(
+    private readonly request: WarmImportRequest,
+    client?: SqlclMcpClient,
+  ) {
+    this.client =
+      client ??
+      new SqlclMcpClient({
+        executable: request.executable,
+        args: ['-R', request.restrictLevel, '-mcp'],
+        cwd: request.cwd,
+        ...(request.env ? { env: request.env } : {}),
+      });
     this.ready = this.prepare().catch(() => false);
   }
   private async prepare() {
@@ -121,5 +127,129 @@ export class WarmImportServer {
     if (this.closed) return;
     this.closed = true;
     await this.client.close();
+  }
+}
+
+/** Clears what a script may leave in a session: its transaction, package state and schema. */
+export const SCRIPT_SESSION_RESET =
+  "rollback;\nexec dbms_session.modify_package_state(dbms_session.reinitialize)\nbegin execute immediate 'alter session set current_schema = ' || sys_context('USERENV','SESSION_USER'); end;\n/\n";
+
+export function scriptSessionDisabled() {
+  return /^(?:0|false|off)$/i.test(process.env.APEXREST_SCRIPT_SESSION ?? '');
+}
+
+/**
+ * One restricted SQLcl server for the database scripts of one apply (APE-404), instead of one
+ * process per script (about 1.7 s each). Qualified on SQLcl 26.3 / Oracle 23.26.4:
+ * - every start proves the restriction (HOST refused) before connecting;
+ * - each script runs with the import's fail-stop preamble, an explicit COMMIT (the process
+ *   model's final EXIT committed the same way) and the completion marker;
+ * - after a script with its marker the session is reset (ROLLBACK, package state, schema), so
+ *   the next script starts like a new process; a failed reset discards the session;
+ * - a script without its marker (an error stops it before the marker; in server mode SQLcl then
+ *   drops its connection but keeps running), a transport failure or a cancellation discards the
+ *   session; the caller classifies that script exactly like an interrupted process;
+ * - nothing submitted yet means the caller runs the ordinary per-script process.
+ * It runs scripts of one apply only, one at a time, and never reads or imports.
+ */
+export class ScriptSession {
+  private readonly client: SqlclMcpClient;
+  private connected = false;
+  private closed = false;
+  private busy = false;
+  /** `client` replaces the SQLcl server process in tests. */
+  constructor(
+    private readonly request: Pick<WarmImportRequest, 'executable' | 'cwd' | 'env' | 'restrictLevel'>,
+    client?: SqlclMcpClient,
+  ) {
+    this.client =
+      client ??
+      new SqlclMcpClient({
+        executable: request.executable,
+        args: ['-R', request.restrictLevel, '-mcp'],
+        cwd: request.cwd,
+        ...(request.env ? { env: request.env } : {}),
+      });
+  }
+  private async prepare(connectionName: string) {
+    const deadline = Date.now() + READY_TIMEOUT_MS;
+    const options = mcpCallOptions({ timeoutMs: READY_TIMEOUT_MS }, deadline);
+    await this.client.open(options());
+    const probe = this.client.text(await this.client.execute(`host echo ${PROBE}`, options, () => false));
+    if (!/SP2-0738/.test(probe) || probe.split(/\r?\n/).some((line) => line.trim() === PROBE)) return false;
+    const connected = await this.client.connect(connectionName, options, true);
+    return !connected.isError && this.client.alive;
+  }
+  get usable() {
+    return !this.closed;
+  }
+  async run(
+    request: Pick<ProcessRequest, 'input' | 'timeoutMs' | 'signal' | 'onSqlclTiming'> & {
+      connectionName: string;
+      completionMarker: string;
+    },
+  ): Promise<ProcessResult | undefined> {
+    if (this.closed || this.busy) return undefined;
+    this.busy = true;
+    const started = performance.now();
+    const timing = executionTiming('mcp', true, true);
+    timing.reused = this.connected;
+    let submitted = false;
+    let executeStarted: number | undefined;
+    const deadline = Date.now() + (request.timeoutMs ?? SQLCL_WRITE_TIMEOUT_MS);
+    const options = mcpCallOptions(request, deadline);
+    try {
+      if (!this.connected) {
+        const connectStarted = performance.now();
+        this.connected = await this.prepare(request.connectionName).catch(() => false);
+        timing.connectMs = performance.now() - connectStarted;
+        if (!this.connected) {
+          await this.close();
+          return undefined;
+        }
+      }
+      if (request.signal?.aborted) return undefined;
+      timing.queueMs = performance.now() - started;
+      submitted = true;
+      executeStarted = performance.now();
+      const result = await this.client.execute(request.input ?? '', options, () => true);
+      const text = this.client.text(result, true);
+      if (result.isError || !text.includes(request.completionMarker)) await this.close();
+      else
+        try {
+          const reset = await this.client.execute(SCRIPT_SESSION_RESET, options, () => false);
+          if (reset.isError || !this.client.alive) await this.close();
+        } catch {
+          await this.close();
+        }
+      return mcpResult(result, text);
+    } catch (error) {
+      await this.close();
+      if (!submitted) return undefined;
+      const interrupted = request.signal?.aborted
+        ? 'cancelled'
+        : Date.now() >= deadline
+          ? 'timedOut'
+          : undefined;
+      if (interrupted)
+        return {
+          code: null,
+          stdout: '',
+          stderr: '',
+          timedOut: interrupted === 'timedOut',
+          cancelled: interrupted === 'cancelled',
+          truncated: false,
+        };
+      throw mcpFailure(error, { ...this.request, args: [], mutation: true }, true);
+    } finally {
+      this.busy = false;
+      if (executeStarted !== undefined) timing.executeMs = performance.now() - executeStarted;
+      if (submitted) emitSqlclTiming(request.onSqlclTiming, timing, started);
+    }
+  }
+  async close() {
+    if (this.closed) return;
+    this.closed = true;
+    await this.client.close().catch(() => undefined);
   }
 }

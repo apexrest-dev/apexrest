@@ -2552,9 +2552,10 @@ function warmImportDisabled() {
   return /^(?:0|false|off)$/i.test(process.env.APEXREST_WARM_IMPORT ?? "");
 }
 var WarmImportServer = class {
-  constructor(request) {
+  /** `client` replaces the SQLcl server process in tests of the fallback and failure rules. */
+  constructor(request, client) {
     this.request = request;
-    this.client = new SqlclMcpClient({
+    this.client = client ?? new SqlclMcpClient({
       executable: request.executable,
       args: ["-R", request.restrictLevel, "-mcp"],
       cwd: request.cwd,
@@ -2633,6 +2634,99 @@ var WarmImportServer = class {
     if (this.closed) return;
     this.closed = true;
     await this.client.close();
+  }
+};
+var SCRIPT_SESSION_RESET = "rollback;\nexec dbms_session.modify_package_state(dbms_session.reinitialize)\nbegin execute immediate 'alter session set current_schema = ' || sys_context('USERENV','SESSION_USER'); end;\n/\n";
+function scriptSessionDisabled() {
+  return /^(?:0|false|off)$/i.test(process.env.APEXREST_SCRIPT_SESSION ?? "");
+}
+var ScriptSession = class {
+  /** `client` replaces the SQLcl server process in tests. */
+  constructor(request, client) {
+    this.request = request;
+    this.client = client ?? new SqlclMcpClient({
+      executable: request.executable,
+      args: ["-R", request.restrictLevel, "-mcp"],
+      cwd: request.cwd,
+      ...request.env ? { env: request.env } : {}
+    });
+  }
+  request;
+  client;
+  connected = false;
+  closed = false;
+  busy = false;
+  async prepare(connectionName) {
+    const deadline = Date.now() + READY_TIMEOUT_MS;
+    const options = mcpCallOptions({ timeoutMs: READY_TIMEOUT_MS }, deadline);
+    await this.client.open(options());
+    const probe = this.client.text(await this.client.execute(`host echo ${PROBE}`, options, () => false));
+    if (!/SP2-0738/.test(probe) || probe.split(/\r?\n/).some((line) => line.trim() === PROBE)) return false;
+    const connected = await this.client.connect(connectionName, options, true);
+    return !connected.isError && this.client.alive;
+  }
+  get usable() {
+    return !this.closed;
+  }
+  async run(request) {
+    if (this.closed || this.busy) return void 0;
+    this.busy = true;
+    const started = performance.now();
+    const timing = executionTiming("mcp", true, true);
+    timing.reused = this.connected;
+    let submitted = false;
+    let executeStarted;
+    const deadline = Date.now() + (request.timeoutMs ?? SQLCL_WRITE_TIMEOUT_MS);
+    const options = mcpCallOptions(request, deadline);
+    try {
+      if (!this.connected) {
+        const connectStarted = performance.now();
+        this.connected = await this.prepare(request.connectionName).catch(() => false);
+        timing.connectMs = performance.now() - connectStarted;
+        if (!this.connected) {
+          await this.close();
+          return void 0;
+        }
+      }
+      if (request.signal?.aborted) return void 0;
+      timing.queueMs = performance.now() - started;
+      submitted = true;
+      executeStarted = performance.now();
+      const result = await this.client.execute(request.input ?? "", options, () => true);
+      const text = this.client.text(result, true);
+      if (result.isError || !text.includes(request.completionMarker)) await this.close();
+      else
+        try {
+          const reset = await this.client.execute(SCRIPT_SESSION_RESET, options, () => false);
+          if (reset.isError || !this.client.alive) await this.close();
+        } catch {
+          await this.close();
+        }
+      return mcpResult(result, text);
+    } catch (error) {
+      await this.close();
+      if (!submitted) return void 0;
+      const interrupted = request.signal?.aborted ? "cancelled" : Date.now() >= deadline ? "timedOut" : void 0;
+      if (interrupted)
+        return {
+          code: null,
+          stdout: "",
+          stderr: "",
+          timedOut: interrupted === "timedOut",
+          cancelled: interrupted === "cancelled",
+          truncated: false
+        };
+      throw mcpFailure(error, { ...this.request, args: [], mutation: true }, true);
+    } finally {
+      this.busy = false;
+      if (executeStarted !== void 0) timing.executeMs = performance.now() - executeStarted;
+      if (submitted) emitSqlclTiming(request.onSqlclTiming, timing, started);
+    }
+  }
+  async close() {
+    if (this.closed) return;
+    this.closed = true;
+    await this.client.close().catch(() => void 0);
   }
 };
 
@@ -4289,6 +4383,35 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
         await server.close();
       }
     };
+  }
+  /**
+   * One restricted server for the database scripts of one apply (sqlcl-warm.ts ScriptSession), on a
+   * saved direct connection in CLI mode. Undefined where it does not apply; the caller then runs
+   * one process per script. `APEXREST_SCRIPT_SESSION=0` disables it.
+   */
+  async prepareScripts(connection) {
+    if (scriptSessionDisabled() || this.runner !== runProcess) return void 0;
+    const settings = await this.settings();
+    if (settings.mode !== "cli" || (settings.databaseTransport ?? "direct") !== "direct") return void 0;
+    const selected = await this.selectedConnection(connection);
+    if (!selected?.name || selected.ords) return void 0;
+    const env = {
+      ...process.env,
+      SQLPATH: "",
+      ORACLE_PATH: "",
+      TNS_ADMIN: process.env.TNS_ADMIN,
+      JAVA_HOME: settings.javaHome
+    };
+    delete env.NODE_OPTIONS;
+    delete env.JAVA_TOOL_OPTIONS;
+    delete env._JAVA_OPTIONS;
+    delete env.JDK_JAVA_OPTIONS;
+    return new ScriptSession({
+      executable: settings.executable,
+      cwd: await this.stage(),
+      env,
+      restrictLevel: SCRIPT_RESTRICT_LEVEL
+    });
   }
   /**
    * The prepared server serves one import: a full import of any frozen copy of the application

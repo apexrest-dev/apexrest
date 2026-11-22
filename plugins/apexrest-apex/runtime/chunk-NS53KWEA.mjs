@@ -9,7 +9,7 @@ import {
   metadataRead,
   schemas,
   verifyDeploymentPredicates
-} from "./chunk-JX7XA2FH.mjs";
+} from "./chunk-MKHSTAEV.mjs";
 import {
   browserPreferences
 } from "./chunk-DJPW35KJ.mjs";
@@ -29,7 +29,7 @@ import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-SD7RFWYZ.mjs";
+} from "./chunk-6V3FNJQB.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   CODE_LIMIT,
@@ -97,7 +97,7 @@ import {
   supportedFile,
   syncPath,
   withConnectedReads
-} from "./chunk-QHMPNNGG.mjs";
+} from "./chunk-52OVPJZH.mjs";
 import {
   runProcess,
   sqlclTimings,
@@ -3946,63 +3946,72 @@ var DeploymentService = class {
       if (plan.operations.some((o) => ["migration", "package"].includes(o.kind))) await checkBeforeImport();
       await record("migrating");
       await new LocalDeploymentControl(env).markWriting(runId);
-      for (const operation of plan.operations.filter((o) => ["migration", "package"].includes(o.kind))) {
-        if (controller.signal.aborted)
-          throw new Fault(
-            "LEASE_OR_CANCELLATION",
-            "Execution was interrupted.",
-            6,
-            writeStarted ? "outcome_unknown" : "cancelled"
-          );
-        await this.lease(env, runId, false);
-        const file2 = await contained(snapshot, operation.file);
-        if (operation.kind === "migration")
-          await new LocalDeploymentControl(env).migration(
-            runId,
-            path7.basename(file2),
-            operation.sha256,
-            "started"
-          );
-        writeStarted = true;
-        const marker = scriptCompletionMarker();
-        const executed = await this.oracle.session(
-          `@${sqlclToken(file2)}
+      const scripts = plan.operations.filter((o) => ["migration", "package"].includes(o.kind));
+      const scriptSession = scripts.length > 1 ? await this.oracle.prepareScripts?.(deployConnection).catch(() => void 0) : void 0;
+      try {
+        for (const operation of scripts) {
+          if (controller.signal.aborted)
+            throw new Fault(
+              "LEASE_OR_CANCELLATION",
+              "Execution was interrupted.",
+              6,
+              writeStarted ? "outcome_unknown" : "cancelled"
+            );
+          await this.lease(env, runId, false);
+          const file2 = await contained(snapshot, operation.file);
+          if (operation.kind === "migration")
+            await new LocalDeploymentControl(env).migration(
+              runId,
+              path7.basename(file2),
+              operation.sha256,
+              "started"
+            );
+          writeStarted = true;
+          const marker = scriptCompletionMarker();
+          const executed = await this.oracle.session(
+            `@${sqlclToken(file2)}
 prompt ${marker}`,
-          deployConnection,
-          true,
-          controller.signal,
-          void 0,
-          "text",
-          SCRIPT_RESTRICT_LEVEL
-        );
-        if (!scriptCompleted(executed?.output, marker))
-          throw new Fault(
-            "SCRIPT_INCOMPLETE",
-            `SQLcl did not confirm that ${path7.basename(file2)} ran to completion.`,
-            6,
-            "outcome_unknown"
+            deployConnection,
+            true,
+            controller.signal,
+            void 0,
+            "text",
+            SCRIPT_RESTRICT_LEVEL,
+            false,
+            "session",
+            scriptSession?.usable ? scriptSession : void 0
           );
-        if (operation.kind === "package")
-          await new LocalDeploymentControl(env).packageApplied(
-            runId,
-            ctx.config.projectId,
-            operation.file,
-            operation.sha256
-          );
-        if (operation.kind === "migration") {
-          await new LocalDeploymentControl(env).migration(
-            runId,
-            path7.basename(file2),
-            operation.sha256,
-            "succeeded"
-          );
-          completedMigrations.push({
-            version: path7.basename(file2),
-            checksum: operation.sha256,
-            status: "succeeded",
-            run_id: runId
-          });
+          if (!scriptCompleted(executed?.output, marker))
+            throw new Fault(
+              "SCRIPT_INCOMPLETE",
+              `SQLcl did not confirm that ${path7.basename(file2)} ran to completion.`,
+              6,
+              "outcome_unknown"
+            );
+          if (operation.kind === "package")
+            await new LocalDeploymentControl(env).packageApplied(
+              runId,
+              ctx.config.projectId,
+              operation.file,
+              operation.sha256
+            );
+          if (operation.kind === "migration") {
+            await new LocalDeploymentControl(env).migration(
+              runId,
+              path7.basename(file2),
+              operation.sha256,
+              "succeeded"
+            );
+            completedMigrations.push({
+              version: path7.basename(file2),
+              checksum: operation.sha256,
+              status: "succeeded",
+              run_id: runId
+            });
+          }
         }
+      } finally {
+        await scriptSession?.close();
       }
       if (databaseOnly) {
         await this.oracle.verifyTarget(env, readConnection);
@@ -6814,7 +6823,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-NEYB3ZVO.mjs");
+      const { previewDispatch } = await import("./chunk-B66TX6GB.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -6844,29 +6853,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-G5PHF2H2.mjs");
+        const { ToolchainService } = await import("./chunk-G4DUX2NI.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-IPTLVPS5.mjs");
+        const { uninstallTools } = await import("./chunk-FQLXYKBM.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-7PAMJYIF.mjs");
+        const { setup } = await import("./chunk-ON2LCTDP.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-7PAMJYIF.mjs");
+        const { validateNative } = await import("./chunk-ON2LCTDP.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-7PAMJYIF.mjs");
+        const { uninstallNative } = await import("./chunk-ON2LCTDP.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -6880,7 +6889,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-7WATZJFT.mjs");
+        const { scaffold } = await import("./chunk-OOXMTGWJ.mjs");
         data = await scaffold(await loadProject(root), text("specFile"), text("env"));
         break;
       }

@@ -2,6 +2,30 @@
 
 The current source and bundled plugin version is **2.8.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
+## Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)
+
+**Where import time goes.** On the local APEX 26.2.0 target, a page import spends 2.5 s on the fresh pre-write export, 0.65 s connecting and 3.1 s in Oracle's import. The prepared import server's JVM is already started off the critical path (spawn 0 ms). Each database script costs about 1.7–1.9 s in its own SQLcl process.
+
+**JVM and compiler reuse ([APE-382](https://linear.app/apexrest/issue/APE-382), [APE-388](https://linear.app/apexrest/issue/APE-388)).** Not kept across imports: there is no measurable gain, and a server is bound to one frozen import directory. The fallback rules now have tests: a server without the HOST refusal, or one that fails to connect, submits nothing and falls back; after submission a failure or cancellation is reported as an interrupted import; the server runs one import only.
+
+**Connected-session reuse ([APE-386](https://linear.app/apexrest/issue/APE-386), [APE-390](https://linear.app/apexrest/issue/APE-390)).** `scripts/bench/session-reuse.mjs` was run on SQLcl 26.3 and Oracle 23.26.4; the evidence is in `docs/evidence/fast-dev/session-reuse-2026-11-22.json`.
+
+- Without a reset, the next operation sees the earlier one's uncommitted row, its package global (42) and `current_schema=SYS`.
+- `ROLLBACK`, package reinitialization and a `current_schema` reset clear all three.
+- `WHENEVER SQLERROR EXIT` ends the session before the marker (exit 2) and rolls back.
+- Process exit commits pending DML.
+
+**One session for an apply's scripts ([APE-404](https://linear.app/apexrest/issue/APE-404)).** Implemented as `ScriptSession`, used when an apply has two or more scripts.
+
+Server-mode qualification on SQLcl 26.3:
+
+- HOST is refused;
+- each script with its marker is committed;
+- an error leaves no marker and rolls back; the server stays alive but its connection is dropped;
+- a killed process mid-script returns "Connection closed" and the work is rolled back.
+
+On the local APEX 26.2 target, two package scripts took 2.03 and 2.13 s against 3.91 and 3.98 s with one process per script (alternating, 2 runs each); the objects stayed VALID. In a failure run the first two scripts recorded as applied after their markers. The third failed (ORA-01476) and the run became `OUTCOME_UNKNOWN` (`ORACLE_COMMAND_FAILED`), the same classification as the process path. It was released through `deploy reconcile`. Unit tests cover the fallback, reset, discard and failure rules.
+
 ## Reviewed database reconciliation (2026-11-22, local, uncommitted)
 
 **[APE-403](https://linear.app/apexrest/issue/APE-403).** `apexrest deploy reconcile` releases a run held as `database-review-required` once a person has inspected the database:

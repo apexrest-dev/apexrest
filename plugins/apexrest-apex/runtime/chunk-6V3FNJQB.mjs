@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   resourceRoot
-} from "./chunk-QHMPNNGG.mjs";
+} from "./chunk-52OVPJZH.mjs";
 import {
   runProcess
 } from "./chunk-MPKKOQVI.mjs";

@@ -21,7 +21,7 @@ import { sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { runSqlclMcp, type SqlclMcpRequest } from './sqlcl-mcp.ts';
 import { runPooledSqlcl } from './sqlcl-session.ts';
 import { currentReadScope } from './sqlcl-read-scope.ts';
-import { WarmImportServer, warmImportDisabled } from './sqlcl-warm.ts';
+import { ScriptSession, scriptSessionDisabled, WarmImportServer, warmImportDisabled } from './sqlcl-warm.ts';
 import { runOrdsBridge, type OrdsBridgeJob } from './ords.ts';
 import {
   evaluatePartialImportCompatibility,
@@ -324,7 +324,7 @@ export class OracleAdapter {
     restrictLevel?: typeof SCRIPT_RESTRICT_LEVEL,
     isolated = false,
     label: SqlclLabel = 'session',
-    warm?: WarmImportServer,
+    warm?: WarmImportServer | ScriptSession,
   ) {
     if (restrictLevel && (await this.settings()).mode === 'mcp')
       throw new Fault(
@@ -361,7 +361,7 @@ export class OracleAdapter {
     restrictLevel: typeof SCRIPT_RESTRICT_LEVEL | undefined,
     isolated: boolean,
     label: SqlclLabel,
-    warm?: WarmImportServer,
+    warm?: WarmImportServer | ScriptSession,
   ) {
     const settings = await this.settings();
     if (mutation) await this.requireMutationSupport();
@@ -1635,6 +1635,35 @@ export class OracleAdapter {
         await server.close();
       },
     };
+  }
+  /**
+   * One restricted server for the database scripts of one apply (sqlcl-warm.ts ScriptSession), on a
+   * saved direct connection in CLI mode. Undefined where it does not apply; the caller then runs
+   * one process per script. `APEXREST_SCRIPT_SESSION=0` disables it.
+   */
+  async prepareScripts(connection: Connection): Promise<ScriptSession | undefined> {
+    if (scriptSessionDisabled() || this.runner !== runProcess) return undefined;
+    const settings = await this.settings();
+    if (settings.mode !== 'cli' || (settings.databaseTransport ?? 'direct') !== 'direct') return undefined;
+    const selected = await this.selectedConnection(connection);
+    if (!selected?.name || selected.ords) return undefined;
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      SQLPATH: '',
+      ORACLE_PATH: '',
+      TNS_ADMIN: process.env.TNS_ADMIN,
+      JAVA_HOME: settings.javaHome,
+    };
+    delete env.NODE_OPTIONS;
+    delete env.JAVA_TOOL_OPTIONS;
+    delete env._JAVA_OPTIONS;
+    delete env.JDK_JAVA_OPTIONS;
+    return new ScriptSession({
+      executable: settings.executable,
+      cwd: await this.stage(),
+      env,
+      restrictLevel: SCRIPT_RESTRICT_LEVEL,
+    });
   }
   /**
    * The prepared server serves one import: a full import of any frozen copy of the application

@@ -129,6 +129,14 @@ Two exceptions apply to deployment planning and apply on a saved connection in `
   - A selected-file import names its files relative to SQLcl's working directory, so its server starts in the run's frozen source directory, which is created empty and then filled in place.
   - SQL restores, database scripts, ORDS and `mcp` mode keep the import process.
   - `APEXREST_WARM_IMPORT=0` disables it.
+  - Its JVM starts while the target is observed, so it costs no time on the critical path (spawn 0 ms measured locally). It is not kept across imports: a server stays bound to one frozen import directory.
+- **Database scripts of one apply** (`sqlcl-warm.ts` ScriptSession). When an apply has more than one migration or package script, they share one restricted server (`-R 2 -mcp`) on the saved direct connection.
+  - Every start proves the HOST refusal before it connects.
+  - Each script runs with the fail-stop preamble, an explicit `COMMIT` (as the process's final `EXIT` did) and its completion marker. History is recorded only after the marker.
+  - After each script the session is reset: `ROLLBACK`, package-state reinitialization, `current_schema` set to the session user.
+  - A script without its marker discards the server and is classified exactly like an interrupted process (`OUTCOME_UNKNOWN`, no replay). So does a transport failure, a cancellation or a failed reset. (In server mode an error drops the connection but leaves SQLcl running.)
+  - Nothing submitted yet means the script runs in its own process. ORDS, `mcp` mode and single scripts keep one process per script.
+  - `APEXREST_SCRIPT_SESSION=0` disables it. Qualified with `scripts/bench/session-reuse.mjs` on SQLcl 26.3 and Oracle 23.26.4.
 
 ### Capability probe and diagnostics
 
