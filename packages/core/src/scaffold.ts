@@ -204,13 +204,15 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
                 property('name', q(page.name), 1),
                 property(
                   'alias',
+                  // The compiler requires upper-case aliases (VALUE_NOT_UPPERCASE), given or derived.
                   q(
-                    page.alias ??
+                    (
+                      page.alias ??
                       path
                         .basename(name)
                         .replace(/^p\d+-/, '')
                         .replace(/\.apx$/, '')
-                        .toUpperCase(),
+                    ).toUpperCase(),
                   ),
                   1,
                 ),

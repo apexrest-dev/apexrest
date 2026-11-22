@@ -2,6 +2,36 @@
 
 The current source and bundled plugin version is **2.8.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
+## Compound edits and recipes, Slice F (2026-11-22, local, uncommitted)
+
+**Page context ([APE-381](https://linear.app/apexrest/issue/APE-381)).** `project context` (CLI) or `apexrest_project action:context` returns, for one page:
+
+- the page file and its digest, which is what `patch` binds to;
+- every region with its type, title and sequence, and for reports also the SQL and the columns (heading, format, sequence);
+- the items and buttons, each as a ready `target`.
+
+An agent no longer needs to read the page file.
+
+**Report SQL with its columns ([APE-371](https://linear.app/apexrest/issue/APE-371), [APE-367](https://linear.app/apexrest/issue/APE-367)).** The `query` patch operation replaces an interactive or classic report's fenced SQL and sets its complete column contract in one change:
+
+- kept columns keep every property and id (an optional heading replaces theirs);
+- dropped columns are removed;
+- new columns get a heading, a data type and the next sequence.
+
+It refuses columns the query does not name, and non-report regions. Verified on the local APEX 26.2.0: `CREATED_AT` ("Created") was added to the customers report with its SQL through context and patch, then shipped.
+
+**Agent routing ([APE-384](https://linear.app/apexrest/issue/APE-384)).** The work skill sends titles, labels, headings, formats, sequence and report SQL/columns to `action:context` then `patch`, and the patch reference documents `query`.
+
+**Dashboard recipe ([APE-380](https://linear.app/apexrest/issue/APE-380)).** The existing scaffold already generates a filtered dashboard: cards, a line chart, a select-list filter and the refresh dynamic action. Verified on the local APEX 26.2.0 (3 regions, 1 item, 1 dynamic action).
+
+Bug found: an explicit lower-case page `alias` was emitted unchanged, and the compiler rejected it (`VALUE_NOT_UPPERCASE`). Aliases are now upper-cased, with a test.
+
+**Not done in this slice:**
+
+- inserting regions or filters into existing pages ([APE-369](https://linear.app/apexrest/issue/APE-369), [APE-370](https://linear.app/apexrest/issue/APE-370));
+- shared Composer and scaffold contracts ([APE-357](https://linear.app/apexrest/issue/APE-357));
+- the modal form ([APE-376](https://linear.app/apexrest/issue/APE-376)), interactive grid ([APE-383](https://linear.app/apexrest/issue/APE-383)), master–detail ([APE-391](https://linear.app/apexrest/issue/APE-391)) and faceted search ([APE-393](https://linear.app/apexrest/issue/APE-393)) recipes, which need new scaffold region types.
+
 ## Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)
 
 **Where import time goes.** On the local APEX 26.2.0 target, a page import spends 2.5 s on the fresh pre-write export, 0.65 s connecting and 3.1 s in Oracle's import. The prepared import server's JVM is already started off the critical path (spawn 0 ms). Each database script costs about 1.7–1.9 s in its own SQLcl process.

@@ -568,6 +568,26 @@
     },
     "additionalProperties": false
   },
+  "project.context": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "page": {
+        "type": "string",
+        "pattern": "^\\d{1,5}$",
+        "description": "Page number"
+      }
+    },
+    "required": [
+      "page"
+    ],
+    "additionalProperties": false
+  },
   "project.patch": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -601,12 +621,44 @@
                 "label",
                 "heading",
                 "format",
-                "sequence"
+                "sequence",
+                "query"
               ]
             },
             "value": {
               "type": "string",
-              "maxLength": 4000
+              "maxLength": 100000
+            },
+            "columns": {
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "heading": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "dataType": {
+                    "type": "string",
+                    "enum": [
+                      "varchar2",
+                      "number",
+                      "date",
+                      "timestamp"
+                    ]
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
             }
           },
           "required": [
@@ -1840,6 +1892,7 @@
           "inspect",
           "scaffold",
           "patch",
+          "context",
           "connection_add",
           "connection_list",
           "connection_test"
@@ -1855,16 +1908,14 @@
         "type": "string"
       },
       "operations": {
-        "description": "patch: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property: title|label|heading|format|sequence, value}]",
+        "description": "patch: [{target, property, value, columns?}], see work skill patch guide; context: page",
         "type": "array",
         "items": {
           "type": "object",
           "propertyNames": {
             "type": "string"
           },
-          "additionalProperties": {
-            "type": "string"
-          }
+          "additionalProperties": {}
         }
       },
       "expectedDigest": {

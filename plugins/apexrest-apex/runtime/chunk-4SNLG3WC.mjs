@@ -826,8 +826,9 @@ async function scaffold(ctx, specFile, name) {
             property("name", q2(page.name), 1),
             property(
               "alias",
+              // The compiler requires upper-case aliases (VALUE_NOT_UPPERCASE), given or derived.
               q2(
-                page.alias ?? path2.basename(name2).replace(/^p\d+-/, "").replace(/\.apx$/, "").toUpperCase()
+                (page.alias ?? path2.basename(name2).replace(/^p\d+-/, "").replace(/\.apx$/, "")).toUpperCase()
               ),
               1
             ),

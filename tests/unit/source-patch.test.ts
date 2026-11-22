@@ -220,3 +220,98 @@ test('the MCP project action and the CLI operation share the coordinated patch p
   assert.equal(applied.ok, true, JSON.stringify(applied.diagnostics));
   assert.match(await readFile(file, 'utf8'), /    button create \(\n        label: New order\n    \)/u);
 });
+
+test('a report query and its column contract change together, keeping kept columns intact', () => {
+  const { result } = transform(PAGE, '7', [
+    {
+      target: 'region:orders',
+      property: 'query',
+      value: "select id, amount, status\n  from orders\n where status <> 'X'",
+      columns: [
+        { name: 'AMOUNT', heading: 'Amount, EUR' },
+        { name: 'STATUS', heading: 'Status', dataType: 'varchar2' },
+      ],
+    },
+  ]);
+  // The fenced SQL is replaced with the fence's own indentation; the old body is gone.
+  assert.ok(
+    result.includes(
+      "                ```sql\n                select id, amount, status\n                  from orders\n                 where status <> 'X'\n                ```",
+    ),
+  );
+  assert.ok(!result.includes('heading { looks like a group'));
+  // NAME is dropped, AMOUNT keeps its layout and gets the new heading, STATUS is added after it.
+  assert.ok(!result.includes('column NAME ('));
+  assert.ok(
+    result.includes(
+      '                heading: Amount, EUR\n            }\n            layout {\n                sequence: 20',
+    ),
+  );
+  assert.ok(
+    result.includes(
+      '        column STATUS (\n            type: plainText\n            heading {\n                heading: Status\n            }\n            layout {\n                sequence: 30\n            }\n            source {\n                dataType: STRING\n            }\n        )\n    )',
+    ),
+  );
+  // Everything outside the region is unchanged.
+  assert.ok(result.endsWith(PAGE.slice(PAGE.indexOf('    pageItem P7_SEARCH ('))));
+});
+
+test('query edits refuse a column the query does not name and non-report regions', () => {
+  assert.throws(
+    () =>
+      transform(PAGE, '7', [
+        {
+          target: 'region:orders',
+          property: 'query',
+          value: 'select id from orders',
+          columns: [{ name: 'AMOUNT' }],
+        },
+      ]),
+    { code: 'COLUMN_NOT_IN_QUERY' },
+  );
+  assert.throws(
+    () =>
+      transform(PAGE, '7', [
+        { target: 'region:orders', property: 'query', value: 'select 1 from dual', columns: [] },
+      ]),
+    { code: 'INVALID_INPUT' },
+  );
+  const staticRegion = PAGE.replace('type: interactiveReport', 'type: staticContent');
+  assert.throws(
+    () =>
+      transform(staticRegion, '7', [
+        {
+          target: 'region:orders',
+          property: 'query',
+          value: 'select amount from t',
+          columns: [{ name: 'AMOUNT' }],
+        },
+      ]),
+    { code: 'OPERATION_UNSUPPORTED' },
+  );
+});
+
+test('page context lists editable targets with their values and the digest to patch with', async (t) => {
+  const { pageContext } = await import('../../packages/core/src/edit/patch.ts');
+  const { ctx } = await fixture();
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  const file = path.join(ctx.root, 'src/apex/app/pages/p00007-orders.apx');
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, PAGE);
+  const context = await pageContext(ctx, '7');
+  assert.equal(context.digest, digestOf(PAGE));
+  assert.equal(context.page.title, 'Orders');
+  const region = context.regions.find((entry) => entry.target === 'region:orders')!;
+  assert.equal(region.type, 'interactiveReport');
+  assert.match(String(region.query), /select id, amount, name: from orders/u);
+  assert.deepEqual(
+    region.columns.map((column) => column.target),
+    ['column:orders.AMOUNT', 'column:orders.NAME'],
+  );
+  assert.equal(region.columns[0]!.heading, 'Amount');
+  assert.deepEqual(
+    context.items.map((item) => item.target),
+    ['item:P7_SEARCH'],
+  );
+  assert.deepEqual(context.buttons, [{ target: 'button:create', label: 'Create', line: 43 }]);
+});

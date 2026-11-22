@@ -10708,14 +10708,25 @@ var schemas = {
     ...base,
     waitSeconds: external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(30)
   }),
+  "project.context": external_exports.strictObject({
+    ...base,
+    page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number")
+  }),
   "project.patch": external_exports.strictObject({
     ...base,
     page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number"),
     operations: external_exports.array(
       external_exports.strictObject({
         target: external_exports.string().min(1).max(300),
-        property: external_exports.enum(["title", "label", "heading", "format", "sequence"]),
-        value: external_exports.string().max(4e3)
+        property: external_exports.enum(["title", "label", "heading", "format", "sequence", "query"]),
+        value: external_exports.string().max(1e5),
+        columns: external_exports.array(
+          external_exports.strictObject({
+            name: external_exports.string().min(1).max(128),
+            heading: external_exports.string().max(4e3).optional(),
+            dataType: external_exports.enum(["varchar2", "number", "date", "timestamp"]).optional()
+          })
+        ).max(200).optional()
       })
     ).min(1).max(50).describe("JSON: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property, value}]"),
     expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional().describe("Page file digest you read; required to write"),
@@ -10874,15 +10885,14 @@ var schemas = {
       "inspect",
       "scaffold",
       "patch",
+      "context",
       "connection_add",
       "connection_list",
       "connection_test"
     ]),
     specFile: relativePath.optional().describe("scaffold: JSON spec; see work skill scaffold guide"),
     page: external_exports.string().optional(),
-    operations: external_exports.array(external_exports.record(external_exports.string(), external_exports.string())).optional().describe(
-      "patch: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property: title|label|heading|format|sequence, value}]"
-    ),
+    operations: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())).optional().describe("patch: [{target, property, value, columns?}], see work skill patch guide; context: page"),
     expectedDigest: external_exports.string().optional(),
     dryRun: external_exports.boolean().optional(),
     directory: external_exports.string().min(1).optional().describe("init: new or empty directory for the project"),

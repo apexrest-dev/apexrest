@@ -77,6 +77,10 @@ Every region has `type`, `name` and optional stable `id`. Generated IDs are `r1`
 
 Targets have `page`, optional `items` mapping full target item names to values, and optional `clearCache` page IDs. Use the native substitution for the component, such as `#TASK_ID#` in a report column and `&TASK_ID.` in a calendar. The emitter creates structured links. Supply `initialDate` when the task specifies a calendar date. Its JavaScript retains the preview's local-coverage diagnostic.
 
+### Filtered dashboard recipe
+
+A filter item in a `staticContent` region, `cards` and a `line` chart whose queries read the item, every query listing it in `itemsToSubmit`, and one `refreshes` entry `{ "items": ["P30_STATUS"], "regions": ["status-cards", "signups"] }`. The emitter generates the select list, both regions and the change dynamic action that refreshes them. It was verified on APEX 26.2.0 (`specs/dashboard.json` shape: 3 regions, 1 item, 1 dynamic action).
+
 ## Items and server behavior
 
 Pages have `id`, `name`, optional `alias` and `navigation` (default true), plus regions and the optional arrays below. Editors can set `navigation:false` and expose links from their report pages.

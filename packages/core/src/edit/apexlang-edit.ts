@@ -28,8 +28,10 @@ interface PropertyLine {
   valueStart: number;
   valueEnd: number;
   value: string;
-  /** Multi-line (``` literal, object or array) values are never edited. */
+  /** Multi-line (``` literal, object or array) values are never edited as scalars. */
   opaque: boolean;
+  /** Lines of a ``` literal value: the opening and closing fence lines. */
+  fence?: { open: number; close: number };
 }
 interface GroupNode {
   open: number;
@@ -100,12 +102,17 @@ export class ApexLangDocument {
     let fence = false;
     let block = false;
     let pendingFence: PropertyLine | undefined;
+    let fenceOwner: PropertyLine | undefined;
     for (let index = 0; index < this.lines.length; index++) {
       const line = this.lines[index]!;
       const text = line.text;
       const trimmed = text.trim();
       if (fence) {
-        if (trimmed === '```') fence = false;
+        if (trimmed === '```') {
+          fence = false;
+          if (fenceOwner?.fence) fenceOwner.fence.close = index;
+          fenceOwner = undefined;
+        }
         continue;
       }
       if (block) {
@@ -126,6 +133,10 @@ export class ApexLangDocument {
       if (trimmed.startsWith('```')) {
         if (!pendingFence) throw unsupported(`Unexpected literal at line ${index + 1}.`);
         fence = !(trimmed.length >= 6 && trimmed.endsWith('```'));
+        if (fence) {
+          pendingFence.fence = { open: index, close: -1 };
+          fenceOwner = pendingFence;
+        }
         pendingFence = undefined;
         continue;
       }
@@ -299,6 +310,44 @@ export function applyEdits(source: string, edits: TextEdit[]): string {
     previous = edit.start;
   }
   return result;
+}
+
+/** Replaces the body of a ``` literal property, re-indented to its opening fence. */
+export function setFencedText(
+  doc: ApexLangDocument,
+  node: ComponentNode,
+  path: string,
+  text: string,
+): TextEdit {
+  const property = node.properties.get(path);
+  if (!property?.fence || property.fence.close < 0)
+    throw unsupported(`${path} is not a fenced literal of ${node.kind} ${node.key}.`);
+  if (/^\s*```/mu.test(text))
+    throw new Fault('INVALID_INPUT', 'The text cannot contain a ``` fence line.', 2);
+  const open = doc.lines[property.fence.open]!;
+  const close = doc.lines[property.fence.close]!;
+  const indent = open.text.slice(0, open.text.length - open.text.trimStart().length);
+  const body = text
+    .replace(/\r\n?/gu, '\n')
+    .replace(/\n+$/u, '')
+    .split('\n')
+    .map((line) => (line ? indent + line : ''))
+    .join(doc.eol);
+  const start = open.offset + open.text.length + open.eol.length;
+  return { start, end: close.offset, content: body + doc.eol };
+}
+
+/** Removes a component with its lines (from its opening line through its closing parenthesis). */
+export function removeComponent(doc: ApexLangDocument, node: ComponentNode): TextEdit {
+  const open = doc.lines[node.open]!;
+  const close = doc.lines[node.close]!;
+  return { start: open.offset, end: close.offset + close.text.length + close.eol.length, content: '' };
+}
+
+/** Inserts component text (already indented, file line endings) just before the parent's closing line. */
+export function appendChild(doc: ApexLangDocument, parent: ComponentNode, text: string): TextEdit {
+  const close = doc.lines[parent.close]!;
+  return { start: close.offset, end: close.offset, content: text };
 }
 
 /** Reads a dotted property from a parsed component (validation of the edited result). */

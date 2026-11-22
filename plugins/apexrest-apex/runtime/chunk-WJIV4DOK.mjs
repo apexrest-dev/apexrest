@@ -9,7 +9,7 @@ import {
   metadataRead,
   schemas,
   verifyDeploymentPredicates
-} from "./chunk-MKHSTAEV.mjs";
+} from "./chunk-GPW7AAPU.mjs";
 import {
   browserPreferences
 } from "./chunk-DJPW35KJ.mjs";
@@ -4685,12 +4685,17 @@ var ApexLangDocument = class {
     let fence = false;
     let block = false;
     let pendingFence;
+    let fenceOwner;
     for (let index = 0; index < this.lines.length; index++) {
       const line = this.lines[index];
       const text = line.text;
       const trimmed = text.trim();
       if (fence) {
-        if (trimmed === "```") fence = false;
+        if (trimmed === "```") {
+          fence = false;
+          if (fenceOwner?.fence) fenceOwner.fence.close = index;
+          fenceOwner = void 0;
+        }
         continue;
       }
       if (block) {
@@ -4711,6 +4716,10 @@ var ApexLangDocument = class {
       if (trimmed.startsWith("```")) {
         if (!pendingFence) throw unsupported(`Unexpected literal at line ${index + 1}.`);
         fence = !(trimmed.length >= 6 && trimmed.endsWith("```"));
+        if (fence) {
+          pendingFence.fence = { open: index, close: -1 };
+          fenceOwner = pendingFence;
+        }
         pendingFence = void 0;
         continue;
       }
@@ -4857,6 +4866,28 @@ function applyEdits(source, edits) {
   }
   return result;
 }
+function setFencedText(doc, node, path16, text) {
+  const property = node.properties.get(path16);
+  if (!property?.fence || property.fence.close < 0)
+    throw unsupported(`${path16} is not a fenced literal of ${node.kind} ${node.key}.`);
+  if (/^\s*```/mu.test(text))
+    throw new Fault("INVALID_INPUT", "The text cannot contain a ``` fence line.", 2);
+  const open3 = doc.lines[property.fence.open];
+  const close = doc.lines[property.fence.close];
+  const indent = open3.text.slice(0, open3.text.length - open3.text.trimStart().length);
+  const body = text.replace(/\r\n?/gu, "\n").replace(/\n+$/u, "").split("\n").map((line) => line ? indent + line : "").join(doc.eol);
+  const start = open3.offset + open3.text.length + open3.eol.length;
+  return { start, end: close.offset, content: body + doc.eol };
+}
+function removeComponent(doc, node) {
+  const open3 = doc.lines[node.open];
+  const close = doc.lines[node.close];
+  return { start: open3.offset, end: close.offset + close.text.length + close.eol.length, content: "" };
+}
+function appendChild(doc, parent, text) {
+  const close = doc.lines[parent.close];
+  return { start: close.offset, end: close.offset, content: text };
+}
 function readProperty(component, path16) {
   let value = component.props;
   for (const part of path16.split(".")) {
@@ -4867,9 +4898,16 @@ function readProperty(component, path16) {
 }
 
 // packages/core/src/edit/patch.ts
+var REPORTS = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
+var DATA_TYPES = {
+  varchar2: "STRING",
+  number: "NUMBER",
+  date: "DATE",
+  timestamp: "TIMESTAMP"
+};
 var PATHS = {
   page: { title: "title" },
-  region: { title: "name", sequence: "layout.sequence" },
+  region: { title: "name", sequence: "layout.sequence", query: "source.sqlQuery" },
   pageItem: { label: "label.label", sequence: "layout.sequence" },
   button: { label: "label", sequence: "layout.sequence" },
   column: { heading: "heading.heading", format: "appearance.formatMask", sequence: "layout.sequence" }
@@ -4945,13 +4983,20 @@ function transform(source, pageId, operations) {
     seen.add(key);
   }
   const edits = [];
-  for (const entry of resolved) {
-    const edit = setProperty(doc, entry.node, entry.path, entry.operation.value);
+  const add = (edit) => {
     const same = edits.find(
       (other) => other.start === edit.start && other.end === edit.start && edit.end === edit.start
     );
     if (same) same.content += edit.content;
     else edits.push(edit);
+  };
+  for (const entry of resolved) {
+    if (entry.operation.property === "query") {
+      for (const edit2 of queryEdits(doc, entry.node, entry.operation)) add(edit2);
+      continue;
+    }
+    const edit = setProperty(doc, entry.node, entry.path, entry.operation.value);
+    add(edit);
   }
   const result = applyEdits(source, edits);
   let parsed;
@@ -4965,6 +5010,17 @@ function transform(source, pageId, operations) {
   for (const entry of resolved) {
     const component = parsedPage && entry.find(parsedPage);
     const value = component && readProperty(component, entry.path);
+    if (entry.operation.property === "query") {
+      const names = component?.children.filter((child) => child.type === "column").map((child) => child.id.toUpperCase());
+      const expected = (entry.operation.columns ?? []).map((column) => column.name.toUpperCase());
+      if (String(value ?? "").trim() !== entry.operation.value.trim() || JSON.stringify(names) !== JSON.stringify(expected))
+        throw new Fault(
+          "TRANSFORM_INVALID",
+          `${entry.operation.target} query or columns did not read back.`,
+          5
+        );
+      continue;
+    }
     if (value !== entry.operation.value)
       throw new Fault(
         "TRANSFORM_INVALID",
@@ -4973,6 +5029,107 @@ function transform(source, pageId, operations) {
       );
   }
   return { result, edits: edits.length };
+}
+function queryEdits(doc, region, operation) {
+  const type = doc.lines[region.open] && region.properties.get("type")?.value;
+  if (!REPORTS.has(String(type)))
+    throw new Fault(
+      "OPERATION_UNSUPPORTED",
+      `query is supported on interactive and classic reports, not ${type}.`,
+      2
+    );
+  const columns = operation.columns ?? [];
+  if (!columns.length) throw new Fault("INVALID_INPUT", "query needs the complete columns contract.", 2);
+  const names = columns.map((column) => column.name.toUpperCase());
+  if (names.some((name) => !/^[A-Z][A-Z0-9_$#]{0,127}$/u.test(name)) || new Set(names).size !== names.length)
+    throw new Fault("INVALID_INPUT", "Column names must be unique Oracle identifiers.", 2);
+  const sql = operation.value;
+  const missing = names.filter(
+    (name) => !new RegExp(`(^|[^A-Z0-9_$#])${name.replace(/[$#]/gu, "\\$&")}([^A-Z0-9_$#]|$)`, "iu").test(sql)
+  );
+  if (missing.length)
+    throw new Fault("COLUMN_NOT_IN_QUERY", `The query does not name ${missing.join(", ")}.`, 2);
+  const edits = [setFencedText(doc, region, "source.sqlQuery", sql)];
+  const existing = region.children.filter((child) => child.kind === "column");
+  for (const column of existing)
+    if (!names.includes(column.key.toUpperCase())) edits.push(removeComponent(doc, column));
+  let sequence = Math.max(
+    0,
+    ...existing.map((column) => Number(column.properties.get("layout.sequence")?.value) || 0)
+  );
+  const indent = " ".repeat(region.indent + 4);
+  const eol = doc.eol;
+  let added = "";
+  for (const column of columns) {
+    const kept = existing.find((entry) => entry.key.toUpperCase() === column.name.toUpperCase());
+    if (kept) {
+      if (column.heading !== void 0) edits.push(setProperty(doc, kept, "heading.heading", column.heading));
+      continue;
+    }
+    sequence += 10;
+    const lines = [
+      `column ${column.name.toUpperCase()} (`,
+      "    type: plainText",
+      "    heading {",
+      `        heading: ${scalarText(column.heading ?? column.name)}`,
+      "    }",
+      "    layout {",
+      `        sequence: ${sequence}`,
+      "    }",
+      ...column.dataType ? ["    source {", `        dataType: ${DATA_TYPES[column.dataType]}`, "    }"] : [],
+      ")"
+    ];
+    added += lines.map((line) => indent + line).join(eol) + eol;
+  }
+  if (added) edits.push(appendChild(doc, region, added));
+  return edits;
+}
+async function pageContext(ctx, page) {
+  if (!/^\d{1,5}$/u.test(page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
+  const file2 = await pageFile(ctx, String(Number(page)));
+  const source = await readFile6(file2, "utf8");
+  const parsed = parseApexLang(source, path8.relative(ctx.root, file2)).find((c) => c.type === "page");
+  if (!parsed) throw new Fault("TARGET_NOT_FOUND", `No page ${page} in its file.`, 2);
+  const text = (component, dotted) => {
+    const value = readProperty(component, dotted);
+    return typeof value === "string" && value ? value : void 0;
+  };
+  const compact = (value) => Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== void 0 && entry !== ""));
+  return {
+    file: path8.relative(ctx.root, file2).split(path8.sep).join("/"),
+    digest: digestOf(source),
+    page: compact({ id: parsed.id, name: text(parsed, "name"), title: text(parsed, "title") }),
+    regions: parsed.children.filter((c) => c.type === "region").map(
+      (region) => compact({
+        target: `region:${region.id}`,
+        type: text(region, "type"),
+        title: text(region, "name"),
+        sequence: text(region, "layout.sequence"),
+        line: region.line,
+        query: REPORTS.has(String(text(region, "type"))) ? text(region, "source.sqlQuery") : void 0,
+        columns: region.children.filter((c) => c.type === "column").map(
+          (column) => compact({
+            target: `column:${region.id}.${column.id}`,
+            heading: text(column, "heading.heading"),
+            format: text(column, "appearance.formatMask"),
+            sequence: text(column, "layout.sequence")
+          })
+        )
+      })
+    ),
+    items: parsed.children.filter((c) => c.type === "pageItem").map(
+      (item) => compact({
+        target: `item:${item.id}`,
+        type: text(item, "type"),
+        label: text(item, "label.label"),
+        line: item.line
+      })
+    ),
+    buttons: parsed.children.filter((c) => c.type === "button").map(
+      (button) => compact({ target: `button:${button.id}`, label: text(button, "label"), line: button.line })
+    ),
+    next: "Change titles, labels, headings, formats, sequences or a report query with project patch and this digest."
+  };
 }
 async function patchPage(ctx, input) {
   if (!/^\d{1,5}$/u.test(input.page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
@@ -6670,6 +6827,8 @@ function routeProject(parsed) {
       return { operation: "project.adopt", input: pick("project", "env", "appId", "workingCopy") };
     case "inspect":
       return { operation: "project.inspect", input: pick("project", "detail") };
+    case "context":
+      return { operation: "project.context", input: pick("project", "page") };
     case "patch":
       return {
         operation: "project.patch",
@@ -6865,17 +7024,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-ON2LCTDP.mjs");
+        const { setup } = await import("./chunk-X2EOGAMX.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-ON2LCTDP.mjs");
+        const { validateNative } = await import("./chunk-X2EOGAMX.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-ON2LCTDP.mjs");
+        const { uninstallNative } = await import("./chunk-X2EOGAMX.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -6889,7 +7048,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-OOXMTGWJ.mjs");
+        const { scaffold } = await import("./chunk-4SNLG3WC.mjs");
         data = await scaffold(await loadProject(root), text("specFile"), text("env"));
         break;
       }
@@ -7017,6 +7176,9 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           case "dev.stop":
             data = await stopBroker(ctx, Number(parsed.waitSeconds ?? 30));
+            break;
+          case "project.context":
+            data = await pageContext(ctx, String(parsed.page));
             break;
           case "project.patch":
             data = await patchPage(ctx, schemas["project.patch"].parse(parsed));

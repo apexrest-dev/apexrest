@@ -10,6 +10,7 @@ Use `apexrest_project action:patch` for small property changes on an existing pa
 | `button:ID`         | `label`, `sequence`             | `label`, `layout.sequence`                                    |
 | `column:REGION.COL` | `heading`, `format`, `sequence` | `heading.heading`, `appearance.formatMask`, `layout.sequence` |
 
+0. `apexrest_project action:context page:"10"` returns the page's targets with their current values, report SQL and columns, and the `digest` to patch with. Read it instead of the whole page file.
 1. Call it with `page`, `operations` and `dryRun:true`, or without `expectedDigest`. The answer gives the current page-file digest (`currentDigest`) and changes nothing.
 2. Call it again with `expectedDigest`. The digest is checked again under the project edit lock, right before the atomic replace. A changed file returns `TRANSFORM_CONFLICT`: read it again.
 3. A source edit is not a compiler or import result. Ship as usual.
@@ -17,5 +18,7 @@ Use `apexrest_project action:patch` for small property changes on an existing pa
 ```text
 apexrest_project action:patch project:/abs/project page:"10" expectedDigest:"<currentDigest>" operations:[{"target":"column:customers.EMAIL","property":"heading","value":"E-mail address"},{"target":"item:P10_SEARCH","property":"label","value":"Search"}]
 ```
+
+A `query` operation replaces a report's SQL and sets its complete column contract in one change: `columns` lists every column in display order (`name`, optional `heading`, `dataType` of `varchar2`, `number`, `date` or `timestamp`). Kept columns keep all their properties; dropped ones are removed; new ones get a heading, a data type and the next sequence. Every column must appear in the query.
 
 Unknown targets, ambiguous ids, unsupported properties, multi-line values and constructs the scanner does not support fail before anything is written. Edit those in source.

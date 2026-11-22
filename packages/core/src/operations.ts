@@ -170,6 +170,13 @@ export const schemas = {
     ...base,
     waitSeconds: z.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(30),
   }),
+  'project.context': z.strictObject({
+    ...base,
+    page: z
+      .string()
+      .regex(/^\d{1,5}$/u)
+      .describe('Page number'),
+  }),
   'project.patch': z.strictObject({
     ...base,
     page: z
@@ -180,8 +187,18 @@ export const schemas = {
       .array(
         z.strictObject({
           target: z.string().min(1).max(300),
-          property: z.enum(['title', 'label', 'heading', 'format', 'sequence']),
-          value: z.string().max(4000),
+          property: z.enum(['title', 'label', 'heading', 'format', 'sequence', 'query']),
+          value: z.string().max(100000),
+          columns: z
+            .array(
+              z.strictObject({
+                name: z.string().min(1).max(128),
+                heading: z.string().max(4000).optional(),
+                dataType: z.enum(['varchar2', 'number', 'date', 'timestamp']).optional(),
+              }),
+            )
+            .max(200)
+            .optional(),
         }),
       )
       .min(1)
@@ -394,6 +411,7 @@ export const schemas = {
       'inspect',
       'scaffold',
       'patch',
+      'context',
       'connection_add',
       'connection_list',
       'connection_test',
@@ -401,11 +419,9 @@ export const schemas = {
     specFile: relativePath.optional().describe('scaffold: JSON spec; see work skill scaffold guide'),
     page: z.string().optional(),
     operations: z
-      .array(z.record(z.string(), z.string()))
+      .array(z.record(z.string(), z.unknown()))
       .optional()
-      .describe(
-        'patch: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property: title|label|heading|format|sequence, value}]',
-      ),
+      .describe('patch: [{target, property, value, columns?}], see work skill patch guide; context: page'),
     expectedDigest: z.string().optional(),
     dryRun: z.boolean().optional(),
     directory: z.string().min(1).optional().describe('init: new or empty directory for the project'),

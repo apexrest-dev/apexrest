@@ -73,6 +73,17 @@ async function prepared(t: import('node:test').TestContext) {
   return { ctx, root };
 }
 
+test('a page alias given in lower case is written in upper case, as the compiler requires', async (t) => {
+  const { ctx, root } = await prepared(t);
+  const withAlias = JSON.parse(JSON.stringify(spec));
+  withAlias.pages.find((page: { id: number }) => page.id === 10).alias = 'customer-dashboard';
+  await writeJson(path.join(ctx.root, 'spec.json'), withAlias);
+  const result = await scaffold(ctx, 'spec.json');
+  const file = result.files.find((name: string) => /pages\/p00010-/u.test(name))!;
+  const [page] = parseApexLang(await readFile(path.join(root, file), 'utf8'));
+  assert.equal(page!.props.alias, 'CUSTOMER-DASHBOARD');
+});
+
 test('one spec creates native reports/cards/bar chart, preserves security/IDs, and repeats without duplicate navigation', async (t) => {
   const { ctx, root } = await prepared(t);
   const before = await inventory(root);

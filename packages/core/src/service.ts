@@ -19,7 +19,7 @@ import { metadataRead } from './metadata.ts';
 import { SyncStore, checkpoint } from './sync.ts';
 import { DeploymentService, deployPlanSchema, sourceInventory } from './deploy.ts';
 import { recordRevision, revisionOf } from './revision.ts';
-import { patchPage } from './edit/patch.ts';
+import { pageContext, patchPage } from './edit/patch.ts';
 import { brokerStatus, startBroker, stopBroker } from './broker.ts';
 import { reconcileRun } from './deploy-reconcile.ts';
 import { ArtifactService } from './artifacts.ts';
@@ -142,6 +142,8 @@ function routeProject(parsed: Record<string, unknown>) {
       return { operation: 'project.adopt', input: pick('project', 'env', 'appId', 'workingCopy') };
     case 'inspect':
       return { operation: 'project.inspect', input: pick('project', 'detail') };
+    case 'context':
+      return { operation: 'project.context', input: pick('project', 'page') };
     case 'patch':
       return {
         operation: 'project.patch',
@@ -515,6 +517,9 @@ async function dispatchObserved(
             break;
           case 'dev.stop':
             data = await stopBroker(ctx, Number(parsed.waitSeconds ?? 30));
+            break;
+          case 'project.context':
+            data = await pageContext(ctx, String(parsed.page));
             break;
           case 'project.patch':
             data = await patchPage(ctx, schemas['project.patch'].parse(parsed));
