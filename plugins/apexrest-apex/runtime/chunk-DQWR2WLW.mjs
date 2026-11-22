@@ -6,7 +6,7 @@ import {
   renderPageBody,
   renderRegion,
   scaffoldSchema
-} from "./chunk-AZME3N7C.mjs";
+} from "./chunk-UHBGYMSW.mjs";
 import {
   browserPreferences
 } from "./chunk-DJPW35KJ.mjs";
@@ -3733,7 +3733,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-46O6FPJ3.mjs");
+        const { scaffold } = await import("./chunk-BCRID3G7.mjs");
         data = await scaffold(await loadProject(root), text("specFile"), text("env"));
         break;
       }

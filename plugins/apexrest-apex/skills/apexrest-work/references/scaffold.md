@@ -87,7 +87,7 @@ A filter item in a `staticContent` region, `cards` and a `line` chart whose quer
 
 `edit` is `{ "operations": ["add","update","delete"], "rowVersionColumn"?: "ROW_VERSION" }`:
 
-- Concurrency: lost updates are checked by the row version column, or by APEX row values when it is omitted.
+- Concurrency: lost updates are checked by the row version column, or by APEX row values when it is omitted. APEX only compares the row version; the table must increment it on every update (for example, a `before update` trigger).
 - Authorization: an editable form or grid needs `authorizationScheme` on the region or page.
 - Transaction: native DML runs in the page submit transaction, so an error rolls the request back.
 

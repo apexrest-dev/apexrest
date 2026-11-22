@@ -228,7 +228,23 @@ Invalid references are refused before writing: an unknown master column, a facet
 4. `preview check` rendered all four pages.
 5. Regeneration added only the grid row-identifying column. A manual edit to page 43 made regeneration stop with a precise conflict and keep the edit.
 
-Runtime use in a browser (creating, editing and deleting rows) was not exercised.
+**Browser check** (built-in browser, signed in as the local test user, on review-e2e page 40–43). These are observations, kept apart from the compiler and import results:
+
+- **Modal form.** Opened from **Add customer**, it showed only Cancel and Create, and Create inserted the row ("Row created."). Opened for an existing row, it showed Cancel, Delete and Apply Changes:
+  - Apply Changes updated the row.
+  - After the row was changed in the database, a stale Apply Changes was refused: "Current version of data in database has changed".
+  - Delete asked for a danger confirmation and deleted the row.
+- **Editable master–detail grid.** Saving a new note filled `CUSTOMER_ID` from the selected master row. After `ROW_VERSION` was changed in the database, a stale grid save was refused, and a grid row delete removed the note.
+- **Faceted search.** The search facet filtered to 0 rows and back to 1, and the Status checkbox facet showed and applied its count.
+
+Bug found and fixed: generated grids had no Save button, search or Actions menu, because APEXlang grids need explicit toolbar `controls`. The emitter now sets them (Save only on editable grids), and the fixed pages were shipped and checked again.
+
+Not observed:
+
+- The report refresh after a dialog closes: after the first open, the in-app browser did not show the dialog again, though APEX requested the dialog page successfully, so the edit and delete paths were checked on the dialog page opened directly.
+- An increment of `ROW_VERSION` on update: APEX only compares it, so the table needs a trigger.
+
+The test rows were deleted afterwards.
 
 Tests: `scaffold-recipes.test.ts`.
 

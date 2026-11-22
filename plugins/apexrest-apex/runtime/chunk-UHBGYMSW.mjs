@@ -336,6 +336,16 @@ slot: ${slot}`),
   }
   if (region2.type === "interactiveGrid") {
     parts.push(tableSource(region2.table), editGroup(region2.edit));
+    const controls = [
+      "searchCol",
+      "searchField",
+      "actionsMenu",
+      "resetButton",
+      ...region2.edit ? ["saveButton"] : []
+    ];
+    parts.push(g("toolbar", `controls: [
+${indent(controls.join("\n"))}
+]`));
     if (region2.master) parts.push(g("masterDetail", `masterRegion: ${ref(region2.master)}`));
     region2.columns.forEach(
       (column2, i) => parts.push(

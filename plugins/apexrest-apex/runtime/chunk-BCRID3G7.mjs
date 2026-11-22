@@ -6,7 +6,7 @@ import {
   renderRegion,
   scaffoldSchema,
   validateSpec
-} from "./chunk-AZME3N7C.mjs";
+} from "./chunk-UHBGYMSW.mjs";
 import {
   declarations,
   editSpans,

@@ -133,6 +133,9 @@ test('a master-detail grid binds the detail to its master and saves with a row v
   assert.match(text, /masterColumn: @ID/u);
   assert.match(text, /lostUpdateType: rowVersionColumn\s+rowVersionColumn: ROW_VERSION/u);
   assert.match(text, /valueIdentifiesRow: true/u);
+  // Each grid has a full toolbar; only the editable one has Save.
+  assert.equal(text.match(/controls: \[/gu)?.length, 2);
+  assert.equal(text.match(/saveButton/gu)?.length, 1);
   const saves = nodes.filter((node) => node.type === 'process').map((node) => node.id);
   assert.deepEqual(saves, ['save-notes-grid']);
 });

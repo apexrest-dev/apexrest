@@ -139,6 +139,15 @@ export function renderRegion(
   }
   if (region.type === 'interactiveGrid') {
     parts.push(tableSource(region.table), editGroup(region.edit));
+    // Without explicit controls the grid toolbar has no search, actions menu or Save button.
+    const controls = [
+      'searchCol',
+      'searchField',
+      'actionsMenu',
+      'resetButton',
+      ...(region.edit ? ['saveButton'] : []),
+    ];
+    parts.push(g('toolbar', `controls: [\n${indent(controls.join('\n'))}\n]`));
     if (region.master) parts.push(g('masterDetail', `masterRegion: ${ref(region.master)}`));
     region.columns.forEach((column, i) =>
       parts.push(

@@ -301,7 +301,24 @@
 <li><code>preview check</code> rendered all four pages.</li>
 <li>Regeneration added only the grid row-identifying column. A manual edit to page 43 made regeneration stop with a precise conflict and keep the edit.</li>
 </ol>
-<p>Runtime use in a browser (creating, editing and deleting rows) was not exercised.</p>
+<p><strong>Browser check</strong> (built-in browser, signed in as the local test user, on review-e2e page 40–43). These are observations, kept apart from the compiler and import results:</p>
+<ul>
+<li><strong>Modal form.</strong> Opened from <strong>Add customer</strong>, it showed only Cancel and Create, and Create inserted the row (&quot;Row created.&quot;). Opened for an existing row, it showed Cancel, Delete and Apply Changes:<ul>
+<li>Apply Changes updated the row.</li>
+<li>After the row was changed in the database, a stale Apply Changes was refused: &quot;Current version of data in database has changed&quot;.</li>
+<li>Delete asked for a danger confirmation and deleted the row.</li>
+</ul>
+</li>
+<li><strong>Editable master–detail grid.</strong> Saving a new note filled <code>CUSTOMER_ID</code> from the selected master row. After <code>ROW_VERSION</code> was changed in the database, a stale grid save was refused, and a grid row delete removed the note.</li>
+<li><strong>Faceted search.</strong> The search facet filtered to 0 rows and back to 1, and the Status checkbox facet showed and applied its count.</li>
+</ul>
+<p>Bug found and fixed: generated grids had no Save button, search or Actions menu, because APEXlang grids need explicit toolbar <code>controls</code>. The emitter now sets them (Save only on editable grids), and the fixed pages were shipped and checked again.</p>
+<p>Not observed:</p>
+<ul>
+<li>The report refresh after a dialog closes: after the first open, the in-app browser did not show the dialog again, though APEX requested the dialog page successfully, so the edit and delete paths were checked on the dialog page opened directly.</li>
+<li>An increment of <code>ROW_VERSION</code> on update: APEX only compares it, so the table needs a trigger.</li>
+</ul>
+<p>The test rows were deleted afterwards.</p>
 <p>Tests: <code>scaffold-recipes.test.ts</code>.</p>
 <p><strong>Not done in this slice:</strong> merging the Composer emitters with scaffold (APE-357 beyond the shared scaffold emitter).</p>
 <h2 id="warm-state-and-session-qualification-slice-e-2026-11-22-local-uncommitted">Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)</h2>
