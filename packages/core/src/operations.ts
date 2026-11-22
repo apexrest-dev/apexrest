@@ -177,6 +177,21 @@ export const schemas = {
       .regex(/^\d{1,5}$/u)
       .describe('Page number'),
   }),
+  'project.insert': z.strictObject({
+    ...base,
+    page: z
+      .string()
+      .regex(/^\d{1,5}$/u)
+      .describe('Page number'),
+    components: z
+      .record(z.string(), z.unknown())
+      .describe('JSON scaffold fragment: {regions, items?, refreshes?}; see the scaffold guide'),
+    expectedDigest: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional(),
+    dryRun: z.boolean().default(false),
+  }),
   'project.patch': z.strictObject({
     ...base,
     page: z
@@ -412,6 +427,7 @@ export const schemas = {
       'scaffold',
       'patch',
       'context',
+      'insert',
       'connection_add',
       'connection_list',
       'connection_test',
@@ -421,9 +437,9 @@ export const schemas = {
     operations: z
       .array(z.record(z.string(), z.unknown()))
       .optional()
-      .describe('patch: [{target, property, value, columns?}], see work skill patch guide; context: page'),
+      .describe('patch, insert, context: see the work skill patch guide'),
+    components: z.record(z.string(), z.unknown()).optional(),
     expectedDigest: z.string().optional(),
-    dryRun: z.boolean().optional(),
     directory: z.string().min(1).optional().describe('init: new or empty directory for the project'),
     template: z.enum(['blank-app', 'customer-crm', 'existing-app']).optional(),
     alias: refName.optional(),

@@ -18,10 +18,11 @@
 <p><strong>Agent routing (<a href="https://linear.app/apexrest/issue/APE-384">APE-384</a>).</strong> The work skill sends titles, labels, headings, formats, sequence and report SQL/columns to <code>action:context</code> then <code>patch</code>, and the patch reference documents <code>query</code>.</p>
 <p><strong>Dashboard recipe (<a href="https://linear.app/apexrest/issue/APE-380">APE-380</a>).</strong> The existing scaffold already generates a filtered dashboard: cards, a line chart, a select-list filter and the refresh dynamic action. Verified on the local APEX 26.2.0 (3 regions, 1 item, 1 dynamic action).</p>
 <p>Bug found: an explicit lower-case page <code>alias</code> was emitted unchanged, and the compiler rejected it (<code>VALUE_NOT_UPPERCASE</code>). Aliases are now upper-cased, with a test.</p>
+<p><strong>Insert into existing pages (<a href="https://linear.app/apexrest/issue/APE-369">APE-369</a>, <a href="https://linear.app/apexrest/issue/APE-370">APE-370</a>; shared scaffold emitter for <a href="https://linear.app/apexrest/issue/APE-357">APE-357</a>).</strong> <code>project insert</code> / <code>action:insert</code> appends scaffold-defined regions, items and refresh dynamic actions to an existing page. It uses the same native emitter as <code>project scaffold</code>. The edit is digest-bound and atomic. Ids and item names must be new, and refresh dynamic actions get unused names, so existing components keep their bytes.</p>
+<p>Verified on the local APEX 26.2.0: a &quot;Filters&quot; region, <code>P10_STATUS</code> and a refresh of the customers report were inserted into page 10 and shipped. The existing &quot;Refresh Customers&quot; dynamic action was kept.</p>
 <p><strong>Not done in this slice:</strong></p>
 <ul>
-<li>inserting regions or filters into existing pages (<a href="https://linear.app/apexrest/issue/APE-369">APE-369</a>, <a href="https://linear.app/apexrest/issue/APE-370">APE-370</a>);</li>
-<li>shared Composer and scaffold contracts (<a href="https://linear.app/apexrest/issue/APE-357">APE-357</a>);</li>
+<li>unifying the Composer and scaffold emitters (APE-357 beyond the shared scaffold emitter);</li>
 <li>the modal form (<a href="https://linear.app/apexrest/issue/APE-376">APE-376</a>), interactive grid (<a href="https://linear.app/apexrest/issue/APE-383">APE-383</a>), master–detail (<a href="https://linear.app/apexrest/issue/APE-391">APE-391</a>) and faceted search (<a href="https://linear.app/apexrest/issue/APE-393">APE-393</a>) recipes, which need new scaffold region types.</li>
 </ul>
 <h2 id="warm-state-and-session-qualification-slice-e-2026-11-22-local-uncommitted">Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)</h2>

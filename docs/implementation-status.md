@@ -26,10 +26,13 @@ It refuses columns the query does not name, and non-report regions. Verified on 
 
 Bug found: an explicit lower-case page `alias` was emitted unchanged, and the compiler rejected it (`VALUE_NOT_UPPERCASE`). Aliases are now upper-cased, with a test.
 
+**Insert into existing pages ([APE-369](https://linear.app/apexrest/issue/APE-369), [APE-370](https://linear.app/apexrest/issue/APE-370); shared scaffold emitter for [APE-357](https://linear.app/apexrest/issue/APE-357)).** `project insert` / `action:insert` appends scaffold-defined regions, items and refresh dynamic actions to an existing page. It uses the same native emitter as `project scaffold`. The edit is digest-bound and atomic. Ids and item names must be new, and refresh dynamic actions get unused names, so existing components keep their bytes.
+
+Verified on the local APEX 26.2.0: a "Filters" region, `P10_STATUS` and a refresh of the customers report were inserted into page 10 and shipped. The existing "Refresh Customers" dynamic action was kept.
+
 **Not done in this slice:**
 
-- inserting regions or filters into existing pages ([APE-369](https://linear.app/apexrest/issue/APE-369), [APE-370](https://linear.app/apexrest/issue/APE-370));
-- shared Composer and scaffold contracts ([APE-357](https://linear.app/apexrest/issue/APE-357));
+- unifying the Composer and scaffold emitters (APE-357 beyond the shared scaffold emitter);
 - the modal form ([APE-376](https://linear.app/apexrest/issue/APE-376)), interactive grid ([APE-383](https://linear.app/apexrest/issue/APE-383)), master–detail ([APE-391](https://linear.app/apexrest/issue/APE-391)) and faceted search ([APE-393](https://linear.app/apexrest/issue/APE-393)) recipes, which need new scaffold region types.
 
 ## Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)

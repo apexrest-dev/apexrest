@@ -9,7 +9,12 @@ import {
   metadataRead,
   schemas,
   verifyDeploymentPredicates
-} from "./chunk-GPW7AAPU.mjs";
+} from "./chunk-IQ5EIM34.mjs";
+import {
+  renderPageBody,
+  renderRegion,
+  scaffoldSchema
+} from "./chunk-UHP3URNB.mjs";
 import {
   browserPreferences
 } from "./chunk-DJPW35KJ.mjs";
@@ -142,7 +147,7 @@ import {
 
 // packages/core/src/service.ts
 import { fileURLToPath } from "node:url";
-import path15 from "node:path";
+import path16 from "node:path";
 
 // packages/core/src/doctor.ts
 import path from "node:path";
@@ -4782,7 +4787,7 @@ var ApexLangDocument = class {
         if (!owner) throw unsupported(`Property outside a component at line ${index + 1}.`);
         const key = unquote(property[2]);
         const prefix = groupPath();
-        const path16 = prefix ? `${prefix}.${key}` : key;
+        const path17 = prefix ? `${prefix}.${key}` : key;
         const value = property[4] ?? "";
         const colon = text.indexOf(":", property[1].length + property[2].length);
         const valueStart = property[3] ? line.offset + colon + 1 + property[3].length : line.offset + colon + 1;
@@ -4793,8 +4798,8 @@ var ApexLangDocument = class {
           value,
           opaque: value === "" || value === "{" || value === "[" || value.startsWith("```")
         };
-        if (owner.properties.has(path16)) throw unsupported(`Duplicate property ${path16} at line ${index + 1}.`);
-        owner.properties.set(path16, entry);
+        if (owner.properties.has(path17)) throw unsupported(`Duplicate property ${path17} at line ${index + 1}.`);
+        owner.properties.set(path17, entry);
         if (value === "") pendingFence = entry;
         else if (value === "{") stack.push({ type: "value", close: "}" });
         else if (value === "[") stack.push({ type: "value", close: "]" });
@@ -4821,15 +4826,15 @@ function scalarText(value) {
   const plain = value !== "" && value === value.trim() && !["true", "false", "{", "["].includes(value) && !/^["@\\[{]|^```|^\/\/|^\/\*/u.test(value);
   return plain ? value : JSON.stringify(value);
 }
-function setProperty(doc, node, path16, value) {
+function setProperty(doc, node, path17, value) {
   const text = scalarText(value);
-  const existing = node.properties.get(path16);
+  const existing = node.properties.get(path17);
   if (existing) {
-    if (existing.opaque) throw unsupported(`${path16} holds a multi-line value; edit it in source.`);
+    if (existing.opaque) throw unsupported(`${path17} holds a multi-line value; edit it in source.`);
     return { start: existing.valueStart, end: existing.valueEnd, content: text };
   }
-  const parts = path16.split(".");
-  if (parts.length > 2) throw unsupported(`Nested property ${path16} is not supported.`);
+  const parts = path17.split(".");
+  if (parts.length > 2) throw unsupported(`Nested property ${path17} is not supported.`);
   const indent = " ".repeat(node.indent + 4);
   const eol = doc.eol;
   if (parts.length === 2) {
@@ -4853,7 +4858,7 @@ function setProperty(doc, node, path16, value) {
   const after = node.properties.get("name")?.line ?? node.open;
   const line = doc.lines[after];
   const at = line.offset + line.text.length + line.eol.length;
-  return { start: at, end: at, content: `${indent}${path16}: ${text}${eol}` };
+  return { start: at, end: at, content: `${indent}${path17}: ${text}${eol}` };
 }
 function applyEdits(source, edits) {
   let result = source;
@@ -4866,10 +4871,10 @@ function applyEdits(source, edits) {
   }
   return result;
 }
-function setFencedText(doc, node, path16, text) {
-  const property = node.properties.get(path16);
+function setFencedText(doc, node, path17, text) {
+  const property = node.properties.get(path17);
   if (!property?.fence || property.fence.close < 0)
-    throw unsupported(`${path16} is not a fenced literal of ${node.kind} ${node.key}.`);
+    throw unsupported(`${path17} is not a fenced literal of ${node.kind} ${node.key}.`);
   if (/^\s*```/mu.test(text))
     throw new Fault("INVALID_INPUT", "The text cannot contain a ``` fence line.", 2);
   const open3 = doc.lines[property.fence.open];
@@ -4888,9 +4893,9 @@ function appendChild(doc, parent, text) {
   const close = doc.lines[parent.close];
   return { start: close.offset, end: close.offset, content: text };
 }
-function readProperty(component, path16) {
+function readProperty(component, path17) {
   let value = component.props;
-  for (const part of path16.split(".")) {
+  for (const part of path17.split(".")) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
     value = value[part];
   }
@@ -5191,8 +5196,136 @@ async function patchPage(ctx, input) {
   });
 }
 
-// packages/core/src/deploy-reconcile.ts
+// packages/core/src/edit/insert.ts
 import path9 from "node:path";
+import { readFile as readFile7 } from "node:fs/promises";
+function fragment(source, pageId, components) {
+  const doc = new ApexLangDocument(source);
+  const node = ApexLangDocument.one(doc.roots, "page", pageId, "The file");
+  const parsed = parseApexLang(source, "page").find((c) => c.type === "page");
+  const spec = scaffoldSchema.safeParse({
+    applicationName: "insert",
+    pages: [
+      {
+        id: Number(pageId),
+        name: "insert",
+        regions: components.regions ?? [],
+        ...components.items ? { items: components.items } : {},
+        ...components.refreshes ? { refreshes: components.refreshes } : {}
+      }
+    ]
+  });
+  if (!spec.success)
+    throw new Fault(
+      "INVALID_INPUT",
+      `Invalid components: ${spec.error.issues[0]?.path.join(".")} ${spec.error.issues[0]?.message}`,
+      2
+    );
+  const page = spec.data.pages[0];
+  if (!page.regions.length && !page.items?.length && !page.refreshes?.length)
+    throw new Fault("INVALID_INPUT", "Give regions, items or refreshes to insert.", 2);
+  const existing = (type) => new Set(parsed.children.filter((c) => c.type === type).map((c) => c.id.toUpperCase()));
+  const regions = existing("region");
+  for (const region of page.regions) {
+    if (!region.id) throw new Fault("INVALID_INPUT", "Inserted regions need an explicit id.", 2);
+    if (regions.has(region.id.toUpperCase()))
+      throw new Fault("TARGET_EXISTS", `Region ${region.id} already exists.`, 5);
+    regions.add(region.id.toUpperCase());
+  }
+  const items = existing("pageItem");
+  for (const item of page.items ?? []) {
+    if (!new RegExp(`^P${pageId}_`, "u").test(item.name.toUpperCase()))
+      throw new Fault("INVALID_INPUT", `Item ${item.name} must start with P${pageId}_.`, 2);
+    if (items.has(item.name.toUpperCase()))
+      throw new Fault("TARGET_EXISTS", `Item ${item.name} already exists.`, 5);
+    if (!regions.has(item.region.toUpperCase()))
+      throw new Fault("TARGET_NOT_FOUND", `No region ${item.region} for ${item.name}.`, 2);
+    items.add(item.name.toUpperCase());
+  }
+  for (const refresh of page.refreshes ?? []) {
+    for (const item of refresh.items)
+      if (!items.has(item.toUpperCase()))
+        throw new Fault("TARGET_NOT_FOUND", `Refresh item ${item} does not exist.`, 2);
+    for (const region of refresh.regions)
+      if (!regions.has(region.toUpperCase()))
+        throw new Fault("TARGET_NOT_FOUND", `Refresh region ${region} does not exist.`, 2);
+  }
+  const offset = parsed.children.filter((c) => c.type === "region").length;
+  let text = page.regions.map((region, index) => renderRegion(region, offset + index, "26.2")).join("\n");
+  let rest = renderPageBody({ ...page, regions: [] }, "26.2");
+  const actions = existing("dynamicAction");
+  (page.refreshes ?? []).forEach((_refresh, index) => {
+    let n = index + 1;
+    while (actions.has(`REFRESH-${n}`)) n++;
+    actions.add(`REFRESH-${n}`);
+    rest = rest.replace(`dynamicAction refresh-${index + 1} (`, `dynamicAction refresh-${n} (\0`).replace(`name: Refresh dependent regions ${index + 1}`, `name: Refresh dependent regions ${n}`);
+  });
+  rest = rest.replaceAll("\0", "");
+  text = [text, rest].filter(Boolean).join("\n");
+  const lines = text.split("\n").join(doc.eol) + doc.eol;
+  const result = applyEdits(source, [appendChild(doc, node, lines)]);
+  let after;
+  try {
+    after = parseApexLang(result, "page").find((c) => c.type === "page");
+  } catch (error) {
+    throw new Fault("TRANSFORM_INVALID", `The edited page does not parse: ${error.message}`, 5);
+  }
+  new ApexLangDocument(result);
+  for (const region of page.regions)
+    if (!after?.children.some((c) => c.type === "region" && c.id === region.id))
+      throw new Fault("TRANSFORM_INVALID", `Region ${region.id} did not read back.`, 5);
+  return result;
+}
+async function insertComponents(ctx, input) {
+  if (!/^\d{1,5}$/u.test(input.page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
+  const pageId = String(Number(input.page));
+  const file2 = await pageFile(ctx, pageId);
+  const relative = path9.relative(ctx.root, file2).split(path9.sep).join("/");
+  if (input.dryRun || !input.expectedDigest) {
+    const source = await readFile7(file2, "utf8");
+    const result = fragment(source, pageId, input.components);
+    if (!input.dryRun)
+      throw new Fault(
+        "EXPECTED_DIGEST_REQUIRED",
+        `Pass expectedDigest ${digestOf(source)} (the ${relative} you read).`,
+        2,
+        "blocked",
+        {
+          file: relative,
+          currentDigest: digestOf(source)
+        }
+      );
+    return { file: relative, beforeDigest: digestOf(source), afterDigest: digestOf(result), written: false };
+  }
+  return withLock(path9.join(ctx.root, ".apexrest", "source-edit.lock"), async () => {
+    const before = await sourceInventory(ctx);
+    const source = await readFile7(file2, "utf8");
+    if (digestOf(source) !== input.expectedDigest)
+      throw new Fault(
+        "TRANSFORM_CONFLICT",
+        `${relative} changed since it was read; read it again and retry.`,
+        5,
+        "conflict",
+        {
+          file: relative,
+          currentDigest: digestOf(source)
+        }
+      );
+    const result = fragment(source, pageId, input.components);
+    await atomicWrite(file2, result);
+    return {
+      file: relative,
+      beforeDigest: digestOf(source),
+      afterDigest: digestOf(result),
+      written: true,
+      change: sourceChange(before, await sourceInventory(ctx), ctx.config.application.sourceDir),
+      next: "Source edited only. Validate or ship to check it with the compiler and import it."
+    };
+  });
+}
+
+// packages/core/src/deploy-reconcile.ts
+import path10 from "node:path";
 import { appendFile } from "node:fs/promises";
 async function reconcileRun(ctx, input) {
   if (!input.userRequest.trim())
@@ -5202,15 +5335,15 @@ async function reconcileRun(ctx, input) {
       2
     );
   const runDir = await contained(ctx.root, ".apexrest/deployments/" + input.run);
-  if (!await exists(path9.join(runDir, "plan.json")))
+  if (!await exists(path10.join(runDir, "plan.json")))
     throw new Fault(
       "RUN_NOT_FOUND",
       `No deployment run ${input.run} exists in this project.`,
       2,
       "not_found"
     );
-  const plan = await readJson(path9.join(runDir, "plan.json"));
-  const state = await readJson(path9.join(runDir, "state.json"));
+  const plan = await readJson(path10.join(runDir, "plan.json"));
+  const state = await readJson(path10.join(runDir, "state.json"));
   if (!["outcome_unknown", "failed"].includes(String(state.state)))
     throw new Fault(
       "RUN_NOT_HELD",
@@ -5254,7 +5387,7 @@ async function reconcileRun(ctx, input) {
   const statements = scripts.map((op) => ({
     kind: op.kind,
     file: op.file,
-    version: path9.basename(op.file),
+    version: path10.basename(op.file),
     checksum: op.sha256,
     applied: stated.get(op.file) === "applied"
   }));
@@ -5273,9 +5406,9 @@ async function reconcileRun(ctx, input) {
     statements: input.statements,
     releasedOwner: owner
   };
-  await writeJson(path9.join(runDir, "reconciliation.json"), record);
+  await writeJson(path10.join(runDir, "reconciliation.json"), record);
   await appendFile(
-    path9.join(runDir, "journal.jsonl"),
+    path10.join(runDir, "journal.jsonl"),
     JSON.stringify({ runId: input.run, state: "reconciled", at }) + "\n"
   );
   return {
@@ -5290,7 +5423,7 @@ async function reconcileRun(ctx, input) {
 }
 
 // packages/core/src/panel.ts
-import path10 from "node:path";
+import path11 from "node:path";
 import { readdir as readdir3, realpath as realpath3, stat as stat3 } from "node:fs/promises";
 var safe = (value) => sanitized(value);
 var historyLimit = 2e3;
@@ -5313,7 +5446,7 @@ var PanelService = class {
       const dated = await Promise.all(
         entries.map(async (entry) => ({
           entry,
-          at: (await stat3(path10.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
+          at: (await stat3(path11.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
         }))
       );
       omitted = entries.length - historyLimit;
@@ -5469,7 +5602,7 @@ var PanelService = class {
 // packages/core/src/usage.ts
 import { AsyncLocalStorage } from "node:async_hooks";
 import { constants, lstat, open as open2 } from "node:fs/promises";
-import path11 from "node:path";
+import path12 from "node:path";
 var count2 = external_exports.number().int().nonnegative().safe();
 var duration = external_exports.number().finite().nonnegative().max(7 * 864e5);
 var modelName = external_exports.string().max(120).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/);
@@ -5529,7 +5662,7 @@ function retain(store) {
   store.entries = store.entries.slice(discarded);
   return store;
 }
-var file = () => path11.join(managedHome(), "usage-log.json");
+var file = () => path12.join(managedHome(), "usage-log.json");
 async function readPrivate(file2, maximum) {
   const before = await lstat(file2);
   if (!before.isFile() || before.isSymbolicLink() || before.size > maximum)
@@ -5560,7 +5693,7 @@ async function readStore() {
 async function saveLocked(entry) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await withLock(path11.join(managedHome(), "usage-log.lock"), async () => {
+      return await withLock(path12.join(managedHome(), "usage-log.lock"), async () => {
         const store = await readStore();
         const existing = entry.importDigest && store.entries.find((old) => old.importDigest === entry.importDigest);
         if (existing) return { recorded: false, duplicate: true, entry: existing };
@@ -5854,7 +5987,7 @@ async function importUsage(host, source, elapsedMs, counterMode) {
       "Enable local usage logging with settings configure --usage-log on.",
       2
     );
-  const contents = await readPrivate(path11.resolve(source), 8 * 1024 * 1024);
+  const contents = await readPrivate(path12.resolve(source), 8 * 1024 * 1024);
   const native = nativeUsage(host, records(contents), counterMode);
   const elapsed = elapsedMs === void 0 ? native.elapsed : parse(duration, elapsedMs);
   const entry = parse(entrySchema2, {
@@ -5932,14 +6065,14 @@ async function usageStatus(limit = 20) {
 }
 
 // packages/core/src/peer-review.ts
-import path14 from "node:path";
+import path15 from "node:path";
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { mkdir as mkdir2, readFile as readFile8, rm as rm2 } from "node:fs/promises";
+import { mkdir as mkdir2, readFile as readFile9, rm as rm2 } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/cli-command.ts
-import path12 from "node:path";
-import { readFile as readFile7, stat as stat4 } from "node:fs/promises";
+import path13 from "node:path";
+import { readFile as readFile8, stat as stat4 } from "node:fs/promises";
 var SHIM_LIMIT = 64 * 1024;
 var NODE_FLAG = /^--?[A-Za-z0-9][\w-]*(?:=[\w./:-]*)?$/u;
 function npmShimTarget(text) {
@@ -5975,12 +6108,12 @@ async function resolveCliCommand(command, args, host = {}) {
       3,
       "dependency_missing"
     );
-  const extension = path12.extname(located).toLowerCase();
+  const extension = path13.extname(located).toLowerCase();
   if (extension === ".cmd" || extension === ".bat") {
-    const content = await readFile7(located);
+    const content = await readFile8(located);
     const shim = content.length <= SHIM_LIMIT ? npmShimTarget(content.toString("utf8")) : void 0;
     if (shim) {
-      const target = path12.join(path12.dirname(located), ...shim.target.split(/[\\/]/u));
+      const target = path13.join(path13.dirname(located), ...shim.target.split(/[\\/]/u));
       if (await isFile(target))
         return shim.node ? { executable: host.execPath ?? process.execPath, args: [...shim.nodeArgs, target, ...args] } : { executable: target, args };
     }
@@ -5994,7 +6127,7 @@ async function resolveCliCommand(command, args, host = {}) {
 }
 
 // packages/core/src/ship.ts
-import path13 from "node:path";
+import path14 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -6039,23 +6172,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source = path13.resolve(root, input.sourceDir);
-  if (!await exists(path13.join(source, "application.apx")))
+  const source = path14.resolve(root, input.sourceDir);
+  if (!await exists(path14.join(source, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path13.join(source, ".apex", "apexlang.json");
+  const own = path14.join(source, ".apex", "apexlang.json");
   if (await exists(own)) return { source, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path13.resolve(input.project));
-  for (let dir = path13.dirname(source); ; dir = path13.dirname(dir)) {
-    if (await exists(path13.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path14.resolve(input.project));
+  for (let dir = path14.dirname(source); ; dir = path14.dirname(dir)) {
+    if (await exists(path14.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path13.dirname(dir) === dir) break;
+    if (path14.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -6064,7 +6197,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file2 = path13.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file2 = path14.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file2)) return { source, metadata: { origin: "project", file: file2 } };
   }
   throw new Fault(
@@ -6569,8 +6702,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID2());
   await mkdir2(scratch, { recursive: true });
   try {
-    const schemaFile = path14.join(scratch, "verdict.schema.json");
-    const lastFile = path14.join(scratch, "last-message.json");
+    const schemaFile = path15.join(scratch, "verdict.schema.json");
+    const lastFile = path15.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -6621,7 +6754,7 @@ async function runPeer(vendor, ctx, prompt, options) {
         `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
         1
       );
-    if (vendor === "codex") return parseVerdict(await readFile8(lastFile, "utf8"));
+    if (vendor === "codex") return parseVerdict(await readFile9(lastFile, "utf8"));
     const envelope = JSON.parse(result.stdout);
     if (envelope.is_error)
       throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
@@ -6783,7 +6916,7 @@ function prewarmCompiler(project) {
       try {
         const ctx = await loadProject(project);
         const source = await contained(ctx.root, ctx.config.application.sourceDir);
-        if (!await exists(path15.join(source, ".apex/apexlang.json"))) {
+        if (!await exists(path16.join(source, ".apex/apexlang.json"))) {
           compilerPrewarms.delete(project);
           return;
         }
@@ -6827,12 +6960,17 @@ function routeProject(parsed) {
       return { operation: "project.adopt", input: pick("project", "env", "appId", "workingCopy") };
     case "inspect":
       return { operation: "project.inspect", input: pick("project", "detail") };
+    case "insert":
+      return {
+        operation: "project.insert",
+        input: pick("project", "page", "components", "expectedDigest")
+      };
     case "context":
       return { operation: "project.context", input: pick("project", "page") };
     case "patch":
       return {
         operation: "project.patch",
-        input: pick("project", "page", "operations", "expectedDigest", "dryRun")
+        input: pick("project", "page", "operations", "expectedDigest")
       };
     case "scaffold":
       return { operation: "project.scaffold", input: pick("project", "specFile", "env") };
@@ -7024,17 +7162,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-X2EOGAMX.mjs");
+        const { setup } = await import("./chunk-4P46E5TY.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-X2EOGAMX.mjs");
+        const { validateNative } = await import("./chunk-4P46E5TY.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-X2EOGAMX.mjs");
+        const { uninstallNative } = await import("./chunk-4P46E5TY.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -7044,11 +7182,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text("directory"),
           text("template"),
-          text("alias") ?? path15.basename(path15.resolve(text("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text("alias") ?? path16.basename(path16.resolve(text("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-4SNLG3WC.mjs");
+        const { scaffold } = await import("./chunk-IDLIGLE2.mjs");
         data = await scaffold(await loadProject(root), text("specFile"), text("env"));
         break;
       }
@@ -7168,7 +7306,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           case "dev.start":
             data = await startBroker(
               ctx,
-              path15.join(path15.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
+              path16.join(path16.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
             );
             break;
           case "dev.status":
@@ -7176,6 +7314,9 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           case "dev.stop":
             data = await stopBroker(ctx, Number(parsed.waitSeconds ?? 30));
+            break;
+          case "project.insert":
+            data = await insertComponents(ctx, schemas["project.insert"].parse(parsed));
             break;
           case "project.context":
             data = await pageContext(ctx, String(parsed.page));
@@ -7439,7 +7580,7 @@ var observationOnly = /* @__PURE__ */ new Set([
 ]);
 async function rememberProject(root) {
   try {
-    const ctx = await loadProject(path15.resolve(root));
+    const ctx = await loadProject(path16.resolve(root));
     await recordProject(ctx.root, ctx.config.projectId);
   } catch {
   }

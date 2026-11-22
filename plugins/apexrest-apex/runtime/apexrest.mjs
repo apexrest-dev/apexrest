@@ -2,12 +2,13 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   dispatch
-} from "./chunk-WJIV4DOK.mjs";
+} from "./chunk-6TIXVETS.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-GPW7AAPU.mjs";
+} from "./chunk-IQ5EIM34.mjs";
+import "./chunk-UHP3URNB.mjs";
 import "./chunk-TDM3E2NK.mjs";
 import "./chunk-DJPW35KJ.mjs";
 import "./chunk-3UYRY6NA.mjs";
@@ -103,7 +104,7 @@ var isFlag = (name, field) => booleans.has(name) || field !== void 0 && unwrap(f
 var optionColumn = 32;
 function optionLine(name, field) {
   const { def, description } = unwrap(field);
-  const value = isFlag(name, field) ? "" : def.type === "enum" && def.entries ? " " + Object.values(def.entries).join("|") : numbers.has(name) ? " N" : name === "confirmation" || name === "requests" || name === "operations" || name === "statements" ? " JSON" : def.type === "array" ? " VALUE..." : name === "project" || /(?:Dir|File)$/.test(name) ? " PATH" : " VALUE";
+  const value = isFlag(name, field) ? "" : def.type === "enum" && def.entries ? " " + Object.values(def.entries).join("|") : numbers.has(name) ? " N" : name === "confirmation" || name === "requests" || name === "operations" || name === "statements" || name === "components" ? " JSON" : def.type === "array" ? " VALUE..." : name === "project" || /(?:Dir|File)$/.test(name) ? " PATH" : " VALUE";
   const text = "  " + flag(name) + value;
   return description ? text.padEnd(optionColumn) + " " + description : text;
 }
@@ -310,7 +311,7 @@ try {
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-KPB4MBWZ.mjs");
+    const { startMcp } = await import("./chunk-7XZAIEMS.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -334,7 +335,7 @@ try {
             const files = [value];
             while (argv[i + 1] && !argv[i + 1].startsWith("--")) files.push(argv[++i]);
             input[name] = files;
-          } else if (name === "confirmation" || name === "requests" || name === "operations" || name === "statements") {
+          } else if (name === "confirmation" || name === "requests" || name === "operations" || name === "statements" || name === "components") {
             try {
               input[name] = JSON.parse(value);
             } catch {

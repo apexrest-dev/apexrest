@@ -5,12 +5,13 @@ import {
   prewarmCompiler,
   shutdownOracle,
   waitsForCompilerPrewarm
-} from "./chunk-WJIV4DOK.mjs";
+} from "./chunk-6TIXVETS.mjs";
 import {
   ArtifactService,
   schemas,
   toolCatalog
-} from "./chunk-GPW7AAPU.mjs";
+} from "./chunk-IQ5EIM34.mjs";
+import "./chunk-UHP3URNB.mjs";
 import "./chunk-TDM3E2NK.mjs";
 import "./chunk-DJPW35KJ.mjs";
 import "./chunk-3UYRY6NA.mjs";

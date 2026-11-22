@@ -193,15 +193,12 @@ test('the MCP project action and the CLI operation share the coordinated patch p
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, PAGE);
   const operations = [{ target: 'button:create', property: 'label', value: 'New order' }];
-  const dry = await dispatch('project', {
-    project: ctx.root,
-    action: 'patch',
-    page: '7',
-    operations,
-    dryRun: true,
-  });
-  assert.equal(dry.ok, true);
-  const digest = (dry.data as { beforeDigest: string }).beforeDigest;
+  // Without a digest nothing is written and the answer names the digest to use.
+  const first = await dispatch('project', { project: ctx.root, action: 'patch', page: '7', operations });
+  assert.equal(first.ok, false);
+  assert.equal(first.diagnostics[0]?.code, 'EXPECTED_DIGEST_REQUIRED');
+  const digest = (first.data as { currentDigest: string }).currentDigest;
+  assert.equal(digest, digestOf(PAGE));
   const bad = await dispatch('project', {
     project: ctx.root,
     action: 'patch',

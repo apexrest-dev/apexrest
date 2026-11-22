@@ -588,6 +588,43 @@
     ],
     "additionalProperties": false
   },
+  "project.insert": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "page": {
+        "type": "string",
+        "pattern": "^\\d{1,5}$",
+        "description": "Page number"
+      },
+      "components": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {},
+        "description": "JSON scaffold fragment: {regions, items?, refreshes?}; see the scaffold guide"
+      },
+      "expectedDigest": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "dryRun": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "page",
+      "components"
+    ],
+    "additionalProperties": false
+  },
   "project.patch": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -1893,6 +1930,7 @@
           "scaffold",
           "patch",
           "context",
+          "insert",
           "connection_add",
           "connection_list",
           "connection_test"
@@ -1908,7 +1946,7 @@
         "type": "string"
       },
       "operations": {
-        "description": "patch: [{target, property, value, columns?}], see work skill patch guide; context: page",
+        "description": "patch, insert, context: see the work skill patch guide",
         "type": "array",
         "items": {
           "type": "object",
@@ -1918,11 +1956,15 @@
           "additionalProperties": {}
         }
       },
+      "components": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      },
       "expectedDigest": {
         "type": "string"
-      },
-      "dryRun": {
-        "type": "boolean"
       },
       "directory": {
         "description": "init: new or empty directory for the project",

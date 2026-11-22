@@ -10712,6 +10712,13 @@ var schemas = {
     ...base,
     page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number")
   }),
+  "project.insert": external_exports.strictObject({
+    ...base,
+    page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number"),
+    components: external_exports.record(external_exports.string(), external_exports.unknown()).describe("JSON scaffold fragment: {regions, items?, refreshes?}; see the scaffold guide"),
+    expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional(),
+    dryRun: external_exports.boolean().default(false)
+  }),
   "project.patch": external_exports.strictObject({
     ...base,
     page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number"),
@@ -10886,15 +10893,16 @@ var schemas = {
       "scaffold",
       "patch",
       "context",
+      "insert",
       "connection_add",
       "connection_list",
       "connection_test"
     ]),
     specFile: relativePath.optional().describe("scaffold: JSON spec; see work skill scaffold guide"),
     page: external_exports.string().optional(),
-    operations: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())).optional().describe("patch: [{target, property, value, columns?}], see work skill patch guide; context: page"),
+    operations: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())).optional().describe("patch, insert, context: see the work skill patch guide"),
+    components: external_exports.record(external_exports.string(), external_exports.unknown()).optional(),
     expectedDigest: external_exports.string().optional(),
-    dryRun: external_exports.boolean().optional(),
     directory: external_exports.string().min(1).optional().describe("init: new or empty directory for the project"),
     template: external_exports.enum(["blank-app", "customer-crm", "existing-app"]).optional(),
     alias: refName.optional(),

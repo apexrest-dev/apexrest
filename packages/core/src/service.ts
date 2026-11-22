@@ -20,6 +20,7 @@ import { SyncStore, checkpoint } from './sync.ts';
 import { DeploymentService, deployPlanSchema, sourceInventory } from './deploy.ts';
 import { recordRevision, revisionOf } from './revision.ts';
 import { pageContext, patchPage } from './edit/patch.ts';
+import { insertComponents } from './edit/insert.ts';
 import { brokerStatus, startBroker, stopBroker } from './broker.ts';
 import { reconcileRun } from './deploy-reconcile.ts';
 import { ArtifactService } from './artifacts.ts';
@@ -142,12 +143,17 @@ function routeProject(parsed: Record<string, unknown>) {
       return { operation: 'project.adopt', input: pick('project', 'env', 'appId', 'workingCopy') };
     case 'inspect':
       return { operation: 'project.inspect', input: pick('project', 'detail') };
+    case 'insert':
+      return {
+        operation: 'project.insert',
+        input: pick('project', 'page', 'components', 'expectedDigest'),
+      };
     case 'context':
       return { operation: 'project.context', input: pick('project', 'page') };
     case 'patch':
       return {
         operation: 'project.patch',
-        input: pick('project', 'page', 'operations', 'expectedDigest', 'dryRun'),
+        input: pick('project', 'page', 'operations', 'expectedDigest'),
       };
     case 'scaffold':
       return { operation: 'project.scaffold', input: pick('project', 'specFile', 'env') };
@@ -517,6 +523,9 @@ async function dispatchObserved(
             break;
           case 'dev.stop':
             data = await stopBroker(ctx, Number(parsed.waitSeconds ?? 30));
+            break;
+          case 'project.insert':
+            data = await insertComponents(ctx, schemas['project.insert'].parse(parsed));
             break;
           case 'project.context':
             data = await pageContext(ctx, String(parsed.page));

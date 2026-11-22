@@ -100,7 +100,11 @@ function optionLine(name: string, field: Field) {
       ? ' ' + Object.values(def.entries).join('|')
       : numbers.has(name)
         ? ' N'
-        : name === 'confirmation' || name === 'requests' || name === 'operations' || name === 'statements'
+        : name === 'confirmation' ||
+            name === 'requests' ||
+            name === 'operations' ||
+            name === 'statements' ||
+            name === 'components'
           ? ' JSON'
           : def.type === 'array'
             ? ' VALUE...'
@@ -356,7 +360,8 @@ try {
             name === 'confirmation' ||
             name === 'requests' ||
             name === 'operations' ||
-            name === 'statements'
+            name === 'statements' ||
+            name === 'components'
           ) {
             try {
               input[name] = JSON.parse(value);

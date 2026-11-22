@@ -120,7 +120,7 @@ function resolve(page: ComponentNode, operation: PatchOperation): Resolved {
 }
 
 /** The page's own file: exactly one `.apx` under `pages/` declaring `page <id>`. */
-async function pageFile(ctx: ProjectContext, page: string): Promise<string> {
+export async function pageFile(ctx: ProjectContext, page: string): Promise<string> {
   const app = await contained(ctx.root, ctx.config.application.sourceDir);
   const dir = path.join(app, 'pages');
   const matches: string[] = [];
