@@ -2,30 +2,30 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   dispatch
-} from "./chunk-33HJFJGP.mjs";
+} from "./chunk-B5VW34DL.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-NSTSTEFF.mjs";
+} from "./chunk-NISQUS3W.mjs";
 import "./chunk-HGNRVHRN.mjs";
 import "./chunk-DJPW35KJ.mjs";
-import "./chunk-3UYRY6NA.mjs";
+import "./chunk-XXAYOABN.mjs";
 import {
   executeJob,
   failQueuedJob
-} from "./chunk-LQZZL2TR.mjs";
+} from "./chunk-NFYN6CEE.mjs";
 import {
   setPreviewOwner
 } from "./chunk-PFOHMLO4.mjs";
-import "./chunk-5LTJNNVS.mjs";
-import "./chunk-MOECJUGS.mjs";
+import "./chunk-CXNC64GA.mjs";
+import "./chunk-XJUE6CM7.mjs";
 import "./chunk-7K63TNLW.mjs";
-import "./chunk-6V3FNJQB.mjs";
-import "./chunk-52OVPJZH.mjs";
+import "./chunk-GX74KOAM.mjs";
+import "./chunk-NHAXPBYT.mjs";
 import "./chunk-6H3NFORN.mjs";
 import "./chunk-MPKKOQVI.mjs";
-import "./chunk-33BV6A47.mjs";
+import "./chunk-IIUPXDVT.mjs";
 import {
   loadProject
 } from "./chunk-LIG5PZ4K.mjs";
@@ -307,12 +307,12 @@ try {
     }
   } else if (argv[0] === "--broker") {
     if (argv.length !== 2) throw new Fault("INVALID_INPUT", "Invalid internal broker request.", 2);
-    const { runBroker } = await import("./chunk-54WRYS2G.mjs");
+    const { runBroker } = await import("./chunk-DDB7LGMR.mjs");
     await runBroker(await loadProject(argv[1]), dispatch);
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-2LQEYZFD.mjs");
+    const { startMcp } = await import("./chunk-VSPC52KJ.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

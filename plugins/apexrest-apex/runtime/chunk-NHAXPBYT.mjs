@@ -19,7 +19,7 @@ import {
 } from "./chunk-MPKKOQVI.mjs";
 import {
   VERSION
-} from "./chunk-33BV6A47.mjs";
+} from "./chunk-IIUPXDVT.mjs";
 import {
   isProductionTarget,
   loadProject,

@@ -1,26 +1,28 @@
 # Current release notes
 
-## Source bundle 2.8.0
+## Source bundle 2.9.0
 
-The repository bundle supports Codex and Claude Code with six skills and twelve MCP tools. It includes APEX 26.1 full imports, [APEX 26.2 partial imports and routine page generation](apex-26.2.md), pinned release profiles and guarded deployment. Use the repository installation for this source version; registry packages are a separate distribution path.
-
-Application verification uses the host in-app browser when requested. The bundle has no automated application test runners, saved browser-authentication state or browser installation. Client dependencies are Node.js, Java and SQLcl. Compiler, target, backup, drift, coordination and readback protections remain in the deployment path.
+The repository bundle supports Codex and Claude Code with six skills and twelve MCP tools. This release makes the edit–preview–deploy loop faster and reviewable: you point at components in the local preview and leave comments or edit properties, and agents apply small changes through digest-bound semantic edits instead of rewriting page files.
 
 ## Changes
 
-- Generate native 26.2 interactive reports, KPI cards, bar charts and navigation with `project scaffold`, using one bounded JSON specification. Keep Oracle metadata/security and refuse replacement of unowned or manually edited pages. See [routine page generation](apex-26.2.md#generate-routine-pages).
-- Generate a private target-bound observation SQL file when an identified task requests metadata/query observations. The caller runs it manually after import; neither scaffold nor ship executes it or adds an application-test gate.
-- Route supported patterns through scaffold and one guarded ship. Improve bar-chart retrieval and input handling to avoid repeated lookup and validation failures.
-- Fix CLI-owned SQLcl connections whose MCP connect tool enabled JDBC auto-commit when the saved connection omitted the setting. `CONNECT -name` retains normal SQLcl transaction behavior without changing saved connection properties. Rollback and identity checks remain; explicit MCP transport retains its advertised connect tool.
-- Read source inventories with bounded concurrency, plan pending database scripts when application files are unchanged, reuse the new/full-plan identity observation, and validate exact staged bytes including borrowed Oracle metadata.
-- Preserve unknown-outcome classification when a descendant outlives its launcher; cancel stale output-drain timers after normal process completion.
-- Align package, workspace and native plugin versions to 2.8.0.
+- **Review mode in the local preview.** **Alt+Shift+C** selects a region, item, button, report column or the page, and leaves a comment for any agent, stored in `.apexrest/review/comments.json`. **Edit** in the same form changes a title, label, heading, format or sequence through the digest-bound patch service. `preview comments` returns each comment with its patch target and file digest. See [local preview](local-preview.md#review-comments).
+- **Semantic page edits.** `project context` returns a page's components and its file digest. `project patch` changes titles, labels, headings, formats, sequences, and report SQL together with its columns. `project insert` adds regions, items and refreshes to an existing page. Each edit is digest-bound, atomic and keeps unrelated bytes.
+- **CRUD and search recipes.** `project scaffold` generates a report with a modal create/edit form, an editable interactive grid, a master–detail page and a faceted search. Editable regions require an authorization scheme, one primary key and lost-update detection. Compiled, imported and checked in the browser on local APEX 26.2.
+- **Incremental preview.** Per-file parse cache, reloads only for affected pages, in-place refresh of allowlisted regions, stylesheet replacement, and the last good page kept with a stale banner after an invalid edit.
+- **Source revisions.** Status reports latest local, preview, validated, importing and deployed revisions separately, and a late result never marks a newer revision.
+- **Development broker and safer recovery.** `dev start` keeps one worker per project with exclusive job claims, and newer applies supersede queued ones. `deploy reconcile` releases a run held for database review after an exact, confirmed review. Migration history is bound to the schema instance, and one reset session runs an apply's database scripts.
+- Align package, workspace and native plugin versions to 2.9.0.
 
 ## Measured verification
 
-Three optimized and three classic native Codex CLI trials used the same four-page Box task, starter, schema snapshots, GPT-6.1 Sol/high and independent Oracle audit. Median time was 335.44 seconds with classic skills versus 99.39 seconds with the optimized plugin (70.4% less); reported aggregate tokens were 1,770,625 versus 274,796 (84.5% less, cached input counted once). Every final app passed the audit, preserved its metadata/security files and, for the optimized arm, used integrated shipping without failing MCP calls or manual deployment fallback.
+All measurements are on local APEX 26.2 with Oracle 23.26.4. Details are in [implementation status](implementation-status.md).
 
-The timed build was the optimized 2.7.0 development bundle before the version increment; 2.8.0 contains the same functional implementation. This local Linux/APEX 26.2/SQLcl 26.3 experiment has three samples per arm with unflushed caches. It does not establish a universal speed SLA, browser quality, arbitrary components, real update performance, remote targets, Windows, Claude or native marketplace discovery. See [implementation status](implementation-status.md) for evidence and limits.
+- **Semantic edits.** From the service call to the edit in preview HTML takes 25–26 ms median.
+- **Preview.** A renamed file with an older modification time is now detected (5/5, 8.8 ms).
+- **Native page ship.** It is unchanged: 15.4 s baseline against 15.5 s, in alternating runs on the same project. No speed claim is made for deployment.
+
+These are local results with small samples. They do not establish remote, Windows or Linux behavior.
 
 ## Upgrade a working copy
 
@@ -28,6 +30,6 @@ Working copies bind their runtime/toolchain version. Reconcile local edits and u
 
 ## Distribution and verification
 
-The maintainer approved npm publication of 2.8.0 with three current local reports. Full qualification still requires the external reports. Hosted CI runs on pushes to `main`. Repository release and Oracle integration workflows remain disabled.
+The approved npm exception applied only to 2.8.0; publishing 2.9.0 needs its own approval and current reports. Hosted CI runs on pushes to `main`. Repository release and Oracle integration workflows remain disabled.
 
 See [acceptance](acceptance.json), [open checks](next-actions.md) and [publishing](publishing.md). Repository fixtures remain separate from connected Oracle and native-host evidence.

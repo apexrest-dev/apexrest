@@ -1,6 +1,6 @@
 # Implementation status
 
-The current source and bundled plugin version is **2.8.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
+The current source and bundled plugin version is **2.9.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
 ## Fast-development verification and handoff (2026-11-22, local)
 

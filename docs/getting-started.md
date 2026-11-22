@@ -23,7 +23,7 @@ Two other starting points:
 
 ## Which version this guide describes
 
-This guide describes the current 2.8.0 source bundle, including APEX 26.2 partial imports.
+This guide describes the current 2.9.0 source bundle, including APEX 26.2 partial imports.
 
 - Install from the source repository for these features.
 - Check the version and capabilities of a separately published npm package.

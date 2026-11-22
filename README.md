@@ -85,7 +85,7 @@ claude plugin install apexrest@apexrest
 npm install -g apexrest
 ```
 
-The repository ships the built plugin under `plugins/apexrest-apex`, so you need no build step. To install from a local checkout, pass its path to `marketplace add`. Registry packages can lag the source; this README describes source version 2.8.0.
+The repository ships the built plugin under `plugins/apexrest-apex`, so you need no build step. To install from a local checkout, pass its path to `marketplace add`. Registry packages can lag the source; this README describes source version 2.9.0.
 
 ## Quick start
 
