@@ -63,10 +63,10 @@
 
 ### settings
 
-- `name` — `<STRING>`; —; No; —; —; maxLength=255; —;
 - `ssoServerLogoutUrl` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `actionIfUsernameIsEmpty` — `<STRING>`; —; Yes; `BUILTIN_URL`; `<enum:[redirectToBuiltInUrl:"Redirect to Built-In URL", redirectToUrl:"Redirect to URL", displayError:"Display Error"]>`; maxLength=4000; —;
-- `verifyUsername` — `<STRING>`; —; Yes; `ALWAYS`; `<enum:[eachRequest:"Each Request", afterLogin:"After Login"]>`; maxLength=4000; —;
+- `actionIfUsernameIsEmpty` — `<STRING>`; —; Yes; `BUILTIN_URL`; `<enum:[displayError:"Display Error", redirectToUrl:"Redirect to URL", redirectToBuiltInUrl:"Redirect to Built-In URL"]>`; maxLength=4000; —;
+- `name` — `<STRING>`; —; No; —; —; maxLength=255; —;
+- `verifyUsername` — `<STRING>`; —; Yes; `ALWAYS`; `<enum:[afterLogin:"After Login", eachRequest:"Each Request"]>`; maxLength=4000; —;
 - `url` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.actionIfUsernameIsEmpty] = redirectToUrl`;
 - `errorMessage` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.actionIfUsernameIsEmpty] = displayError`;
 

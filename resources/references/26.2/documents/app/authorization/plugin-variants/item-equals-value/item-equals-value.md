@@ -29,6 +29,6 @@
 
 ### settings
 
-- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 - `item` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 

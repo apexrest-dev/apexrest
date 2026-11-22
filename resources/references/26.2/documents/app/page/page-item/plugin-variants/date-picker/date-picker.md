@@ -85,20 +85,20 @@
 
 ### settings
 
-- `maxDate` — `<STRING>`; —; Yes; `NONE`; `<enum:[item:"Item", none:"None", static:"Static"]>`; maxLength=4000; —;
-- `displayAs` — `<STRING>`; —; Yes; `POPUP`; `<enum:[nativeHtml:"Native HTML", popup:"Popup", inline:"Inline"]>`; maxLength=4000; —;
 - `showTime` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
+- `maxDate` — `<STRING>`; —; Yes; `NONE`; `<enum:[item:"Item", static:"Static", none:"None"]>`; maxLength=4000; —;
+- `displayAs` — `<STRING>`; —; Yes; `POPUP`; `<enum:[popup:"Popup", nativeHtml:"Native HTML", inline:"Inline"]>`; maxLength=4000; —;
 - `minDate` — `<STRING>`; —; Yes; `NONE`; `<enum:[item:"Item", static:"Static", none:"None"]>`; maxLength=4000; —;
-- `minStatic` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[settings.minDate] = static`;
-- `maxStatic` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[settings.maxDate] = static`;
-- `multipleMonths` — `<STRING>`; —; Yes; `N`; `<enum:[3:"3", false:"No", 2:"2", 4:"4", 5:"5"]>`; maxLength=4000; `pageItem[settings.displayAs] = popup` or `pageItem[settings.displayAs] = inline`;
-- `useDefaults` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `pageItem[settings.displayAs] = popup` or `pageItem[settings.displayAs] = inline`;
-- `minItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.minDate] = item`;
 - `maxItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.maxDate] = item`;
-- `appearanceBehavior` — `<STRING>`; —; No; `MONTH-PICKER:YEAR-PICKER:TODAY-BUTTON`; `<enum:[monthPicker:"Month Picker", paginateByMultipleMonths:"Paginate by Multiple Months", showTodayButton:"Show Today Button", yearPicker:"Year Picker", showWeek:"Show Week"]>`; maxLength=4000; `pageItem[settings.displayAs] = popup` and `pageItem[settings.useDefaults] = N` or `pageItem[settings.displayAs] = inline` and `pageItem[settings.useDefaults] = N`;
-- `showOn` — `<STRING>`; —; Yes; `FOCUS`; `<enum:[iconClick:"Icon Click", itemFocus:"Item Focus"]>`; maxLength=4000; `pageItem[settings.displayAs] = popup` and `pageItem[settings.useDefaults] = N` or `pageItem[settings.displayAs] = inline` and `pageItem[settings.useDefaults] = N`;
-- `timeIncrement` — `<INTEGER>`; —; No; —; —; —; `pageItem[settings.displayAs] = popup` and `pageItem[settings.useDefaults] = N` or `pageItem[settings.displayAs] = inline` and `pageItem[settings.useDefaults] = N`;
-- `daysOutsideMonth` — `<STRING>`; —; Yes; `VISIBLE`; `<enum:[selectable:"Selectable", visible:"Visible", hidden:"Hidden"]>`; maxLength=4000; `pageItem[settings.displayAs] = popup` and `pageItem[settings.useDefaults] = N` or `pageItem[settings.displayAs] = inline` and `pageItem[settings.useDefaults] = N`;
+- `multipleMonths` — `<STRING>`; —; Yes; `N`; `<enum:[false:"No", 2:"2", 5:"5", 4:"4", 3:"3"]>`; maxLength=4000; `pageItem[settings.displayAs] = popup` or `pageItem[settings.displayAs] = inline`;
+- `minStatic` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[settings.minDate] = static`;
+- `minItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.minDate] = item`;
+- `useDefaults` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `pageItem[settings.displayAs] = popup` or `pageItem[settings.displayAs] = inline`;
+- `maxStatic` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[settings.maxDate] = static`;
+- `showOn` — `<STRING>`; —; Yes; `FOCUS`; `<enum:[iconClick:"Icon Click", itemFocus:"Item Focus"]>`; maxLength=4000; `pageItem[settings.useDefaults] = N` and (`pageItem[settings.displayAs] = popup` or `pageItem[settings.displayAs] = inline`);
+- `timeIncrement` — `<INTEGER>`; —; No; —; —; —; `pageItem[settings.useDefaults] = N` and (`pageItem[settings.displayAs] = popup` or `pageItem[settings.displayAs] = inline`);
+- `appearanceBehavior` — `<STRING>`; —; No; `MONTH-PICKER:YEAR-PICKER:TODAY-BUTTON`; `<enum:[showWeek:"Show Week", showTodayButton:"Show Today Button", monthPicker:"Month Picker", yearPicker:"Year Picker", paginateByMultipleMonths:"Paginate by Multiple Months"]>`; maxLength=4000; `pageItem[settings.useDefaults] = N` and (`pageItem[settings.displayAs] = popup` or `pageItem[settings.displayAs] = inline`);
+- `daysOutsideMonth` — `<STRING>`; —; Yes; `VISIBLE`; `<enum:[hidden:"Hidden", visible:"Visible", selectable:"Selectable"]>`; maxLength=4000; `pageItem[settings.useDefaults] = N` and (`pageItem[settings.displayAs] = popup` or `pageItem[settings.displayAs] = inline`);
 
 ### label
 
@@ -138,7 +138,7 @@
 - `preference` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[source.type] = preference`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[sql:"SQL", plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = expression`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = functionBody`;
-- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample` and `pageItem[source.formRegion] = sample`;
+- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample`;
 - `sqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = sql`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = plsql`;
 - `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = javaScript-mle`;
@@ -192,7 +192,7 @@
 
 - `type` — `<STRING>`; —; Yes; `SEPARATED`; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; —;
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `pageItem[settings.pageActionOnSelection] = none`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[settings.pageActionOnSelection] = none` and `pageItem[multipleValues.type] = delimitedList`;
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList`;
 
 ### lov
 
@@ -231,10 +231,10 @@
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
+- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
 
 ### cascadingLov
 

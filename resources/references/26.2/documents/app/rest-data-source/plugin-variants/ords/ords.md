@@ -64,7 +64,7 @@
 ### settings
 
 - `returnsLegacyOrdsJson` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `sortingNulls` — `<STRING>`; —; Yes; `HIGHEST`; `<enum:[flexible:"Flexible", nullsHighest:"Nulls are Highest"]>`; maxLength=4000; `restDataSource[settings.returnsLegacyOrdsJson] = N`;
+- `sortingNulls` — `<STRING>`; —; Yes; `HIGHEST`; `<enum:[nullsHighest:"Nulls are Highest", flexible:"Flexible"]>`; maxLength=4000; `restDataSource[settings.returnsLegacyOrdsJson] = N`;
 
 ### dataProfile
 

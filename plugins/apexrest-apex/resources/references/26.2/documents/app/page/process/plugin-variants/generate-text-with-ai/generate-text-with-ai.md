@@ -69,14 +69,14 @@
 
 ### inputValue
 
-- `type` — `<STRING>`; —; Yes; `ITEM`; `<enum:[functionBody:"Function Body", sqlQuery:"SQL Query", expression:"Expression", onlySystemPrompt:"Only System Prompt", item:"Item"]>`; maxLength=4000; —;
+- `type` — `<STRING>`; —; Yes; `ITEM`; `<enum:[expression:"Expression", onlySystemPrompt:"Only System Prompt", item:"Item", functionBody:"Function Body", sqlQuery:"SQL Query"]>`; maxLength=4000; —;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL&#x2F\;SQL", js-mle:"JAVASCRIPT (MLE)"]>`; —; `process[inputValue.type] = functionBody` or `process[inputValue.type] = expression`;
+- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[inputValue.type] = sqlQuery`;
 - `item` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[inputValue.type] = item`;
 - `maxTokens` — `<INTEGER>`; —; No; —; —; —; `process[inputValue.type] = sqlQuery`;
-- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[inputValue.type] = sqlQuery`;
 - `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[inputValue.type] = functionBody` and `process[inputValue.language] = plsql`;
-- `jsFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[inputValue.type] = functionBody` and `process[inputValue.language] = js-mle`;
 - `jsExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[inputValue.type] = expression` and `process[inputValue.language] = js-mle`;
+- `jsFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[inputValue.type] = functionBody` and `process[inputValue.language] = js-mle`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[inputValue.type] = expression` and `process[inputValue.language] = plsql`;
 
 ### useResponse

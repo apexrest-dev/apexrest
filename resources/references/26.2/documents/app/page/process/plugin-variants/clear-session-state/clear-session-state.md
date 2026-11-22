@@ -69,10 +69,10 @@
 
 ### clear
 
-- `type` — `<STRING>`; —; Yes; `CLEAR_CACHE_CURRENT_PAGE`; `<enum:[pages:"Clear all Items on Page(s)", currentPage:"Clear all Items on the Current Page", items:"Clear Items", currentApp:"Clear Current Application", session:"Clear Current Session", apps:"Clear Applications"]>`; maxLength=4000; —;
+- `type` — `<STRING>`; —; Yes; `CLEAR_CACHE_CURRENT_PAGE`; `<enum:[pages:"Clear all Items on Page(s)", items:"Clear Items", session:"Clear Current Session", currentApp:"Clear Current Application", apps:"Clear Applications", currentPage:"Clear all Items on the Current Page"]>`; maxLength=4000; —;
 - `pages` — `<INTEGER>`; —; Yes; —; —; —; `process[clear.type] = pages`;
-- `applications` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[clear.type] = apps`;
 - `items` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[clear.type] = items`;
+- `applications` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[clear.type] = apps`;
 
 ### source
 

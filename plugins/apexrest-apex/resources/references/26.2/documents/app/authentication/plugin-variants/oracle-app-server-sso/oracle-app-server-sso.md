@@ -63,6 +63,6 @@
 
 ### settings
 
-- `partnerAppName` — `<STRING>`; —; No; —; —; maxLength=255; —;
 - `ssoServerLogoutUrl` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `partnerAppName` — `<STRING>`; —; No; —; —; maxLength=255; —;
 

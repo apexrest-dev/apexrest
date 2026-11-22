@@ -16,7 +16,7 @@ import {
 import {
   resourceRoot,
   sourceRelease
-} from "./chunk-JOEBWJ2Z.mjs";
+} from "./chunk-2MXW6F55.mjs";
 import "./chunk-FIBD7CLZ.mjs";
 import "./chunk-MPKKOQVI.mjs";
 import "./chunk-IIUPXDVT.mjs";

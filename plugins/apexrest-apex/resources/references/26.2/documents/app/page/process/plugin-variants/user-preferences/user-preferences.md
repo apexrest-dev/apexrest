@@ -69,9 +69,9 @@
 
 ### action
 
-- `type` — `<STRING>`; —; Yes; `RESET_USER_PREFERENCES`; `<enum:[resetPreferences:"Reset Preferences (remove all preferences for current user)", setToItemValue:"Set to Item Value", setToItemValueIfNotNull:"Set to Item Value if Not Null"]>`; maxLength=4000; —;
-- `item` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = setToItemValue` or `process[action.type] = setToItemValueIfNotNull`;
+- `type` — `<STRING>`; —; Yes; `RESET_USER_PREFERENCES`; `<enum:[setToItemValueIfNotNull:"Set to Item Value if Not Null", resetPreferences:"Reset Preferences (remove all preferences for current user)", setToItemValue:"Set to Item Value"]>`; maxLength=4000; —;
 - `preferenceName` — `<STRING>`; —; Yes; —; —; maxLength=255, textCase=UPPER; `process[action.type] = setToItemValue` or `process[action.type] = setToItemValueIfNotNull`;
+- `item` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = setToItemValue` or `process[action.type] = setToItemValueIfNotNull`;
 
 ### source
 

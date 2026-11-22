@@ -29,6 +29,6 @@
 
 ### settings
 
+- `type` — `<STRING>`; —; Yes; `A`; `<enum:[applicationRole:"Application Role", workspaceGroup:"Workspace Group", custom:"Custom"]>`; maxLength=4000; —;
 - `names` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
-- `type` — `<STRING>`; —; Yes; `A`; `<enum:[workspaceGroup:"Workspace Group", applicationRole:"Application Role", custom:"Custom"]>`; maxLength=4000; —;
 

@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { unzipSync } from 'fflate';
+import { archiveNames, releasesIn, skillsLayout } from './lib/oracle-skills-layout.mjs';
 const option = (name) =>
   process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined;
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -30,7 +31,7 @@ if (!archive) {
   const api = 'https://api.github.com/repos/oracle/skills';
   const [h, r] = await Promise.all([
     fetchBytes(`${api}/commits/main`),
-    fetchBytes(`${api}/commits?path=apex/apexlang/26.2&per_page=1`),
+    fetchBytes(`${api}/commits?path=apex&per_page=1`),
   ]);
   const hc = JSON.parse(h),
     rc = JSON.parse(r)[0];
@@ -45,17 +46,18 @@ if (!archive) {
 const bytes = await readFile(archive),
   archiveSha256 = sha256(bytes);
 if (bytes.length > 20 * 1024 * 1024) throw new Error('Archive exceeds 20 MiB.');
-const root = `skills-${commit}/`,
-  releaseRoot = root + 'apex/apexlang/26.2/';
-const inventoryRoot = releaseRoot + 'apexlang-inventory/assets/';
-const available = new Set();
+const root = `skills-${commit}/`;
+const names = archiveNames(unzipSync, bytes);
+// Oracle moved from apex/apexlang/26.2/… to apex/apexlang-26-2-…/ in November 2026.
+const layout = skillsLayout(names, root, '26.2');
+const inventoryRoot = layout.inventoryAssets;
+const available = releasesIn(names, root);
 const files = unzipSync(bytes, {
   filter: ({ name, originalSize }) => {
-    const release = name.slice(root.length).match(/^apex\/apexlang\/(\d+\.\d+)\//)?.[1];
-    if (release) available.add(release);
+    const key = layout.toKey(name);
     const selected =
       (name.startsWith(inventoryRoot) && name.endsWith('.md')) ||
-      Object.hasOwn(snapshot.sourceFiles, name.slice(releaseRoot.length)) ||
+      (key !== undefined && Object.hasOwn(snapshot.sourceFiles, key)) ||
       name === root + 'LICENSE.txt';
     if (selected && originalSize > 4 * 1024 * 1024) throw new Error('Oversized official document.');
     return selected;
@@ -86,7 +88,7 @@ const otherChanges = Object.entries(snapshot.sourceFiles)
   .filter(
     ([name, digest]) =>
       !name.startsWith('apexlang-inventory/assets/') &&
-      (!files[releaseRoot + name] || sha256(files[releaseRoot + name]) !== digest),
+      (!files[layout.toArchive(name)] || sha256(files[layout.toArchive(name)]) !== digest),
   )
   .map(([name]) => name)
   .sort();
@@ -111,6 +113,7 @@ const report = {
   latestRelevant: relevant,
   bundledCommit: snapshot.commit,
   candidateCommit: commit,
+  layout: layout.layout,
   archive: path.resolve(archive),
   archiveSha256,
   inventoryDocuments: Object.keys(hashes).length,

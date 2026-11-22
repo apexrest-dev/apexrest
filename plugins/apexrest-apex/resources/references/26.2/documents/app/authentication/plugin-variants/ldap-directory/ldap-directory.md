@@ -63,12 +63,12 @@
 
 ### settings
 
-- `usernameEscaping` — `<STRING>`; —; Yes; `STD`; `<enum:[standard:"Standard", onlySpecialChars:"Only special characters", noEscaping:"No Escaping"]>`; maxLength=4000; —;
-- `host` — `<STRING>`; —; Yes; —; —; maxLength=255; —;
-- `ldapUsernameEditFunction` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `useExactDn` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `useSsl` — `<STRING>`; —; Yes; `NO_SSL`; `<enum:[noSsl:"No SSL", ssl:"SSL", sslWithAuth:"SSL with Authentication"]>`; maxLength=4000; —;
-- `port` — `<INTEGER>`; —; No; —; —; —; —;
 - `dnString` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
+- `ldapUsernameEditFunction` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `host` — `<STRING>`; —; Yes; —; —; maxLength=255; —;
+- `usernameEscaping` — `<STRING>`; —; Yes; `STD`; `<enum:[noEscaping:"No Escaping", standard:"Standard", onlySpecialChars:"Only special characters"]>`; maxLength=4000; —;
+- `useExactDn` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
+- `useSsl` — `<STRING>`; —; Yes; `NO_SSL`; `<enum:[ssl:"SSL", noSsl:"No SSL", sslWithAuth:"SSL with Authentication"]>`; maxLength=4000; —;
+- `port` — `<INTEGER>`; —; No; —; —; —; —;
 - `searchFilter` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.useExactDn] = N`;
 

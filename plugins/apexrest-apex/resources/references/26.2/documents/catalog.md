@@ -1,5 +1,5 @@
 ---
-name: apexlang-inventory
+name: apexlang-26-2-inventory
 description: Provides an overview of APEX application components, APEXlang syntax, and application file layout, with links to detailed component properties and examples. Use this catalog to select, compose, generate, and edit APEX applications with APEXlang.
 ---
 
@@ -7,7 +7,7 @@ description: Provides an overview of APEX application components, APEXlang synta
 
 Use this hierarchy to locate APEXlang component references under assets/ and then read the matching component document before authoring.
 
-APEX Version: 26.2.0
+APEX Version: 26.2.0+3479
 
 Reference context: subscribed central-theme app 8842.262; central-theme reference versions 8842.262.
 
@@ -34,22 +34,22 @@ Use the component document as the source of truth for authoring:
 - Treat every property bullet as one property line. Use the documented property name, and use the documented APEXlang enum value rather than its descriptive label.
 - Treat `filePath` as the location of the component in the application, not as a property to emit inside the component.
 - Treat `appliesWhen` as a selection condition for the component, based on the required parent or ancestor values; it is not an APEXlang property to emit.
-- In an `appliesWhen` condition, `component[group.property]` identifies a property on another component. For example, `menu[identification.type]` and `menu[behavior.type]` are different properties even though both are named `type`. Conditions joined by `and` must all be true; alternatives joined by `or` are separate valid choices.
+- In an `appliesWhen` or property condition, `component[group.property]` identifies a property on another component. For example, `menu[identification.type]` and `menu[behavior.type]` are different properties even though both are named `type`. Conditions joined by `and` must all be true; alternatives joined by `or` are separate valid choices. Parentheses group choices when an `or` expression is combined with `and`.
 
 For a plugin-specific component, inspect the relevant parent or ancestor component's type property and applicability conditions, then follow the matching `plugin-variants/<plugin-name>` node. For a template component, inspect the relevant parent or ancestor component and current-theme applicability, then follow `template-component/<name>`; its APEXlang plugin value is `themeTemplateComponent/<name>`. The `componentType` bullet in the referenced Markdown file is authoritative.
 
 # Minimal Application Layout Template
-The following directory tree defines a minimal structure of an APEX application specified in APEXLang. Based on the selected components the structure will be implictily extended through the definition of the filePaths of the individual components.
+The following directory tree defines a minimal structure of an APEX application specified in APEXLang. Based on the selected components the structure will be implicitly extended through the definition of the filePaths of the individual components.
 
 - `application.apx`: top-level APEX application manifest with high-level app settings such as app-level navigation (home-link, login-link, navigation-menu). This file declares the app componentType and is therefore the entrypoint of the application hierarchy.
 - `.apex/apexlang.json`: APEXLang metadata for this export.
 - `deployments/default.json`: deployment metadata, including app id and debug flag.
-- `pages/*.apx`: flat pages directory with one APEX page per file, named by the following convention 'p<0-paded-5-digit-page-number>-<normalized-page-name>.apx' unless you are constrained by filePath specification of the respective componentType. Do not create subdirectories for pages. Each file declares a page componentType.
+- `pages/*.apx`: flat pages directory with one APEX page per file, named by the following convention 'p<0-padded-5-digit-page-number>-<normalized-page-name>.apx' unless you are constrained by filePath specification of the respective componentType. Do not create subdirectories for pages. Each file declares a page componentType.
 - `shared-components/`: Shared components can display or be applied on any page within the application. Examples are lists, LOVs, breadcrumbs, app items, computations, authentications, authorizations, automations, task definitions, plugins, theme files, and static assets.
 - `shared-components/authentications.apx`: defines how users authenticate to the application.
 - `shared-components/lists.apx`: defines reusable data sources for other component types such as regions.
 - `shared-components/static-files/`:
-- `shared-components/static-files/icons`: aplications icons
+- `shared-components/static-files/icons`: applications icons
 - `shared-components/themes/`: Contains themes. One directory per theme. At least one theme required.
 - `shared-components/themes/<theme-name>/theme.apx` Theme settings
 

@@ -83,22 +83,22 @@
 - `postText` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `initJavaScriptFunction` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 
-### settings
-
-- `title` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `initialFetch` — `<STRING>`; —; Yes; `FIRST_ROWSET`; `<enum:[autoCurrentValue:"Automatic with Current Value", onUserRequest:"On User Request", auto:"Automatic"]>`; maxLength=4000; —;
-- `popupWidth` — `<NUMBER>`; —; No; —; —; —; —;
-- `fetchOnSearch` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `manualEntry` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `popupHeight` — `<NUMBER>`; —; No; —; —; —; —;
-- `additionalOutputs` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `displayAs` — `<STRING>`; —; Yes; `POPUP`; `<enum:[inlinePopup:"Inline Popup", modalDialog:"Modal Dialog"]>`; maxLength=4000; —;
-
 ### search
 
-- `matchType` — `<STRING>`; —; Yes; `CONTAINS`; `<enum:[contains:"Contains", startsWith:"Starts With"]>`; maxLength=4000; —;
 - `minChars` — `<INTEGER>`; —; Yes; `0`; —; —; —;
 - `caseSensitive` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
+- `matchType` — `<STRING>`; —; Yes; `CONTAINS`; `<enum:[startsWith:"Starts With", contains:"Contains"]>`; maxLength=4000; —;
+
+### settings
+
+- `initialFetch` — `<STRING>`; —; Yes; `FIRST_ROWSET`; `<enum:[autoCurrentValue:"Automatic with Current Value", onUserRequest:"On User Request", auto:"Automatic"]>`; maxLength=4000; —;
+- `title` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `popupHeight` — `<NUMBER>`; —; No; —; —; —; —;
+- `manualEntry` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
+- `fetchOnSearch` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
+- `displayAs` — `<STRING>`; —; Yes; `POPUP`; `<enum:[modalDialog:"Modal Dialog", inlinePopup:"Inline Popup"]>`; maxLength=4000; —;
+- `popupWidth` — `<NUMBER>`; —; No; —; —; —; —;
+- `additionalOutputs` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 
 ### label
 
@@ -138,7 +138,7 @@
 - `preference` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[source.type] = preference`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[sql:"SQL", plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = expression`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = functionBody`;
-- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample` and `pageItem[source.formRegion] = sample`;
+- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample`;
 - `sqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = sql`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = plsql`;
 - `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = javaScript-mle`;
@@ -192,7 +192,7 @@
 
 - `type` — `<STRING>`; —; Yes; `SEPARATED`; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; —;
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `pageItem[settings.pageActionOnSelection] = none`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[settings.pageActionOnSelection] = none` and `pageItem[multipleValues.type] = delimitedList`;
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList`;
 
 ### lov
 
@@ -231,10 +231,10 @@
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
+- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
 
 ### cascadingLov
 

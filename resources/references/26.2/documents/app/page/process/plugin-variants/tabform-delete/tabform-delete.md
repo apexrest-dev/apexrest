@@ -69,11 +69,11 @@
 
 ### target
 
-- `secondaryKeyColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
-- `pkColumn` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
-- `tableName` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
 - `runtimeWhereClause` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `tableName` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
+- `pkColumn` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
 - `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; —;
+- `secondaryKeyColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
 
 ### source
 

@@ -66,8 +66,8 @@
 
 - `checkbox` — `<@checkbox>`; —; No; —; —; lovType=COMPONENT; —;
 - `type` — `<STRING>`; —; Yes; `NOT_NULL`; `<enum:[=:"equal to", !=:"not equal to", inList:"in list", notInList:"not in list", isNull:"is null", isNotNull:"is not null"]>`; —; `checkbox[dependingOn.checkbox] = sample`;
-- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `checkbox[dependingOn.checkbox] = sample` and `checkbox[dependingOn.type] = =` or `checkbox[dependingOn.checkbox] = sample` and `checkbox[dependingOn.type] = !=`;
-- `list` — `<STRING>`; —; Yes; —; —; maxLength=4000; `checkbox[dependingOn.checkbox] = sample` and `checkbox[dependingOn.type] = inList` or `checkbox[dependingOn.checkbox] = sample` and `checkbox[dependingOn.type] = notInList`;
+- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `checkbox[dependingOn.checkbox] = sample` and (`checkbox[dependingOn.type] = =` or `checkbox[dependingOn.type] = !=`);
+- `list` — `<STRING>`; —; Yes; —; —; maxLength=4000; `checkbox[dependingOn.checkbox] = sample` and (`checkbox[dependingOn.type] = inList` or `checkbox[dependingOn.type] = notInList`);
 
 ### label
 

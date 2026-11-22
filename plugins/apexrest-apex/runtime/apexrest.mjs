@@ -2,12 +2,12 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   dispatch
-} from "./chunk-KHATXXNW.mjs";
+} from "./chunk-OJAVVKIJ.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-MEQQJNXO.mjs";
+} from "./chunk-AGSRMSNQ.mjs";
 import "./chunk-RXHSNCBH.mjs";
 import "./chunk-WSKQSGQR.mjs";
 import "./chunk-6FAGLVAZ.mjs";
@@ -18,11 +18,11 @@ import {
 import {
   setPreviewOwner
 } from "./chunk-XUHVNFPS.mjs";
-import "./chunk-ZGFNLKQD.mjs";
-import "./chunk-2UWMCWCO.mjs";
+import "./chunk-XHCNHFXO.mjs";
+import "./chunk-KXTR2S6L.mjs";
 import "./chunk-7AO4HJGA.mjs";
-import "./chunk-7IHEE3DI.mjs";
-import "./chunk-JOEBWJ2Z.mjs";
+import "./chunk-3YC5F6CU.mjs";
+import "./chunk-2MXW6F55.mjs";
 import "./chunk-FIBD7CLZ.mjs";
 import "./chunk-MPKKOQVI.mjs";
 import "./chunk-IIUPXDVT.mjs";
@@ -312,7 +312,7 @@ try {
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-SOTZAD43.mjs");
+    const { startMcp } = await import("./chunk-VDVDE2ON.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

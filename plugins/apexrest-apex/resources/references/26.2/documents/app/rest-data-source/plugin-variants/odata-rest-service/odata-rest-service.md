@@ -63,13 +63,13 @@
 
 ### settings
 
-- `supportedOdataFilters` — `<STRING>`; —; No; —; `<enum:[endsWith:"Ends With", startsWith:"Starts With", in:"In", contains:"Contains"]>`; maxLength=4000; —;
-- `paramDefaultValues` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `returnTotalResultCount` — `<STRING>`; —; Yes; `count_none`; `<enum:[inlineInResponseAllpages:"Inline in Response ("allpages")", notSupported:"Not Supported", inlineInResponse:"Inline in Response", separateHttpRequest:"Separate HTTP Request"]>`; maxLength=4000; —;
-- `resourcePath` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 - `sendQueryOptions` — `<STRING>`; —; Yes; `N`; `<enum:[appendToUrl:"Append to URL", passAsRequestBody:"Pass as Request Body"]>`; maxLength=4000; —;
-- `supportedOdataOptions` — `<STRING>`; —; No; —; `<enum:[rowSearch:"Row Search", returnSortedResults:"Return Sorted Results", resultsPagination:"Results Pagination", supportsEtag:"Supports ETag", returnOnlySpecificCols:" Return only Specific Columns"]>`; maxLength=4000; —;
-- `caseInsensitiveFiltering` — `<STRING>`; —; Yes; `none`; `<enum:[notSupported:"Not Supported", basedOnUpperCase:"Based on Upper Case", basedOnLowerCase:"Based on Lower Case"]>`; maxLength=4000; —;
+- `resourcePath` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
+- `paramDefaultValues` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `returnTotalResultCount` — `<STRING>`; —; Yes; `count_none`; `<enum:[notSupported:"Not Supported", separateHttpRequest:"Separate HTTP Request", inlineInResponseAllpages:"Inline in Response ("allpages")", inlineInResponse:"Inline in Response"]>`; maxLength=4000; —;
+- `supportedOdataFilters` — `<STRING>`; —; No; —; `<enum:[endsWith:"Ends With", startsWith:"Starts With", contains:"Contains", in:"In"]>`; maxLength=4000; —;
+- `supportedOdataOptions` — `<STRING>`; —; No; —; `<enum:[resultsPagination:"Results Pagination", returnOnlySpecificCols:" Return only Specific Columns", returnSortedResults:"Return Sorted Results", supportsEtag:"Supports ETag", rowSearch:"Row Search"]>`; maxLength=4000; —;
+- `caseInsensitiveFiltering` — `<STRING>`; —; Yes; `none`; `<enum:[basedOnUpperCase:"Based on Upper Case", basedOnLowerCase:"Based on Lower Case", notSupported:"Not Supported"]>`; maxLength=4000; —;
 
 ### dataProfile
 

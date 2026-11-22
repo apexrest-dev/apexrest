@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   deploymentBinding,
   verifyDeploymentPredicates
-} from "./chunk-2UWMCWCO.mjs";
+} from "./chunk-KXTR2S6L.mjs";
 import {
   parseApexLang
 } from "./chunk-7AO4HJGA.mjs";
@@ -35,7 +35,7 @@ import {
   supportedFile,
   syncPath,
   withConnectedReads
-} from "./chunk-JOEBWJ2Z.mjs";
+} from "./chunk-2MXW6F55.mjs";
 import {
   sqlclTimings,
   withSqlclTimings

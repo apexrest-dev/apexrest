@@ -69,7 +69,7 @@
 
 ### resetPagination
 
-- `target` — `<STRING>`; —; Yes; `THIS_PAGE`; `<enum:[pages:"Page(s)", thisPage:"This Page", allPages:"All Pages"]>`; maxLength=4000; —;
+- `target` — `<STRING>`; —; Yes; `THIS_PAGE`; `<enum:[thisPage:"This Page", allPages:"All Pages", pages:"Page(s)"]>`; maxLength=4000; —;
 - `pages` — `<INTEGER>`; —; Yes; —; —; —; `process[resetPagination.target] = pages`;
 
 ### source

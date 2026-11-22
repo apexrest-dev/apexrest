@@ -67,21 +67,21 @@
 - `point` — `<STRING>`; —; Yes; `AFTER_SUBMIT`; `<enum:[newSession:"New Session", beforeHeader:"Before Header", afterHeader:"After Header", beforeRegions:"Before Regions", afterRegions:"After Regions", beforeFooter:"Before Footer", afterFooter:"After Footer", afterSubmit:"After Submit", processing:"Processing", ajaxCallback:"Ajax Callback"]>`; —; —;
 - `runProcess` — `<STRING>`; —; Yes; `N`; `<enum:[oncePerSessionOrWhenReset:"Once Per Session or When Reset", oncePerPageVisitDefault:"Once Per Page Visit (default)"]>`; —; —;
 
+### action
+
+- `type` — `<STRING>`; —; Yes; `APPROVE_TASK`; `<enum:[cancel:"Cancel", comment:"Comment", updateParam:"Update Parameter", excludeParticipant:"Exclude Participant", claim:"Claim", reject:"Reject", setDueDate:"Set Due Date", renew:"Renew", complete:"Complete", setPriority:"Set Priority", inviteParticipant:"Invite Participant", setOutcome:"Set Outcome", delegate:"Delegate", submitInfo:"Submit Information", removeParticipant:"Remove Participant", approve:"Approve", requestInfo:"Request Information", release:"Release"]>`; maxLength=4000; —;
+
 ### humanTask
 
 - `taskIdItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
-- `toUserItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = delegate` or `process[action.type] = inviteParticipant` or `process[action.type] = removeParticipant` or `process[action.type] = excludeParticipant`;
-- `paramItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = updateParam`;
-- `newValueItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = updateParam`;
 - `requestFromUserItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = requestInfo`;
 - `commentText` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[action.type] = comment` or `process[action.type] = requestInfo` or `process[action.type] = submitInfo`;
 - `priorityItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = setPriority`;
-- `dueDateItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = setDueDate`;
+- `newValueItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = updateParam`;
 - `outcomeItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = setOutcome`;
-
-### action
-
-- `type` — `<STRING>`; —; Yes; `APPROVE_TASK`; `<enum:[approve:"Approve", comment:"Comment", delegate:"Delegate", removeParticipant:"Remove Participant", setOutcome:"Set Outcome", updateParam:"Update Parameter", release:"Release", renew:"Renew", requestInfo:"Request Information", setDueDate:"Set Due Date", reject:"Reject", claim:"Claim", inviteParticipant:"Invite Participant", cancel:"Cancel", setPriority:"Set Priority", submitInfo:"Submit Information", complete:"Complete", excludeParticipant:"Exclude Participant"]>`; maxLength=4000; —;
+- `toUserItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = delegate` or `process[action.type] = inviteParticipant` or `process[action.type] = removeParticipant` or `process[action.type] = excludeParticipant`;
+- `dueDateItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = setDueDate`;
+- `paramItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = updateParam`;
 
 ### source
 
@@ -101,7 +101,7 @@
 
 ### renew
 
-- `renewedDueDateItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = renew`;
-- `renewedTaskIdItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = renew`;
 - `renewedPriorityItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = renew`;
+- `renewedTaskIdItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = renew`;
+- `renewedDueDateItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = renew`;
 

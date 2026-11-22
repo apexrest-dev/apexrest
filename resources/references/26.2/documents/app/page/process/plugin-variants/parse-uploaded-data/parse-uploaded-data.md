@@ -67,26 +67,26 @@
 - `point` — `<STRING>`; —; Yes; `AFTER_SUBMIT`; `<enum:[newSession:"New Session", beforeHeader:"Before Header", afterHeader:"After Header", beforeRegions:"Before Regions", afterRegions:"After Regions", beforeFooter:"Before Footer", afterFooter:"After Footer", afterSubmit:"After Submit", processing:"Processing", ajaxCallback:"Ajax Callback"]>`; —; —;
 - `runProcess` — `<STRING>`; —; Yes; `N`; `<enum:[oncePerSessionOrWhenReset:"Once Per Session or When Reset", oncePerPageVisitDefault:"Once Per Page Visit (default)"]>`; —; —;
 
-### dataLoading
-
-- `dataLoadDefinition` — `<@legacyDataLoadDefinition>`; —; Yes; —; —; lovType=COMPONENT; —;
-
 ### parsingOptions
 
-- `separatorItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
-- `groupSeparatorItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `firstRowItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
 - `enclosedByItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
 - `decimalCharItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
-- `firstRowItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `separatorItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `groupSeparatorItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
 - `currencySymbolItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
 
 ### sourceData
 
-- `importFromItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
-- `dateFormatItem` — `<STRING>`; —; No; `Y`; —; maxLength=4000, textCase=UPPER; —;
-- `charSetItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `copyAndPasteItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
 - `fileNameItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `copyAndPasteItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `dateFormatItem` — `<STRING>`; —; No; `Y`; —; maxLength=4000, textCase=UPPER; —;
+- `importFromItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `charSetItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+
+### dataLoading
+
+- `dataLoadDefinition` — `<@legacyDataLoadDefinition>`; —; Yes; —; —; lovType=COMPONENT; —;
 
 ### source
 

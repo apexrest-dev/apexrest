@@ -85,23 +85,23 @@
 
 ### settings
 
+- `triggerGeocoding` — `<STRING>`; —; Yes; `AUTOMATIC`; `<enum:[automatic:"Automatic", dynamicAction:"Dynamic Action", jquerySelector:"jQuery Selector"]>`; maxLength=4000; —;
 - `structuredAddress` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `triggerGeocoding` — `<STRING>`; —; Yes; `AUTOMATIC`; `<enum:[dynamicAction:"Dynamic Action", jquerySelector:"jQuery Selector", automatic:"Automatic"]>`; maxLength=4000; —;
-- `sanitizeAddress` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `pageItem[settings.structuredAddress] = Y`;
 - `selector` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[settings.triggerGeocoding] = jquerySelector`;
+- `sanitizeAddress` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `pageItem[settings.structuredAddress] = Y`;
 
 ### geocodingInput
 
-- `countryType` — `<STRING>`; —; Yes; `STATIC`; `<enum:[item:"Item", static:"Static"]>`; maxLength=4000; —;
-- `postalCodeItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = Y`;
+- `countryType` — `<STRING>`; —; Yes; `STATIC`; `<enum:[static:"Static", item:"Item"]>`; maxLength=4000; —;
 - `cityItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = Y`;
-- `country` — `<STRING>`; —; Yes; `US`; `<enum:[no:"Norway", au:"Australia", ca:"Canada", uk:"United Kingdom", us:"United States", es:"Spain", fi:"Finland", ae:"United Arab Emirates", br:"Brazil", hk:"Hong Kong", de:"Germany", ru:"Russian Federation", cz:"Czech Republic", ee:"Estonia", ie:"Ireland", mx:"Mexico", in:"India", sa:"Saudi Arabia", dk:"Denmark", nl:"Netherlands", pt:"Portugal", ro:"Romania", co:"Colombia", cl:"Chile", be:"Belgium", lv:"Latvia", it:"Italy ", at:"Austria", za:"South Africa", pl:"Poland", fr:"France", hu:"Hungary", ch:"Switzerland"]>`; maxLength=4000; `pageItem[geocodingInput.countryType] = static`;
-- `regionItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = Y`;
-- `country` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `pageItem[geocodingInput.countryType] = item`;
-- `citySubAreaItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = Y`;
 - `houseNoItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = Y`;
-- `addressItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = N`;
 - `streetItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = Y`;
+- `citySubAreaItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = Y`;
+- `postalCodeItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = Y`;
+- `addressItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = N`;
+- `country` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `pageItem[geocodingInput.countryType] = item`;
+- `country` — `<STRING>`; —; Yes; `US`; `<enum:[ru:"Russian Federation", ae:"United Arab Emirates", be:"Belgium", in:"India", br:"Brazil", sa:"Saudi Arabia", ch:"Switzerland", dk:"Denmark", fi:"Finland", uk:"United Kingdom", de:"Germany", us:"United States", pt:"Portugal", cl:"Chile", it:"Italy ", za:"South Africa", ro:"Romania", ie:"Ireland", pl:"Poland", hk:"Hong Kong", au:"Australia", ca:"Canada", nl:"Netherlands", hu:"Hungary", ee:"Estonia", at:"Austria", fr:"France", lv:"Latvia", es:"Spain", no:"Norway", cz:"Czech Republic", mx:"Mexico", co:"Colombia"]>`; maxLength=4000; `pageItem[geocodingInput.countryType] = static`;
+- `regionItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.structuredAddress] = Y`;
 
 ### geocodingResult
 
@@ -145,7 +145,7 @@
 - `preference` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[source.type] = preference`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[sql:"SQL", plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = expression`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = functionBody`;
-- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample` and `pageItem[source.formRegion] = sample`;
+- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample`;
 - `sqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = sql`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = plsql`;
 - `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = javaScript-mle`;
@@ -199,7 +199,7 @@
 
 - `type` — `<STRING>`; —; Yes; `SEPARATED`; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; —;
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `pageItem[settings.pageActionOnSelection] = none`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[settings.pageActionOnSelection] = none` and `pageItem[multipleValues.type] = delimitedList`;
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList`;
 
 ### lov
 
@@ -238,10 +238,10 @@
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
+- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
 
 ### cascadingLov
 

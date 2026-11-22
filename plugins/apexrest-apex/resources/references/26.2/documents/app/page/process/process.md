@@ -79,7 +79,7 @@
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `process[genAI.enabled] = Y` or `process[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `process[genAI.enabled] = Y` or `process[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `process[genAI.enabled] = Y` or `process[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `process[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `process[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `process[genAI.enabled] = Y`;
 

@@ -69,9 +69,9 @@
 
 ### processingResult
 
-- `reviewCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 - `insertCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 - `updateCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+- `reviewCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 - `errorCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 
 ### dataLoading

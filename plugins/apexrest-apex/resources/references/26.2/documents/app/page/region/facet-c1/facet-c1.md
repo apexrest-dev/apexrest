@@ -71,7 +71,7 @@
 - `displayFilterInitially` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facet[lov.type] = sample`;
 - `showSelectedFirst` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facet[lov.type] = sample`;
 - `maxDisplayedEntries` — `<INTEGER>`; —; No; —; —; —; `facet[lov.type] = sample`;
-- `sortByTopCounts` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `facet[listEntries.computeCounts] = Y` and `facet[listEntries.showCounts] = Y` and `facet[identification.type] = checkboxGroup` or `facet[listEntries.computeCounts] = Y` and `facet[listEntries.showCounts] = Y` and `facet[identification.type] = radioGroup`;
+- `sortByTopCounts` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `facet[listEntries.computeCounts] = Y` and `facet[listEntries.showCounts] = Y` and (`facet[identification.type] = checkboxGroup` or `facet[identification.type] = radioGroup`);
 
 ### source
 
@@ -83,8 +83,8 @@
 
 - `facet` — `<@facet>`; —; No; —; —; lovType=COMPONENT; —;
 - `type` — `<STRING>`; —; Yes; `NOT_NULL`; `<enum:[=:"equal to", !=:"not equal to", inList:"in list", notInList:"not in list", isNull:"is null", isNotNull:"is not null"]>`; —; `facet[dependingOn.facet] = sample`;
-- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `facet[dependingOn.facet] = sample` and `facet[dependingOn.type] = =` or `facet[dependingOn.facet] = sample` and `facet[dependingOn.type] = !=`;
-- `list` — `<STRING>`; —; Yes; —; —; maxLength=4000; `facet[dependingOn.facet] = sample` and `facet[dependingOn.type] = inList` or `facet[dependingOn.facet] = sample` and `facet[dependingOn.type] = notInList`;
+- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `facet[dependingOn.facet] = sample` and (`facet[dependingOn.type] = =` or `facet[dependingOn.type] = !=`);
+- `list` — `<STRING>`; —; Yes; —; —; maxLength=4000; `facet[dependingOn.facet] = sample` and (`facet[dependingOn.type] = inList` or `facet[dependingOn.type] = notInList`);
 
 ### appearance
 
@@ -96,9 +96,9 @@
 ### multipleValues
 
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `facet[identification.type] = checkboxGroup` or `facet[identification.type] = radioGroup` or `facet[identification.type] = selectList`;
-- `trimWhitespace` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facet[identification.type] = checkboxGroup` and `facet[multipleValues.type] = delimitedList` or `facet[identification.type] = radioGroup` and `facet[multipleValues.type] = delimitedList` or `facet[identification.type] = selectList` and `facet[multipleValues.type] = delimitedList`;
-- `filterCombination` — `<STRING>`; —; Yes; `OR`; `<enum:[or:"OR (Union)", and:"AND (Intersect)"]>`; —; `facet[identification.type] = checkboxGroup` and `facet[multipleValues.type] = sample` or `facet[identification.type] = radioGroup` and `facet[multipleValues.type] = sample` or `facet[identification.type] = selectList` and `facet[multipleValues.type] = sample`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `facet[identification.type] = checkboxGroup` and `facet[multipleValues.type] = delimitedList` or `facet[identification.type] = radioGroup` and `facet[multipleValues.type] = delimitedList` or `facet[identification.type] = selectList` and `facet[multipleValues.type] = delimitedList`;
+- `trimWhitespace` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facet[multipleValues.type] = delimitedList` and (`facet[identification.type] = checkboxGroup` or `facet[identification.type] = radioGroup` or `facet[identification.type] = selectList`);
+- `filterCombination` — `<STRING>`; —; Yes; `OR`; `<enum:[or:"OR (Union)", and:"AND (Intersect)"]>`; —; `facet[multipleValues.type] = sample` and (`facet[identification.type] = checkboxGroup` or `facet[identification.type] = radioGroup` or `facet[identification.type] = selectList`);
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `facet[multipleValues.type] = delimitedList` and (`facet[identification.type] = checkboxGroup` or `facet[identification.type] = radioGroup` or `facet[identification.type] = selectList`);
 
 ### label
 

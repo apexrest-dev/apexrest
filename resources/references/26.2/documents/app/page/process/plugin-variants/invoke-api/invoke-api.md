@@ -69,12 +69,12 @@
 
 ### invoke
 
-- `type` — `<STRING>`; —; Yes; `PLSQL_PACKAGE`; `<enum:[plsqlPackage:"PL/SQL Package", restSource:"REST Source", plsqlProcedureOrFunction:"PL/SQL Procedure or Function"]>`; maxLength=4000; —;
+- `type` — `<STRING>`; —; Yes; `PLSQL_PACKAGE`; `<enum:[plsqlProcedureOrFunction:"PL/SQL Procedure or Function", plsqlPackage:"PL/SQL Package", restSource:"REST Source"]>`; maxLength=4000; —;
 - `restSource` — `<@restDataSource>`; —; Yes; —; —; lovType=COMPONENT; `process[invoke.type] = restSource`;
-- `package` — `<STRING>`; —; Yes; —; —; maxLength=128; `process[invoke.type] = plsqlPackage`;
 - `procedureOrFunction` — `<STRING>`; —; Yes; —; —; maxLength=128; `process[invoke.type] = plsqlPackage` or `process[invoke.type] = plsqlProcedureOrFunction`;
 - `owner` — `<STRING>`; —; No; —; —; maxLength=128; `process[invoke.type] = plsqlPackage` or `process[invoke.type] = plsqlProcedureOrFunction`;
 - `operation` — `<@operation>`; —; Yes; —; —; lovType=COMPONENT; `process[invoke.type] = restSource`;
+- `package` — `<STRING>`; —; Yes; —; —; maxLength=128; `process[invoke.type] = plsqlPackage`;
 
 ### source
 

@@ -69,8 +69,8 @@
 
 ### settings
 
-- `webServiceReference` — `<NUMBER>`; —; Yes; —; —; —; —;
 - `storeResultIn` — `<STRING>`; —; Yes; `ITEMS`; `<enum:[items:"Item(s)", collection:"Collection"]>`; maxLength=4000; —;
+- `webServiceReference` — `<NUMBER>`; —; Yes; —; —; —; —;
 - `collectionName` — `<STRING>`; —; Yes; —; —; maxLength=255, textCase=UPPER; `process[settings.storeResultIn] = collection`;
 
 ### source

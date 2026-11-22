@@ -1885,9 +1885,10 @@ function parseContract(text, segments) {
       group = line.includes("(direct group)") ? "" : heading[1];
       continue;
     }
-    const property = /^- `([A-Za-z][\w]*)` — .*; (—|`.*`);\s*$/u.exec(line);
+    const property = /^- `([A-Za-z][\w]*)` — .*; (—|[`(].*[`)]);\s*$/u.exec(line);
     if (!property) continue;
-    const condition = property[2] === "\u2014" ? void 0 : property[2].replace(/`/gu, "").replace(/\b[A-Za-z]+\[([^\]]+)\]/gu, "$1").split(" or ").map((clause) => [...new Set(clause.split(" and "))].join(" and ")).filter((clause, i, all) => all.indexOf(clause) === i).join(" or ").slice(0, 240);
+    const conditionText = property[2] === "\u2014" ? void 0 : property[2].replace(/`/gu, "").replace(/\b[A-Za-z]+\[([^\]]+)\]/gu, "$1");
+    const condition = conditionText ? (conditionText.includes("(") ? conditionText : conditionText.split(" or ").map((clause) => [...new Set(clause.split(" and "))].join(" and ")).filter((clause, i, all) => all.indexOf(clause) === i).join(" or ")).slice(0, 240) : void 0;
     const type = / — `(<[^`]+>)`/u.exec(line)?.[1];
     const required = /`; [^;]*; (Yes|No); /u.exec(line)?.[1];
     const enumeration = /`<enum:\[(.*?)\]>`/u.exec(line)?.[1];

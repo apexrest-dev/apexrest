@@ -29,6 +29,6 @@
 
 ### settings
 
-- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 - `preferenceName` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
+- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 

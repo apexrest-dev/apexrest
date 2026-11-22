@@ -70,9 +70,9 @@
 ### workflow
 
 - `workflowIdItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `initiatorItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `definition` — `<@workflow>`; —; Yes; —; —; lovType=COMPONENT; —;
 - `detailsPkItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+- `definition` — `<@workflow>`; —; Yes; —; —; lovType=COMPONENT; —;
+- `initiatorItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 
 ### processing
 

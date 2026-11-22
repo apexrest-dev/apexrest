@@ -54,9 +54,9 @@
 ### behavior
 
 - `type` — `<STRING>`; —; Yes; `REDIRECT_PAGE`; `<enum:[redirectThisApp:"Redirect to Page in this Application", redirectOtherApp:"Redirect to Page in a different Application", redirectUrl:"Redirect to URL", triggerAction:"Trigger Action"]>`; —; —;
-- `linkAttributes` — `<STRING>`; —; No; —; —; maxLength=4000; `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectUrl`;
-- `target` — `<COMPLEX>`; —; Yes; —; —; —; `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectOtherApp`;
-- `targetUrl` — `<STRING>`; —; Yes; —; —; maxLength=4000; `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectUrl` or `action[behavior.type] = redirectUrl`;
+- `linkAttributes` — `<STRING>`; —; No; —; —; maxLength=4000; `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectOtherApp` or `action[behavior.type] = redirectUrl`;
+- `target` — `<COMPLEX>`; —; Yes; —; —; —; `action[behavior.type] = redirectThisApp` or `action[behavior.type] = redirectOtherApp`;
+- `targetUrl` — `<STRING>`; —; Yes; —; —; maxLength=4000; `action[behavior.type] = redirectUrl`;
 
 ### appearance
 
@@ -64,5 +64,5 @@
 - `hot` — `<BOOLEAN>`; Specify whether to use the Normal or Hot button when rendering this button.; Yes; `N`; —; —; —;
 - `showAsDisabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
 - `cssClasses` — `<STRING>`; Enter classes to add to this action. You may add multiple classes by separating them with spaces.; No; —; —; maxLength=255; —;
-- `icon` — `<STRING>`; —; Yes; —; —; maxLength=255; `action[appearance.displayType] = icon` or `action[appearance.displayType] = textWithIcon` or `action[appearance.displayType] = icon` or `action[appearance.displayType] = textWithIcon`;
+- `icon` — `<STRING>`; —; Yes; —; —; maxLength=255; `action[appearance.displayType] = icon` or `action[appearance.displayType] = textWithIcon`;
 

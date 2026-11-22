@@ -4,6 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { unzipSync } from 'fflate';
+import { archiveNames, skillsLayout } from './lib/oracle-skills-layout.mjs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 const option = (name) =>
@@ -21,7 +22,12 @@ const root = path.join(resources, 'references/26.2');
 const snapshot = JSON.parse(await readFile(path.join(root, 'oracle-snapshot.json'), 'utf8'));
 const bytes = await readFile(archive);
 assert.equal(sha256(bytes), snapshot.archiveSha256, 'archive provenance');
-const prefix = `skills-${snapshot.commit}/apex/apexlang/26.2/apexlang-inventory/assets/`;
+// The official layout moved from apex/apexlang/26.2/… to apex/apexlang-26-2-…/ in November 2026.
+const prefix = skillsLayout(
+  archiveNames(unzipSync, bytes),
+  `skills-${snapshot.commit}/`,
+  '26.2',
+).inventoryAssets;
 const upstream = unzipSync(bytes, { filter: ({ name }) => name.startsWith(prefix) && name.endsWith('.md') });
 const indexBytes = await readFile(path.join(root, 'index.json'));
 assert.equal(sha256(indexBytes), snapshot.indexSha256, 'index provenance');

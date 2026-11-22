@@ -69,16 +69,16 @@
 
 ### target
 
-- `currentRowCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `prevPkItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
-- `secondaryNavigationOrderColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
-- `runtimeWhereClause` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `pkItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
-- `nextPkItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
-- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; —;
 - `pkColumn` — `<STRING>`; —; Yes; `ROWID`; —; maxLength=128; —;
+- `pkItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `currentRowCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+- `secondaryNavigationOrderColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
+- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; —;
 - `navigationOrderColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
+- `nextPkItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
 - `tableName` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
+- `runtimeWhereClause` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `prevPkItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
 - `secondaryKeyColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
 - `nextSecondaryKeyItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[target.secondaryKeyColumn] = sample`;
 - `prevSecondaryKeyItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[target.secondaryKeyColumn] = sample`;

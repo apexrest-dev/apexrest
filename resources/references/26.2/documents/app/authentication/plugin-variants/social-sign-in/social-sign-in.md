@@ -63,18 +63,18 @@
 
 ### settings
 
-- `scope` — `<STRING>`; —; Yes; `profile`; —; maxLength=4000; —;
-- `username` — `<STRING>`; —; Yes; `#sub# (#APEX_AUTH_NAME#)`; —; maxLength=4000; —;
-- `additionalUserAttrs` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `authUriParams` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `authProvider` — `<STRING>`; —; Yes; `OPENID_CONNECT`; `<enum:[facebook:"Facebook", openidConnect:"OpenID Connect Provider", google:"Google", genericOauth2Provider:"Generic OAuth2 Provider"]>`; maxLength=4000; —;
-- `verifyAttrs` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `credentialStore` — `<@webCredential>`; —; Yes; —; —; lovType=COMPONENT; —;
 - `mapAdditionalUserAttrsTo` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `authUriParams` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `convertUsernameToUpperCase` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `tokenAuthMethod` — `<STRING>`; —; No; —; `<enum:[clientIdClientSecretInBody:"Client ID and Client Secret in Body", basic:"Basic Authentication", clientIdInBody:"Client ID in Body", basicClientIdInBody:"Basic Authentication and Client ID in Body"]>`; maxLength=4000; `authentication[settings.authProvider] = openidConnect` or `authentication[settings.authProvider] = genericOauth2Provider`;
-- `discoveryUrl` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.authProvider] = openidConnect`;
+- `scope` — `<STRING>`; —; Yes; `profile`; —; maxLength=4000; —;
+- `authProvider` — `<STRING>`; —; Yes; `OPENID_CONNECT`; `<enum:[facebook:"Facebook", genericOauth2Provider:"Generic OAuth2 Provider", openidConnect:"OpenID Connect Provider", google:"Google"]>`; maxLength=4000; —;
+- `verifyAttrs` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
+- `username` — `<STRING>`; —; Yes; `#sub# (#APEX_AUTH_NAME#)`; —; maxLength=4000; —;
+- `credentialStore` — `<@webCredential>`; —; Yes; —; —; lovType=COMPONENT; —;
+- `additionalUserAttrs` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `tokenAuthMethod` — `<STRING>`; —; No; —; `<enum:[basic:"Basic Authentication", clientIdClientSecretInBody:"Client ID and Client Secret in Body", basicClientIdInBody:"Basic Authentication and Client ID in Body", clientIdInBody:"Client ID in Body"]>`; maxLength=4000; `authentication[settings.authProvider] = openidConnect` or `authentication[settings.authProvider] = genericOauth2Provider`;
+- `authorizationEndpointUrl` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.authProvider] = genericOauth2Provider`;
 - `tokenEndpointUrl` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.authProvider] = genericOauth2Provider`;
 - `userInfoEndpointUrl` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.authProvider] = genericOauth2Provider`;
-- `authorizationEndpointUrl` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.authProvider] = genericOauth2Provider`;
+- `discoveryUrl` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.authProvider] = openidConnect`;
 

@@ -58,23 +58,23 @@
 
 ### settings
 
-- `displayAvatar` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `userName` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
 - `date` — `<STRING>`; —; No; —; —; maxLength=128; —;
 - `commentText` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
-- `attributes` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `userName` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
+- `displayAvatar` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
 - `commentClass` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `attributes` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `format` — `<STRING>`; —; Yes; `MARKDOWN`; `<enum:[html:"HTML", markdown:"Markdown"]>`; —; —;
 
 ### plugin-avatar
 
 - `description` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `shape` — `<STRING>`; —; Yes; `t-Avatar--rounded`; `<enum:[noShape:"No Shape", square:"Square", circular:"Circular", rounded:"Rounded"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
 - `cssClasses` — `<STRING>`; —; No; —; —; maxLength=4000; `column[settings.displayAvatar] = Y`;
-- `type` — `<STRING>`; —; Yes; `icon`; `<enum:[image:"Image", icon:"Icon", initials:"Initials"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
-- `image` — `<COMPLEX>`; —; Yes; —; —; —; `column[settings.displayAvatar] = Y` and `column[plugin-avatar.type] = image`;
-- `icon` — `<STRING>`; —; Yes; `fa-user`; —; maxLength=4000; `column[settings.displayAvatar] = Y` and `column[plugin-avatar.type] = icon`;
+- `type` — `<STRING>`; —; Yes; `icon`; `<enum:[icon:"Icon", image:"Image", initials:"Initials"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
+- `shape` — `<STRING>`; —; Yes; `t-Avatar--rounded`; `<enum:[square:"Square", noShape:"No Shape", rounded:"Rounded", circular:"Circular"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
 - `initials` — `<STRING>`; —; Yes; —; —; maxLength=128; `column[settings.displayAvatar] = Y` and `column[plugin-avatar.type] = initials`;
+- `icon` — `<STRING>`; —; Yes; `fa-user`; —; maxLength=4000; `column[settings.displayAvatar] = Y` and `column[plugin-avatar.type] = icon`;
+- `image` — `<COMPLEX>`; —; Yes; —; —; —; `column[settings.displayAvatar] = Y` and `column[plugin-avatar.type] = image`;
 
 ### appearance
 
@@ -133,7 +133,7 @@
 - `type` — `<STRING>`; —; Yes; `D`; `<enum:[none:"None", defaultBasedOnColumnType:"Default Based on Column Type", definedLovExactMatch:"Use Defined List of Values to Filter Exact Match", definedLovWordContains:"Use Defined List of Values to Filter Word Contains", namedLovExactMatch:"Use Named List of Values to Filter Exact Match", namedLovWordContains:"Use Named List of Values to Filter Word Contains"]>`; —; —;
 - `type` — `<STRING>`; —; Yes; `1`; `<enum:[none:"None", defaultBasedOnColumnType:"Default Based on Column Type", definedLovExactMatch:"Use Defined List of Values to Filter Exact Match", definedLovWordContains:"Use Defined List of Values to Filter Word Contains", namedLovExactMatch:"Use Named List of Values to Filter Exact Match", namedLovWordContains:"Use Named List of Values to Filter Word Contains"]>`; —; —;
 - `dateRanges` — `<STRING>`; —; Yes; `ALL`; `<enum:[all:"All", past:"Past", future:"Future"]>`; —; `column[source.dataType] = date` and `column[columnFilter.type] = defaultBasedOnColumnType`;
-- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains` or `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains`;
+- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains`;
 - `namedLov` — `<@lov>`; —; Yes; —; —; lovType=COMPONENT; `column[columnFilter.type] = namedLovExactMatch` or `column[columnFilter.type] = namedLovWordContains`;
 
 ### columnFormatting

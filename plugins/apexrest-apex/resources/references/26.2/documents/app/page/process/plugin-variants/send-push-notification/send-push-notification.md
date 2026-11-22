@@ -69,10 +69,10 @@
 
 ### settings
 
-- `linkTarget` — `<COMPLEX>`; —; No; —; —; —; —;
-- `to` — `<STRING>`; —; Yes; —; —; maxLength=255; —;
 - `body` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `title` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
+- `to` — `<STRING>`; —; Yes; —; —; maxLength=255; —;
+- `linkTarget` — `<COMPLEX>`; —; No; —; —; —; —;
 
 ### source
 

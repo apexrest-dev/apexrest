@@ -174,7 +174,7 @@ test('example values list what a sample shows once: allowed values, chosen by th
     )`,
     'oracle:26.2:inventory/app/page/page-item/plugin-variants/text-field/text-field',
   ))!;
-  assert.equal(text['settings.trimSpaces'], 'leadingAndTrailing | leading | trailing | none');
+  assert.equal(text['settings.trimSpaces'], 'leading | leadingAndTrailing | none | trailing');
   const button = (await exampleValues(
     `    button create (
         buttonName: CREATE

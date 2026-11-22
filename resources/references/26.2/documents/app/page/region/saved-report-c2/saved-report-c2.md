@@ -41,12 +41,12 @@
 
 ### axisTitle
 
-- `label` — `<STRING>`; —; No; —; —; maxLength=255; `savedReport[view.chart] = Y` and `savedReport[view.chart] = Y`;
-- `value` — `<STRING>`; —; No; —; —; maxLength=255; `savedReport[view.chart] = Y` and `savedReport[view.chart] = Y`;
+- `label` — `<STRING>`; —; No; —; —; maxLength=255; `savedReport[view.chart] = Y`;
+- `value` — `<STRING>`; —; No; —; —; maxLength=255; `savedReport[view.chart] = Y`;
 
 ### chartAppearance
 
-- `orientation` — `<STRING>`; —; Yes; `vertical`; `<enum:[vertical:"Vertical", horizontal:"Horizontal"]>`; —; `savedReport[view.chart] = Y` and `savedReport[view.chart] = Y`;
+- `orientation` — `<STRING>`; —; Yes; `vertical`; `<enum:[vertical:"Vertical", horizontal:"Horizontal"]>`; —; `savedReport[view.chart] = Y`;
 
 ### flashback
 

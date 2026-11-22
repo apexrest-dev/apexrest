@@ -58,13 +58,13 @@
 
 ### settings
 
-- `itemCssClasses` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `title` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `displayBadge` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `miscellaneous` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `description` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `overline` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `itemCssClasses` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `displayBadge` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
 - `displayAvatar` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
+- `title` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `miscellaneous` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `format` — `<STRING>`; —; Yes; `MARKDOWN`; `<enum:[html:"HTML", markdown:"Markdown"]>`; —; —;
 
 ### appearance
@@ -124,7 +124,7 @@
 - `type` — `<STRING>`; —; Yes; `D`; `<enum:[none:"None", defaultBasedOnColumnType:"Default Based on Column Type", definedLovExactMatch:"Use Defined List of Values to Filter Exact Match", definedLovWordContains:"Use Defined List of Values to Filter Word Contains", namedLovExactMatch:"Use Named List of Values to Filter Exact Match", namedLovWordContains:"Use Named List of Values to Filter Word Contains"]>`; —; —;
 - `type` — `<STRING>`; —; Yes; `1`; `<enum:[none:"None", defaultBasedOnColumnType:"Default Based on Column Type", definedLovExactMatch:"Use Defined List of Values to Filter Exact Match", definedLovWordContains:"Use Defined List of Values to Filter Word Contains", namedLovExactMatch:"Use Named List of Values to Filter Exact Match", namedLovWordContains:"Use Named List of Values to Filter Word Contains"]>`; —; —;
 - `dateRanges` — `<STRING>`; —; Yes; `ALL`; `<enum:[all:"All", past:"Past", future:"Future"]>`; —; `column[source.dataType] = date` and `column[columnFilter.type] = defaultBasedOnColumnType`;
-- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains` or `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains`;
+- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains`;
 - `namedLov` — `<@lov>`; —; Yes; —; —; lovType=COMPONENT; `column[columnFilter.type] = namedLovExactMatch` or `column[columnFilter.type] = namedLovWordContains`;
 
 ### columnFormatting
@@ -167,26 +167,26 @@
 
 ### plugin-avatar
 
-- `type` — `<STRING>`; —; Yes; `icon`; `<enum:[icon:"Icon", image:"Image", initials:"Initials"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
-- `size` — `<STRING>`; —; No; —; `<enum:[extraExtraLarge:"Extra Extra Large", small:"Small", extraLarge:"Extra Large", extraSmall:"Extra Small", extraExtraSmall:"Extra Extra Small", large:"Large", medium:"Medium"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
-- `cssClasses` — `<STRING>`; —; No; —; —; maxLength=4000; `column[settings.displayAvatar] = Y`;
-- `shape` — `<STRING>`; —; Yes; `t-Avatar--rounded`; `<enum:[square:"Square", rounded:"Rounded", noShape:"No Shape", circular:"Circular"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
 - `description` — `<STRING>`; —; No; —; —; maxLength=4000; `column[settings.displayAvatar] = Y`;
-- `image` — `<COMPLEX>`; —; Yes; —; —; —; `column[settings.displayAvatar] = Y` and `column[plugin-avatar.type] = image`;
+- `cssClasses` — `<STRING>`; —; No; —; —; maxLength=4000; `column[settings.displayAvatar] = Y`;
+- `type` — `<STRING>`; —; Yes; `icon`; `<enum:[initials:"Initials", image:"Image", icon:"Icon"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
+- `size` — `<STRING>`; —; No; —; `<enum:[extraExtraLarge:"Extra Extra Large", small:"Small", medium:"Medium", extraExtraSmall:"Extra Extra Small", large:"Large", extraLarge:"Extra Large", extraSmall:"Extra Small"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
+- `shape` — `<STRING>`; —; Yes; `t-Avatar--rounded`; `<enum:[noShape:"No Shape", rounded:"Rounded", circular:"Circular", square:"Square"]>`; maxLength=4000; `column[settings.displayAvatar] = Y`;
 - `icon` — `<STRING>`; —; Yes; `fa-user`; —; maxLength=4000; `column[settings.displayAvatar] = Y` and `column[plugin-avatar.type] = icon`;
+- `image` — `<COMPLEX>`; —; Yes; —; —; —; `column[settings.displayAvatar] = Y` and `column[plugin-avatar.type] = image`;
 - `initials` — `<STRING>`; —; Yes; —; —; maxLength=128; `column[settings.displayAvatar] = Y` and `column[plugin-avatar.type] = initials`;
 
 ### plugin-badge
 
-- `displayLabel` — `<BOOLEAN>`; —; Yes; `N`; —; —; `column[settings.displayBadge] = Y`;
-- `state` — `<STRING>`; —; No; —; —; maxLength=128; `column[settings.displayBadge] = Y`;
 - `label` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[settings.displayBadge] = Y`;
-- `style` — `<STRING>`; —; No; —; `<enum:[subtle:"Subtle", outline:"Outline"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
-- `columnWidth` — `<STRING>`; —; Yes; `t-ContentRow-badge--md`; `<enum:[auto:"Auto", large:"Large", small:"Small", medium:"Medium"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
 - `position` — `<STRING>`; —; No; —; `<enum:[end:"End"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
-- `icon` — `<STRING>`; —; No; —; —; maxLength=4000; `column[settings.displayBadge] = Y`;
+- `size` — `<STRING>`; —; No; —; `<enum:[medium:"Medium", large:"Large", small:"Small"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
+- `state` — `<STRING>`; —; No; —; —; maxLength=128; `column[settings.displayBadge] = Y`;
+- `shape` — `<STRING>`; —; No; —; `<enum:[rounded:"Rounded", circular:"Circular", square:"Square", noShape:"No Shape"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
+- `style` — `<STRING>`; —; No; —; `<enum:[subtle:"Subtle", outline:"Outline"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
+- `columnWidth` — `<STRING>`; —; Yes; `t-ContentRow-badge--md`; `<enum:[large:"Large", medium:"Medium", auto:"Auto", small:"Small"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
 - `alignment` — `<STRING>`; —; No; —; `<enum:[center:"Center", end:"End"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
-- `size` — `<STRING>`; —; No; —; `<enum:[large:"Large", small:"Small", medium:"Medium"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
+- `icon` — `<STRING>`; —; No; —; —; maxLength=4000; `column[settings.displayBadge] = Y`;
 - `value` — `<STRING>`; —; Yes; —; —; maxLength=128; `column[settings.displayBadge] = Y`;
-- `shape` — `<STRING>`; —; No; —; `<enum:[square:"Square", rounded:"Rounded", noShape:"No Shape", circular:"Circular"]>`; maxLength=4000; `column[settings.displayBadge] = Y`;
+- `displayLabel` — `<BOOLEAN>`; —; Yes; `N`; —; —; `column[settings.displayBadge] = Y`;
 

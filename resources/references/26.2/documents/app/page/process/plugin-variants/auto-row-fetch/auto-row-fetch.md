@@ -69,13 +69,13 @@
 
 ### source
 
-- `pkColumn` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
-- `rowVersionColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
-- `tableName` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
-- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; —;
-- `runtimeWhereClause` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `fetchMode` — `<STRING>`; —; No; —; `<enum:[setMemoryCacheOnDisplay:"Set Memory Cache on Display [Deprecated]"]>`; maxLength=4000; —;
 - `pkItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `pkColumn` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
+- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; —;
+- `fetchMode` — `<STRING>`; —; No; —; `<enum:[setMemoryCacheOnDisplay:"Set Memory Cache on Display [Deprecated]"]>`; maxLength=4000; —;
+- `tableName` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
+- `rowVersionColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
+- `runtimeWhereClause` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `location` — `<STRING>`; —; Yes; `LOCAL`; `<enum:[localDatabase:"Local Database", restEnabledSql:"REST Enabled SQL"]>`; —; —;
 - `secondaryKeyColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
 - `remoteServer` — `<@restEnabledSqlDatabase>`; —; Yes; —; —; lovType=COMPONENT; `process[source.location] = restEnabledSql`;

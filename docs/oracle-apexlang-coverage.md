@@ -3,32 +3,37 @@
 APEXREST includes every official APEX 26.2 inventory definition, with byte-exact paginated retrieval. This page records which Oracle sources are pinned, what was measured and what the inventory does not prove. It is for maintainers and for anyone who needs to judge a coverage claim.
 
 - This establishes source-library completeness against an explicit upstream directory, not universal Oracle APEX platform support or deployed application qualification.
-- Checked on 5 November 2026 against the official sources below.
+- Checked on 22 November 2026 against the official sources below.
 - To look up a definition, go to [Read the inventory](#read-the-inventory).
 
 ## Source and version matrix
 
-| Layer                                       | Exact source/version                                                                            | Current coverage and meaning                                                                                                                                                 |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Oracle skills repository HEAD               | `0779f030fdee393ee418a3a76f6a4b09bf1408db`, 2 November 2026 15:54:09 UTC                        | Latest inspected repository commit; bundled 26.2 inventory/examples/license, all 659 bundled 26.1 source files and all 13 APEX skill entrypoints remain unchanged            |
-| Latest commit touching `apex/apexlang/26.2` | `03ee10d02273bc4002fd527089e7fbb5884f94c4`, 6 October 2026 13:55:39 UTC                         | Version routers and updated paths; this remains the reviewed 26.2 pin                                                                                                        |
-| Bundled Oracle 26.2 inventory               | Same `03ee10d…`; ZIP SHA-256 `5e65f9734c3e4c00054ed91e2e14c795be09d17aaa96ddb43f25f4e6d4d3a343` | 389/389 definition documents, 130 distinct declaration keywords, 32,187 document/group/property occurrences                                                                  |
-| Bundled Oracle 26.1 grammar/examples        | `b94ccf4dec34b27859c2378fa71ba2bad884f2fe`, 22 September 2026 00:21:44 UTC                      | 659 source files remain byte-identical after Oracle moved them under `26.1/apexlang-generation`; 5,530 reference records: 658 complete documents and 4,872 grammar fragments |
-| Local component UX catalog                  | `26.1@4a1e7d0265bb`, Universal Theme 26.1 Reference/APEX 26.1.4                                 | 617 records; 270 recipes, 269 compiler-ready; independent 26.1 evidence                                                                                                      |
-| Local pattern UX catalog                    | `26.1@d92b2cf4623f`                                                                             | 406 records; 58 patterns and 84 recipes, 69 compiler-ready; 15 unresolved recipes and nine unresolved patterns                                                               |
-| Installed offline compiler inspected        | SQLcl `26.3.0.260.1620`, actual MMD `26.2.0+3479`                                               | Oracle compiler validation of the six local 26.2 recipes passed; no database, import or browser execution                                                                    |
+| Layer                                | Exact source/version                                                                            | Current coverage and meaning                                                                                                                                         |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Oracle skills repository HEAD        | `a1b574010841e9141dfeaa210d97c0f2cad5bf8d`, 18 November 2026 13:14:12 UTC                       | Latest inspected commit (“APEXlang skill Nov 2026”, PR #141); flat skill layout; this is the reviewed 26.2 pin                                                       |
+| Bundled Oracle 26.2 inventory        | Same `a1b5740…`; ZIP SHA-256 `c8f869c5f0c30136fc7a998a6de7beeea81ec86dd2827f45c3115a247ca73de3` | 389/389 definition documents, 130 distinct declaration keywords, 32,187 document/group/property occurrences                                                          |
+| Bundled Oracle 26.1 grammar/examples | `b94ccf4dec34b27859c2378fa71ba2bad884f2fe`, 22 September 2026 00:21:44 UTC                      | Pinned; Oracle no longer publishes the 26.1 generation skill (removed in November 2026); 5,530 reference records: 658 complete documents and 4,872 grammar fragments |
+| Local component UX catalog           | `26.1@4a1e7d0265bb`, Universal Theme 26.1 Reference/APEX 26.1.4                                 | 617 records; 270 recipes, 269 compiler-ready; independent 26.1 evidence                                                                                              |
+| Local pattern UX catalog             | `26.1@d92b2cf4623f`                                                                             | 406 records; 58 patterns and 84 recipes, 69 compiler-ready; 15 unresolved recipes and nine unresolved patterns                                                       |
+| Installed offline compiler inspected | SQLcl `26.3.0.260.1620`, actual MMD `26.2.0+3479`                                               | Oracle compiler validation of the six local 26.2 recipes passed; no database, import or browser execution                                                            |
 
 ### Provenance
 
-Primary provenance: [pinned revision](https://github.com/oracle/skills/commit/03ee10d02273bc4002fd527089e7fbb5884f94c4), [inspected HEAD](https://github.com/oracle/skills/commit/0779f030fdee393ee418a3a76f6a4b09bf1408db), [official 26.2 tree](https://github.com/oracle/skills/tree/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/26.2), [26.1 source pin](https://github.com/oracle/skills/commit/b94ccf4dec34b27859c2378fa71ba2bad884f2fe). Oracle publishes this material as repository commits; a date or Git commit is not an Oracle semantic release number.
+Primary provenance: [pinned revision](https://github.com/oracle/skills/commit/a1b574010841e9141dfeaa210d97c0f2cad5bf8d), [official 26.2 inventory](https://github.com/oracle/skills/tree/a1b574010841e9141dfeaa210d97c0f2cad5bf8d/apex/apexlang-26-2-inventory), [26.1 source pin](https://github.com/oracle/skills/commit/b94ccf4dec34b27859c2378fa71ba2bad884f2fe). Oracle publishes this material as repository commits; a date or Git commit is not an Oracle semantic release number.
 
 ### Official skills review
 
-- The current [official version router](https://github.com/oracle/skills/blob/03ee10d02273bc4002fd527089e7fbb5884f94c4/apex/apexlang/SKILL.md) lists compile, deploy, inventory and example-application skills for both 26.1 and 26.2; the generation skill is listed only for 26.1.
-- The 5 November review compared all 13 APEX skill entrypoints against the reviewed archive: no additions, removals or instruction changes.
-- No newer APEXlang commit or release directory was found, so the upstream source pins remain unchanged.
-- The [maintainer skill map](../plugins/apexrest-apex/skills/apexrest-oracle-sync/references/oracle-skills.md) routes these official skills through APEXREST's validation and authorized deployment flow.
-- Inventory checks and instruction checks remain separate.
+On 18 November 2026 Oracle reorganized the skills (PR #141):
+
+- **Layout.** Skills moved from `apex/apexlang/<version>/…` to flat names under `apex/`: `apexlang-26-2-inventory`, `apexlang-26-2-example-applications`, the shared `apexlang-compile` and `apexlang-deploy`, and the [router](https://github.com/oracle/skills/blob/a1b574010841e9141dfeaa210d97c0f2cad5bf8d/apex/apexlang-router/SKILL.md). The maintainer scripts read both layouts.
+- **Router.** It defaults to 26.2 when the release cannot be determined, and it refuses to substitute another release's skills.
+- **26.1 generation.** The skill is no longer published; the bundled 26.1 corpus stays pinned.
+- **26.2 inventory.** 234 of 389 documents changed:
+  - property conditions are deduplicated and grouped, which shrinks the inventory from 16.9 MB to 7.3 MB;
+  - 113 documents also add or reorder properties, for example the Show AI Assistant `useResponse` group and Alert and Confirm display options.
+- **Examples and catalog.** Two 26.2 example files and the inventory catalog changed. No document was added or removed, and the license is unchanged.
+
+The [maintainer skill map](../plugins/apexrest-apex/skills/apexrest-oracle-sync/references/oracle-skills.md) routes these official skills through APEXREST's validation and authorized deployment flow. Inventory checks and instruction checks remain separate.
 
 ### Release upgrades
 
@@ -40,21 +45,18 @@ The project skills now route release upgrades to `oracle:26.2:guide/upgrade-audi
 4. Review deletions and metadata.
 5. Isolate structural changes from feature edits.
 
-### Checks on 5 November 2026
+### Checks on 22 November 2026
 
-- All six skills pass frontmatter validation.
-- Repository 2.5.0 MCP retrieval passed all 389 definitions and 2,269 paginated reads; the refreshed guide matches its maintained source through the packaged MCP.
-- Seventeen focused reference unit tests, six relevant contract tests and all 30 packaging tests passed; packaging used a private temporary npm cache.
-- Private source comparisons and verification outputs are under ignored `docs/evidence/oracle-upstream-20261105/`.
+- The upstream check found the new pin and no unbundled release.
+- The build reproduced the previous pin byte for byte before the update, then imported the new one; `--check` passes.
+- Packaged MCP retrieval passed all 389 definitions and 1,106 paginated reads, with ordinary discovery queries and an empty unrelated query.
+- Repository unit, contract and packaging tests passed.
 
-Not checked:
-
-- Connected Oracle, recipe compilation, application/browser execution and fresh native-host loading were not rerun.
-- None of these 5 November checks were rerun on source version 2.6.0.
+Not checked: connected Oracle, recipe compilation, application/browser execution and fresh native-host loading.
 
 ## Complete inventory denominator
 
-The denominator is every Markdown definition under `apex/apexlang/26.2/apexlang-inventory/assets/` at the pinned revision. The separate upstream inventory `SKILL.md` is retained as a reference catalog for syntax, application layout and containment; it is vendor data, not executable host policy.
+The denominator is every Markdown definition under `apex/apexlang-26-2-inventory/assets/` at the pinned revision. The separate upstream inventory `SKILL.md` is retained as a reference catalog for syntax, application layout and containment; it is vendor data, not executable host policy.
 
 ### What the inventory holds
 
@@ -64,8 +66,8 @@ The denominator is every Markdown definition under `apex/apexlang/26.2/apexlang-
 
 ### Storage and search integrity
 
-- The source contains 16,935,821 inventory bytes.
-- The largest definition, `app/page/region/series/series.md`, is 2,565,435 bytes; it exceeds the former inline entry limit.
+- The source contains 7,311,610 inventory bytes.
+- The largest definition, `app/page/region/region.md`, is 144,109 bytes; definitions of this size exceed the former inline entry limit.
 - Definitions are therefore stored as individual files, checksum-verified when read and paginated through the actual `apexrest_reference` operation.
 - The compact search index is only a routing summary and does not replace a contract.
 - Search postings cover full document text and their own SHA-256 is bound in the snapshot.

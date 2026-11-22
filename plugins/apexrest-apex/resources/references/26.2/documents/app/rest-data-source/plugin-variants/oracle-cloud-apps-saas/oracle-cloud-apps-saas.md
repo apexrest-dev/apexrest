@@ -63,9 +63,9 @@
 
 ### settings
 
-- `useTotalResults` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
 - `usePagination` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
 - `rootResourceName` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `useTotalResults` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
 - `useBatchDml` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
 
 ### dataProfile

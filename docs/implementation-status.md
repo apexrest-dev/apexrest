@@ -2,6 +2,17 @@
 
 The current source and bundled plugin version is **2.9.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
+## Oracle skills refresh (2026-11-22)
+
+On 18 November 2026 Oracle reorganized `oracle/skills` (commit `a1b5740`, PR #141): flat skill names such as `apex/apexlang-26-2-inventory`, a shared compile/deploy pair and a new router. The 26.1 generation skill was removed upstream.
+
+- **Scripts.** The maintainer scripts now read both the versioned and the flat layout (`scripts/lib/oracle-skills-layout.mjs`). Before the update, the build reproduced the old pin byte for byte.
+- **26.2 inventory, re-pinned to `a1b5740`.** It still has 389 documents, 130 keywords and 32,187 property occurrences. 234 documents changed: their conditions are deduplicated and grouped (16.9 MB to 7.3 MB), and 113 add or reorder properties.
+- **Checks.** `--check` and the packaged MCP coverage check passed (389 definitions, 1,106 paginated reads).
+- **Docs.** The Oracle skill map and the coverage page describe the new layout and the router's rules.
+- **Unchanged.** The bundled 26.1 corpus stays on its pin.
+- **Component catalog.** It remains Universal Theme 26.1. Oracle publishes a 26.2 Universal Theme Reference app in APEXlang (`oracle/apex` branch `26.2`, `fbe095e4`), but a 26.2 catalog is not built yet.
+
 ## Fast-development verification and handoff (2026-11-22, local)
 
 This covers [APE-397](https://linear.app/apexrest/issue/APE-397), [APE-398](https://linear.app/apexrest/issue/APE-398) and [APE-399](https://linear.app/apexrest/issue/APE-399), checked on commit `93940a80` plus the changes below.

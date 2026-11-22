@@ -2,7 +2,7 @@
 
 - componentType: `triggerAction`
 - identifierRequired: true
-- appliesWhen: `action[behavior.type] = triggerAction` or `action[behavior.type] = triggerAction` or `action[behavior.type] = triggerAction`
+- appliesWhen: `action[behavior.type] = triggerAction`
 
 ## Properties
 
@@ -64,18 +64,18 @@
 ### affectedElements
 
 - `selectionType` — `<STRING>`; —; No; —; `<enum:[items:"Item(s)", button:"Button", region:"Region", columns:"Column(s)", domObject:"DOM Object", jquerySelector:"jQuery Selector", javaScriptExpression:"JavaScript Expression", triggeringElement:"Triggering Element", eventSource:"Event Source"]>`; —; —;
-- `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `triggerAction[affectedElements.selectionType] = javaScriptExpression` or `triggerAction[affectedElements.selectionType] = javaScriptExpression` or `triggerAction[affectedElements.selectionType] = javaScriptExpression` or `triggerAction[affectedElements.selectionType] = javaScriptExpression` or `triggerAction[affectedElements.selectionType] = javaScriptExpression` or `triggerAction[affectedElements.selectionType] = javaScriptExpression` or `triggerAction[affectedElements.selectionType] = javaScriptExpression`;
-- `region` — `<@region>`; —; Yes; —; —; lovType=COMPONENT; `triggerAction[affectedElements.selectionType] = region` or `triggerAction[affectedElements.selectionType] = region` or `triggerAction[affectedElements.selectionType] = region` or `triggerAction[affectedElements.selectionType] = region` or `triggerAction[affectedElements.selectionType] = region` or `triggerAction[affectedElements.selectionType] = region` or `triggerAction[affectedElements.selectionType] = region`;
-- `button` — `<@button>`; —; Yes; —; —; lovType=COMPONENT; `triggerAction[affectedElements.selectionType] = button` or `triggerAction[affectedElements.selectionType] = button` or `triggerAction[affectedElements.selectionType] = button` or `triggerAction[affectedElements.selectionType] = button` or `triggerAction[affectedElements.selectionType] = button` or `triggerAction[affectedElements.selectionType] = button` or `triggerAction[affectedElements.selectionType] = button`;
-- `items` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `triggerAction[affectedElements.selectionType] = items` or `triggerAction[affectedElements.selectionType] = items` or `triggerAction[affectedElements.selectionType] = items` or `triggerAction[affectedElements.selectionType] = items` or `triggerAction[affectedElements.selectionType] = items` or `triggerAction[affectedElements.selectionType] = items` or `triggerAction[affectedElements.selectionType] = items`;
-- `jquerySelector` — `<STRING>`; —; Yes; —; —; maxLength=4000; `triggerAction[affectedElements.selectionType] = jquerySelector` or `triggerAction[affectedElements.selectionType] = jquerySelector` or `triggerAction[affectedElements.selectionType] = jquerySelector` or `triggerAction[affectedElements.selectionType] = jquerySelector` or `triggerAction[affectedElements.selectionType] = jquerySelector` or `triggerAction[affectedElements.selectionType] = jquerySelector` or `triggerAction[affectedElements.selectionType] = jquerySelector`;
+- `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `triggerAction[affectedElements.selectionType] = javaScriptExpression`;
+- `region` — `<@region>`; —; Yes; —; —; lovType=COMPONENT; `triggerAction[affectedElements.selectionType] = region`;
+- `button` — `<@button>`; —; Yes; —; —; lovType=COMPONENT; `triggerAction[affectedElements.selectionType] = button`;
+- `items` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `triggerAction[affectedElements.selectionType] = items`;
+- `jquerySelector` — `<STRING>`; —; Yes; —; —; maxLength=4000; `triggerAction[affectedElements.selectionType] = jquerySelector`;
 
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `triggerAction[genAI.enabled] = Y` or `triggerAction[genAI.enabled] = Y`;
-- `itemsToSubmit` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `triggerAction[genAI.enabled] = Y` or `triggerAction[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `triggerAction[genAI.enabled] = Y` or `triggerAction[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `triggerAction[genAI.enabled] = Y` or `triggerAction[genAI.enabled] = Y`;
-- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `triggerAction[genAI.enabled] = Y` or `triggerAction[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `triggerAction[genAI.enabled] = Y`;
+- `itemsToSubmit` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `triggerAction[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `triggerAction[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `triggerAction[genAI.enabled] = Y`;
+- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `triggerAction[genAI.enabled] = Y`;
 

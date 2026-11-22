@@ -70,12 +70,12 @@
 ### backgroundExecution
 
 - `runInBackground` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `tempFileHandling` — `<STRING>`; —; Yes; `IGNORE`; `<enum:[ignore:"Ignore", copy:"Copy", move:"Move"]>`; maxLength=4000; `process[backgroundExecution.runInBackground] = Y`;
+- `submitImmediately` — `<BOOLEAN>`; —; Yes; `N`; —; —; `process[backgroundExecution.runInBackground] = Y`;
+- `tempFileHandling` — `<STRING>`; —; Yes; `IGNORE`; `<enum:[move:"Move", copy:"Copy", ignore:"Ignore"]>`; maxLength=4000; `process[backgroundExecution.runInBackground] = Y`;
+- `executionsLimit` — `<NUMBER>`; —; No; —; —; —; `process[backgroundExecution.runInBackground] = Y`;
 - `returnIdIntoItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[backgroundExecution.runInBackground] = Y`;
 - `contextValueItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[backgroundExecution.runInBackground] = Y`;
-- `submitImmediately` — `<BOOLEAN>`; —; Yes; `N`; —; —; `process[backgroundExecution.runInBackground] = Y`;
-- `executionsLimit` — `<NUMBER>`; —; No; —; —; —; `process[backgroundExecution.runInBackground] = Y`;
-- `tempFileItems` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[backgroundExecution.runInBackground] = Y` and `process[backgroundExecution.tempFileHandling] = move` or `process[backgroundExecution.runInBackground] = Y` and `process[backgroundExecution.tempFileHandling] = copy`;
+- `tempFileItems` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[backgroundExecution.runInBackground] = Y` and (`process[backgroundExecution.tempFileHandling] = move` or `process[backgroundExecution.tempFileHandling] = copy`);
 
 ### source
 

@@ -69,7 +69,7 @@
 
 ### action
 
-- `type` — `<STRING>`; —; Yes; `START`; `<enum:[start:"Start", retry:"Retry", resume:"Resume", suspend:"Suspend", terminate:"Terminate"]>`; maxLength=4000; —;
+- `type` — `<STRING>`; —; Yes; `START`; `<enum:[start:"Start", resume:"Resume", retry:"Retry", terminate:"Terminate", suspend:"Suspend"]>`; maxLength=4000; —;
 
 ### source
 
@@ -87,14 +87,14 @@
 - `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `process[genAI.enabled] = Y`;
 - `systemPrompt` — `<STRING>`; —; No; —; —; —; `process[genAI.enabled] = Y`;
 
-### workflow
-
-- `activityStaticIdItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = resume`;
-- `definition` — `<@workflow>`; —; No; —; —; lovType=COMPONENT; `process[action.type] = start`;
-- `detailsPkItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = start`;
-
 ### workflowInstance
 
 - `returnWorkflowIdItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = start`;
 - `workflowIdItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+
+### workflow
+
+- `definition` — `<@workflow>`; —; No; —; —; lovType=COMPONENT; `process[action.type] = start`;
+- `activityStaticIdItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = resume`;
+- `detailsPkItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[action.type] = start`;
 

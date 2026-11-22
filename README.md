@@ -16,12 +16,13 @@ APEXREST gives that agent what it needs to do the work well. One plugin installs
 
 ## What you can do with it
 
-| Step      | What happens                                                                                                      | Read more                                                                   |
-| --------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| **Write** | The agent reads Oracle definitions and compiler-checked recipes offline before it writes APEXlang.                | [Component library](docs/features.md#component-library-read-before-writing) |
-| **See**   | Pages render locally with the genuine Universal Theme, without a database or against your own.                    | [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/)     |
-| **Check** | The official Oracle compiler validates the sources and reports file, line, column and valid values.               | [Testing](https://apexrest-dev.github.io/apexrest/testing/)                 |
-| **Ship**  | Only the changed pages and components are imported into a DEV, QA or TEST application, after a plan and a backup. | [Deployment safety](https://apexrest-dev.github.io/apexrest/deployment/)    |
+| Step       | What happens                                                                                                      | Read more                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Write**  | The agent reads Oracle definitions and compiler-checked recipes offline before it writes APEXlang.                | [Component library](docs/features.md#component-library-read-before-writing)               |
+| **See**    | Pages render locally with the genuine Universal Theme, without a database or against your own.                    | [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/)                   |
+| **Review** | In the preview, you click a component and say what to change; the agent applies it to the exact source.           | [Review comments](https://apexrest-dev.github.io/apexrest/local-preview/#review-comments) |
+| **Check**  | The official Oracle compiler validates the sources and reports file, line, column and valid values.               | [Testing](https://apexrest-dev.github.io/apexrest/testing/)                               |
+| **Ship**   | Only the changed pages and components are imported into a DEV, QA or TEST application, after a plan and a backup. | [Deployment safety](https://apexrest-dev.github.io/apexrest/deployment/)                  |
 
 ![APEXREST connects an agent request to APEXlang source, a verified deployment plan, Oracle APEX and runtime checks.](docs/assets/overview.svg)
 
@@ -34,6 +35,12 @@ You ask for a change, such as "add an order status report". The agent writes the
 - **Component library.** 389 pinned Oracle 26.2 definitions, 269 compiler-checked component recipes, UX patterns and 1,350 public Oracle pages, searchable in English or Ukrainian.
 - **Decisions API selection.** Optional OpenAI ranking of catalog components before generation. A one-page pilot cut active time by 48%.
 - **Real compiler validation.** Structured diagnostics with file, line, column and valid values.
+
+**Reviewing and editing**
+
+- **Review mode.** In the local preview, press Alt+Shift+C, click a region, item, button or report column, and leave a comment for any agent, or edit its title, label, heading, format or sequence in place. Each comment carries the component's patch target and file digest.
+- **Semantic page edits.** `project context`, `project patch` and `project insert` change named properties, report SQL with its columns, or add regions, items and refreshes without rewriting the page file; a file that changed in the meantime is never overwritten.
+- **CRUD recipes.** `project scaffold` generates a report with a modal edit form, editable grids, master–detail pages and faceted search from one spec, with an explicit authorization, key and lost-update contract.
 
 **Seeing and running**
 
@@ -101,6 +108,8 @@ The repository ships the built plugin under `plugins/apexrest-apex`, so you need
 
 3. The agent edits the APEXlang sources, previews the pages, validates and ships. It then reports the changed files, the validation result, the import status and what it checked in the browser.
 
+4. To point at what should change, open the local preview, press **Alt+Shift+C**, click a component and write your comment. Then ask the agent to "apply the preview review comments".
+
 An explicit request to change an identified DEV/QA/TEST application authorizes that import. The [getting started guide](https://apexrest-dev.github.io/apexrest/getting-started/) covers connections, new and existing applications, and removal.
 
 ## Documentation
@@ -113,7 +122,7 @@ An explicit request to change an identified DEV/QA/TEST application authorizes t
 
 **Build applications**
 
-- [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/): run APEXlang without a database, or against your own.
+- [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/): run APEXlang without a database, or against your own, and [leave review comments](https://apexrest-dev.github.io/apexrest/local-preview/#review-comments) for the agent.
 - [Component catalog](https://apexrest-dev.github.io/apexrest/component-catalog/) and [pattern catalog](https://apexrest-dev.github.io/apexrest/pattern-catalog/): what the agent reads before it writes.
 - [Troubleshooting](https://apexrest-dev.github.io/apexrest/troubleshooting/): setup, compiler, authorization and recovery diagnostics.
 

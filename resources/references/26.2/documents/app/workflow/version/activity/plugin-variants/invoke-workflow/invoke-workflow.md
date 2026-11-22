@@ -24,17 +24,17 @@
 
 - `sequence` — `<NUMBER>`; —; Yes; —; —; —; —;
 
+### workflow
+
+- `initiatorItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+- `workflowIdItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+- `detailsPkItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+- `definition` — `<@workflow>`; —; Yes; —; —; lovType=COMPONENT; —;
+
 ### processing
 
 - `waitForCompletion` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
 - `retryPoint` — `<STRING>`; —; Yes; `RESUME`; `<enum:[startOver:"Start Over", resume:"Resume"]>`; maxLength=4000; `activity[processing.waitForCompletion] = Y`;
-
-### workflow
-
-- `workflowIdItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `detailsPkItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `definition` — `<@workflow>`; —; Yes; —; —; lovType=COMPONENT; —;
-- `initiatorItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 
 ### source
 

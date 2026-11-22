@@ -69,15 +69,15 @@
 
 ### target
 
-- `runtimeWhereClause` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `pkColumn` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
-- `returnKeyIntoItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; —;
-- `tableName` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
-- `supportedOperations` — `<STRING>`; —; Yes; `I:U:D`; `<enum:[delete:"Delete", insert:"Insert", update:"Update"]>`; maxLength=4000; —;
 - `pkItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
+- `tableName` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
 - `rowVersionColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
+- `supportedOperations` — `<STRING>`; —; Yes; `I:U:D`; `<enum:[delete:"Delete", update:"Update", insert:"Insert"]>`; maxLength=4000; —;
+- `returnKeyIntoItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 - `lockRow` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
+- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; —;
+- `pkColumn` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
+- `runtimeWhereClause` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `secondaryKeyColumn` — `<STRING>`; —; No; —; —; maxLength=128; —;
 - `secondaryKeyItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[target.secondaryKeyColumn] = sample`;
 - `returnSecondKeyIntoItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[target.secondaryKeyColumn] = sample`;

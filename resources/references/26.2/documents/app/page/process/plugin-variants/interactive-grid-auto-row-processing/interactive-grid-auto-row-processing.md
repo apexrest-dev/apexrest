@@ -75,11 +75,11 @@
 
 ### target
 
-- `targetType` — `<STRING>`; —; Yes; `REGION_SOURCE`; `<enum:[regionSource:"Region Source", tableView:"Table / View", plsqlCode:"PL/SQL Code"]>`; maxLength=4000; —;
-- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; `process[target.targetType] = tableView`;
+- `targetType` — `<STRING>`; —; Yes; `REGION_SOURCE`; `<enum:[tableView:"Table / View", plsqlCode:"PL/SQL Code", regionSource:"Region Source"]>`; maxLength=4000; —;
+- `dmlPlsqlCode` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[target.targetType] = plsqlCode`;
 - `tableName` — `<STRING>`; —; Yes; —; —; maxLength=128; `process[target.targetType] = tableView`;
 - `returnPksAfterInsert` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `process[target.targetType] = regionSource` or `process[target.targetType] = tableView`;
-- `dmlPlsqlCode` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[target.targetType] = plsqlCode`;
+- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; `process[target.targetType] = tableView`;
 
 ### source
 

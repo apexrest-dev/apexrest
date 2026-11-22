@@ -43,19 +43,24 @@ function parseContract(text: string, segments: string[]): Contract | undefined {
       group = line.includes('(direct group)') ? '' : heading[1]!;
       continue;
     }
-    const property = /^- `([A-Za-z][\w]*)` — .*; (—|`.*`);\s*$/u.exec(line);
+    // Since November 2026 Oracle groups conditions with parentheses: `a` and (`b` or `c`).
+    const property = /^- `([A-Za-z][\w]*)` — .*; (—|[`(].*[`)]);\s*$/u.exec(line);
     if (!property) continue;
-    const condition =
+    const conditionText =
       property[2] === '—'
         ? undefined
-        : property[2]!
-            .replace(/`/gu, '')
-            .replace(/\b[A-Za-z]+\[([^\]]+)\]/gu, '$1')
-            .split(' or ')
-            .map((clause) => [...new Set(clause.split(' and '))].join(' and '))
-            .filter((clause, i, all) => all.indexOf(clause) === i)
-            .join(' or ')
-            .slice(0, 240);
+        : property[2]!.replace(/`/gu, '').replace(/\b[A-Za-z]+\[([^\]]+)\]/gu, '$1');
+    // Older inventories repeat clauses in a flat or-of-ands; grouped ones are already minimal.
+    const condition = conditionText
+      ? (conditionText.includes('(')
+          ? conditionText
+          : conditionText
+              .split(' or ')
+              .map((clause) => [...new Set(clause.split(' and '))].join(' and '))
+              .filter((clause, i, all) => all.indexOf(clause) === i)
+              .join(' or ')
+        ).slice(0, 240)
+      : undefined;
     const type = / — `(<[^`]+>)`/u.exec(line)?.[1];
     const required = /`; [^;]*; (Yes|No); /u.exec(line)?.[1];
     const enumeration = /`<enum:\[(.*?)\]>`/u.exec(line)?.[1];

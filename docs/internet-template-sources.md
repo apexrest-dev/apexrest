@@ -126,8 +126,9 @@ The `oracle/apex` [26.2 branch](https://github.com/oracle/apex/tree/244dd3691fa5
 ## Official Oracle skills examples
 
 - Repository: [oracle/skills, pinned source](https://github.com/oracle/skills/tree/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/apex/apexlang), [UPL-1.0 license](https://github.com/oracle/skills/blob/014cdb29f12dfa6a689bbe8a80ee1c5f0bf15be1/LICENSE.txt).
-- Current source is organized under `apex/apexlang/26.1` and `apex/apexlang/26.2`.
-- Search-engine results referring to the former unversioned `apex/apexlang/templates` path can be stale.
+- The table links the pinned commit, which used the versioned `apex/apexlang/26.1` and `apex/apexlang/26.2` layout.
+- Since November 2026 ([a1b5740](https://github.com/oracle/skills/tree/a1b574010841e9141dfeaa210d97c0f2cad5bf8d/apex)) the examples are under flat names such as `apex/apexlang-26-2-example-applications/`. The 26.1 generation package is no longer published there, so its links point to the pinned commit.
+- Search-engine results referring to the former `apex/apexlang/templates` or `apex/apexlang/26.2/` paths can be stale.
 
 | Source                                                                                                                                                                                       | MMD version   | `.apx` files | Page files |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -----------: | ---------: |

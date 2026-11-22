@@ -13,11 +13,11 @@
   },
   "oracleSkills26_2": {
     "repository": "https://github.com/oracle/skills",
-    "commit": "03ee10d02273bc4002fd527089e7fbb5884f94c4",
+    "commit": "a1b574010841e9141dfeaa210d97c0f2cad5bf8d",
     "license": "UPL-1.0",
     "mode": "complete official versioned inventory and selected examples; no upstream executable or global skill sync",
-    "archiveSha256": "5e65f9734c3e4c00054ed91e2e14c795be09d17aaa96ddb43f25f4e6d4d3a343",
-    "indexSha256": "59787813b91d12a31f80f1e4bf66260d162050518db1048791ab31aa99e5aa46",
+    "archiveSha256": "c8f869c5f0c30136fc7a998a6de7beeea81ec86dd2827f45c3115a247ca73de3",
+    "indexSha256": "4baba31295e9f0cc59548aa1292cec40984a489a0146d35814ca1820835a5779",
     "snapshot": "references/26.2/oracle-snapshot.json"
   }
 }

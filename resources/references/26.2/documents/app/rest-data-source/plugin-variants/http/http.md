@@ -63,19 +63,19 @@
 
 ### settings
 
-- `paginationType` — `<STRING>`; —; No; —; `<enum:[pageSizeAndPageNo:"Page Size and Page Number", pageSizeAndPageToken:"Page Size and Page Token", pageSizeAndFetchOffset:"Page Size and Fetch Offset", pageNo:"Page Number"]>`; maxLength=4000; —;
+- `paginationType` — `<STRING>`; —; No; —; `<enum:[pageNo:"Page Number", pageSizeAndPageToken:"Page Size and Page Token", pageSizeAndPageNo:"Page Size and Page Number", pageSizeAndFetchOffset:"Page Size and Fetch Offset"]>`; maxLength=4000; —;
+- `pageNoUrlParam` — `<STRING>`; —; Yes; —; —; maxLength=255; `restDataSource[settings.paginationType] = pageSizeAndPageNo` or `restDataSource[settings.paginationType] = pageNo`;
 - `totalRowsSelector` — `<STRING>`; —; No; —; —; maxLength=255; `restDataSource[settings.paginationType] = sample`;
-- `fixedPageSize` — `<NUMBER>`; —; Yes; —; —; —; `restDataSource[settings.paginationType] = pageNo`;
-- `hasMoreRowsSelector` — `<STRING>`; —; No; —; —; maxLength=255; `restDataSource[settings.paginationType] = sample`;
+- `pageTokenUrlParam` — `<STRING>`; —; Yes; —; —; maxLength=4000; `restDataSource[settings.paginationType] = pageSizeAndPageToken`;
+- `nextPageTokenSelector` — `<STRING>`; —; Yes; —; —; maxLength=4000; `restDataSource[settings.paginationType] = pageSizeAndPageToken`;
+- `indexOfFirstPage` — `<STRING>`; —; Yes; `1`; `<enum:[0:"0", 1:"1"]>`; maxLength=4000; `restDataSource[settings.paginationType] = pageSizeAndPageNo` or `restDataSource[settings.paginationType] = pageNo`;
 - `pageSizeMax` — `<NUMBER>`; —; No; —; —; —; `restDataSource[settings.paginationType] = pageSizeAndPageNo` or `restDataSource[settings.paginationType] = pageSizeAndFetchOffset` or `restDataSource[settings.paginationType] = pageSizeAndPageToken`;
+- `rowOffsetType` — `<STRING>`; —; Yes; `OFFSET`; `<enum:[firstRowToFetch:"First Row to Fetch", rowsToSkip:"Rows to Skip"]>`; maxLength=4000; `restDataSource[settings.paginationType] = pageSizeAndFetchOffset`;
+- `fixedPageSize` — `<NUMBER>`; —; Yes; —; —; —; `restDataSource[settings.paginationType] = pageNo`;
 - `rowOffsetUrlParam` — `<STRING>`; —; Yes; —; —; maxLength=255; `restDataSource[settings.paginationType] = pageSizeAndFetchOffset`;
 - `pageSizeUrlParam` — `<STRING>`; —; No; —; —; maxLength=255; `restDataSource[settings.paginationType] = pageSizeAndFetchOffset` or `restDataSource[settings.paginationType] = pageSizeAndPageNo` or `restDataSource[settings.paginationType] = pageSizeAndPageToken`;
-- `rowOffsetType` — `<STRING>`; —; Yes; `OFFSET`; `<enum:[firstRowToFetch:"First Row to Fetch", rowsToSkip:"Rows to Skip"]>`; maxLength=4000; `restDataSource[settings.paginationType] = pageSizeAndFetchOffset`;
-- `pageTokenUrlParam` — `<STRING>`; —; Yes; —; —; maxLength=4000; `restDataSource[settings.paginationType] = pageSizeAndPageToken`;
-- `pageNoUrlParam` — `<STRING>`; —; Yes; —; —; maxLength=255; `restDataSource[settings.paginationType] = pageSizeAndPageNo` or `restDataSource[settings.paginationType] = pageNo`;
-- `indexOfFirstPage` — `<STRING>`; —; Yes; `1`; `<enum:[1:"1", 0:"0"]>`; maxLength=4000; `restDataSource[settings.paginationType] = pageSizeAndPageNo` or `restDataSource[settings.paginationType] = pageNo`;
-- `nextPageTokenSelector` — `<STRING>`; —; Yes; —; —; maxLength=4000; `restDataSource[settings.paginationType] = pageSizeAndPageToken`;
-- `hasMoreRowsWhenValue` — `<STRING>`; —; Yes; `EQUALS`; `<enum:[equals:"Equals", isNotNull:"Is Not Null"]>`; maxLength=4000; `restDataSource[settings.paginationType] = sample` and `restDataSource[settings.hasMoreRowsSelector] = sample`;
+- `hasMoreRowsSelector` — `<STRING>`; —; No; —; —; maxLength=255; `restDataSource[settings.paginationType] = sample`;
+- `hasMoreRowsWhenValue` — `<STRING>`; —; Yes; `EQUALS`; `<enum:[isNotNull:"Is Not Null", equals:"Equals"]>`; maxLength=4000; `restDataSource[settings.paginationType] = sample` and `restDataSource[settings.hasMoreRowsSelector] = sample`;
 - `hasMoreRowsAttrValue` — `<STRING>`; —; Yes; `true`; —; maxLength=255; `restDataSource[settings.paginationType] = sample` and `restDataSource[settings.hasMoreRowsSelector] = sample` and `restDataSource[settings.hasMoreRowsWhenValue] = equals`;
 
 ### dataProfile

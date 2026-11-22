@@ -19,8 +19,8 @@
 - `saveStateBeforeBranching` — `<BOOLEAN>`; —; Yes; `N`; —; —; `branch[behavior.type] = pageOrUrl`;
 - `request` — `<STRING>`; —; No; —; —; maxLength=128; `branch[behavior.type] = pageProcessing`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `branch[behavior.type] = functionReturningPage` or `branch[behavior.type] = functionReturningUrl`;
-- `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `branch[behavior.type] = functionReturningPage` and `branch[behavior.language] = plsql` or `branch[behavior.type] = functionReturningUrl` and `branch[behavior.language] = plsql`;
-- `javaScriptFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `branch[behavior.type] = functionReturningPage` and `branch[behavior.language] = javaScript-mle` or `branch[behavior.type] = functionReturningUrl` and `branch[behavior.language] = javaScript-mle`;
+- `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `branch[behavior.language] = plsql` and (`branch[behavior.type] = functionReturningPage` or `branch[behavior.type] = functionReturningUrl`);
+- `javaScriptFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `branch[behavior.language] = javaScript-mle` and (`branch[behavior.type] = functionReturningPage` or `branch[behavior.type] = functionReturningUrl`);
 
 ### execution
 

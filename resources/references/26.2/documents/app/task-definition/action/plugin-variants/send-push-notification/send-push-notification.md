@@ -58,8 +58,8 @@
 
 ### settings
 
-- `linkTarget` — `<COMPLEX>`; —; No; —; —; —; —;
 - `body` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `linkTarget` — `<COMPLEX>`; —; No; —; —; —; —;
 - `title` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 - `to` — `<STRING>`; —; Yes; —; —; maxLength=255; —;
 

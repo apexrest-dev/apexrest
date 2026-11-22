@@ -74,15 +74,15 @@
 - `taskIdItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 - `detailsPkItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 
-### overrides
-
-- `initiatorCanComplete` — `<STRING>`; —; No; —; `<enum:[true:"Yes", false:"No"]>`; maxLength=4000; —;
-- `priority` — `<NUMBER>`; —; No; —; —; —; —;
-- `subject` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-
 ### settings
 
 - `initiatorItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+
+### overrides
+
+- `priority` — `<NUMBER>`; —; No; —; —; —; —;
+- `subject` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `initiatorCanComplete` — `<STRING>`; —; No; —; `<enum:[false:"No", true:"Yes"]>`; maxLength=4000; —;
 
 ### source
 

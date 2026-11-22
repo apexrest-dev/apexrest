@@ -85,12 +85,12 @@
 
 ### settings
 
-- `allowCustomHtml` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `minHeight` — `<NUMBER>`; —; No; `180`; —; —; —;
 - `maxHeight` — `<NUMBER>`; —; No; —; —; —; —;
+- `minHeight` — `<NUMBER>`; —; No; `180`; —; —; —;
 - `format` — `<STRING>`; —; Yes; `MARKDOWN`; `<enum:[markdown:"Markdown", html:"HTML"]>`; maxLength=4000; —;
-- `toolbar` — `<STRING>`; —; Yes; `INTERMEDIATE`; `<enum:[full:"Full", intermediate:"Intermediate", basic:"Basic"]>`; maxLength=4000; `pageItem[settings.format] = html`;
-- `toolbarStyle` — `<STRING>`; —; Yes; `OVERFLOW`; `<enum:[multiline:"Multiline", overflowMenu:"Overflow Menu"]>`; maxLength=4000; `pageItem[settings.format] = html` and `pageItem[settings.toolbar] = intermediate` or `pageItem[settings.format] = html` and `pageItem[settings.toolbar] = full`;
+- `allowCustomHtml` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
+- `toolbar` — `<STRING>`; —; Yes; `INTERMEDIATE`; `<enum:[full:"Full", basic:"Basic", intermediate:"Intermediate"]>`; maxLength=4000; `pageItem[settings.format] = html`;
+- `toolbarStyle` — `<STRING>`; —; Yes; `OVERFLOW`; `<enum:[overflowMenu:"Overflow Menu", multiline:"Multiline"]>`; maxLength=4000; `pageItem[settings.format] = html` and (`pageItem[settings.toolbar] = intermediate` or `pageItem[settings.toolbar] = full`);
 
 ### label
 
@@ -130,7 +130,7 @@
 - `preference` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[source.type] = preference`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[sql:"SQL", plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = expression`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = functionBody`;
-- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample` and `pageItem[source.formRegion] = sample`;
+- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample`;
 - `sqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = sql`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = plsql`;
 - `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = javaScript-mle`;
@@ -184,7 +184,7 @@
 
 - `type` — `<STRING>`; —; Yes; `SEPARATED`; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; —;
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `pageItem[settings.pageActionOnSelection] = none`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[settings.pageActionOnSelection] = none` and `pageItem[multipleValues.type] = delimitedList`;
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList`;
 
 ### lov
 
@@ -223,10 +223,10 @@
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
+- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
 
 ### cascadingLov
 

@@ -51,13 +51,13 @@
 
 ### settings
 
-- `comparisonOperator` — `<STRING>`; —; Yes; `EQUALS`; `<enum:[doesNotStartWith:"does not start with", contains:"contains", greaterThan:"greater than", greaterThanOrEqualTo:"greater than or equal to", lessThanOrEqualTo:"less than or equal to", lessThan:"less than", notEquals:"not equals", doesNotContain:"does not contain", equals:"equals", startsWith:"starts with"]>`; maxLength=4000; —;
 - `userCanChooseOperator` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `currentLabel` — `<STRING>`; —; No; —; —; maxLength=4000; `facet[settings.userCanChooseOperator] = N`;
-- `caseSensitive` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `facet[settings.comparisonOperator] = startsWith` or `facet[settings.comparisonOperator] = contains` or `facet[settings.comparisonOperator] = doesNotStartWith` or `facet[settings.comparisonOperator] = doesNotContain`;
+- `comparisonOperator` — `<STRING>`; —; Yes; `EQUALS`; `<enum:[doesNotStartWith:"does not start with", equals:"equals", contains:"contains", notEquals:"not equals", startsWith:"starts with", greaterThanOrEqualTo:"greater than or equal to", lessThanOrEqualTo:"less than or equal to", greaterThan:"greater than", doesNotContain:"does not contain", lessThan:"less than"]>`; maxLength=4000; —;
 - `prefixText` — `<STRING>`; —; No; —; —; maxLength=4000; `facet[settings.userCanChooseOperator] = N`;
+- `currentLabel` — `<STRING>`; —; No; —; —; maxLength=4000; `facet[settings.userCanChooseOperator] = N`;
 - `suffixText` — `<STRING>`; —; No; —; —; maxLength=4000; `facet[settings.userCanChooseOperator] = N`;
-- `valuesCase` — `<STRING>`; —; Yes; `MIXED`; `<enum:[mixed:"Mixed Case", upper:"Upper Case", lower:"Lower Case"]>`; maxLength=4000; `facet[settings.comparisonOperator] = startsWith` and `facet[settings.caseSensitive] = Y` or `facet[settings.comparisonOperator] = contains` and `facet[settings.caseSensitive] = Y` or `facet[settings.comparisonOperator] = doesNotStartWith` and `facet[settings.caseSensitive] = Y` or `facet[settings.comparisonOperator] = doesNotContain` and `facet[settings.caseSensitive] = Y`;
+- `caseSensitive` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `facet[settings.comparisonOperator] = startsWith` or `facet[settings.comparisonOperator] = contains` or `facet[settings.comparisonOperator] = doesNotStartWith` or `facet[settings.comparisonOperator] = doesNotContain`;
+- `valuesCase` — `<STRING>`; —; Yes; `MIXED`; `<enum:[lower:"Lower Case", upper:"Upper Case", mixed:"Mixed Case"]>`; maxLength=4000; `facet[settings.caseSensitive] = Y` and (`facet[settings.comparisonOperator] = startsWith` or `facet[settings.comparisonOperator] = contains` or `facet[settings.comparisonOperator] = doesNotStartWith` or `facet[settings.comparisonOperator] = doesNotContain`);
 
 ### lov
 
@@ -81,7 +81,7 @@
 - `displayFilterInitially` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facet[lov.type] = sample`;
 - `showSelectedFirst` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facet[lov.type] = sample`;
 - `maxDisplayedEntries` — `<INTEGER>`; —; No; —; —; —; `facet[lov.type] = sample`;
-- `sortByTopCounts` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `facet[listEntries.computeCounts] = Y` and `facet[listEntries.showCounts] = Y` and `facet[identification.type] = NATIVE_CHECKBOX` or `facet[listEntries.computeCounts] = Y` and `facet[listEntries.showCounts] = Y` and `facet[identification.type] = NATIVE_RADIOGROUP`;
+- `sortByTopCounts` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `facet[listEntries.computeCounts] = Y` and `facet[listEntries.showCounts] = Y` and (`facet[identification.type] = NATIVE_CHECKBOX` or `facet[identification.type] = NATIVE_RADIOGROUP`);
 
 ### source
 
@@ -93,8 +93,8 @@
 
 - `facet` — `<@facet>`; —; No; —; —; lovType=COMPONENT; —;
 - `type` — `<STRING>`; —; Yes; `NOT_NULL`; `<enum:[=:"equal to", !=:"not equal to", inList:"in list", notInList:"not in list", isNull:"is null", isNotNull:"is not null"]>`; —; `facet[dependingOn.facet] = sample`;
-- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `facet[dependingOn.facet] = sample` and `facet[dependingOn.type] = =` or `facet[dependingOn.facet] = sample` and `facet[dependingOn.type] = !=`;
-- `list` — `<STRING>`; —; Yes; —; —; maxLength=4000; `facet[dependingOn.facet] = sample` and `facet[dependingOn.type] = inList` or `facet[dependingOn.facet] = sample` and `facet[dependingOn.type] = notInList`;
+- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `facet[dependingOn.facet] = sample` and (`facet[dependingOn.type] = =` or `facet[dependingOn.type] = !=`);
+- `list` — `<STRING>`; —; Yes; —; —; maxLength=4000; `facet[dependingOn.facet] = sample` and (`facet[dependingOn.type] = inList` or `facet[dependingOn.type] = notInList`);
 
 ### appearance
 
@@ -106,9 +106,9 @@
 ### multipleValues
 
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `facet[identification.type] = NATIVE_CHECKBOX` or `facet[identification.type] = NATIVE_RADIOGROUP` or `facet[identification.type] = NATIVE_SELECT_LIST`;
-- `trimWhitespace` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facet[identification.type] = NATIVE_CHECKBOX` and `facet[multipleValues.type] = delimitedList` or `facet[identification.type] = NATIVE_RADIOGROUP` and `facet[multipleValues.type] = delimitedList` or `facet[identification.type] = NATIVE_SELECT_LIST` and `facet[multipleValues.type] = delimitedList`;
-- `filterCombination` — `<STRING>`; —; Yes; `OR`; `<enum:[or:"OR (Union)", and:"AND (Intersect)"]>`; —; `facet[identification.type] = NATIVE_CHECKBOX` and `facet[multipleValues.type] = sample` or `facet[identification.type] = NATIVE_RADIOGROUP` and `facet[multipleValues.type] = sample` or `facet[identification.type] = NATIVE_SELECT_LIST` and `facet[multipleValues.type] = sample`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `facet[identification.type] = NATIVE_CHECKBOX` and `facet[multipleValues.type] = delimitedList` or `facet[identification.type] = NATIVE_RADIOGROUP` and `facet[multipleValues.type] = delimitedList` or `facet[identification.type] = NATIVE_SELECT_LIST` and `facet[multipleValues.type] = delimitedList`;
+- `trimWhitespace` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facet[multipleValues.type] = delimitedList` and (`facet[identification.type] = NATIVE_CHECKBOX` or `facet[identification.type] = NATIVE_RADIOGROUP` or `facet[identification.type] = NATIVE_SELECT_LIST`);
+- `filterCombination` — `<STRING>`; —; Yes; `OR`; `<enum:[or:"OR (Union)", and:"AND (Intersect)"]>`; —; `facet[multipleValues.type] = sample` and (`facet[identification.type] = NATIVE_CHECKBOX` or `facet[identification.type] = NATIVE_RADIOGROUP` or `facet[identification.type] = NATIVE_SELECT_LIST`);
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `facet[multipleValues.type] = delimitedList` and (`facet[identification.type] = NATIVE_CHECKBOX` or `facet[identification.type] = NATIVE_RADIOGROUP` or `facet[identification.type] = NATIVE_SELECT_LIST`);
 
 ### label
 

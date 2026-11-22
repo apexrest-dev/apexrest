@@ -67,16 +67,16 @@
 - `point` — `<STRING>`; —; Yes; `AFTER_SUBMIT`; `<enum:[newSession:"New Session", beforeHeader:"Before Header", afterHeader:"After Header", beforeRegions:"Before Regions", afterRegions:"After Regions", beforeFooter:"Before Footer", afterFooter:"After Footer", afterSubmit:"After Submit", processing:"Processing", ajaxCallback:"Ajax Callback"]>`; —; —;
 - `runProcess` — `<STRING>`; —; Yes; `N`; `<enum:[oncePerSessionOrWhenReset:"Once Per Session or When Reset", oncePerPageVisitDefault:"Once Per Page Visit (default)"]>`; —; —;
 
-### address
-
-- `structuredAddress` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `sanitizeAddress` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `process[address.structuredAddress] = Y`;
-
 ### geocodingResult
 
 - `matchVectorItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 - `collectionName` — `<STRING>`; —; No; —; —; maxLength=30; —;
 - `coordinateItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+
+### address
+
+- `structuredAddress` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
+- `sanitizeAddress` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `process[address.structuredAddress] = Y`;
 
 ### source
 
@@ -96,14 +96,14 @@
 
 ### geocodingInput
 
-- `countryType` — `<STRING>`; —; Yes; `STATIC`; `<enum:[item:"Item", static:"Static"]>`; maxLength=4000; `process[address.structuredAddress] = Y`;
-- `regionItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y`;
-- `citySubAreaItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y`;
 - `postalCodeItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y`;
+- `regionItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y`;
+- `houseNoItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y`;
+- `citySubAreaItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y`;
 - `streetItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y`;
+- `countryType` — `<STRING>`; —; Yes; `STATIC`; `<enum:[static:"Static", item:"Item"]>`; maxLength=4000; `process[address.structuredAddress] = Y`;
 - `cityItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y`;
 - `addressItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = N`;
-- `houseNoItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y`;
-- `country` — `<STRING>`; —; Yes; `US`; `<enum:[us:"United States", co:"Colombia", dk:"Denmark", hk:"Hong Kong", be:"Belgium", hu:"Hungary", de:"Germany", pl:"Poland", pt:"Portugal", ch:"Switzerland", za:"South Africa", nl:"Netherlands", ee:"Estonia", it:"Italy", ie:"Ireland", at:"Austria", uk:"United Kingdom", fi:"Finland", in:"India", lv:"Latvia", cz:"Czech Republic", es:"Spain", fr:"France", cl:"Chile", no:"Norway", sa:"Saudi Arabia", ae:"United Arab Emirates", ro:"Romania", ca:"Canada", mx:"Mexico", au:"Australia", br:"Brazil"]>`; maxLength=4000; `process[address.structuredAddress] = Y` and `process[geocodingInput.countryType] = static`;
+- `country` — `<STRING>`; —; Yes; `US`; `<enum:[ee:"Estonia", fi:"Finland", hu:"Hungary", mx:"Mexico", co:"Colombia", de:"Germany", nl:"Netherlands", pt:"Portugal", it:"Italy", cl:"Chile", cz:"Czech Republic", lv:"Latvia", be:"Belgium", no:"Norway", us:"United States", pl:"Poland", br:"Brazil", ch:"Switzerland", ca:"Canada", au:"Australia", dk:"Denmark", hk:"Hong Kong", at:"Austria", in:"India", uk:"United Kingdom", ie:"Ireland", za:"South Africa", es:"Spain", ae:"United Arab Emirates", ro:"Romania", fr:"France", sa:"Saudi Arabia"]>`; maxLength=4000; `process[address.structuredAddress] = Y` and `process[geocodingInput.countryType] = static`;
 - `countryItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[address.structuredAddress] = Y` and `process[geocodingInput.countryType] = item`;
 

@@ -9,7 +9,7 @@ import {
   composeMaterializeInput,
   composePlanInput,
   metadataInputSchema
-} from "./chunk-2UWMCWCO.mjs";
+} from "./chunk-KXTR2S6L.mjs";
 import {
   databaseTransport,
   ordsUrl,
@@ -17,7 +17,7 @@ import {
   savedConnectionName,
   sqlclMode,
   sqlclRestriction
-} from "./chunk-JOEBWJ2Z.mjs";
+} from "./chunk-2MXW6F55.mjs";
 import {
   refName,
   relativePath

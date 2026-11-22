@@ -24,21 +24,21 @@
 
 - `sequence` — `<NUMBER>`; —; Yes; —; —; —; —;
 
+### inputValue
+
+- `type` — `<STRING>`; —; Yes; `ITEM`; `<enum:[expression:"Expression", onlySystemPrompt:"Only System Prompt", item:"Item", functionBody:"Function Body", sqlQuery:"SQL Query"]>`; maxLength=4000; —;
+- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = sqlQuery`;
+- `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL&#x2F\;SQL", js-mle:"JAVASCRIPT (MLE)"]>`; —; `activity[inputValue.type] = expression` or `activity[inputValue.type] = functionBody`;
+- `maxTokens` — `<INTEGER>`; —; No; —; —; —; `activity[inputValue.type] = sqlQuery`;
+- `item` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `activity[inputValue.type] = item`;
+- `jsExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = expression` and `activity[inputValue.language] = js-mle`;
+- `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = functionBody` and `activity[inputValue.language] = plsql`;
+- `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = expression` and `activity[inputValue.language] = plsql`;
+- `jsFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = functionBody` and `activity[inputValue.language] = js-mle`;
+
 ### useResponse
 
 - `item` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; —;
-
-### inputValue
-
-- `type` — `<STRING>`; —; Yes; `ITEM`; `<enum:[functionBody:"Function Body", sqlQuery:"SQL Query", expression:"Expression", onlySystemPrompt:"Only System Prompt", item:"Item"]>`; maxLength=4000; —;
-- `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL&#x2F\;SQL", js-mle:"JAVASCRIPT (MLE)"]>`; —; `activity[inputValue.type] = functionBody` or `activity[inputValue.type] = expression`;
-- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = sqlQuery`;
-- `maxTokens` — `<INTEGER>`; —; No; —; —; —; `activity[inputValue.type] = sqlQuery`;
-- `item` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `activity[inputValue.type] = item`;
-- `jsFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = functionBody` and `activity[inputValue.language] = js-mle`;
-- `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = functionBody` and `activity[inputValue.language] = plsql`;
-- `jsExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = expression` and `activity[inputValue.language] = js-mle`;
-- `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[inputValue.type] = expression` and `activity[inputValue.language] = plsql`;
 
 ### source
 

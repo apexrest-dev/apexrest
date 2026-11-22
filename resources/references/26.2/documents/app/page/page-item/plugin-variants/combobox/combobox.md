@@ -83,21 +83,21 @@
 - `postText` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `initJavaScriptFunction` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 
-### search
-
-- `caseSensitive` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `minChars` — `<INTEGER>`; —; Yes; `0`; —; —; —;
-- `matchType` — `<STRING>`; —; Yes; `CONTAINS`; `<enum:[startsWith:"Starts With", contains:"Contains"]>`; maxLength=4000; —;
-
 ### settings
 
-- `infiniteScroll` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `valueHtmlExpression` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `fetchOnSearch` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
+- `valueHtmlExpression` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `infiniteScroll` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
 - `multiSelection` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `maxValuesInList` — `<INTEGER>`; —; No; —; —; —; `pageItem[settings.infiniteScroll] = N`;
 - `manualEntriesItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; `pageItem[settings.fetchOnSearch] = N`;
+- `maxValuesInList` — `<INTEGER>`; —; No; —; —; —; `pageItem[settings.infiniteScroll] = N`;
 - `useCache` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `pageItem[settings.fetchOnSearch] = Y`;
+
+### search
+
+- `matchType` — `<STRING>`; —; Yes; `CONTAINS`; `<enum:[contains:"Contains", startsWith:"Starts With"]>`; maxLength=4000; —;
+- `minChars` — `<INTEGER>`; —; Yes; `0`; —; —; —;
+- `caseSensitive` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
 
 ### label
 
@@ -137,7 +137,7 @@
 - `preference` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[source.type] = preference`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[sql:"SQL", plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = expression`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = functionBody`;
-- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample` and `pageItem[source.formRegion] = sample`;
+- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample`;
 - `sqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = sql`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = plsql`;
 - `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = javaScript-mle`;
@@ -191,7 +191,7 @@
 
 - `type` — `<STRING>`; —; Yes; `SEPARATED`; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; —;
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `pageItem[settings.pageActionOnSelection] = none`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[settings.pageActionOnSelection] = none` and `pageItem[multipleValues.type] = delimitedList`;
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList`;
 
 ### lov
 
@@ -230,10 +230,10 @@
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
+- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
 
 ### cascadingLov
 

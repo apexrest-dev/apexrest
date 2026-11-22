@@ -2,15 +2,17 @@
 
 APEXREST is one Oracle APEX plugin for Codex and Claude Code. It helps an agent write APEXlang, see the result, run it and ship it. This page explains each capability, the command behind it and its limits.
 
-| You want to                                         | Feature                                                                                                                                |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Write correct APEXlang the first time               | [Component library](#component-library-read-before-writing), [Decisions selection](#decisions-api-choose-components-before-generating) |
-| See pages without a database                        | [Local preview](#local-preview-run-apexlang-without-a-database)                                                                        |
-| See pages with your real data and PL/SQL            | [Connected preview](#connected-preview-run-the-backend-in-your-database)                                                               |
-| Watch the page follow each edit                     | [Live preview](#live-preview-the-page-follows-the-agent)                                                                               |
-| Import only what changed                            | [Partial imports](#apex-262-import-only-what-changed)                                                                                  |
-| Deploy without surprises                            | [Safe deployment](#safe-deployment), [Oracle access](#oracle-access)                                                                   |
-| Know what the agent can call                        | [Work in one session](#work-in-one-session), [Tools](#tools), [Skills](#skills)                                                        |
+| You want to                                     | Feature                                                                                                                                |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Write correct APEXlang the first time           | [Component library](#component-library-read-before-writing), [Decisions selection](#decisions-api-choose-components-before-generating) |
+| See pages without a database                    | [Local preview](#local-preview-run-apexlang-without-a-database)                                                                        |
+| See pages with your real data and PL/SQL        | [Connected preview](#connected-preview-run-the-backend-in-your-database)                                                               |
+| Watch the page follow each edit                 | [Live preview](#live-preview-the-page-follows-the-agent)                                                                               |
+| Tell the agent what to change, on the page      | [Review mode](#review-mode-point-at-what-should-change)                                                                                |
+| Make small edits and generate CRUD pages safely | [Semantic edits and recipes](#semantic-edits-and-recipes)                                                                              |
+| Import only what changed                        | [Partial imports](#apex-262-import-only-what-changed)                                                                                  |
+| Deploy without surprises                        | [Safe deployment](#safe-deployment), [Oracle access](#oracle-access)                                                                   |
+| Know what the agent can call                    | [Work in one session](#work-in-one-session), [Tools](#tools), [Skills](#skills)                                                        |
 
 ## Component library: read before writing
 
@@ -101,6 +103,26 @@ Every preview page keeps a WebSocket to the local server, so the agent sees its 
 
 Measured on the generated showcase application: four source edits reload the page in 241–291 ms, from file write to the page load event. A typo shows its error in 176 ms. One grid save refreshes 10 dashboard regions in another session within 57 ms. It is a design aid, not Oracle evidence. Read [Live updates over WebSocket](local-preview.md#live-updates-over-websocket).
 
+## Review mode: point at what should change
+
+In the local preview, **Review** on the developer toolbar (or **Alt+Shift+C**) lets you click a region, item, button, report column or the page and write what should change. Comments are stored in the project's Git-ignored `.apexrest/review/comments.json`. Numbered pins and a panel keep them on the page. **Edit** in the same form changes a title, label, heading, format or sequence directly in the source.
+
+Any agent reads the comments with `apexrest preview comments` or `apexrest_preview action:comments`:
+
+- each bound comment carries the component's patch target (for example `column:employees.SALARY`);
+- it also carries the page file's current digest and whether the file changed since the comment.
+
+The agent applies the comment with `project patch` and that digest, then resolves it. A file that changed in the meantime is never overwritten. Read [Review comments](local-preview.md#review-comments).
+
+## Semantic edits and recipes
+
+- **`project context`** returns one page's regions, columns, items and buttons with ready `target` names, plus the page file digest.
+- **`project patch`** changes titles, labels, headings, formats, sequences, and a report's SQL together with its columns, in one atomic, digest-bound edit that keeps every other byte.
+- **`project insert`** adds scaffold-defined regions, items and refresh dynamic actions to an existing page.
+- **`project scaffold`** generates native pages from one JSON spec, including a report with a modal create/edit form, editable interactive grids, master–detail grids and faceted search. Editable regions require an authorization scheme, one primary key and lost-update detection.
+
+The recipes were compiled, imported and checked in the browser on a local APEX 26.2 application. Source edits are not compiler or import evidence; validate and ship as usual. See the [scaffold reference](../plugins/apexrest-apex/skills/apexrest-work/references/scaffold.md).
+
 ## APEX 26.2: import only what changed
 
 Update a page and its shared list of values without re-importing the rest of the application. APEXREST compares the saved baseline, local edits and a fresh server export. It preserves remote-only changes and blocks conflicts before writing.
@@ -163,20 +185,20 @@ An explicit request to create, update or import an identified DEV/QA/TEST applic
 
 ## Tools
 
-| Tool                     | Purpose                                                                                                                                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apexrest_project`       | `init`, `adopt`, `inspect`, `connection_add`, `connection_list`, `connection_test`; passwords only through a private `passwordFile` or ignored local `envFile`                                      |
-| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search`, `mode:read` and optional Decisions `mode:select`                                                              |
-| `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                                                     |
-| `apexrest_apex_validate` | Real Oracle compiler on a staging copy, in-process, with structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`); `sourceDir` validates another APEXlang folder |
-| `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports and verifies in a detached worker; `mode:recover` resumes a stopped `run`                               |
-| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                                                         |
-| `apexrest_browser_open`  | Resolve the configured application URL for the host in-app browser (alias `codex`); opening is not verification                                                                                     |
-| `apexrest_preview`       | Database-free local preview: `setup` once, `start` serves page URLs on loopback, `check` renders every page and lists unsupported features, `stop`, `status`                                        |
-| `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                                                  |
-| `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                                                    |
-| `apexrest_peer_review`   | `status` shows the other vendor CLI and the review mode; `review` asks it for a read-only, schema-checked verdict bound to a plan digest or a plan-less source review                               |
-| `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants)                                |
+| Tool                     | Purpose                                                                                                                                                                                                  |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apexrest_project`       | `init`, `adopt`, `inspect`, `scaffold`, `context`, `patch`, `insert`, `connection_add`, `connection_list`, `connection_test`; passwords only through a private `passwordFile` or ignored local `envFile` |
+| `apexrest_reference`     | Offline Oracle APEXlang references, component recipes and UX patterns: `mode:search`, `mode:read` and optional Decisions `mode:select`                                                                   |
+| `apexrest_metadata_read` | Allowlisted, paginated metadata reads; `requests[]` batches up to 8 scoped queries with one target verification                                                                                          |
+| `apexrest_apex_validate` | Real Oracle compiler on a staging copy, in-process, with structured diagnostics (`file`, `line`, `column`, `type`, `message`, `validValues`, `hint`); `sourceDir` validates another APEXlang folder      |
+| `apexrest_ship`          | `mode:plan` validates and plans; `mode:apply` records a plan-bound grant, backs up, imports and verifies in a detached worker; `mode:recover` resumes a stopped `run`                                    |
+| `apexrest_apex_sync`     | Working source and trusted baseline for an existing dev/test app: `init`, `status`, `refresh`, `invalidate`                                                                                              |
+| `apexrest_browser_open`  | Resolve the configured application URL for the host in-app browser (alias `codex`); opening is not verification                                                                                          |
+| `apexrest_preview`       | Local preview: `setup` once, `start` serves page URLs on loopback, `check` renders every page and lists unsupported features, `comments` and `resolve` for review comments, `stop`, `status`             |
+| `apexrest_job`           | `status` (waits up to 120 s, reports `phase`) and `cancel` for an existing `jobId`                                                                                                                       |
+| `apexrest_artifact_read` | Bounded, sanitized text of a registered artifact                                                                                                                                                         |
+| `apexrest_peer_review`   | `status` shows the other vendor CLI and the review mode; `review` asks it for a read-only, schema-checked verdict bound to a plan digest or a plan-less source review                                    |
+| `apexrest_status`        | `doctor` probes SQLcl, Java and the host without downloads; `project` returns the read-only status snapshot (settings, connections, sync, jobs, deployments, grants)                                     |
 
 Validation, planning, references, metadata and sync run inside the MCP server process on a pooled SQLcl engine. `ship` apply runs in a detached worker, so a database write survives host termination. The CLI keeps granular commands (`project`, `connection`, `apex`, `deploy`, `jobs`, `compose`, `sqlcl`, `dependencies`, `preview`) plus `ship`, `status`, `job` and `reference`; run `apexrest --help`.
 

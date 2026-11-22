@@ -81,3 +81,63 @@ test('upstream discovery reports new releases independently of unchanged invento
   assert.deepEqual(ancillary.bundledSourceChanges, [example, catalog].sort());
   assert.equal(ancillary.licenseChanged, true);
 });
+
+// Oracle moved from apex/apexlang/26.2/apexlang-inventory/… to apex/apexlang-26-2-inventory/… in
+// November 2026; the same logical files must compare equal in either layout.
+test('upstream discovery reads the flat skill layout and its release names', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'apexrest-upstream-flat-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, 'resources/references/26.2'), { recursive: true });
+  await mkdir(path.join(root, 'toolchains'));
+  const commit = 'b'.repeat(40),
+    prefix = `skills-${commit}/`;
+  const source = {
+    'apexlang-inventory/assets/app/app.md': '# Synthetic app definition\n',
+    'apexlang-inventory/SKILL.md': 'Synthetic catalog\n',
+    'apexlang-example-applications/assets/example-0/.apex/apexlang.json': '{"mmdVersion":"26.2.0+3479"}\n',
+  };
+  const license = 'Synthetic license\n';
+  await writeFile(
+    path.join(root, 'resources/references/26.2/oracle-snapshot.json'),
+    JSON.stringify({
+      commit,
+      release: '26.2',
+      sourceFiles: Object.fromEntries(Object.entries(source).map(([name, text]) => [name, hash(text)])),
+      licenseSha256: hash(license),
+    }),
+  );
+  await writeFile(
+    path.join(root, 'toolchains/compatibility.json'),
+    JSON.stringify({ profiles: [{ apex: '26.1' }, { apex: '26.2' }] }),
+  );
+  const flat = (name: string) =>
+    name.replace(/^apexlang-(inventory|example-applications)\//u, 'apex/apexlang-26-2-$1/');
+  const entries: Record<string, Uint8Array> = Object.fromEntries(
+    Object.entries(source).map(([name, text]) => [prefix + flat(name), strToU8(text)]),
+  );
+  entries[prefix + 'apex/apexlang-compile/SKILL.md'] = strToU8('shared compile skill\n');
+  entries[prefix + 'apex/apexlang-27-0-inventory/assets/app/app.md'] = strToU8('Synthetic future release\n');
+  entries[prefix + 'LICENSE.txt'] = strToU8(license);
+  const archive = path.join(root, 'flat.zip');
+  await writeFile(archive, zipSync(entries));
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.resolve('scripts/check-oracle-apexlang-upstream.mjs'),
+      '--archive',
+      archive,
+      '--commit',
+      commit,
+      '--out',
+      path.join(root, 'report'),
+    ],
+    { cwd: root, encoding: 'utf8', timeout: 30000 },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(await readFile(path.join(root, 'report/upstream.json'), 'utf8'));
+  assert.equal(report.layout, 'flat');
+  assert.equal(report.inventoryStatus, 'inventory-content-current');
+  assert.deepEqual(report.bundledSourceChanges, []);
+  assert.deepEqual(report.releaseDiscovery.availableVersions, ['26.2', '27.0']);
+  assert.deepEqual(report.releaseDiscovery.unbundledVersions, ['27.0']);
+});

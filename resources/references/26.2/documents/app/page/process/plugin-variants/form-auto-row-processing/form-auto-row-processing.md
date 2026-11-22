@@ -69,16 +69,16 @@
 
 ### target
 
-- `targetType` — `<STRING>`; —; Yes; `REGION_SOURCE`; `<enum:[regionSource:"Region Source", tableView:"Table / View", plsqlCode:"PL/SQL Code"]>`; maxLength=4000; —;
+- `targetType` — `<STRING>`; —; Yes; `REGION_SOURCE`; `<enum:[tableView:"Table / View", regionSource:"Region Source", plsqlCode:"PL/SQL Code"]>`; maxLength=4000; —;
 - `preventLostUpdates` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; `process[target.targetType] = tableView`;
-- `returnPksAfterInsert` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `process[target.targetType] = regionSource` or `process[target.targetType] = tableView`;
 - `tableName` — `<STRING>`; —; Yes; —; —; maxLength=128; `process[target.targetType] = tableView`;
+- `returnPksAfterInsert` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `process[target.targetType] = regionSource` or `process[target.targetType] = tableView`;
 - `plsqlCode` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[target.targetType] = plsqlCode`;
+- `tableOwner` — `<STRING>`; —; No; —; —; maxLength=128; `process[target.targetType] = tableView`;
 
 ### lockRow
 
-- `lockRow` — `<STRING>`; —; Yes; `Y`; `<enum:[true:"Yes", plsqlCode:"PL/SQL Code", false:"No"]>`; maxLength=4000; —;
+- `lockRow` — `<STRING>`; —; Yes; `Y`; `<enum:[plsqlCode:"PL/SQL Code", false:"No", true:"Yes"]>`; maxLength=4000; —;
 - `plsqlCode` — `<STRING>`; —; No; —; —; maxLength=4000; `process[lockRow.lockRow] = plsqlCode`;
 
 ### source

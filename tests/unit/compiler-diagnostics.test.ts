@@ -275,7 +275,7 @@ test('hints name the enclosing declarations read from the source file', async (t
   // A missing required property names its component and what to add.
   assert.match(
     fault.details!.diagnostics![2]!.hint!,
-    /^inside region bad \(type: form\) of page 1\. Fix: add to region bad: source \{ tableName: <STRING> \} \(required when source\.location = localDatabase and source\.type = tableView/u,
+    /^inside region bad \(type: form\) of page 1\. Fix: add to region bad: source \{ tableName: <STRING> \} \(required when source\.type = tableView and \(source\.location = localDatabase or source\.location = restEnabledSql\)\)/u,
   );
   assert.match(fault.message, /^APEXLang Compile Errors:/);
   const unconfirmed = await compilerFault('Nothing recognizable', root);

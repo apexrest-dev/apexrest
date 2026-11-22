@@ -69,7 +69,7 @@
 
 ### switch
 
-- `type` — `<STRING>`; —; Yes; `TRUE_FALSE_CHECK`; `<enum:[trueFalseCheck:"True False Check", checkWorkflowVar:"Check Workflow Variable", if:"If Elsif Else", case:"Case"]>`; maxLength=4000; —;
+- `type` — `<STRING>`; —; Yes; `TRUE_FALSE_CHECK`; `<enum:[checkWorkflowVar:"Check Workflow Variable", trueFalseCheck:"True False Check", if:"If Elsif Else", case:"Case"]>`; maxLength=4000; —;
 
 ### source
 
@@ -87,23 +87,23 @@
 - `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `process[genAI.enabled] = Y`;
 - `systemPrompt` — `<STRING>`; —; No; —; —; —; `process[genAI.enabled] = Y`;
 
-### condition
-
-- `conditionType` — `<STRING>`; —; Yes; `ROWS_RETURNED`; `<enum:[functionBody:"Function Body", workflowVarEqualsValue:"Workflow Variable = Value", workflowVarIsNull:"Workflow Variable is NULL", rowsReturned:"Rows Returned", rowsNotReturned:"Rows Not Returned", expression:"Expression", workflowVarNotEqualsValue:"Workflow Variable != Value", workflowVarIsNotNull:"Workflow Variable is NOT NULL"]>`; maxLength=4000; `process[switch.type] = trueFalseCheck`;
-- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = workflowVarEqualsValue` or `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = workflowVarNotEqualsValue`;
-- `workflowVar` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = workflowVarIsNull` or `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = workflowVarIsNotNull` or `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = workflowVarEqualsValue` or `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = workflowVarNotEqualsValue`;
-- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = rowsReturned` or `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = rowsNotReturned`;
-- `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL&#x2F\;SQL", js-mle:"JAVASCRIPT (MLE)"]>`; —; `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = expression` or `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = functionBody`;
-- `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = expression`;
-- `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = functionBody`;
-
 ### compare
 
 - `compareType` — `<STRING>`; —; Yes; `SQL_QUERY`; `<enum:[expression:"Expression", sqlQuery:"SQL Query", functionBody:"Function Body"]>`; maxLength=4000; `process[switch.type] = case`;
 - `compareVar` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[switch.type] = checkWorkflowVar`;
-- `dataType` — `<STRING>`; —; Yes; `VARCHAR2`; `<enum:[boolean:"BOOLEAN", timestamp:"TIMESTAMP", timestampWithLocalTimeZone:"TIMESTAMP WITH LOCAL TIME ZONE", timestampWithTimeZone:"TIMESTAMP WITH TIME ZONE", varchar2:"VARCHAR2", number:"NUMBER"]>`; maxLength=4000; `process[switch.type] = case`;
+- `dataType` — `<STRING>`; —; Yes; `VARCHAR2`; `<enum:[boolean:"BOOLEAN", timestampWithTimeZone:"TIMESTAMP WITH TIME ZONE", timestampWithLocalTimeZone:"TIMESTAMP WITH LOCAL TIME ZONE", number:"NUMBER", timestamp:"TIMESTAMP", varchar2:"VARCHAR2"]>`; maxLength=4000; `process[switch.type] = case`;
+- `compareLanguage` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL&#x2F\;SQL", js-mle:"JAVASCRIPT (MLE)"]>`; —; `process[switch.type] = case` and (`process[compare.compareType] = expression` or `process[compare.compareType] = functionBody`);
+- `comparePlsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = case` and `process[compare.compareType] = expression`;
 - `compareSqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = case` and `process[compare.compareType] = sqlQuery`;
 - `comparePlsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = case` and `process[compare.compareType] = functionBody`;
-- `comparePlsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = case` and `process[compare.compareType] = expression`;
-- `compareLanguage` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL&#x2F\;SQL", js-mle:"JAVASCRIPT (MLE)"]>`; —; `process[switch.type] = case` and `process[compare.compareType] = expression` or `process[switch.type] = case` and `process[compare.compareType] = functionBody`;
+
+### condition
+
+- `conditionType` — `<STRING>`; —; Yes; `ROWS_RETURNED`; `<enum:[rowsReturned:"Rows Returned", expression:"Expression", rowsNotReturned:"Rows Not Returned", workflowVarIsNotNull:"Workflow Variable is NOT NULL", functionBody:"Function Body", workflowVarEqualsValue:"Workflow Variable = Value", workflowVarIsNull:"Workflow Variable is NULL", workflowVarNotEqualsValue:"Workflow Variable != Value"]>`; maxLength=4000; `process[switch.type] = trueFalseCheck`;
+- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = trueFalseCheck` and (`process[condition.conditionType] = workflowVarEqualsValue` or `process[condition.conditionType] = workflowVarNotEqualsValue`);
+- `workflowVar` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[switch.type] = trueFalseCheck` and (`process[condition.conditionType] = workflowVarIsNull` or `process[condition.conditionType] = workflowVarIsNotNull` or `process[condition.conditionType] = workflowVarEqualsValue` or `process[condition.conditionType] = workflowVarNotEqualsValue`);
+- `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = functionBody`;
+- `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL&#x2F\;SQL", js-mle:"JAVASCRIPT (MLE)"]>`; —; `process[switch.type] = trueFalseCheck` and (`process[condition.conditionType] = expression` or `process[condition.conditionType] = functionBody`);
+- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = trueFalseCheck` and (`process[condition.conditionType] = rowsReturned` or `process[condition.conditionType] = rowsNotReturned`);
+- `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[switch.type] = trueFalseCheck` and `process[condition.conditionType] = expression`;
 

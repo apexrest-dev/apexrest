@@ -58,14 +58,14 @@
 
 ### settings
 
-- `style` — `<STRING>`; —; No; —; `<enum:[subtle:"Subtle", outline:"Outline"]>`; maxLength=4000; —;
 - `state` — `<STRING>`; —; No; —; —; maxLength=128; —;
+- `size` — `<STRING>`; —; No; —; `<enum:[medium:"Medium", large:"Large", small:"Small"]>`; maxLength=4000; —;
 - `icon` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `label` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
-- `shape` — `<STRING>`; —; No; —; `<enum:[circular:"Circular", rounded:"Rounded", square:"Square"]>`; maxLength=4000; —;
-- `size` — `<STRING>`; —; No; —; `<enum:[medium:"Medium", small:"Small", large:"Large"]>`; maxLength=4000; —;
-- `value` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
+- `style` — `<STRING>`; —; No; —; `<enum:[subtle:"Subtle", outline:"Outline"]>`; maxLength=4000; —;
+- `shape` — `<STRING>`; —; No; —; `<enum:[rounded:"Rounded", square:"Square", circular:"Circular"]>`; maxLength=4000; —;
 - `displayLabel` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
+- `value` — `<STRING>`; —; Yes; —; —; maxLength=128; —;
+- `label` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 - `format` — `<STRING>`; —; Yes; `MARKDOWN`; `<enum:[html:"HTML", markdown:"Markdown"]>`; —; —;
 
 ### appearance
@@ -125,7 +125,7 @@
 - `type` — `<STRING>`; —; Yes; `D`; `<enum:[none:"None", defaultBasedOnColumnType:"Default Based on Column Type", definedLovExactMatch:"Use Defined List of Values to Filter Exact Match", definedLovWordContains:"Use Defined List of Values to Filter Word Contains", namedLovExactMatch:"Use Named List of Values to Filter Exact Match", namedLovWordContains:"Use Named List of Values to Filter Word Contains"]>`; —; —;
 - `type` — `<STRING>`; —; Yes; `1`; `<enum:[none:"None", defaultBasedOnColumnType:"Default Based on Column Type", definedLovExactMatch:"Use Defined List of Values to Filter Exact Match", definedLovWordContains:"Use Defined List of Values to Filter Word Contains", namedLovExactMatch:"Use Named List of Values to Filter Exact Match", namedLovWordContains:"Use Named List of Values to Filter Word Contains"]>`; —; —;
 - `dateRanges` — `<STRING>`; —; Yes; `ALL`; `<enum:[all:"All", past:"Past", future:"Future"]>`; —; `column[source.dataType] = date` and `column[columnFilter.type] = defaultBasedOnColumnType`;
-- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains` or `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains`;
+- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains`;
 - `namedLov` — `<@lov>`; —; Yes; —; —; lovType=COMPONENT; `column[columnFilter.type] = namedLovExactMatch` or `column[columnFilter.type] = namedLovWordContains`;
 
 ### columnFormatting

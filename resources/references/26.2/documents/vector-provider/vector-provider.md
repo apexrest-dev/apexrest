@@ -37,7 +37,7 @@
 ### additionalData
 
 - `httpHeaders` — `<STRING>`; —; No; —; —; maxLength=4000; `vectorProvider[identification.type] = genAIService`;
-- `attributes` — `<STRING>`; —; No; —; —; maxLength=4000; `vectorProvider[identification.type] = genAIService` and `vectorProvider[identification.type] = genAIService` and `vectorProvider[genAIService.provider] = ociGenAI`;
+- `attributes` — `<STRING>`; —; No; —; —; maxLength=4000; `vectorProvider[identification.type] = genAIService` and `vectorProvider[genAIService.provider] = ociGenAI`;
 
 ### localEmbedding
 
@@ -47,7 +47,7 @@
 
 ### ociGenAI
 
-- `compartmentId` — `<STRING>`; —; Yes; —; —; maxLength=255; `vectorProvider[identification.type] = genAIService` and `vectorProvider[identification.type] = genAIService` and `vectorProvider[genAIService.provider] = ociGenAI`;
-- `servingMode` — `<STRING>`; —; Yes; —; `<enum:[onDemand:"On-Demand", dedicated:"Dedicated"]>`; —; `vectorProvider[identification.type] = genAIService` and `vectorProvider[identification.type] = genAIService` and `vectorProvider[genAIService.provider] = ociGenAI`;
-- `endpointId` — `<STRING>`; —; No; —; —; maxLength=255; `vectorProvider[identification.type] = genAIService` and `vectorProvider[identification.type] = genAIService` and `vectorProvider[genAIService.provider] = ociGenAI`;
+- `compartmentId` — `<STRING>`; —; Yes; —; —; maxLength=255; `vectorProvider[identification.type] = genAIService` and `vectorProvider[genAIService.provider] = ociGenAI`;
+- `servingMode` — `<STRING>`; —; Yes; —; `<enum:[onDemand:"On-Demand", dedicated:"Dedicated"]>`; —; `vectorProvider[identification.type] = genAIService` and `vectorProvider[genAIService.provider] = ociGenAI`;
+- `endpointId` — `<STRING>`; —; No; —; —; maxLength=255; `vectorProvider[identification.type] = genAIService` and `vectorProvider[genAIService.provider] = ociGenAI`;
 

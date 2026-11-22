@@ -161,7 +161,7 @@ test('reviewed 26.2 payload is data-only, bounded and records genuine offline re
   }
 });
 
-test('full official definitions paginate past the former inline size limit and reject external-byte drift', async (t) => {
+test('full official definitions paginate across many pages and reject external-byte drift', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'apexrest-full-inventory-'));
   const old = process.env.APEXREST_RESOURCES;
   t.after(async () => {
@@ -171,10 +171,12 @@ test('full official definitions paginate past the former inline size limit and r
   });
   await cp(newRoot, path.join(root, 'references/26.2'), { recursive: true });
   process.env.APEXREST_RESOURCES = root;
-  const id = 'oracle:26.2:inventory/app/page/region/series/series';
-  const file = path.join(root, 'references/26.2/documents/app/page/region/series/series.md');
+  // The largest official definition (region, about 144 KB since Oracle's November 2026 inventory)
+  // spans many 8,192-character pages.
+  const id = 'oracle:26.2:inventory/app/page/region/region';
+  const file = path.join(root, 'references/26.2/documents/app/page/region/region.md');
   const raw = await readFile(file, 'utf8');
-  assert.ok(raw.length > 600_000, 'the real official document exercises lazy retrieval');
+  assert.ok(raw.length > 100_000, 'the real official document exercises lazy retrieval');
   const last = await referenceRead(id, raw.length - 8192, 8192, undefined, '26.2');
   assert.equal(last.content, raw.slice(-8192));
   assert.equal(last.nextOffset, null);

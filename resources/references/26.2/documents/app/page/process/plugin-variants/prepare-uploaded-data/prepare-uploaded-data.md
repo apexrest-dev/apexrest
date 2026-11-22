@@ -67,16 +67,16 @@
 - `point` — `<STRING>`; —; Yes; `AFTER_SUBMIT`; `<enum:[newSession:"New Session", beforeHeader:"Before Header", afterHeader:"After Header", beforeRegions:"Before Regions", afterRegions:"After Regions", beforeFooter:"Before Footer", afterFooter:"After Footer", afterSubmit:"After Submit", processing:"Processing", ajaxCallback:"Ajax Callback"]>`; —; —;
 - `runProcess` — `<STRING>`; —; Yes; `N`; `<enum:[oncePerSessionOrWhenReset:"Once Per Session or When Reset", oncePerPageVisitDefault:"Once Per Page Visit (default)"]>`; —; —;
 
-### dataLoading
-
-- `dataLoadDefinition` — `<@legacyDataLoadDefinition>`; —; Yes; —; —; lovType=COMPONENT; —;
-
 ### processingResult
 
 - `updateCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `reviewCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `insertCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 - `errorCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+- `insertCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+- `reviewCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+
+### dataLoading
+
+- `dataLoadDefinition` — `<@legacyDataLoadDefinition>`; —; Yes; —; —; lovType=COMPONENT; —;
 
 ### source
 

@@ -113,7 +113,7 @@
 - `type` — `<STRING>`; —; Yes; `D`; `<enum:[none:"None", defaultBasedOnColumnType:"Default Based on Column Type", definedLovExactMatch:"Use Defined List of Values to Filter Exact Match", definedLovWordContains:"Use Defined List of Values to Filter Word Contains", namedLovExactMatch:"Use Named List of Values to Filter Exact Match", namedLovWordContains:"Use Named List of Values to Filter Word Contains"]>`; —; —;
 - `type` — `<STRING>`; —; Yes; `1`; `<enum:[none:"None", defaultBasedOnColumnType:"Default Based on Column Type", definedLovExactMatch:"Use Defined List of Values to Filter Exact Match", definedLovWordContains:"Use Defined List of Values to Filter Word Contains", namedLovExactMatch:"Use Named List of Values to Filter Exact Match", namedLovWordContains:"Use Named List of Values to Filter Word Contains"]>`; —; `column[identification.type] = plainTextBasedOnLov`;
 - `dateRanges` — `<STRING>`; —; Yes; `ALL`; `<enum:[all:"All", past:"Past", future:"Future"]>`; —; `column[source.dataType] = date` and `column[columnFilter.type] = defaultBasedOnColumnType`;
-- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains` or `column[identification.type] = plainTextBasedOnLov` and `column[columnFilter.type] = definedLovExactMatch` or `column[identification.type] = plainTextBasedOnLov` and `column[columnFilter.type] = definedLovWordContains`;
+- `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[columnFilter.type] = definedLovExactMatch` or `column[columnFilter.type] = definedLovWordContains`;
 - `namedLov` — `<@lov>`; —; Yes; —; —; lovType=COMPONENT; `column[columnFilter.type] = namedLovExactMatch` or `column[columnFilter.type] = namedLovWordContains`;
 
 ### columnFormatting
@@ -123,8 +123,8 @@
 ### link
 
 - `target` — `<COMPLEX>`; —; No; —; —; —; `column[identification.type] = link` or `column[identification.type] = percentGraph` or `column[identification.type] = plainTextBasedOnLov`;
-- `linkText` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[identification.type] = link` and `column[link.target] = sample` or `column[identification.type] = percentGraph` and `column[link.target] = sample` or `column[identification.type] = plainTextBasedOnLov` and `column[link.target] = sample`;
-- `linkAttributes` — `<STRING>`; —; No; —; —; maxLength=4000; `column[identification.type] = link` and `column[link.target] = sample` or `column[identification.type] = percentGraph` and `column[link.target] = sample` or `column[identification.type] = plainTextBasedOnLov` and `column[link.target] = sample`;
+- `linkText` — `<STRING>`; —; Yes; —; —; maxLength=4000; `column[link.target] = sample` and (`column[identification.type] = link` or `column[identification.type] = percentGraph` or `column[identification.type] = plainTextBasedOnLov`);
+- `linkAttributes` — `<STRING>`; —; No; —; —; maxLength=4000; `column[link.target] = sample` and (`column[identification.type] = link` or `column[identification.type] = percentGraph` or `column[identification.type] = plainTextBasedOnLov`);
 
 ### accessibility
 

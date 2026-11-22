@@ -85,26 +85,26 @@
 
 ### display
 
-- `captureUsing` — `<STRING>`; —; No; —; `<enum:[mainCamera:"Main Camera", selfieCamera:"Selfie Camera"]>`; maxLength=4000; —;
-- `displayAs` — `<STRING>`; —; Yes; `INLINE`; `<enum:[inlineDropzone:"Inline Dropzone", nativeFileBrowse:"Native File Browse", blockDropzone:"Block Dropzone", inlineFileBrowse:"Inline File Browse"]>`; maxLength=4000; —;
+- `displayAs` — `<STRING>`; —; Yes; `INLINE`; `<enum:[blockDropzone:"Block Dropzone", inlineFileBrowse:"Inline File Browse", nativeFileBrowse:"Native File Browse", inlineDropzone:"Inline Dropzone"]>`; maxLength=4000; —;
 - `allowCopyPaste` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `dropzoneDesc` — `<STRING>`; —; No; —; —; maxLength=255; `pageItem[display.displayAs] = inlineDropzone` or `pageItem[display.displayAs] = blockDropzone`;
-- `displayDownloadLink` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `pageItem[storage.type] = blobCol`;
+- `captureUsing` — `<STRING>`; —; No; —; `<enum:[mainCamera:"Main Camera", selfieCamera:"Selfie Camera"]>`; maxLength=4000; —;
 - `dropzoneTitle` — `<STRING>`; —; No; —; —; maxLength=255; `pageItem[display.displayAs] = inlineFileBrowse` or `pageItem[display.displayAs] = inlineDropzone` or `pageItem[display.displayAs] = blockDropzone`;
+- `displayDownloadLink` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `pageItem[storage.type] = blobCol`;
+- `dropzoneDesc` — `<STRING>`; —; No; —; —; maxLength=255; `pageItem[display.displayAs] = inlineDropzone` or `pageItem[display.displayAs] = blockDropzone`;
 - `downloadLinkText` — `<STRING>`; —; No; —; —; maxLength=255; `pageItem[storage.type] = blobCol` and `pageItem[display.displayDownloadLink] = Y`;
 - `contentDisposition` — `<STRING>`; —; Yes; `attachment`; `<enum:[attachment:"Attachment", inline:"Inline"]>`; maxLength=4000; `pageItem[storage.type] = blobCol` and `pageItem[display.displayDownloadLink] = Y`;
 
 ### storage
 
-- `maxFileSize` — `<INTEGER>`; —; No; —; —; —; —;
-- `type` — `<STRING>`; —; Yes; `DB_COLUMN`; `<enum:[blobCol:"BLOB column specified in Item Source attribute", appTempFiles:"Table APEX_APPLICATION_TEMP_FILES", wwvFlowFiles:"Table WWV_FLOW_FILES"]>`; maxLength=4000; —;
 - `fileTypes` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `bobLastUpdatedColumn` — `<STRING>`; —; No; —; —; maxLength=128; `pageItem[storage.type] = blobCol`;
-- `allowMultipleFiles` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[storage.type] = appTempFiles`;
+- `maxFileSize` — `<INTEGER>`; —; No; —; —; —; —;
+- `type` — `<STRING>`; —; Yes; `DB_COLUMN`; `<enum:[appTempFiles:"Table APEX_APPLICATION_TEMP_FILES", blobCol:"BLOB column specified in Item Source attribute", wwvFlowFiles:"Table WWV_FLOW_FILES"]>`; maxLength=4000; —;
+- `purgeFileAt` — `<STRING>`; —; Yes; `SESSION`; `<enum:[endOfSession:"End of Session", endOfRequest:"End of Request"]>`; maxLength=4000; `pageItem[storage.type] = appTempFiles`;
 - `charSetColumn` — `<STRING>`; —; No; —; —; maxLength=128; `pageItem[storage.type] = blobCol`;
-- `purgeFileAt` — `<STRING>`; —; Yes; `SESSION`; `<enum:[endOfRequest:"End of Request", endOfSession:"End of Session"]>`; maxLength=4000; `pageItem[storage.type] = appTempFiles`;
 - `mimeTypeColumn` — `<STRING>`; —; No; —; —; maxLength=128; `pageItem[storage.type] = blobCol`;
+- `allowMultipleFiles` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[storage.type] = appTempFiles`;
 - `filenameColumn` — `<STRING>`; —; No; —; —; maxLength=128; `pageItem[storage.type] = blobCol`;
+- `bobLastUpdatedColumn` — `<STRING>`; —; No; —; —; maxLength=128; `pageItem[storage.type] = blobCol`;
 
 ### label
 
@@ -144,7 +144,7 @@
 - `preference` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[source.type] = preference`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[sql:"SQL", plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = expression`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = functionBody`;
-- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample` and `pageItem[source.formRegion] = sample`;
+- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample`;
 - `sqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = sql`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = plsql`;
 - `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = javaScript-mle`;
@@ -198,7 +198,7 @@
 
 - `type` — `<STRING>`; —; Yes; `SEPARATED`; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; —;
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `pageItem[settings.pageActionOnSelection] = none`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[settings.pageActionOnSelection] = none` and `pageItem[multipleValues.type] = delimitedList`;
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList`;
 
 ### lov
 
@@ -237,10 +237,10 @@
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
+- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
 
 ### cascadingLov
 

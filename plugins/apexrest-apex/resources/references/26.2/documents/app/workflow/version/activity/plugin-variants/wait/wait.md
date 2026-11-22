@@ -26,14 +26,14 @@
 
 ### timeout
 
-- `timeoutType` — `<STRING>`; —; No; —; `<enum:[expression:"Expression", functionBody:"Function Body", static:"Static", sqlQuery:"SQL Query"]>`; maxLength=4000; —;
-- `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL&#x2F\;SQL", js-mle:"JAVASCRIPT (MLE)"]>`; —; `activity[timeout.timeoutType] = functionBody` or `activity[timeout.timeoutType] = expression`;
+- `timeoutType` — `<STRING>`; —; No; —; `<enum:[static:"Static", expression:"Expression", functionBody:"Function Body", sqlQuery:"SQL Query"]>`; maxLength=4000; —;
 - `staticValue` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[timeout.timeoutType] = static`;
 - `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[timeout.timeoutType] = sqlQuery`;
-- `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[timeout.timeoutType] = functionBody` and `activity[timeout.language] = plsql`;
-- `javascriptFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[timeout.timeoutType] = functionBody` and `activity[timeout.language] = js-mle`;
+- `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL&#x2F\;SQL", js-mle:"JAVASCRIPT (MLE)"]>`; —; `activity[timeout.timeoutType] = expression` or `activity[timeout.timeoutType] = functionBody`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[timeout.timeoutType] = expression` and `activity[timeout.language] = plsql`;
 - `javascriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[timeout.timeoutType] = expression` and `activity[timeout.language] = js-mle`;
+- `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[timeout.timeoutType] = functionBody` and `activity[timeout.language] = plsql`;
+- `javascriptFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `activity[timeout.timeoutType] = functionBody` and `activity[timeout.language] = js-mle`;
 
 ### source
 

@@ -67,34 +67,34 @@
 - `point` — `<STRING>`; —; Yes; `AFTER_SUBMIT`; `<enum:[newSession:"New Session", beforeHeader:"Before Header", afterHeader:"After Header", beforeRegions:"Before Regions", afterRegions:"After Regions", beforeFooter:"Before Footer", afterFooter:"After Footer", afterSubmit:"After Submit", processing:"Processing", ajaxCallback:"Ajax Callback"]>`; —; —;
 - `runProcess` — `<STRING>`; —; Yes; `N`; `<enum:[oncePerSessionOrWhenReset:"Once Per Session or When Reset", oncePerPageVisitDefault:"Once Per Page Visit (default)"]>`; —; —;
 
+### emailDispatchMode
+
+- `sendImmediately` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
+
 ### emailHeader
 
 - `bcc` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `from` — `<STRING>`; —; Yes; `&APP_EMAIL.`; —; maxLength=4000; —;
-- `to` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 - `cc` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `to` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
+- `from` — `<STRING>`; —; Yes; `&APP_EMAIL.`; —; maxLength=4000; —;
+
+### emailTemplate
+
+- `emailTemplate` — `<@emailTemplate>`; —; No; —; —; lovType=COMPONENT; —;
+- `placeholderValues` — `<STRING>`; —; No; —; —; maxLength=4000; `process[emailTemplate.emailTemplate] = sample`;
+- `languageOverride` — `<STRING>`; —; No; —; —; maxLength=128; `process[emailTemplate.emailTemplate] = sample`;
+- `escapeBodySubstitutions` — `<STRING>`; —; No; `HTML`; `<enum:[true:"Yes", false:"No"]>`; maxLength=4000; `process[emailContent.bodyHtml] = sample`;
+
+### emailAttachments
+
+- `attachmentSql` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 
 ### emailContent
 
 - `replyTo` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `subject` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
-- `bodyPlainText` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 - `bodyHtml` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-
-### emailTemplate
-
-- `emailTemplate` — `<@emailTemplate>`; —; No; —; —; lovType=COMPONENT; —;
-- `languageOverride` — `<STRING>`; —; No; —; —; maxLength=128; `process[emailTemplate.emailTemplate] = sample`;
-- `placeholderValues` — `<STRING>`; —; No; —; —; maxLength=4000; `process[emailTemplate.emailTemplate] = sample`;
-- `escapeBodySubstitutions` — `<STRING>`; —; No; `HTML`; `<enum:[false:"No", true:"Yes"]>`; maxLength=4000; `process[emailContent.bodyHtml] = sample`;
-
-### emailDispatchMode
-
-- `sendImmediately` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-
-### emailAttachments
-
-- `attachmentSql` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `bodyPlainText` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 
 ### source
 

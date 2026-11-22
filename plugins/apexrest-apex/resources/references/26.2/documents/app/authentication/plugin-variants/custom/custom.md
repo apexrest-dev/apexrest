@@ -64,17 +64,17 @@
 ### settings
 
 - `sentryFunctionName` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `invalidSessionProcedureName` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `enableLegacyAuthAttrs` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `postLogoutProcedureName` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `authFunctionName` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `ldapPort` — `<INTEGER>`; —; No; —; —; —; `authentication[settings.enableLegacyAuthAttrs] = Y`;
+- `postLogoutProcedureName` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `invalidSessionProcedureName` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `ssoPartnerAppName` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.enableLegacyAuthAttrs] = Y`;
-- `useSsl` — `<STRING>`; —; Yes; `NO_SSL`; `<enum:[ssl:"SSL", noSsl:"No SSL", sslWithAuth:"SSL with Authentication"]>`; maxLength=4000; `authentication[settings.enableLegacyAuthAttrs] = Y`;
+- `useExactDn` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `authentication[settings.enableLegacyAuthAttrs] = Y`;
 - `ldapHost` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.enableLegacyAuthAttrs] = Y`;
 - `ldapDnString` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.enableLegacyAuthAttrs] = Y`;
-- `useExactDn` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `authentication[settings.enableLegacyAuthAttrs] = Y`;
+- `usernameEscaping` — `<STRING>`; —; Yes; `STD`; `<enum:[standard:"Standard", onlySpecialChars:"Only special characters", noEscaping:"No Escaping"]>`; maxLength=4000; `authentication[settings.enableLegacyAuthAttrs] = Y`;
+- `ldapPort` — `<INTEGER>`; —; No; —; —; —; `authentication[settings.enableLegacyAuthAttrs] = Y`;
 - `ldapUsernameEditFunction` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.enableLegacyAuthAttrs] = Y`;
-- `usernameEscaping` — `<STRING>`; —; Yes; `STD`; `<enum:[noEscaping:"No Escaping", standard:"Standard", onlySpecialChars:"Only special characters"]>`; maxLength=4000; `authentication[settings.enableLegacyAuthAttrs] = Y`;
+- `useSsl` — `<STRING>`; —; Yes; `NO_SSL`; `<enum:[noSsl:"No SSL", sslWithAuth:"SSL with Authentication", ssl:"SSL"]>`; maxLength=4000; `authentication[settings.enableLegacyAuthAttrs] = Y`;
 - `searchFilter` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.enableLegacyAuthAttrs] = Y` and `authentication[settings.useExactDn] = N`;
 

@@ -69,9 +69,9 @@
 
 ### source
 
-- `viewFileAs` — `<STRING>`; —; Yes; `ATTACHMENT`; `<enum:[inline:"Inline", attachment:"Attachment"]>`; maxLength=4000; —;
-- `filePassword` — `<STRING>`; —; No; —; —; maxLength=127; —;
 - `filename` — `<STRING>`; —; No; —; —; maxLength=255; —;
+- `filePassword` — `<STRING>`; —; No; —; —; maxLength=127; —;
+- `viewFileAs` — `<STRING>`; —; Yes; `ATTACHMENT`; `<enum:[attachment:"Attachment", inline:"Inline"]>`; maxLength=4000; —;
 - `reportQuery` — `<@reportQuery>`; —; Yes; —; —; lovType=COMPONENT; —;
 - `location` — `<STRING>`; —; Yes; `LOCAL`; `<enum:[localDatabase:"Local Database", restEnabledSql:"REST Enabled SQL"]>`; —; —;
 - `remoteServer` — `<@restEnabledSqlDatabase>`; —; Yes; —; —; lovType=COMPONENT; `process[source.location] = restEnabledSql`;

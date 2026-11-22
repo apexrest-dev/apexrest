@@ -27,7 +27,7 @@
 - `collapsible` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facetGroup[appearance.display] = inline`;
 - `cssClasses` — `<STRING>`; Enter classes to add to this facet group. You may add multiple classes by separating them with spaces.; No; —; —; maxLength=255; `facetGroup[appearance.display] = inline`;
 - `initiallyCollapsed` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facetGroup[appearance.display] = inline` and `facetGroup[advanced.collapsible] = Y`;
-- `showChartInitially` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facetGroup[listEntries.computeCounts] = Y` and `facetGroup[appearance.display] = inline` and `facetGroup[actionsMenu.chart] = Y` and `facetGroup[appearance.display] = inline`;
+- `showChartInitially` — `<BOOLEAN>`; —; Yes; `N`; —; —; `facetGroup[listEntries.computeCounts] = Y` and `facetGroup[appearance.display] = inline` and `facetGroup[actionsMenu.chart] = Y`;
 
 ### appearance
 

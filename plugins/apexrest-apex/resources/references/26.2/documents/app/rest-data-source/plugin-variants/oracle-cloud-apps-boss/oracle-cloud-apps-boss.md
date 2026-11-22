@@ -64,11 +64,11 @@
 ### settings
 
 - `discoverReferences` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `useTotalResults` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `useBulkDml` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `resourceType` — `<STRING>`; —; Yes; `BUSINESS_OBJECT`; `<enum:[businessObjectView:"Business Object/View", extractionView:"Extraction View", searchView:"Search View"]>`; maxLength=4000; —;
+- `resourceType` — `<STRING>`; —; Yes; `BUSINESS_OBJECT`; `<enum:[searchView:"Search View", businessObjectView:"Business Object/View", extractionView:"Extraction View"]>`; maxLength=4000; —;
 - `rootResourceName` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `useTotalResults` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
 - `usePagination` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
+- `useBulkDml` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
 
 ### dataProfile
 

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { unzipSync } from 'fflate';
 import { buildReferencePostings } from '../packages/core/src/reference-index.ts';
+import { archiveNames, skillsLayout } from './lib/oracle-skills-layout.mjs';
 
 const option = (name) =>
   process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined;
@@ -23,19 +24,19 @@ const bytes = await readFile(archive);
 if (bytes.length > 12 * 1024 * 1024 || sha256(bytes) !== archiveSha256)
   throw new Error('Archive does not match the reviewed Oracle 26.2 snapshot.');
 const root = `skills-${commit}/`;
-const prefix = `${root}apex/apexlang/26.2/`;
+// Oracle's versioned (apex/apexlang/26.2/…) and flat (apex/apexlang-26-2-…/) layouts map to the
+// same logical keys, so source digests and ids do not depend on the upstream directory layout.
+const layout = skillsLayout(archiveNames(unzipSync, bytes), root, release);
 // Every official inventory document is kept byte-exact; metadata summaries are not contracts.
 const all = unzipSync(bytes, {
   filter: ({ name, originalSize }) => {
-    if (name.startsWith(prefix) && originalSize > 4 * 1024 * 1024)
-      throw new Error('Oversized upstream file.');
-    return name === root + 'LICENSE.txt' || name.startsWith(prefix);
+    if (layout.contains(name) && originalSize > 4 * 1024 * 1024) throw new Error('Oversized upstream file.');
+    return name === root + 'LICENSE.txt' || layout.contains(name);
   },
 });
-const inventoryPrefix = 'apexlang-inventory/assets/';
 const inventory = Object.keys(all)
-  .filter((name) => name.startsWith(prefix + inventoryPrefix) && name.endsWith('.md'))
-  .map((name) => name.slice((prefix + inventoryPrefix).length))
+  .filter((name) => name.startsWith(layout.inventoryAssets) && name.endsWith('.md'))
+  .map((name) => name.slice(layout.inventoryAssets.length))
   .sort();
 if (
   !inventory.length ||
@@ -75,7 +76,7 @@ const inventoryId = (file) => `oracle:26.2:inventory/${file.replace(/\.md$/, '')
 const exampleId = (file) => `oracle:26.2:example/${file}`;
 const records = [];
 for (const file of [...selected].sort()) {
-  const value = unpacked[prefix + file];
+  const value = unpacked[layout.toArchive(file)];
   if (!value) throw new Error(`Reviewed file missing: ${file}`);
   const raw = Buffer.from(value).toString('utf8');
   sourceFiles[file] = sha256(raw);
@@ -103,7 +104,7 @@ for (const file of [...selected].sort()) {
     records.push({
       id: inventoryId(relative),
       version: `${release}@${commit.slice(0, 7)}`,
-      source: `https://github.com/oracle/skills/blob/${commit}/apex/apexlang/26.2/${file}`,
+      source: layout.sourceUrl(commit, file),
       title: `${raw.match(/^# (.+)/)?.[1] ?? relative} — 26.2 property inventory`,
       kind: 'contract',
       family: `inventory/${path.posix.dirname(relative)}`,
@@ -129,7 +130,7 @@ for (const file of [...selected].sort()) {
     records.push({
       id: exampleId(relative),
       version: `${release}@${commit.slice(0, 7)}`,
-      source: `https://github.com/oracle/skills/blob/${commit}/apex/apexlang/26.2/${file}`,
+      source: layout.sourceUrl(commit, file),
       title: `${relative} — Oracle 26.2 example`,
       kind: 'template',
       family: 'examples',
@@ -142,7 +143,7 @@ for (const file of [...selected].sort()) {
   }
 }
 const catalogSource = 'apexlang-inventory/SKILL.md';
-const catalogRaw = Buffer.from(unpacked[prefix + catalogSource] ?? []).toString('utf8');
+const catalogRaw = Buffer.from(unpacked[layout.toArchive(catalogSource)] ?? []).toString('utf8');
 if (!catalogRaw.includes('APEX Version: 26.2')) throw new Error('Missing 26.2 inventory authoring catalog.');
 sourceFiles[catalogSource] = sha256(catalogRaw);
 documents['documents/catalog.md'] = catalogRaw;
@@ -151,7 +152,7 @@ const catalogText =
 records.push({
   id: 'oracle:26.2:inventory-catalog',
   version: `${release}@${commit.slice(0, 7)}`,
-  source: `https://github.com/oracle/skills/blob/${commit}/apex/apexlang/26.2/${catalogSource}`,
+  source: layout.sourceUrl(commit, catalogSource),
   title: 'Oracle 26.2 inventory authoring catalog',
   kind: 'guide',
   family: 'inventory',
@@ -166,7 +167,7 @@ records.push({
 });
 const exampleMetadata = JSON.parse(
   Buffer.from(
-    unpacked[prefix + 'apexlang-example-applications/assets/example-0/.apex/apexlang.json'],
+    unpacked[layout.toArchive('apexlang-example-applications/assets/example-0/.apex/apexlang.json')],
   ).toString('utf8'),
 );
 const mmdVersion = exampleMetadata.mmdVersion;
@@ -294,7 +295,7 @@ const files = {
           ),
           complete: true,
           denominator:
-            'Every Markdown definition under apex/apexlang/26.2/apexlang-inventory/assets at the pinned commit. Property addresses are document/group/name occurrences, including variant contexts; not unique platform features or compiler MMD property IDs.',
+            'Every Markdown definition of the official 26.2 inventory skill at the pinned commit. Property addresses are document/group/name occurrences, including variant contexts; not unique platform features or compiler MMD property IDs.',
         },
         inventoryDefinitions,
         sourceFiles,

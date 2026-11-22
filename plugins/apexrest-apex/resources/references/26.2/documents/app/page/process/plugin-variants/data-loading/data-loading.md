@@ -69,20 +69,20 @@
 
 ### sourceData
 
+- `sourceDataType` — `<STRING>`; —; Yes; `FILE`; `<enum:[fileBrowseItem:"File Browse Item", textareaItem:"Textarea item name", sqlQuery:"SQL Query"]>`; maxLength=4000; —;
 - `xlsxSheetNameItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `sourceDataType` — `<STRING>`; —; Yes; `FILE`; `<enum:[fileBrowseItem:"File Browse Item", sqlQuery:"SQL Query", textareaItem:"Textarea item name"]>`; maxLength=4000; —;
-- `textareaItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[sourceData.sourceDataType] = textareaItem`;
 - `sqlQuery` — `<STRING>`; —; Yes; —; —; maxLength=4000; `process[sourceData.sourceDataType] = sqlQuery`;
 - `fileBrowseItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[sourceData.sourceDataType] = fileBrowseItem`;
+- `textareaItem` — `<STRING>`; —; Yes; —; —; maxLength=4000, textCase=UPPER; `process[sourceData.sourceDataType] = textareaItem`;
+
+### processingResult
+
+- `errorRowCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
+- `processedRowCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 
 ### dataLoading
 
 - `dataLoadDefinition` — `<@dataLoadDefinition>`; —; Yes; —; —; lovType=COMPONENT; —;
-
-### processingResult
-
-- `processedRowCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
-- `errorRowCountItem` — `<STRING>`; —; No; —; —; maxLength=4000, textCase=UPPER; —;
 
 ### source
 

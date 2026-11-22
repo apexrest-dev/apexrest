@@ -26,10 +26,10 @@
 
 ### settings
 
-- `title` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 - `linkTarget` — `<COMPLEX>`; —; No; —; —; —; —;
 - `body` — `<STRING>`; —; No; —; —; maxLength=4000; —;
 - `to` — `<STRING>`; —; Yes; —; —; maxLength=255; —;
+- `title` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
 
 ### source
 

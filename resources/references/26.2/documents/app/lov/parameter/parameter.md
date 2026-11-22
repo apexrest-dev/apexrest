@@ -2,7 +2,7 @@
 
 - componentType: `parameter`
 - identifierRequired: false
-- appliesWhen: `lov[source.location] = restSource` and `lov[source.restSource] = sample` and `lov[source.location] = restSource` and `lov[restSynchronization.useLocalTable] = N` or `lov[source.location] = restSource` and `lov[source.restSource] = sample` and `lov[source.location] = restSource` and `lov[source.location] = restSource` and `lov[restSynchronization.useLocalTable] = N` or `lov[source.location] = restSource` and `lov[source.restSource] = sample` and `lov[source.location] = restSource` and `lov[restSynchronization.useLocalTable] = N`
+- appliesWhen: `lov[source.location] = restSource` and `lov[source.restSource] = sample` and `lov[restSynchronization.useLocalTable] = N`
 
 ## Properties
 
@@ -20,7 +20,7 @@
 - `name` — `<STRING>`; —; Yes; —; —; maxLength=255, textCase=UPPER; `parameter[value.type] = collectionClob`;
 - `trueValue` — `<STRING>`; —; No; —; —; maxLength=10; `parameter[value.type] = item` or `parameter[value.type] = preference`;
 - `falseValue` — `<STRING>`; —; No; —; —; maxLength=10; `parameter[value.type] = item` or `parameter[value.type] = preference`;
-- `formatMask` — `<STRING>`; Format mask to convert the Static, Item or Preference value to the data type of the REST Source Parameter.; No; —; —; maxLength=255; `parameter[value.type] = staticValue` or `parameter[value.type] = item` or `parameter[value.type] = preference` or `parameter[value.type] = staticValue` or `parameter[value.type] = item` or `parameter[value.type] = preference` or `parameter[value.type] = staticValue` or `parameter[value.type] = item` or `parameter[value.type] = preference` or `parameter[value.type] = staticValue` or `parameter[value.type] = item` or `parameter[value.type] = preference`;
+- `formatMask` — `<STRING>`; Format mask to convert the Static, Item or Preference value to the data type of the REST Source Parameter.; No; —; —; maxLength=255; `parameter[value.type] = staticValue` or `parameter[value.type] = item` or `parameter[value.type] = preference`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[sql:"SQL", plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `parameter[value.type] = expression`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `parameter[value.type] = functionBody`;
 - `staticValue` — `<STRING>`; —; Yes; —; `<enum:[true:"True", false:"False"]>`; —; `parameter[value.type] = staticValue`;

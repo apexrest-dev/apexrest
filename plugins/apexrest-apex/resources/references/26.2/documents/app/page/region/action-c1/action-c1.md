@@ -64,5 +64,5 @@
 - `displayType` — `<STRING>`; —; Yes; `TEXT`; `<enum:[text:"Text", icon:"Icon", textWithIcon:"Text with Icon"]>`; —; `action[identification.type] = button`;
 - `hot` — `<BOOLEAN>`; Specify whether to use the Normal or Hot button when rendering this button.; Yes; `N`; —; —; `action[identification.type] = button`;
 - `cssClasses` — `<STRING>`; Enter classes to add to this component. You may add multiple classes by separating them with spaces.; No; —; —; maxLength=255; `action[identification.type] = button`;
-- `icon` — `<STRING>`; —; Yes; —; —; maxLength=255; `action[identification.type] = button` and `action[appearance.displayType] = icon` or `action[identification.type] = button` and `action[appearance.displayType] = textWithIcon`;
+- `icon` — `<STRING>`; —; Yes; —; —; maxLength=255; `action[identification.type] = button` and (`action[appearance.displayType] = icon` or `action[appearance.displayType] = textWithIcon`);
 

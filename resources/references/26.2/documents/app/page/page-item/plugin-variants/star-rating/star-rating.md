@@ -85,15 +85,15 @@
 
 ### settings
 
-- `noOfStars` — `<STRING>`; —; Yes; `5`; `<enum:[3:"3", 7:"7", 8:"8", 6:"6", 9:"9", 1:"1", 2:"2", 5:"5", 10:"10", 4:"4"]>`; maxLength=4000; —;
+- `noOfStars` — `<STRING>`; —; Yes; `5`; `<enum:[10:"10", 7:"7", 9:"9", 3:"3", 4:"4", 1:"1", 8:"8", 6:"6", 5:"5", 2:"2"]>`; maxLength=4000; —;
 - `useDefaults` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `icon` — `<STRING>`; —; Yes; `fa-star`; —; maxLength=4000; `pageItem[settings.useDefaults] = N`;
-- `inactiveColor` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[settings.useDefaults] = N`;
-- `readOnlyDisplay` — `<STRING>`; —; Yes; `STARS`; `<enum:[starsAndValue:"Stars and Value", stars:"Stars", singleStarAndValue:"Single Star and Value", value:"Value"]>`; maxLength=4000; `pageItem[settings.useDefaults] = N`;
 - `activeColor` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[settings.useDefaults] = N`;
-- `showClearButton` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[settings.useDefaults] = N`;
+- `icon` — `<STRING>`; —; Yes; `fa-star`; —; maxLength=4000; `pageItem[settings.useDefaults] = N`;
 - `tooltip` — `<STRING>`; —; Yes; `#VALUE#`; —; maxLength=50; `pageItem[settings.useDefaults] = N`;
 - `showValue` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[settings.useDefaults] = N`;
+- `showClearButton` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[settings.useDefaults] = N`;
+- `readOnlyDisplay` — `<STRING>`; —; Yes; `STARS`; `<enum:[starsAndValue:"Stars and Value", singleStarAndValue:"Single Star and Value", stars:"Stars", value:"Value"]>`; maxLength=4000; `pageItem[settings.useDefaults] = N`;
+- `inactiveColor` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[settings.useDefaults] = N`;
 
 ### label
 
@@ -133,7 +133,7 @@
 - `preference` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[source.type] = preference`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[sql:"SQL", plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = expression`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = functionBody`;
-- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample` and `pageItem[source.formRegion] = sample`;
+- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample`;
 - `sqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = sql`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = plsql`;
 - `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = javaScript-mle`;
@@ -187,7 +187,7 @@
 
 - `type` — `<STRING>`; —; Yes; `SEPARATED`; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; —;
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `pageItem[settings.pageActionOnSelection] = none`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[settings.pageActionOnSelection] = none` and `pageItem[multipleValues.type] = delimitedList`;
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList`;
 
 ### lov
 
@@ -226,10 +226,10 @@
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
+- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
 
 ### cascadingLov
 

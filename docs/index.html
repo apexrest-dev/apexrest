@@ -26,6 +26,11 @@
 <td><a href="/apexrest/local-preview/">Local preview</a></td>
 </tr>
 <tr>
+<td><strong>Review</strong></td>
+<td>In the preview, you click a component and say what to change; the agent applies it to the exact source.</td>
+<td><a href="/apexrest/local-preview/#review-comments">Review comments</a></td>
+</tr>
+<tr>
 <td><strong>Check</strong></td>
 <td>The official Oracle compiler validates the sources and reports file, line, column and valid values.</td>
 <td><a href="/apexrest/testing/">Testing</a></td>
@@ -45,6 +50,12 @@
 <li><strong>Component library.</strong> 389 pinned Oracle 26.2 definitions, 269 compiler-checked component recipes, UX patterns and 1,350 public Oracle pages, searchable in English or Ukrainian.</li>
 <li><strong>Decisions API selection.</strong> Optional OpenAI ranking of catalog components before generation. A one-page pilot cut active time by 48%.</li>
 <li><strong>Real compiler validation.</strong> Structured diagnostics with file, line, column and valid values.</li>
+</ul>
+<p><strong>Reviewing and editing</strong></p>
+<ul>
+<li><strong>Review mode.</strong> In the local preview, press Alt+Shift+C, click a region, item, button or report column, and leave a comment for any agent, or edit its title, label, heading, format or sequence in place. Each comment carries the component&#39;s patch target and file digest.</li>
+<li><strong>Semantic page edits.</strong> <code>project context</code>, <code>project patch</code> and <code>project insert</code> change named properties, report SQL with its columns, or add regions, items and refreshes without rewriting the page file; a file that changed in the meantime is never overwritten.</li>
+<li><strong>CRUD recipes.</strong> <code>project scaffold</code> generates a report with a modal edit form, editable grids, master–detail pages and faceted search from one spec, with an explicit authorization, key and lost-update contract.</li>
 </ul>
 <p><strong>Seeing and running</strong></p>
 <ul>
@@ -99,6 +110,8 @@ claude plugin install apexrest@apexrest
 </li>
 <li><p>The agent edits the APEXlang sources, previews the pages, validates and ships. It then reports the changed files, the validation result, the import status and what it checked in the browser.</p>
 </li>
+<li><p>To point at what should change, open the local preview, press <strong>Alt+Shift+C</strong>, click a component and write your comment. Then ask the agent to &quot;apply the preview review comments&quot;.</p>
+</li>
 </ol>
 <p>An explicit request to change an identified DEV/QA/TEST application authorizes that import. The <a href="/apexrest/getting-started/">getting started guide</a> covers connections, new and existing applications, and removal.</p>
 <h2 id="documentation">Documentation</h2>
@@ -110,7 +123,7 @@ claude plugin install apexrest@apexrest
 </ul>
 <p><strong>Build applications</strong></p>
 <ul>
-<li><a href="/apexrest/local-preview/">Local preview</a>: run APEXlang without a database, or against your own.</li>
+<li><a href="/apexrest/local-preview/">Local preview</a>: run APEXlang without a database, or against your own, and <a href="/apexrest/local-preview/#review-comments">leave review comments</a> for the agent.</li>
 <li><a href="/apexrest/component-catalog/">Component catalog</a> and <a href="/apexrest/pattern-catalog/">pattern catalog</a>: what the agent reads before it writes.</li>
 <li><a href="/apexrest/troubleshooting/">Troubleshooting</a>: setup, compiler, authorization and recovery diagnostics.</li>
 </ul>

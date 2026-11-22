@@ -69,7 +69,7 @@
 
 ### settings
 
-- `storeResultIn` — `<STRING>`; —; Yes; `ITEMS`; `<enum:[items:"Item(s)", collection:"Collection"]>`; maxLength=4000; —;
+- `storeResultIn` — `<STRING>`; —; Yes; `ITEMS`; `<enum:[collection:"Collection", items:"Item(s)"]>`; maxLength=4000; —;
 - `webServiceOperation` — `<STRING>`; —; Yes; —; —; lovType=COMPONENT; —;
 - `collectionName` — `<STRING>`; —; Yes; —; —; maxLength=255, textCase=UPPER; `process[settings.storeResultIn] = collection`;
 

@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-MEQQJNXO.mjs";
+} from "./chunk-AGSRMSNQ.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -36,7 +36,7 @@ import {
   sourceChange,
   sourceInventory,
   sourceRevision
-} from "./chunk-ZGFNLKQD.mjs";
+} from "./chunk-XHCNHFXO.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -44,7 +44,7 @@ import {
   composeMaterialize,
   composePlan,
   metadataRead
-} from "./chunk-2UWMCWCO.mjs";
+} from "./chunk-KXTR2S6L.mjs";
 import {
   parseApexLang
 } from "./chunk-7AO4HJGA.mjs";
@@ -52,7 +52,7 @@ import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-7IHEE3DI.mjs";
+} from "./chunk-3YC5F6CU.mjs";
 import {
   CODE_LIMIT,
   LocalDeploymentControl,
@@ -97,7 +97,7 @@ import {
   scoreReference,
   sqlclConfig,
   stemmedReference
-} from "./chunk-JOEBWJ2Z.mjs";
+} from "./chunk-2MXW6F55.mjs";
 import {
   runProcess,
   sqlclTimings,
@@ -3667,7 +3667,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-Y7GWBA7W.mjs");
+      const { previewDispatch } = await import("./chunk-DPPG6QU3.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -3697,29 +3697,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-6FXA762Y.mjs");
+        const { ToolchainService } = await import("./chunk-VOVKV6IG.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-OXP7DSZP.mjs");
+        const { uninstallTools } = await import("./chunk-CPAWNCNH.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-U5KAOARA.mjs");
+        const { setup } = await import("./chunk-OVMZOOQC.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-U5KAOARA.mjs");
+        const { validateNative } = await import("./chunk-OVMZOOQC.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-U5KAOARA.mjs");
+        const { uninstallNative } = await import("./chunk-OVMZOOQC.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -3733,7 +3733,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-I7KDGJ6P.mjs");
+        const { scaffold } = await import("./chunk-Q7BKWRU3.mjs");
         data = await scaffold(await loadProject(root), text("specFile"), text("env"));
         break;
       }

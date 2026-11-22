@@ -56,27 +56,6 @@
 - `plsqlFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `action[serverSideCondition.type] = functionBody` and `action[serverSideCondition.language] = plsql`;
 - `javaScriptFunctionBody` — `<STRING>`; —; Yes; —; —; maxLength=4000; `action[serverSideCondition.type] = functionBody` and `action[serverSideCondition.language] = javaScript-mle`;
 
-### emailContent
-
-- `replyTo` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `bodyPlainText` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
-- `bodyHtml` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `subject` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
-
-### emailHeader
-
-- `to` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
-- `cc` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `bcc` — `<STRING>`; —; No; —; —; maxLength=4000; —;
-- `from` — `<STRING>`; —; Yes; `&APP_EMAIL.`; —; maxLength=4000; —;
-
-### emailTemplate
-
-- `emailTemplate` — `<@emailTemplate>`; —; No; —; —; lovType=COMPONENT; —;
-- `placeholderValues` — `<STRING>`; —; No; —; —; maxLength=4000; `action[emailTemplate.emailTemplate] = sample`;
-- `languageOverride` — `<STRING>`; —; No; —; —; maxLength=128; `action[emailTemplate.emailTemplate] = sample`;
-- `escapeBodySubstitutions` — `<STRING>`; —; No; `HTML`; `<enum:[false:"No", true:"Yes"]>`; maxLength=4000; `action[emailContent.bodyHtml] = sample`;
-
 ### emailDispatchMode
 
 - `sendImmediately` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
@@ -84,6 +63,27 @@
 ### emailAttachments
 
 - `attachmentSql` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+
+### emailHeader
+
+- `bcc` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `cc` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `to` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
+- `from` — `<STRING>`; —; Yes; `&APP_EMAIL.`; —; maxLength=4000; —;
+
+### emailContent
+
+- `replyTo` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `bodyHtml` — `<STRING>`; —; No; —; —; maxLength=4000; —;
+- `bodyPlainText` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
+- `subject` — `<STRING>`; —; Yes; —; —; maxLength=4000; —;
+
+### emailTemplate
+
+- `emailTemplate` — `<@emailTemplate>`; —; No; —; —; lovType=COMPONENT; —;
+- `placeholderValues` — `<STRING>`; —; No; —; —; maxLength=4000; `action[emailTemplate.emailTemplate] = sample`;
+- `languageOverride` — `<STRING>`; —; No; —; —; maxLength=128; `action[emailTemplate.emailTemplate] = sample`;
+- `escapeBodySubstitutions` — `<STRING>`; —; No; `HTML`; `<enum:[true:"Yes", false:"No"]>`; maxLength=4000; `action[emailContent.bodyHtml] = sample`;
 
 ### source
 

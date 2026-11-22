@@ -63,12 +63,12 @@
 
 ### settings
 
-- `useSamlAttrsOf` — `<STRING>`; —; No; `INSTANCE`; `<enum:[instance:"Instance", application:"Application"]>`; maxLength=4000; —;
+- `useSamlAttrsOf` — `<STRING>`; —; No; `INSTANCE`; `<enum:[application:"Application", instance:"Instance"]>`; maxLength=4000; —;
 - `convertUsernameToUpperCase` — `<BOOLEAN>`; —; Yes; `Y`; —; —; —;
-- `identityProviderSigningCertificate` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.useSamlAttrsOf] = application`;
-- `credentialStoreForSigningRequests` — `<@webCredential>`; —; No; —; —; lovType=COMPONENT; `authentication[settings.useSamlAttrsOf] = application`;
-- `usernameAttr` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.useSamlAttrsOf] = application`;
-- `identityProviderSingleSignOnUrl` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.useSamlAttrsOf] = application`;
 - `identityProviderIssuer` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.useSamlAttrsOf] = application`;
+- `identityProviderSingleSignOnUrl` — `<STRING>`; —; Yes; —; —; maxLength=4000; `authentication[settings.useSamlAttrsOf] = application`;
+- `usernameAttr` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.useSamlAttrsOf] = application`;
+- `credentialStoreForSigningRequests` — `<@webCredential>`; —; No; —; —; lovType=COMPONENT; `authentication[settings.useSamlAttrsOf] = application`;
+- `identityProviderSigningCertificate` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.useSamlAttrsOf] = application`;
 - `identityProviderSingleSignOutUrl` — `<STRING>`; —; No; —; —; maxLength=4000; `authentication[settings.useSamlAttrsOf] = application`;
 

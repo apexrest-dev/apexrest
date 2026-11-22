@@ -70,7 +70,7 @@
 - `rowSelector` — `<STRING>`; —; No; —; —; maxLength=255; `dataProfile[dataProfile.format] = json` or `dataProfile[dataProfile.format] = xml`;
 - `containsSingleRow` — `<BOOLEAN>`; —; Yes; `N`; —; —; `dataProfile[dataProfile.format] = json` or `dataProfile[dataProfile.format] = xml`;
 - `useRawSelectors` — `<BOOLEAN>`; —; Yes; `N`; —; —; `dataProfile[dataProfile.format] = json`;
-- `singleRowSelector` — `<STRING>`; —; No; —; —; maxLength=255; `dataProfile[dataProfile.format] = json` and `dataProfile[dataProfile.containsSingleRow] = N` or `dataProfile[dataProfile.format] = xml` and `dataProfile[dataProfile.containsSingleRow] = N`;
+- `singleRowSelector` — `<STRING>`; —; No; —; —; maxLength=255; `dataProfile[dataProfile.containsSingleRow] = N` and (`dataProfile[dataProfile.format] = json` or `dataProfile[dataProfile.format] = xml`);
 
 ### invocationScope
 

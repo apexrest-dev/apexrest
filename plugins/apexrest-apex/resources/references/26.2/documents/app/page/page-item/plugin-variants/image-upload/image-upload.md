@@ -85,29 +85,29 @@
 
 ### display
 
-- `captureUsing` — `<STRING>`; —; No; —; `<enum:[selfieCamera:"Selfie Camera", mainCamera:"Main Camera"]>`; maxLength=4000; —;
-- `displayAs` — `<STRING>`; —; Yes; `DROPZONE_ICON`; `<enum:[nativeFileBrowse:"Native File Browse", inlineFileBrowse:"Inline File Browse", blockDropzone:"Block Dropzone", inlineDropzone:"Inline Dropzone", iconDropzone:"Icon Dropzone"]>`; maxLength=4000; —;
 - `allowCopyPaste` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `displayDownloadLink` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `pageItem[storage.type] = blobCol`;
+- `displayAs` — `<STRING>`; —; Yes; `DROPZONE_ICON`; `<enum:[inlineFileBrowse:"Inline File Browse", blockDropzone:"Block Dropzone", iconDropzone:"Icon Dropzone", nativeFileBrowse:"Native File Browse", inlineDropzone:"Inline Dropzone"]>`; maxLength=4000; —;
+- `captureUsing` — `<STRING>`; —; No; —; `<enum:[selfieCamera:"Selfie Camera", mainCamera:"Main Camera"]>`; maxLength=4000; —;
+- `previewSize` — `<STRING>`; —; Yes; `AUTO`; `<enum:[extraLarge:"Extra Large", extraSmall:"Extra Small", medium:"Medium", auto:"Auto", small:"Small", large:"Large"]>`; maxLength=4000; `pageItem[display.displayAs] = iconDropzone`;
 - `dropzoneDesc` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[display.displayAs] = inlineDropzone` or `pageItem[display.displayAs] = blockDropzone`;
+- `displayDownloadLink` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `pageItem[storage.type] = blobCol`;
 - `dropzoneTitle` — `<STRING>`; —; No; —; —; maxLength=255; `pageItem[display.displayAs] = inlineFileBrowse` or `pageItem[display.displayAs] = inlineDropzone` or `pageItem[display.displayAs] = blockDropzone`;
-- `previewSize` — `<STRING>`; —; Yes; `AUTO`; `<enum:[small:"Small", medium:"Medium", auto:"Auto", extraSmall:"Extra Small", extraLarge:"Extra Large", large:"Large"]>`; maxLength=4000; `pageItem[display.displayAs] = iconDropzone`;
 - `downloadLinkText` — `<STRING>`; —; No; —; —; maxLength=255; `pageItem[storage.type] = blobCol` and `pageItem[display.displayDownloadLink] = Y`;
-
-### resizeTo
-
-- `maxFileSize` — `<INTEGER>`; —; No; —; —; —; —;
-- `maxWidth` — `<INTEGER>`; —; No; —; —; —; —;
-- `maxHeight` — `<INTEGER>`; —; No; —; —; —; —;
 
 ### storage
 
 - `type` — `<STRING>`; —; Yes; `DB_COLUMN`; `<enum:[appTempFiles:"Table APEX_APPLICATION_TEMP_FILES", blobCol:"BLOB column specified in Item Source attribute"]>`; maxLength=4000; —;
-- `filenameColumn` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[storage.type] = blobCol`;
-- `blobLastUpdatedColumn` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[storage.type] = blobCol`;
-- `mimeTypeColumn` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[storage.type] = blobCol`;
 - `allowMultipleFiles` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[storage.type] = appTempFiles`;
+- `filenameColumn` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[storage.type] = blobCol`;
 - `purgeFilesAt` — `<STRING>`; —; Yes; `SESSION`; `<enum:[endOfRequest:"End of Request", endOfSession:"End of Session"]>`; maxLength=4000; `pageItem[storage.type] = appTempFiles`;
+- `mimeTypeColumn` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[storage.type] = blobCol`;
+- `blobLastUpdatedColumn` — `<STRING>`; —; No; —; —; maxLength=4000; `pageItem[storage.type] = blobCol`;
+
+### resizeTo
+
+- `maxWidth` — `<INTEGER>`; —; No; —; —; —; —;
+- `maxHeight` — `<INTEGER>`; —; No; —; —; —; —;
+- `maxFileSize` — `<INTEGER>`; —; No; —; —; —; —;
 
 ### label
 
@@ -147,7 +147,7 @@
 - `preference` — `<STRING>`; —; Yes; —; —; maxLength=255; `pageItem[source.type] = preference`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[sql:"SQL", plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = expression`;
 - `language` — `<STRING>`; —; Yes; `PLSQL`; `<enum:[plsql:"PL/SQL", javaScript-mle:"JavaScript (MLE)"]>`; —; `pageItem[source.type] = functionBody`;
-- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample` and `pageItem[source.formRegion] = sample`;
+- `queryOnly` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[source.formRegion] = sample`;
 - `sqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = sql`;
 - `plsqlExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = plsql`;
 - `javaScriptExpression` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[source.type] = expression` and `pageItem[source.language] = javaScript-mle`;
@@ -201,7 +201,7 @@
 
 - `type` — `<STRING>`; —; Yes; `SEPARATED`; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; —;
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `pageItem[settings.pageActionOnSelection] = none`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[multipleValues.type] = delimitedList` or `pageItem[settings.pageActionOnSelection] = none` and `pageItem[multipleValues.type] = delimitedList`;
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `pageItem[multipleValues.type] = delimitedList`;
 
 ### lov
 
@@ -240,10 +240,10 @@
 ### genAI
 
 - `enabled` — `<BOOLEAN>`; —; Yes; `N`; —; —; —;
-- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
-- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y` or `pageItem[genAI.enabled] = Y`;
+- `agent` — `<@aiAgent>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `service` — `<@genAIService>`; —; No; —; —; lovType=COMPONENT; `pageItem[genAI.enabled] = Y`;
+- `systemPrompt` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
+- `welcomeMessage` — `<STRING>`; —; No; —; —; —; `pageItem[genAI.enabled] = Y`;
 
 ### cascadingLov
 
@@ -254,6 +254,6 @@
 ### cropping
 
 - `allowCropping` — `<BOOLEAN>`; —; Yes; `N`; —; —; `pageItem[storage.type] = appTempFiles`;
-- `aspectRatio` — `<STRING>`; —; Yes; `AUTO`; `<enum:[univisium:"2:1 (univisium)", standard:"4:3 (standard)", custom:"Custom", original:"Original", widescreen:"16:9 (widescreen)", square:"1:1 (square)"]>`; maxLength=4000; `pageItem[storage.type] = appTempFiles` and `pageItem[cropping.allowCropping] = Y`;
+- `aspectRatio` — `<STRING>`; —; Yes; `AUTO`; `<enum:[square:"1:1 (square)", widescreen:"16:9 (widescreen)", custom:"Custom", original:"Original", standard:"4:3 (standard)", univisium:"2:1 (univisium)"]>`; maxLength=4000; `pageItem[storage.type] = appTempFiles` and `pageItem[cropping.allowCropping] = Y`;
 - `customAspectRatio` — `<STRING>`; —; Yes; —; —; maxLength=4000; `pageItem[storage.type] = appTempFiles` and `pageItem[cropping.allowCropping] = Y` and `pageItem[cropping.aspectRatio] = custom`;
 

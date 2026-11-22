@@ -44,7 +44,7 @@
 - `zeroCountEntries` — `<STRING>`; —; Yes; `H`; `<enum:[hide:"Hide", disable:"Disable", showLast:"Show Last"]>`; —; `filter[listEntries.computeCounts] = Y`;
 - `showSelectedFirst` — `<BOOLEAN>`; —; Yes; `N`; —; —; `filter[lov.type] = sample`;
 - `clientSideFiltering` — `<BOOLEAN>`; —; Yes; `N`; —; —; `filter[lov.type] = sample`;
-- `sortByTopCounts` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `filter[listEntries.computeCounts] = Y` and `filter[listEntries.showCounts] = Y` and `filter[identification.type] = checkboxGroup` or `filter[listEntries.computeCounts] = Y` and `filter[listEntries.showCounts] = Y` and `filter[identification.type] = radioGroup`;
+- `sortByTopCounts` — `<BOOLEAN>`; —; Yes; `Y`; —; —; `filter[listEntries.computeCounts] = Y` and `filter[listEntries.showCounts] = Y` and (`filter[identification.type] = checkboxGroup` or `filter[identification.type] = radioGroup`);
 
 ### source
 
@@ -55,9 +55,9 @@
 ### multipleValues
 
 - `type` — `<STRING>`; —; No; —; `<enum:[delimitedList:"Delimited List", jsonArray:"JSON Array"]>`; —; `filter[identification.type] = checkboxGroup` or `filter[identification.type] = radioGroup` or `filter[identification.type] = NATIVE_SELECT_LIST`;
-- `trimWhitespace` — `<BOOLEAN>`; —; Yes; `N`; —; —; `filter[identification.type] = checkboxGroup` and `filter[multipleValues.type] = delimitedList` or `filter[identification.type] = radioGroup` and `filter[multipleValues.type] = delimitedList` or `filter[identification.type] = NATIVE_SELECT_LIST` and `filter[multipleValues.type] = delimitedList`;
-- `filterCombination` — `<STRING>`; —; Yes; `OR`; `<enum:[or:"OR (Union)", and:"AND (Intersect)"]>`; —; `filter[identification.type] = checkboxGroup` and `filter[multipleValues.type] = sample` or `filter[identification.type] = radioGroup` and `filter[multipleValues.type] = sample` or `filter[identification.type] = NATIVE_SELECT_LIST` and `filter[multipleValues.type] = sample`;
-- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `filter[identification.type] = checkboxGroup` and `filter[multipleValues.type] = delimitedList` or `filter[identification.type] = radioGroup` and `filter[multipleValues.type] = delimitedList` or `filter[identification.type] = NATIVE_SELECT_LIST` and `filter[multipleValues.type] = delimitedList`;
+- `trimWhitespace` — `<BOOLEAN>`; —; Yes; `N`; —; —; `filter[multipleValues.type] = delimitedList` and (`filter[identification.type] = checkboxGroup` or `filter[identification.type] = radioGroup` or `filter[identification.type] = NATIVE_SELECT_LIST`);
+- `filterCombination` — `<STRING>`; —; Yes; `OR`; `<enum:[or:"OR (Union)", and:"AND (Intersect)"]>`; —; `filter[multipleValues.type] = sample` and (`filter[identification.type] = checkboxGroup` or `filter[identification.type] = radioGroup` or `filter[identification.type] = NATIVE_SELECT_LIST`);
+- `separator` — `<STRING>`; —; Yes; `:`; —; maxLength=5; `filter[multipleValues.type] = delimitedList` and (`filter[identification.type] = checkboxGroup` or `filter[identification.type] = radioGroup` or `filter[identification.type] = NATIVE_SELECT_LIST`);
 
 ### suggestions
 
@@ -70,8 +70,8 @@
 
 - `filter` — `<@filter>`; —; No; —; —; lovType=COMPONENT; —;
 - `type` — `<STRING>`; —; Yes; `NOT_NULL`; `<enum:[=:"equal to", !=:"not equal to", inList:"in list", notInList:"not in list", isNull:"is null", isNotNull:"is not null"]>`; —; `filter[dependingOn.filter] = sample`;
-- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `filter[dependingOn.filter] = sample` and `filter[dependingOn.type] = =` or `filter[dependingOn.filter] = sample` and `filter[dependingOn.type] = !=`;
-- `list` — `<STRING>`; —; Yes; —; —; maxLength=4000; `filter[dependingOn.filter] = sample` and `filter[dependingOn.type] = inList` or `filter[dependingOn.filter] = sample` and `filter[dependingOn.type] = notInList`;
+- `value` — `<STRING>`; —; Yes; —; —; maxLength=4000; `filter[dependingOn.filter] = sample` and (`filter[dependingOn.type] = =` or `filter[dependingOn.type] = !=`);
+- `list` — `<STRING>`; —; Yes; —; —; maxLength=4000; `filter[dependingOn.filter] = sample` and (`filter[dependingOn.type] = inList` or `filter[dependingOn.type] = notInList`);
 
 ### appearance
 
