@@ -42,6 +42,22 @@ var reportColumn = external_exports.strictObject({
   link: scaffoldTarget.optional(),
   linkText: literal.optional()
 });
+var table = column;
+var edit = external_exports.strictObject({
+  operations: external_exports.array(external_exports.enum(["add", "update", "delete"])).min(1).max(3),
+  rowVersionColumn: column.optional()
+});
+var gridColumn = external_exports.strictObject({
+  name: column,
+  heading: text.optional(),
+  dataType: external_exports.enum(["varchar2", "number", "date", "timestamp"]),
+  primaryKey: external_exports.boolean().optional(),
+  hidden: external_exports.boolean().optional(),
+  queryOnly: external_exports.boolean().optional(),
+  /** Detail grids: the master grid column this column joins to. */
+  masterColumn: column.optional()
+});
+var reportExtras = { refreshOnDialogClose: external_exports.boolean().optional() };
 var regions = external_exports.discriminatedUnion("type", [
   external_exports.strictObject({
     ...region,
@@ -49,7 +65,8 @@ var regions = external_exports.discriminatedUnion("type", [
     type: external_exports.enum(["interactiveReport", "classicReport"]),
     columns: external_exports.array(reportColumn).min(1).max(100),
     emptyMessage: text.optional(),
-    link: scaffoldTarget.optional()
+    link: scaffoldTarget.optional(),
+    ...reportExtras
   }),
   external_exports.strictObject({
     ...region,
@@ -58,7 +75,8 @@ var regions = external_exports.discriminatedUnion("type", [
     titleColumn: column,
     bodyColumn: column,
     keyColumn: column.optional(),
-    link: scaffoldTarget.optional()
+    link: scaffoldTarget.optional(),
+    ...reportExtras
   }),
   external_exports.strictObject({
     ...region,
@@ -98,7 +116,36 @@ var regions = external_exports.discriminatedUnion("type", [
     initialDate: external_exports.iso.date().optional(),
     link: scaffoldTarget.optional()
   }),
-  external_exports.strictObject({ ...region, ...query, type: external_exports.literal("form") }),
+  external_exports.strictObject({
+    ...region,
+    type: external_exports.literal("form"),
+    sql: sql.optional(),
+    itemsToSubmit: external_exports.array(item).max(100).optional(),
+    table: table.optional(),
+    edit: edit.optional()
+  }),
+  external_exports.strictObject({
+    ...region,
+    type: external_exports.literal("interactiveGrid"),
+    table,
+    columns: external_exports.array(gridColumn).min(1).max(100),
+    edit: edit.optional(),
+    /** Detail grid of a master-detail page: the master grid region on the same page. */
+    master: id.optional()
+  }),
+  external_exports.strictObject({
+    ...region,
+    type: external_exports.literal("facetedSearch"),
+    filteredRegion: id,
+    facets: external_exports.array(
+      external_exports.strictObject({
+        item,
+        type: external_exports.enum(["search", "checkboxGroup", "radioGroup"]),
+        label: text,
+        columns: external_exports.array(column).min(1).max(20)
+      })
+    ).min(1).max(20)
+  }),
   external_exports.strictObject({ ...region, type: external_exports.literal("staticContent"), html: code.optional() })
 ]);
 var processFields = {
@@ -118,6 +165,8 @@ var scaffoldSchema = external_exports.strictObject({
       id: external_exports.number().int().min(1).max(9998),
       name: text,
       alias: id.optional(),
+      /** modalDialog pages leave the navigation menu unless navigation is true. */
+      mode: external_exports.enum(["normal", "modalDialog"]).optional(),
       navigation: external_exports.boolean().optional(),
       ...guards,
       regions: external_exports.array(regions).min(1).max(30),
@@ -249,22 +298,97 @@ var reportAlias = (index) => {
     alias = String.fromCharCode(65 + (num - 1) % 26) + alias;
   return alias;
 };
-function renderRegion(region2, index, release = "26.2") {
+function editGroup(edit2) {
+  if (!edit2) return g("edit", "enabled: false");
+  return g(
+    "edit",
+    [
+      "enabled: true",
+      `allowedOperations: [
+${indent(edit2.operations.join("\n"))}
+]`,
+      `lostUpdateType: ${edit2.rowVersionColumn ? "rowVersionColumn" : "rowValues"}`,
+      edit2.rowVersionColumn ? `rowVersionColumn: ${edit2.rowVersionColumn}` : ""
+    ].filter(Boolean).join("\n")
+  );
+}
+var tableSource = (table2) => g("source", `location: localDatabase
+tableName: ${table2}`);
+var regionId = (page, region2) => region2.id ?? `r${page.regions.indexOf(region2) + 1}`;
+function renderRegion(region2, index, release = "26.2", slot = "body") {
   const chart = region2.type === "chart" || region2.type === "barChart";
   const parts = [
     `name: ${q(region2.name)}`,
     `type: ${chart ? "chart" : region2.type}`,
     g("layout", `sequence: ${(index + 1) * 10}
-slot: body`),
+slot: ${slot}`),
     appearance(
-      region2.type === "cards" ? "cards-container" : ["interactiveReport", "classicReport"].includes(region2.type) ? "interactive-report" : "standard"
+      region2.type === "cards" ? "cards-container" : ["interactiveReport", "classicReport", "interactiveGrid"].includes(region2.type) ? "interactive-report" : region2.type === "facetedSearch" ? "blank-with-attributes" : "standard"
     ),
     ...guards2(region2, void 0, chart ? "escapeSpecialChars: true" : "")
   ];
-  if ("sql" in region2) parts.push(query2(region2));
+  if ("sql" in region2 && region2.sql) parts.push(query2({ ...region2, sql: region2.sql }));
   if (region2.type === "staticContent" && region2.html)
     parts.push(g("source", `htmlCode:${fence("html", region2.html)}`));
-  if (region2.type === "form") parts.push(g("edit", "enabled: false"));
+  if (region2.type === "form") {
+    if (region2.table) parts.push(tableSource(region2.table));
+    parts.push(editGroup(region2.edit));
+  }
+  if (region2.type === "interactiveGrid") {
+    parts.push(tableSource(region2.table), editGroup(region2.edit));
+    if (region2.master) parts.push(g("masterDetail", `masterRegion: ${ref(region2.master)}`));
+    region2.columns.forEach(
+      (column2, i) => parts.push(
+        n("column", column2.name, [
+          `type: ${column2.hidden ? "hidden" : "textField"}`,
+          column2.hidden ? "" : g("heading", `heading: ${q(column2.heading ?? column2.name)}`),
+          g("layout", `sequence: ${(i + 1) * 10}`),
+          g(
+            "source",
+            [
+              `databaseColumn: ${column2.name}`,
+              `dataType: ${column2.dataType}`,
+              column2.primaryKey ? "primaryKey: true" : "",
+              column2.queryOnly || column2.primaryKey ? "queryOnly: true" : ""
+            ].filter(Boolean).join("\n")
+          ),
+          column2.masterColumn ? g("masterDetail", `masterColumn: ${ref(column2.masterColumn)}`) : "",
+          // The first visible column labels the row for assistive technology.
+          column2 === region2.columns.find((entry) => !entry.hidden) ? g("accessibility", "valueIdentifiesRow: true") : ""
+        ])
+      )
+    );
+    const shown = region2.columns.filter((column2) => !column2.hidden);
+    parts.push(
+      n("savedReport", "1", [
+        "visibility: primary",
+        g("view", "default: grid"),
+        ...shown.map(
+          (column2, i) => n("displayColumn", "", [
+            `column: ${ref(column2.name)}`,
+            g("layout", `sequence: ${(i + 1) * 10}`)
+          ]).replace("displayColumn  (", "displayColumn (")
+        )
+      ])
+    );
+  }
+  if (region2.type === "facetedSearch") {
+    parts.push(g("source", `filteredRegion: ${ref(region2.filteredRegion)}`));
+    region2.facets.forEach(
+      (facet, i) => parts.push(
+        n("facet", facet.item, [
+          `type: ${facet.type}`,
+          g("label", `label: ${q(facet.label)}`),
+          g("layout", `sequence: ${(i + 1) * 10}`),
+          facet.type === "search" ? "" : g("lov", "type: distinctValues"),
+          g(
+            "source",
+            facet.type === "search" ? `dbColumns: ${facet.columns.join(",")}` : `databaseColumn: ${facet.columns[0]}`
+          )
+        ])
+      )
+    );
+  }
   if (region2.type === "calendar") {
     if (region2.initialDate)
       parts.push(
@@ -386,8 +510,35 @@ point: ${value.point ?? (shared ? "beforeHeader" : "afterSubmit")}`
     value.successMessage && !shared ? g("successMessage", `successMessage: ${q(value.successMessage)}`) : ""
   ]);
 }
-function renderPageBody(page, release) {
-  const parts = page.regions.map((region2, index) => renderRegion(region2, index, release));
+function formControls(page) {
+  return page.regions.flatMap((region2) => {
+    if (region2.type !== "form" || !region2.edit) return [];
+    const form = regionId(page, region2);
+    const key = page.items?.find((item2) => item2.region === form && item2.primaryKey && item2.sourceColumn);
+    return [{ form, region: region2, key: key?.name, buttons: `${form}-buttons` }];
+  });
+}
+var modal = (page) => page.mode === "modalDialog";
+function renderPageBody(page, release, options = {}) {
+  const slot = modal(page) ? "contentBody" : "body";
+  const parts = options.regions === false ? [] : page.regions.map((region2, index) => renderRegion(region2, index, release, slot));
+  const controls = formControls(page);
+  controls.forEach(
+    (control, i) => parts.push(
+      indent(
+        n("region", control.buttons, [
+          `name: ${q(control.region.name + " buttons")}`,
+          "type: staticContent",
+          g(
+            "layout",
+            `sequence: ${(page.regions.length + i + 1) * 10}
+slot: ${modal(page) ? "dialogFooter" : "body"}`
+          ),
+          appearance("buttons-container")
+        ])
+      )
+    )
+  );
   page.items?.forEach((item2, i) => {
     const hidden = item2.type === "hidden";
     const fields = [
@@ -420,16 +571,19 @@ displayNullValue: true
 nullDisplayValue: - Select -`
         )
       );
-    if (item2.sourceColumn)
+    if (item2.sourceColumn) {
+      const form = page.regions.find((region2) => regionId(page, region2) === item2.region);
+      const edit2 = form?.type === "form" ? form.edit : void 0;
+      const queryOnly = !edit2 || item2.primaryKey || item2.sourceColumn === edit2.rowVersionColumn;
       fields.push(
         g(
           "source",
           `formRegion: ${ref(item2.region)}
 column: ${item2.sourceColumn}
-dataType: ${item2.dataType ?? "varchar2"}
-queryOnly: true${item2.primaryKey ? "\nprimaryKey: true" : ""}`
+dataType: ${item2.dataType ?? "varchar2"}${queryOnly ? "\nqueryOnly: true" : ""}${item2.primaryKey ? "\nprimaryKey: true" : ""}`
         )
       );
+    }
     parts.push(indent(n("pageItem", item2.name, fields)));
   });
   page.buttons?.forEach(
@@ -458,6 +612,87 @@ slot: ${release === "26.1" ? "next" : "NEXT"}`
       )
     )
   );
+  controls.forEach((control) => {
+    const ops = control.region.edit.operations;
+    const buttons = [];
+    if (modal(page))
+      buttons.push([
+        `cancel-${control.form}`,
+        "CANCEL",
+        "Cancel",
+        g("behavior", "action: definedByDynamicAction"),
+        "",
+        "close"
+      ]);
+    const keyCondition = (type) => control.key ? g("serverSideCondition", `type: ${type}
+item: ${control.key}`) : "";
+    if (ops.includes("delete"))
+      buttons.push([
+        `delete-${control.form}`,
+        "DELETE",
+        "Delete",
+        g(
+          "behavior",
+          "action: submitPage\ndatabaseAction: delete\nrequiresConfirmation: true\nexecuteValidations: false"
+        ) + "\n" + g("confirmation", 'message: "Delete this row?"\nstyle: danger'),
+        keyCondition("itemIsNotNull"),
+        "delete"
+      ]);
+    if (ops.includes("update"))
+      buttons.push([
+        `save-${control.form}`,
+        "SAVE",
+        "Apply Changes",
+        g("behavior", "action: submitPage\ndatabaseAction: update"),
+        keyCondition("itemIsNotNull"),
+        "next"
+      ]);
+    if (ops.includes("add"))
+      buttons.push([
+        `create-${control.form}`,
+        "CREATE",
+        "Create",
+        g("behavior", "action: submitPage\ndatabaseAction: insert"),
+        keyCondition("itemIsNull"),
+        "next"
+      ]);
+    buttons.forEach(
+      ([id2, name, label, behavior, condition3, slot2], i) => parts.push(
+        indent(
+          n("button", id2, [
+            `buttonName: ${name}`,
+            `label: ${q(label)}`,
+            g(
+              "layout",
+              `sequence: ${(i + 1) * 10}
+region: ${ref(control.buttons)}
+slot: ${release === "26.1" ? slot2 : slot2 === "next" ? "NEXT" : slot2 === "close" ? "CLOSE" : "DELETE"}`
+            ),
+            g(
+              "appearance",
+              `buttonTemplate: @/text${name === "SAVE" || name === "CREATE" ? "\nhot: true" : ""}
+templateOptions: #DEFAULT#`
+            ),
+            behavior,
+            condition3
+          ])
+        )
+      )
+    );
+    if (modal(page))
+      parts.push(
+        indent(
+          n("dynamicAction", `cancel-${control.form}`, [
+            "name: Cancel dialog",
+            g("execution", "sequence: 10"),
+            g("when", `event: click
+selectionType: button
+button: ${ref(`cancel-${control.form}`)}`),
+            n("action", "cancel-dialog", ["action: cancelDialog", g("execution", "sequence: 10")])
+          ])
+        )
+      );
+  });
   const mapping = (i) => 76e13 + page.id * 1e3 + i + 1;
   page.processes?.forEach(
     (process, i) => parts.push(indent(renderProcess({ ...process, sequence: process.sequence ?? (i + 1) * 10 }, mapping(i))))
@@ -476,6 +711,69 @@ point: beforeHeader`)
       )
     )
   );
+  controls.forEach((control, i) => {
+    const requests = control.region.edit.operations.map((op) => ({ add: "CREATE", update: "SAVE", delete: "DELETE" })[op]).join(",");
+    parts.push(
+      indent(
+        n("process", `process-${control.form}`, [
+          `name: ${q("Process form " + control.region.name)}`,
+          "type: formAutoRowProcessing",
+          `formRegion: ${ref(control.form)}`,
+          g("advanced", `executionMappingIdentifier: ${mapping(200 + i)}`),
+          g("execution", "sequence: 10\npoint: processing"),
+          g("serverSideCondition", `type: requestIsContainedInValue
+value: ${requests}`)
+        ])
+      )
+    );
+    if (modal(page))
+      parts.push(
+        indent(
+          n("process", `close-${control.form}`, [
+            "name: Close dialog",
+            "type: closeDialog",
+            g("advanced", `executionMappingIdentifier: ${mapping(300 + i)}`),
+            g("execution", "sequence: 50\npoint: processing"),
+            g("serverSideCondition", `type: requestIsContainedInValue
+value: ${requests}`)
+          ])
+        )
+      );
+  });
+  page.regions.filter((region2) => region2.type === "interactiveGrid" && region2.edit).forEach(
+    (region2, i) => parts.push(
+      indent(
+        n("process", `save-${regionId(page, region2)}`, [
+          `name: ${q("Save " + region2.name)}`,
+          "type: interactiveGridAutoRowProcessing",
+          `editableRegion: ${ref(regionId(page, region2))}`,
+          g("advanced", `executionMappingIdentifier: ${mapping(400 + i)}`),
+          g("execution", `sequence: ${(i + 1) * 10}
+point: processing`)
+        ])
+      )
+    )
+  );
+  page.regions.filter((region2) => "refreshOnDialogClose" in region2 && region2.refreshOnDialogClose).forEach((region2, i) => {
+    const id2 = regionId(page, region2);
+    parts.push(
+      indent(
+        n("dynamicAction", `dialog-closed-${id2}`, [
+          `name: ${q("Refresh " + region2.name + " after dialog")}`,
+          g("execution", `sequence: ${(page.refreshes?.length ?? 0) * 10 + (i + 1) * 10}`),
+          g("when", `event: apexafterclosedialog
+selectionType: region
+region: ${ref(id2)}`),
+          n("action", "refresh", [
+            "action: refresh",
+            g("affectedElements", `selectionType: region
+region: ${ref(id2)}`),
+            g("execution", "sequence: 10\nfireOnInit: false")
+          ])
+        ])
+      )
+    );
+  });
   page.validations?.forEach(
     (validation, i) => parts.push(
       indent(
@@ -603,14 +901,14 @@ function validateSpec(spec) {
       refresh.regions.forEach(requireRegion);
       for (const id2 of refresh.regions) {
         const region2 = page.regions[regions2.indexOf(id2)];
-        const sources = region2.type === "chart" ? region2.series : "sql" in region2 ? [region2] : [];
+        const sources = region2.type === "chart" ? region2.series : "sql" in region2 && region2.sql ? [region2] : [];
         if (!sources.length || sources.some((source) => refresh.items.some((item2) => !source.itemsToSubmit?.includes(item2))))
           invalid(`Refresh region ${id2} must submit every triggering item on every query/series.`);
       }
     });
     for (const region2 of page.regions) {
       if ("link" in region2) checkTarget(region2.link);
-      if ("columns" in region2)
+      if (region2.type === "interactiveReport" || region2.type === "classicReport")
         region2.columns.forEach((column2) => {
           checkTarget(column2.link);
           if (column2.linkText !== void 0 && !column2.link) invalid("Column linkText requires a link.");
@@ -628,13 +926,104 @@ function validateSpec(spec) {
           region2.series.map((series, i) => series.id ?? `s${i + 1}`),
           "Series IDs"
         );
-      for (const source of region2.type === "chart" ? region2.series : "sql" in region2 ? [region2] : [])
+      for (const source of region2.type === "chart" ? region2.series : "sql" in region2 && region2.sql ? [region2] : [])
         source.itemsToSubmit?.forEach(requireItem);
       if (region2.type === "cards" && region2.link && !region2.keyColumn)
         invalid("Linked cards require a keyColumn.");
       if (region2.type === "calendar" && region2.link && !region2.keyColumn)
         invalid("Linked calendars require a keyColumn.");
+      const where = `Page ${page.id} region ${regionId(page, region2)}`;
+      if ((region2.type === "form" || region2.type === "interactiveGrid") && region2.edit) {
+        if (!region2.authorizationScheme && !page.authorizationScheme)
+          invalid(`${where} edits data: give it (or its page) an authorizationScheme.`);
+        if (new Set(region2.edit.operations).size !== region2.edit.operations.length)
+          invalid(`${where} lists an edit operation twice.`);
+      }
+      if (region2.type === "form") {
+        if (!!region2.sql === !!region2.table) invalid(`${where} needs exactly one of sql or table.`);
+        if (region2.edit && !region2.table) invalid(`${where} edits data and needs a table.`);
+        if (region2.edit) {
+          const id2 = regionId(page, region2);
+          const own = (page.items ?? []).filter((item2) => item2.region === id2 && item2.sourceColumn);
+          if (own.filter((item2) => item2.primaryKey).length !== 1)
+            invalid(`${where} edits data and needs exactly one primaryKey item.`);
+          if (region2.edit.rowVersionColumn && !own.some((item2) => item2.sourceColumn === region2.edit.rowVersionColumn))
+            invalid(`${where} rowVersionColumn needs an item with that sourceColumn.`);
+        }
+      }
+      if (region2.type === "interactiveGrid") {
+        const names = region2.columns.map((column2) => column2.name);
+        unique(names, "Grid columns");
+        if (region2.edit) {
+          if (region2.columns.filter((column2) => column2.primaryKey).length !== 1)
+            invalid(`${where} edits data and needs exactly one primaryKey column.`);
+          if (region2.edit.rowVersionColumn && !names.includes(region2.edit.rowVersionColumn))
+            invalid(`${where} rowVersionColumn must be one of its columns.`);
+        }
+        const joins = region2.columns.filter((column2) => column2.masterColumn);
+        if (region2.master) {
+          const master = page.regions.find((other) => regionId(page, other) === region2.master);
+          if (!master || master === region2 || master.type !== "interactiveGrid")
+            invalid(`${where} master must be another interactive grid on page ${page.id}.`);
+          if (!joins.length) invalid(`${where} is a detail grid and needs a column with masterColumn.`);
+          for (const column2 of joins)
+            if (master?.type === "interactiveGrid" && !master.columns.some((entry) => entry.name === column2.masterColumn))
+              invalid(
+                `${where} column ${column2.name} joins to unknown master column ${column2.masterColumn}.`
+              );
+        } else if (joins.length) invalid(`${where} uses masterColumn without a master grid.`);
+      }
+      if (region2.type === "facetedSearch") {
+        const filtered = page.regions.find((other) => regionId(page, other) === region2.filteredRegion);
+        if (!filtered || !["classicReport", "cards"].includes(filtered.type))
+          invalid(`${where} must filter a classic report or cards region on page ${page.id}.`);
+        if (filtered?.type === "classicReport") {
+          const reportColumns = new Set(filtered.columns.map((column2) => column2.name));
+          for (const facet of region2.facets)
+            for (const column2 of facet.columns)
+              if (!reportColumns.has(column2))
+                invalid(
+                  `${where} facet ${facet.item} uses ${column2}, which ${filtered.name} does not select.`
+                );
+        }
+        for (const facet of region2.facets) {
+          if (!facet.item.startsWith(`P${page.id}_`))
+            invalid(`Facet ${facet.item} must belong to page ${page.id}.`);
+          if (items.includes(facet.item)) invalid(`Facet ${facet.item} duplicates a page item.`);
+          if (facet.type !== "search" && facet.columns.length !== 1)
+            invalid(`Facet ${facet.item} (${facet.type}) filters exactly one column.`);
+        }
+      }
     }
+    const generated = formControls(page);
+    for (const control of generated) {
+      if (regions2.includes(control.buttons))
+        invalid(`Region id ${control.buttons} is reserved for form buttons.`);
+      for (const prefix of ["cancel", "delete", "save", "create"])
+        if (buttons.includes(`${prefix}-${control.form}`))
+          invalid(`Button id ${prefix}-${control.form} is generated for form ${control.form}.`);
+      if (buttons.length)
+        unique(
+          [
+            ...buttons.map((id2) => id2.replaceAll("-", "_").toUpperCase()),
+            "CREATE",
+            "SAVE",
+            "DELETE",
+            "CANCEL"
+          ],
+          "Button request names"
+        );
+    }
+    if (generated.length > 1) invalid(`Page ${page.id} has more than one editable form.`);
+    unique(
+      [
+        ...items,
+        ...page.regions.flatMap(
+          (region2) => region2.type === "facetedSearch" ? region2.facets.map((f) => f.item) : []
+        )
+      ],
+      "Item and facet names"
+    );
   }
 }
 function pageGuards(page) {

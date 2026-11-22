@@ -219,7 +219,11 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
                 property('title', q(page.name), 1),
                 group(
                   'appearance',
-                  property('pageTemplate', '@/standard', 2) +
+                  (page.mode === 'modalDialog'
+                    ? property('pageMode', 'modalDialog', 2) +
+                      '\n' +
+                      property('dialogTemplate', '@/modal-dialog', 2)
+                    : property('pageTemplate', '@/standard', 2)) +
                     '\n' +
                     property('templateOptions', '#DEFAULT#', 2),
                   1,
@@ -233,7 +237,8 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
       const entry = menu.children.find(
         (e) => e.type === 'entry' && String(get(e.props, 'link.target.page')) === String(page.id),
       );
-      if (page.navigation === false) {
+      // Dialog pages open from other pages, so they stay out of the menu unless asked.
+      if ((page.navigation ?? page.mode !== 'modalDialog') === false) {
         if (!entry) continue;
         if (entry.id !== `scaffold-p${page.id}` || !ownedNavigation[entry.id])
           throw conflict(`${navFile} unowned entry ${entry.id}`);
@@ -377,7 +382,8 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
     for (const [name, value] of Object.entries(writes)) {
       const nodes = parseApexLang(value, name);
       const unique = (list: typeof nodes) => {
-        const keys = list.map((node) => `${node.type}:${node.id}`);
+        // Anonymous components (grid display columns, branches) have no identity to collide.
+        const keys = list.filter((node) => node.id).map((node) => `${node.type}:${node.id}`);
         if (new Set(keys).size !== keys.length) throw conflict(`duplicate components in ${name}`);
         list.forEach((node) => unique(node.children));
       };

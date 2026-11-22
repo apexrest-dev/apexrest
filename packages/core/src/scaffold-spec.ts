@@ -50,6 +50,30 @@ const reportColumn = z.strictObject({
   link: scaffoldTarget.optional(),
   linkText: literal.optional(),
 });
+const table = column;
+/**
+ * Write contract of an editable form or grid: the allowed DML operations and lost-update detection
+ * (a row version column, or APEX's row-value checksum when omitted). Editable regions also need an
+ * authorization scheme on the region or page; APEX native DML runs in the page submit transaction.
+ */
+const edit = z.strictObject({
+  operations: z
+    .array(z.enum(['add', 'update', 'delete']))
+    .min(1)
+    .max(3),
+  rowVersionColumn: column.optional(),
+});
+const gridColumn = z.strictObject({
+  name: column,
+  heading: text.optional(),
+  dataType: z.enum(['varchar2', 'number', 'date', 'timestamp']),
+  primaryKey: z.boolean().optional(),
+  hidden: z.boolean().optional(),
+  queryOnly: z.boolean().optional(),
+  /** Detail grids: the master grid column this column joins to. */
+  masterColumn: column.optional(),
+});
+const reportExtras = { refreshOnDialogClose: z.boolean().optional() };
 const regions = z.discriminatedUnion('type', [
   z.strictObject({
     ...region,
@@ -58,6 +82,7 @@ const regions = z.discriminatedUnion('type', [
     columns: z.array(reportColumn).min(1).max(100),
     emptyMessage: text.optional(),
     link: scaffoldTarget.optional(),
+    ...reportExtras,
   }),
   z.strictObject({
     ...region,
@@ -67,6 +92,7 @@ const regions = z.discriminatedUnion('type', [
     bodyColumn: column,
     keyColumn: column.optional(),
     link: scaffoldTarget.optional(),
+    ...reportExtras,
   }),
   z.strictObject({
     ...region,
@@ -109,7 +135,39 @@ const regions = z.discriminatedUnion('type', [
     initialDate: z.iso.date().optional(),
     link: scaffoldTarget.optional(),
   }),
-  z.strictObject({ ...region, ...query, type: z.literal('form') }),
+  z.strictObject({
+    ...region,
+    type: z.literal('form'),
+    sql: sql.optional(),
+    itemsToSubmit: z.array(item).max(100).optional(),
+    table: table.optional(),
+    edit: edit.optional(),
+  }),
+  z.strictObject({
+    ...region,
+    type: z.literal('interactiveGrid'),
+    table,
+    columns: z.array(gridColumn).min(1).max(100),
+    edit: edit.optional(),
+    /** Detail grid of a master-detail page: the master grid region on the same page. */
+    master: id.optional(),
+  }),
+  z.strictObject({
+    ...region,
+    type: z.literal('facetedSearch'),
+    filteredRegion: id,
+    facets: z
+      .array(
+        z.strictObject({
+          item,
+          type: z.enum(['search', 'checkboxGroup', 'radioGroup']),
+          label: text,
+          columns: z.array(column).min(1).max(20),
+        }),
+      )
+      .min(1)
+      .max(20),
+  }),
   z.strictObject({ ...region, type: z.literal('staticContent'), html: code.optional() }),
 ]);
 const processFields = {
@@ -133,6 +191,8 @@ export const scaffoldSchema = z.strictObject({
         id: z.number().int().min(1).max(9998),
         name: text,
         alias: id.optional(),
+        /** modalDialog pages leave the navigation menu unless navigation is true. */
+        mode: z.enum(['normal', 'modalDialog']).optional(),
         navigation: z.boolean().optional(),
         ...guards,
         regions: z.array(regions).min(1).max(30),

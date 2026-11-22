@@ -81,7 +81,7 @@ function fragment(source: string, pageId: string, components: InsertInput['compo
   // New regions follow the existing ones; items and refreshes use the page emitter unchanged.
   const offset = parsed.children.filter((c) => c.type === 'region').length;
   let text = page.regions.map((region, index) => renderRegion(region, offset + index, '26.2')).join('\n');
-  let rest = renderPageBody({ ...page, regions: [] }, '26.2');
+  let rest = renderPageBody(page, '26.2', { regions: false });
   const actions = existing('dynamicAction');
   (page.refreshes ?? []).forEach((_refresh, index) => {
     let n = index + 1;

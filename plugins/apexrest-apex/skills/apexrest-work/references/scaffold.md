@@ -73,13 +73,34 @@ Every region has `type`, `name` and optional stable `id`. Generated IDs are `r1`
 | `chart`                              | `chartType` of `bar`, `line`, `pie` or `donut`, and `series` with `name`, `sql`, `labelColumn`, `valueColumn`, optional `id`, `itemsToSubmit` and `link`. Optional `xTitle`, `yTitle`. |
 | `calendar`                           | `sql`, `displayColumn`, `startDateColumn`, optional `endDateColumn`, `keyColumn`, `showTime`, `initialDate` and `link`. Linked calendars need the query's key column.                  |
 | `staticContent`                      | Optional `html` for authored information or a container with native items.                                                                                                             |
-| `form`                               | `sql` for a native read-only query form and items with `sourceColumn`.                                                                                                                 |
+| `form`                               | `sql` for a native read-only query form, or `table` with optional `edit` for native DML; items with `sourceColumn`.                                                                    |
+| `interactiveGrid`                    | `table`, `columns` with `name`, `dataType` and optional `heading`, `primaryKey`, `hidden`, `queryOnly`, `masterColumn`; optional `edit` and `master` (master grid id on the page).     |
+| `facetedSearch`                      | `filteredRegion` (a `classicReport` or `cards` id) and `facets` with full `item`, `type` (`search`, `checkboxGroup`, `radioGroup`), `label` and `columns`.                             |
 
 Targets have `page`, optional `items` mapping full target item names to values, and optional `clearCache` page IDs. Use the native substitution for the component, such as `#TASK_ID#` in a report column and `&TASK_ID.` in a calendar. The emitter creates structured links. Supply `initialDate` when the task specifies a calendar date. Its JavaScript retains the preview's local-coverage diagnostic.
 
 ### Filtered dashboard recipe
 
 A filter item in a `staticContent` region, `cards` and a `line` chart whose queries read the item, every query listing it in `itemsToSubmit`, and one `refreshes` entry `{ "items": ["P30_STATUS"], "regions": ["status-cards", "signups"] }`. The emitter generates the select list, both regions and the change dynamic action that refreshes them. It was verified on APEX 26.2.0 (`specs/dashboard.json` shape: 3 regions, 1 item, 1 dynamic action).
+
+### Write contract and CRUD recipes
+
+`edit` is `{ "operations": ["add","update","delete"], "rowVersionColumn"?: "ROW_VERSION" }`:
+
+- Concurrency: lost updates are checked by the row version column, or by APEX row values when it is omitted.
+- Authorization: an editable form or grid needs `authorizationScheme` on the region or page.
+- Transaction: native DML runs in the page submit transaction, so an error rolls the request back.
+
+The recipes:
+
+- **Report with modal create/edit.** Two pages:
+  - Report page: an `interactiveReport` with a column `link` to the dialog page (`items: { "P41_ID": "#ID#" }`) and `refreshOnDialogClose: true`, plus a `redirectToPage` button for create.
+  - Dialog page: `mode: "modalDialog"` with an editable `form` and one `primaryKey` item. The emitter adds Cancel, Delete, Apply Changes and Create with native database actions, form processing, and close-dialog.
+- **Editable grid.** An `interactiveGrid` with `edit` and one `primaryKey` column; the emitter adds the grid row processing.
+- **Master–detail.** Two grids: the detail sets `master` and a `masterColumn` on its foreign-key column.
+- **Faceted search.** A `facetedSearch` over a `classicReport` whose columns include every facet column.
+
+Dialog pages stay out of the navigation menu unless `navigation: true`. All four were verified on APEX 26.2.0: compiler, import and dictionary readback.
 
 ## Items and server behavior
 
@@ -94,13 +115,13 @@ Pages have `id`, `name`, optional `alias` and `navigation` (default true), plus 
 | `branches`    | `id`, `target`, optional submit `button`. Branches run after processing.                                                                                                                                                                                                                                                                 |
 | `refreshes`   | Triggering `items` and affected region IDs in `regions`. Every affected query or chart series must include these item names in `itemsToSubmit`.                                                                                                                                                                                          |
 
-Use `staticContent` containers with native items and authored PL/SQL processes for collection- or API-backed editing. The `form` variant initializes a read-only query row and its `sourceColumn` items.
+Use `staticContent` containers with native items and authored PL/SQL processes for collection- or API-backed editing. A `form` with `sql` initializes a read-only query row; a `form` with `table` and `edit` writes it through native DML.
 
 Top-level `applicationProcesses` hold session initialization with `id`, `plsql` and optional `point` (default `beforeHeader`). Initialize each absent collection independently so recovery preserves members already present. Reserve truncation for an explicit reset. Supply the actual server validation, mutation, reset and redirect logic required by the task. An item's `required` flag supplements business validation on the server.
 
 Prefer one complete PL/SQL block per Execute Code process. Enclose adjacent complete blocks in an explicit outer `begin ... end;` so the supplied source also forms one standalone Oracle parse unit. Keep local declarations and exception handlers inside their original blocks.
 
-The emitter allocates process mappings and protects hidden items. Name each form item with its full page prefix, such as `P11_ID`. Keep record existence, uniqueness, optimistic locking and other business rules in host-authored SQL/PLSQL.
+The emitter allocates process mappings and protects hidden items. Name each form item with its full page prefix, such as `P11_ID`. Keep record existence, uniqueness and other business rules in host-authored SQL/PLSQL; native DML regions use their `edit` contract for optimistic locking.
 
 For a Number Field's server value, use `apex_session_state.get_number('P10_AMOUNT')`, which uses the item's format mask. Convert other numeric text with Oracle `to_number` and a matching format/NLS contract. JavaScript uses `apex.locale.toNumber`. See [Oracle's numeric item contract](https://docs.oracle.com/en/database/oracle/apex/26.1/apxdc/working-data-values-numbers.html).
 

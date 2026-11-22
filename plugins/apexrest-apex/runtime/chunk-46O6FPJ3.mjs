@@ -6,7 +6,7 @@ import {
   renderRegion,
   scaffoldSchema,
   validateSpec
-} from "./chunk-UHP3URNB.mjs";
+} from "./chunk-AZME3N7C.mjs";
 import {
   declarations,
   editSpans,
@@ -204,7 +204,7 @@ async function scaffold(ctx, specFile, name) {
             property("title", q(page.name), 1),
             group(
               "appearance",
-              property("pageTemplate", "@/standard", 2) + "\n" + property("templateOptions", "#DEFAULT#", 2),
+              (page.mode === "modalDialog" ? property("pageMode", "modalDialog", 2) + "\n" + property("dialogTemplate", "@/modal-dialog", 2) : property("pageTemplate", "@/standard", 2)) + "\n" + property("templateOptions", "#DEFAULT#", 2),
               1
             ),
             pageGuards(page),
@@ -216,7 +216,7 @@ async function scaffold(ctx, specFile, name) {
       const entry = menu.children.find(
         (e) => e.type === "entry" && String(get(e.props, "link.target.page")) === String(page.id)
       );
-      if (page.navigation === false) {
+      if ((page.navigation ?? page.mode !== "modalDialog") === false) {
         if (!entry) continue;
         if (entry.id !== `scaffold-p${page.id}` || !ownedNavigation[entry.id])
           throw conflict(`${navFile} unowned entry ${entry.id}`);
@@ -323,7 +323,7 @@ async function scaffold(ctx, specFile, name) {
     for (const [name2, value] of Object.entries(writes)) {
       const nodes = parseApexLang(value, name2);
       const unique = (list) => {
-        const keys = list.map((node) => `${node.type}:${node.id}`);
+        const keys = list.filter((node) => node.id).map((node) => `${node.type}:${node.id}`);
         if (new Set(keys).size !== keys.length) throw conflict(`duplicate components in ${name2}`);
         list.forEach((node) => unique(node.children));
       };

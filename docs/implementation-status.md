@@ -188,10 +188,51 @@ Bug found: an explicit lower-case page `alias` was emitted unchanged, and the co
 
 Verified on the local APEX 26.2.0: a "Filters" region, `P10_STATUS` and a refresh of the customers report were inserted into page 10 and shipped. The existing "Refresh Customers" dynamic action was kept.
 
-**Not done in this slice:**
+**CRUD and search recipes ([APE-376](https://linear.app/apexrest/issue/APE-376), [APE-383](https://linear.app/apexrest/issue/APE-383), [APE-391](https://linear.app/apexrest/issue/APE-391), [APE-393](https://linear.app/apexrest/issue/APE-393)).** The scaffold spec now has the following, with their syntax taken from the bundled compiler-evidenced component recipes:
 
-- unifying the Composer and scaffold emitters (APE-357 beyond the shared scaffold emitter);
-- the modal form ([APE-376](https://linear.app/apexrest/issue/APE-376)), interactive grid ([APE-383](https://linear.app/apexrest/issue/APE-383)), master–detail ([APE-391](https://linear.app/apexrest/issue/APE-391)) and faceted search ([APE-393](https://linear.app/apexrest/issue/APE-393)) recipes, which need new scaffold region types.
+- an `interactiveGrid` region;
+- a `facetedSearch` region;
+- an editable `form` (`table` + `edit`);
+- `mode: "modalDialog"` pages;
+- `refreshOnDialogClose` on reports and cards.
+
+From the spec, the emitter generates, all together:
+
+- the form's Cancel, Delete, Apply Changes and Create buttons with native database actions;
+- form processing, close-dialog and the cancel dynamic action;
+- grid row processing;
+- master–detail bindings (`masterRegion`, `masterColumn`);
+- facets over the filtered report;
+- the dialog-closed refresh on the calling report.
+
+The write contract is explicit:
+
+- **Authorization:** an `authorizationScheme` on the region or page is required.
+- **Keys:** exactly one primary key.
+- **Concurrency:** a row version column, or APEX row values when none is given.
+- **Transaction:** native DML in the page submit transaction.
+
+Invalid references are refused before writing: an unknown master column, a facet column the report does not select, a form with both `sql` and `table`. Anonymous components (grid display columns) no longer trip the scaffold duplicate check. `project insert` also emits these dependent components.
+
+**Verified on the local APEX 26.2.0** (review-e2e, pages 40–43, plus migration `0002__customer_notes.sql`):
+
+1. Compiler validation passed on the first run.
+2. `ship mode:apply` succeeded, with the migration applied.
+3. The dictionary readback showed:
+   - page 41 as a Modal Dialog with Administration Rights;
+   - its four buttons with SQL INSERT/UPDATE/DELETE actions;
+   - form DML and Close popup processes;
+   - page 42 with a read-only master grid and a detail grid bound to it (editable i:u:d, Row Version Column) and its DML process;
+   - page 43 with the faceted search with Search and Checkbox Group facets;
+   - page 40 with the Dialog Closed refresh.
+4. `preview check` rendered all four pages.
+5. Regeneration added only the grid row-identifying column. A manual edit to page 43 made regeneration stop with a precise conflict and keep the edit.
+
+Runtime use in a browser (creating, editing and deleting rows) was not exercised.
+
+Tests: `scaffold-recipes.test.ts`.
+
+**Not done in this slice:** merging the Composer emitters with scaffold (APE-357 beyond the shared scaffold emitter).
 
 ## Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)
 

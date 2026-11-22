@@ -6,7 +6,7 @@ import {
   renderPageBody,
   renderRegion,
   scaffoldSchema
-} from "./chunk-UHP3URNB.mjs";
+} from "./chunk-AZME3N7C.mjs";
 import {
   browserPreferences
 } from "./chunk-DJPW35KJ.mjs";
@@ -1799,7 +1799,7 @@ function fragment(source, pageId, components) {
   }
   const offset = parsed.children.filter((c) => c.type === "region").length;
   let text = page.regions.map((region, index) => renderRegion(region, offset + index, "26.2")).join("\n");
-  let rest = renderPageBody({ ...page, regions: [] }, "26.2");
+  let rest = renderPageBody(page, "26.2", { regions: false });
   const actions = existing("dynamicAction");
   (page.refreshes ?? []).forEach((_refresh, index) => {
     let n = index + 1;
@@ -3733,7 +3733,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-FRU5MWAB.mjs");
+        const { scaffold } = await import("./chunk-46O6FPJ3.mjs");
         data = await scaffold(await loadProject(root), text("specFile"), text("env"));
         break;
       }

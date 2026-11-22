@@ -260,11 +260,50 @@
 <p>Bug found: an explicit lower-case page <code>alias</code> was emitted unchanged, and the compiler rejected it (<code>VALUE_NOT_UPPERCASE</code>). Aliases are now upper-cased, with a test.</p>
 <p><strong>Insert into existing pages (<a href="https://linear.app/apexrest/issue/APE-369">APE-369</a>, <a href="https://linear.app/apexrest/issue/APE-370">APE-370</a>; shared scaffold emitter for <a href="https://linear.app/apexrest/issue/APE-357">APE-357</a>).</strong> <code>project insert</code> / <code>action:insert</code> appends scaffold-defined regions, items and refresh dynamic actions to an existing page. It uses the same native emitter as <code>project scaffold</code>. The edit is digest-bound and atomic. Ids and item names must be new, and refresh dynamic actions get unused names, so existing components keep their bytes.</p>
 <p>Verified on the local APEX 26.2.0: a &quot;Filters&quot; region, <code>P10_STATUS</code> and a refresh of the customers report were inserted into page 10 and shipped. The existing &quot;Refresh Customers&quot; dynamic action was kept.</p>
-<p><strong>Not done in this slice:</strong></p>
+<p><strong>CRUD and search recipes (<a href="https://linear.app/apexrest/issue/APE-376">APE-376</a>, <a href="https://linear.app/apexrest/issue/APE-383">APE-383</a>, <a href="https://linear.app/apexrest/issue/APE-391">APE-391</a>, <a href="https://linear.app/apexrest/issue/APE-393">APE-393</a>).</strong> The scaffold spec now has the following, with their syntax taken from the bundled compiler-evidenced component recipes:</p>
 <ul>
-<li>unifying the Composer and scaffold emitters (APE-357 beyond the shared scaffold emitter);</li>
-<li>the modal form (<a href="https://linear.app/apexrest/issue/APE-376">APE-376</a>), interactive grid (<a href="https://linear.app/apexrest/issue/APE-383">APE-383</a>), master–detail (<a href="https://linear.app/apexrest/issue/APE-391">APE-391</a>) and faceted search (<a href="https://linear.app/apexrest/issue/APE-393">APE-393</a>) recipes, which need new scaffold region types.</li>
+<li>an <code>interactiveGrid</code> region;</li>
+<li>a <code>facetedSearch</code> region;</li>
+<li>an editable <code>form</code> (<code>table</code> + <code>edit</code>);</li>
+<li><code>mode: &quot;modalDialog&quot;</code> pages;</li>
+<li><code>refreshOnDialogClose</code> on reports and cards.</li>
 </ul>
+<p>From the spec, the emitter generates, all together:</p>
+<ul>
+<li>the form&#39;s Cancel, Delete, Apply Changes and Create buttons with native database actions;</li>
+<li>form processing, close-dialog and the cancel dynamic action;</li>
+<li>grid row processing;</li>
+<li>master–detail bindings (<code>masterRegion</code>, <code>masterColumn</code>);</li>
+<li>facets over the filtered report;</li>
+<li>the dialog-closed refresh on the calling report.</li>
+</ul>
+<p>The write contract is explicit:</p>
+<ul>
+<li><strong>Authorization:</strong> an <code>authorizationScheme</code> on the region or page is required.</li>
+<li><strong>Keys:</strong> exactly one primary key.</li>
+<li><strong>Concurrency:</strong> a row version column, or APEX row values when none is given.</li>
+<li><strong>Transaction:</strong> native DML in the page submit transaction.</li>
+</ul>
+<p>Invalid references are refused before writing: an unknown master column, a facet column the report does not select, a form with both <code>sql</code> and <code>table</code>. Anonymous components (grid display columns) no longer trip the scaffold duplicate check. <code>project insert</code> also emits these dependent components.</p>
+<p><strong>Verified on the local APEX 26.2.0</strong> (review-e2e, pages 40–43, plus migration <code>0002__customer_notes.sql</code>):</p>
+<ol>
+<li>Compiler validation passed on the first run.</li>
+<li><code>ship mode:apply</code> succeeded, with the migration applied.</li>
+<li>The dictionary readback showed:<ul>
+<li>page 41 as a Modal Dialog with Administration Rights;</li>
+<li>its four buttons with SQL INSERT/UPDATE/DELETE actions;</li>
+<li>form DML and Close popup processes;</li>
+<li>page 42 with a read-only master grid and a detail grid bound to it (editable i:u:d, Row Version Column) and its DML process;</li>
+<li>page 43 with the faceted search with Search and Checkbox Group facets;</li>
+<li>page 40 with the Dialog Closed refresh.</li>
+</ul>
+</li>
+<li><code>preview check</code> rendered all four pages.</li>
+<li>Regeneration added only the grid row-identifying column. A manual edit to page 43 made regeneration stop with a precise conflict and keep the edit.</li>
+</ol>
+<p>Runtime use in a browser (creating, editing and deleting rows) was not exercised.</p>
+<p>Tests: <code>scaffold-recipes.test.ts</code>.</p>
+<p><strong>Not done in this slice:</strong> merging the Composer emitters with scaffold (APE-357 beyond the shared scaffold emitter).</p>
 <h2 id="warm-state-and-session-qualification-slice-e-2026-11-22-local-uncommitted">Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)</h2>
 <p><strong>Where import time goes.</strong> On the local APEX 26.2.0 target, a page import spends 2.5 s on the fresh pre-write export, 0.65 s connecting and 3.1 s in Oracle&#39;s import. The prepared import server&#39;s JVM is already started off the critical path (spawn 0 ms). Each database script costs about 1.7–1.9 s in its own SQLcl process.</p>
 <p><strong>JVM and compiler reuse (<a href="https://linear.app/apexrest/issue/APE-382">APE-382</a>, <a href="https://linear.app/apexrest/issue/APE-388">APE-388</a>).</strong> Not kept across imports: there is no measurable gain, and a server is bound to one frozen import directory. The fallback rules now have tests: a server without the HOST refusal, or one that fails to connect, submits nothing and falls back; after submission a failure or cancellation is reported as an interrupted import; the server runs one import only.</p>

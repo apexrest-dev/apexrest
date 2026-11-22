@@ -87,25 +87,117 @@ const reportAlias = (index: number) => {
   return alias;
 };
 
-export function renderRegion(region: ScaffoldRegion, index: number, release: Release = '26.2') {
+type EditContract = { operations: string[]; rowVersionColumn?: string | undefined };
+/** Native DML with lost-update detection: a row version column or APEX's row-value checksum. */
+function editGroup(edit: EditContract | undefined) {
+  if (!edit) return g('edit', 'enabled: false');
+  return g(
+    'edit',
+    [
+      'enabled: true',
+      `allowedOperations: [\n${indent(edit.operations.join('\n'))}\n]`,
+      `lostUpdateType: ${edit.rowVersionColumn ? 'rowVersionColumn' : 'rowValues'}`,
+      edit.rowVersionColumn ? `rowVersionColumn: ${edit.rowVersionColumn}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  );
+}
+const tableSource = (table: string) => g('source', `location: localDatabase\ntableName: ${table}`);
+/** Region id as rendered (explicit, or r<ordinal>). */
+export const regionId = (page: ScaffoldPage, region: ScaffoldRegion) =>
+  region.id ?? `r${page.regions.indexOf(region) + 1}`;
+
+export function renderRegion(
+  region: ScaffoldRegion,
+  index: number,
+  release: Release = '26.2',
+  slot = 'body',
+) {
   const chart = region.type === 'chart' || region.type === 'barChart';
   const parts = [
     `name: ${q(region.name)}`,
     `type: ${chart ? 'chart' : region.type}`,
-    g('layout', `sequence: ${(index + 1) * 10}\nslot: body`),
+    g('layout', `sequence: ${(index + 1) * 10}\nslot: ${slot}`),
     appearance(
       region.type === 'cards'
         ? 'cards-container'
-        : ['interactiveReport', 'classicReport'].includes(region.type)
+        : ['interactiveReport', 'classicReport', 'interactiveGrid'].includes(region.type)
           ? 'interactive-report'
-          : 'standard',
+          : region.type === 'facetedSearch'
+            ? 'blank-with-attributes'
+            : 'standard',
     ),
     ...guards(region, undefined, chart ? 'escapeSpecialChars: true' : ''),
   ];
-  if ('sql' in region) parts.push(query(region));
+  if ('sql' in region && region.sql) parts.push(query({ ...region, sql: region.sql }));
   if (region.type === 'staticContent' && region.html)
     parts.push(g('source', `htmlCode:${fence('html', region.html)}`));
-  if (region.type === 'form') parts.push(g('edit', 'enabled: false'));
+  if (region.type === 'form') {
+    if (region.table) parts.push(tableSource(region.table));
+    parts.push(editGroup(region.edit));
+  }
+  if (region.type === 'interactiveGrid') {
+    parts.push(tableSource(region.table), editGroup(region.edit));
+    if (region.master) parts.push(g('masterDetail', `masterRegion: ${ref(region.master)}`));
+    region.columns.forEach((column, i) =>
+      parts.push(
+        n('column', column.name, [
+          `type: ${column.hidden ? 'hidden' : 'textField'}`,
+          column.hidden ? '' : g('heading', `heading: ${q(column.heading ?? column.name)}`),
+          g('layout', `sequence: ${(i + 1) * 10}`),
+          g(
+            'source',
+            [
+              `databaseColumn: ${column.name}`,
+              `dataType: ${column.dataType}`,
+              column.primaryKey ? 'primaryKey: true' : '',
+              column.queryOnly || column.primaryKey ? 'queryOnly: true' : '',
+            ]
+              .filter(Boolean)
+              .join('\n'),
+          ),
+          column.masterColumn ? g('masterDetail', `masterColumn: ${ref(column.masterColumn)}`) : '',
+          // The first visible column labels the row for assistive technology.
+          column === region.columns.find((entry) => !entry.hidden)
+            ? g('accessibility', 'valueIdentifiesRow: true')
+            : '',
+        ]),
+      ),
+    );
+    const shown = region.columns.filter((column) => !column.hidden);
+    parts.push(
+      n('savedReport', '1', [
+        'visibility: primary',
+        g('view', 'default: grid'),
+        ...shown.map((column, i) =>
+          n('displayColumn', '', [
+            `column: ${ref(column.name)}`,
+            g('layout', `sequence: ${(i + 1) * 10}`),
+          ]).replace('displayColumn  (', 'displayColumn ('),
+        ),
+      ]),
+    );
+  }
+  if (region.type === 'facetedSearch') {
+    parts.push(g('source', `filteredRegion: ${ref(region.filteredRegion)}`));
+    region.facets.forEach((facet, i) =>
+      parts.push(
+        n('facet', facet.item, [
+          `type: ${facet.type}`,
+          g('label', `label: ${q(facet.label)}`),
+          g('layout', `sequence: ${(i + 1) * 10}`),
+          facet.type === 'search' ? '' : g('lov', 'type: distinctValues'),
+          g(
+            'source',
+            facet.type === 'search'
+              ? `dbColumns: ${facet.columns.join(',')}`
+              : `databaseColumn: ${facet.columns[0]}`,
+          ),
+        ]),
+      ),
+    );
+  }
   if (region.type === 'calendar') {
     if (region.initialDate)
       parts.push(
@@ -229,9 +321,44 @@ export function renderProcess(value: ScaffoldProcess, mapping: number, shared = 
   ]);
 }
 
-/** Explicit source only: supplied SQL and PL/SQL are never executed by scaffolding. */
-export function renderPageBody(page: ScaffoldPage, release: Release) {
-  const parts = page.regions.map((region, index) => renderRegion(region, index, release));
+/** Components generated for editable forms (buttons and their region), by form region id. */
+export function formControls(page: ScaffoldPage) {
+  return page.regions.flatMap((region) => {
+    if (region.type !== 'form' || !region.edit) return [];
+    const form = regionId(page, region);
+    const key = page.items?.find((item) => item.region === form && item.primaryKey && item.sourceColumn);
+    return [{ form, region, key: key?.name, buttons: `${form}-buttons` }];
+  });
+}
+const modal = (page: ScaffoldPage) => page.mode === 'modalDialog';
+
+/**
+ * Explicit source only: supplied SQL and PL/SQL are never executed by scaffolding. With
+ * `regions: false` the page's regions are not rendered (project insert renders them itself), but
+ * the components they imply (form buttons and processes, grid saves, dialog refreshes) still are.
+ */
+export function renderPageBody(page: ScaffoldPage, release: Release, options: { regions?: boolean } = {}) {
+  const slot = modal(page) ? 'contentBody' : 'body';
+  const parts =
+    options.regions === false
+      ? []
+      : page.regions.map((region, index) => renderRegion(region, index, release, slot));
+  const controls = formControls(page);
+  controls.forEach((control, i) =>
+    parts.push(
+      indent(
+        n('region', control.buttons, [
+          `name: ${q(control.region.name + ' buttons')}`,
+          'type: staticContent',
+          g(
+            'layout',
+            `sequence: ${(page.regions.length + i + 1) * 10}\nslot: ${modal(page) ? 'dialogFooter' : 'body'}`,
+          ),
+          appearance('buttons-container'),
+        ]),
+      ),
+    ),
+  );
   page.items?.forEach((item, i) => {
     const hidden = item.type === 'hidden';
     const fields = [
@@ -260,13 +387,18 @@ export function renderPageBody(page: ScaffoldPage, release: Release) {
             : `type: sqlQuery\nsqlQuery:${fence('sql', item.lov.sql)}\ndisplayNullValue: true\nnullDisplayValue: - Select -`,
         ),
       );
-    if (item.sourceColumn)
+    if (item.sourceColumn) {
+      // Editable forms write every column except the key and the row version.
+      const form = page.regions.find((region) => regionId(page, region) === item.region);
+      const edit = form?.type === 'form' ? form.edit : undefined;
+      const queryOnly = !edit || item.primaryKey || item.sourceColumn === edit.rowVersionColumn;
       fields.push(
         g(
           'source',
-          `formRegion: ${ref(item.region)}\ncolumn: ${item.sourceColumn}\ndataType: ${item.dataType ?? 'varchar2'}\nqueryOnly: true${item.primaryKey ? '\nprimaryKey: true' : ''}`,
+          `formRegion: ${ref(item.region)}\ncolumn: ${item.sourceColumn}\ndataType: ${item.dataType ?? 'varchar2'}${queryOnly ? '\nqueryOnly: true' : ''}${item.primaryKey ? '\nprimaryKey: true' : ''}`,
         ),
       );
+    }
     parts.push(indent(n('pageItem', item.name, fields)));
   });
   page.buttons?.forEach((button, i) =>
@@ -296,6 +428,85 @@ export function renderPageBody(page: ScaffoldPage, release: Release) {
       ),
     ),
   );
+  // Editable forms: create/save/delete with native DML actions, cancel in a dialog.
+  controls.forEach((control) => {
+    const ops = control.region.edit!.operations;
+    const buttons: string[][] = [];
+    if (modal(page))
+      buttons.push([
+        `cancel-${control.form}`,
+        'CANCEL',
+        'Cancel',
+        g('behavior', 'action: definedByDynamicAction'),
+        '',
+        'close',
+      ]);
+    const keyCondition = (type: string) =>
+      control.key ? g('serverSideCondition', `type: ${type}\nitem: ${control.key}`) : '';
+    if (ops.includes('delete'))
+      buttons.push([
+        `delete-${control.form}`,
+        'DELETE',
+        'Delete',
+        g(
+          'behavior',
+          'action: submitPage\ndatabaseAction: delete\nrequiresConfirmation: true\nexecuteValidations: false',
+        ) +
+          '\n' +
+          g('confirmation', 'message: "Delete this row?"\nstyle: danger'),
+        keyCondition('itemIsNotNull'),
+        'delete',
+      ]);
+    if (ops.includes('update'))
+      buttons.push([
+        `save-${control.form}`,
+        'SAVE',
+        'Apply Changes',
+        g('behavior', 'action: submitPage\ndatabaseAction: update'),
+        keyCondition('itemIsNotNull'),
+        'next',
+      ]);
+    if (ops.includes('add'))
+      buttons.push([
+        `create-${control.form}`,
+        'CREATE',
+        'Create',
+        g('behavior', 'action: submitPage\ndatabaseAction: insert'),
+        keyCondition('itemIsNull'),
+        'next',
+      ]);
+    buttons.forEach(([id, name, label, behavior, condition, slot], i) =>
+      parts.push(
+        indent(
+          n('button', id!, [
+            `buttonName: ${name}`,
+            `label: ${q(label!)}`,
+            g(
+              'layout',
+              `sequence: ${(i + 1) * 10}\nregion: ${ref(control.buttons)}\nslot: ${release === '26.1' ? slot : slot === 'next' ? 'NEXT' : slot === 'close' ? 'CLOSE' : 'DELETE'}`,
+            ),
+            g(
+              'appearance',
+              `buttonTemplate: @/text${name === 'SAVE' || name === 'CREATE' ? '\nhot: true' : ''}\ntemplateOptions: #DEFAULT#`,
+            ),
+            behavior!,
+            condition!,
+          ]),
+        ),
+      ),
+    );
+    if (modal(page))
+      parts.push(
+        indent(
+          n('dynamicAction', `cancel-${control.form}`, [
+            'name: Cancel dialog',
+            g('execution', 'sequence: 10'),
+            g('when', `event: click\nselectionType: button\nbutton: ${ref(`cancel-${control.form}`)}`),
+            n('action', 'cancel-dialog', ['action: cancelDialog', g('execution', 'sequence: 10')]),
+          ]),
+        ),
+      );
+  });
   const mapping = (i: number) => 760000000000000 + page.id * 1000 + i + 1;
   page.processes?.forEach((process, i) =>
     parts.push(indent(renderProcess({ ...process, sequence: process.sequence ?? (i + 1) * 10 }, mapping(i)))),
@@ -315,6 +526,69 @@ export function renderPageBody(page: ScaffoldPage, release: Release) {
         ),
       ),
     );
+  controls.forEach((control, i) => {
+    const requests = control.region
+      .edit!.operations.map((op) => ({ add: 'CREATE', update: 'SAVE', delete: 'DELETE' })[op])
+      .join(',');
+    parts.push(
+      indent(
+        n('process', `process-${control.form}`, [
+          `name: ${q('Process form ' + control.region.name)}`,
+          'type: formAutoRowProcessing',
+          `formRegion: ${ref(control.form)}`,
+          g('advanced', `executionMappingIdentifier: ${mapping(200 + i)}`),
+          g('execution', 'sequence: 10\npoint: processing'),
+          g('serverSideCondition', `type: requestIsContainedInValue\nvalue: ${requests}`),
+        ]),
+      ),
+    );
+    if (modal(page))
+      parts.push(
+        indent(
+          n('process', `close-${control.form}`, [
+            'name: Close dialog',
+            'type: closeDialog',
+            g('advanced', `executionMappingIdentifier: ${mapping(300 + i)}`),
+            g('execution', 'sequence: 50\npoint: processing'),
+            g('serverSideCondition', `type: requestIsContainedInValue\nvalue: ${requests}`),
+          ]),
+        ),
+      );
+  });
+  page.regions
+    .filter((region) => region.type === 'interactiveGrid' && region.edit)
+    .forEach((region, i) =>
+      parts.push(
+        indent(
+          n('process', `save-${regionId(page, region)}`, [
+            `name: ${q('Save ' + region.name)}`,
+            'type: interactiveGridAutoRowProcessing',
+            `editableRegion: ${ref(regionId(page, region))}`,
+            g('advanced', `executionMappingIdentifier: ${mapping(400 + i)}`),
+            g('execution', `sequence: ${(i + 1) * 10}\npoint: processing`),
+          ]),
+        ),
+      ),
+    );
+  page.regions
+    .filter((region) => 'refreshOnDialogClose' in region && region.refreshOnDialogClose)
+    .forEach((region, i) => {
+      const id = regionId(page, region);
+      parts.push(
+        indent(
+          n('dynamicAction', `dialog-closed-${id}`, [
+            `name: ${q('Refresh ' + region.name + ' after dialog')}`,
+            g('execution', `sequence: ${(page.refreshes?.length ?? 0) * 10 + (i + 1) * 10}`),
+            g('when', `event: apexafterclosedialog\nselectionType: region\nregion: ${ref(id)}`),
+            n('action', 'refresh', [
+              'action: refresh',
+              g('affectedElements', `selectionType: region\nregion: ${ref(id)}`),
+              g('execution', 'sequence: 10\nfireOnInit: false'),
+            ]),
+          ]),
+        ),
+      );
+    });
   page.validations?.forEach((validation, i) =>
     parts.push(
       indent(
@@ -439,7 +713,8 @@ export function validateSpec(spec: ScaffoldSpec) {
       refresh.regions.forEach(requireRegion);
       for (const id of refresh.regions) {
         const region = page.regions[regions.indexOf(id)]!;
-        const sources = region.type === 'chart' ? region.series : 'sql' in region ? [region] : [];
+        const sources =
+          region.type === 'chart' ? region.series : 'sql' in region && region.sql ? [region] : [];
         if (
           !sources.length ||
           sources.some((source) => refresh.items.some((item) => !source.itemsToSubmit?.includes(item)))
@@ -449,7 +724,7 @@ export function validateSpec(spec: ScaffoldSpec) {
     });
     for (const region of page.regions) {
       if ('link' in region) checkTarget(region.link);
-      if ('columns' in region)
+      if (region.type === 'interactiveReport' || region.type === 'classicReport')
         region.columns.forEach((column) => {
           checkTarget(column.link);
           if (column.linkText !== undefined && !column.link) invalid('Column linkText requires a link.');
@@ -467,13 +742,115 @@ export function validateSpec(spec: ScaffoldSpec) {
           region.series.map((series, i) => series.id ?? `s${i + 1}`),
           'Series IDs',
         );
-      for (const source of region.type === 'chart' ? region.series : 'sql' in region ? [region] : [])
+      for (const source of region.type === 'chart'
+        ? region.series
+        : 'sql' in region && region.sql
+          ? [region]
+          : [])
         source.itemsToSubmit?.forEach(requireItem);
       if (region.type === 'cards' && region.link && !region.keyColumn)
         invalid('Linked cards require a keyColumn.');
       if (region.type === 'calendar' && region.link && !region.keyColumn)
         invalid('Linked calendars require a keyColumn.');
+      const where = `Page ${page.id} region ${regionId(page, region)}`;
+      // Write contract: explicit authorization, one key, lost-update detection, native DML.
+      if ((region.type === 'form' || region.type === 'interactiveGrid') && region.edit) {
+        if (!region.authorizationScheme && !page.authorizationScheme)
+          invalid(`${where} edits data: give it (or its page) an authorizationScheme.`);
+        if (new Set(region.edit.operations).size !== region.edit.operations.length)
+          invalid(`${where} lists an edit operation twice.`);
+      }
+      if (region.type === 'form') {
+        if (!!region.sql === !!region.table) invalid(`${where} needs exactly one of sql or table.`);
+        if (region.edit && !region.table) invalid(`${where} edits data and needs a table.`);
+        if (region.edit) {
+          const id = regionId(page, region);
+          const own = (page.items ?? []).filter((item) => item.region === id && item.sourceColumn);
+          if (own.filter((item) => item.primaryKey).length !== 1)
+            invalid(`${where} edits data and needs exactly one primaryKey item.`);
+          if (
+            region.edit.rowVersionColumn &&
+            !own.some((item) => item.sourceColumn === region.edit!.rowVersionColumn)
+          )
+            invalid(`${where} rowVersionColumn needs an item with that sourceColumn.`);
+        }
+      }
+      if (region.type === 'interactiveGrid') {
+        const names = region.columns.map((column) => column.name);
+        unique(names, 'Grid columns');
+        if (region.edit) {
+          if (region.columns.filter((column) => column.primaryKey).length !== 1)
+            invalid(`${where} edits data and needs exactly one primaryKey column.`);
+          if (region.edit.rowVersionColumn && !names.includes(region.edit.rowVersionColumn))
+            invalid(`${where} rowVersionColumn must be one of its columns.`);
+        }
+        const joins = region.columns.filter((column) => column.masterColumn);
+        if (region.master) {
+          const master = page.regions.find((other) => regionId(page, other) === region.master);
+          if (!master || master === region || master.type !== 'interactiveGrid')
+            invalid(`${where} master must be another interactive grid on page ${page.id}.`);
+          if (!joins.length) invalid(`${where} is a detail grid and needs a column with masterColumn.`);
+          for (const column of joins)
+            if (
+              master?.type === 'interactiveGrid' &&
+              !master.columns.some((entry) => entry.name === column.masterColumn)
+            )
+              invalid(
+                `${where} column ${column.name} joins to unknown master column ${column.masterColumn}.`,
+              );
+        } else if (joins.length) invalid(`${where} uses masterColumn without a master grid.`);
+      }
+      if (region.type === 'facetedSearch') {
+        const filtered = page.regions.find((other) => regionId(page, other) === region.filteredRegion);
+        if (!filtered || !['classicReport', 'cards'].includes(filtered.type))
+          invalid(`${where} must filter a classic report or cards region on page ${page.id}.`);
+        if (filtered?.type === 'classicReport') {
+          const reportColumns = new Set(filtered.columns.map((column) => column.name));
+          for (const facet of region.facets)
+            for (const column of facet.columns)
+              if (!reportColumns.has(column))
+                invalid(
+                  `${where} facet ${facet.item} uses ${column}, which ${filtered.name} does not select.`,
+                );
+        }
+        for (const facet of region.facets) {
+          if (!facet.item.startsWith(`P${page.id}_`))
+            invalid(`Facet ${facet.item} must belong to page ${page.id}.`);
+          if (items.includes(facet.item)) invalid(`Facet ${facet.item} duplicates a page item.`);
+          if (facet.type !== 'search' && facet.columns.length !== 1)
+            invalid(`Facet ${facet.item} (${facet.type}) filters exactly one column.`);
+        }
+      }
     }
+    const generated = formControls(page);
+    for (const control of generated) {
+      if (regions.includes(control.buttons))
+        invalid(`Region id ${control.buttons} is reserved for form buttons.`);
+      for (const prefix of ['cancel', 'delete', 'save', 'create'])
+        if (buttons.includes(`${prefix}-${control.form}`))
+          invalid(`Button id ${prefix}-${control.form} is generated for form ${control.form}.`);
+      if (buttons.length)
+        unique(
+          [
+            ...buttons.map((id) => id.replaceAll('-', '_').toUpperCase()),
+            'CREATE',
+            'SAVE',
+            'DELETE',
+            'CANCEL',
+          ],
+          'Button request names',
+        );
+    }
+    if (generated.length > 1) invalid(`Page ${page.id} has more than one editable form.`);
+    unique(
+      [
+        ...items,
+        ...page.regions.flatMap((region) =>
+          region.type === 'facetedSearch' ? region.facets.map((f) => f.item) : [],
+        ),
+      ],
+      'Item and facet names',
+    );
   }
 }
 
