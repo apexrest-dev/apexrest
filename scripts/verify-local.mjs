@@ -4,7 +4,9 @@ import { sourceDigest, sha256 } from './lib/release.mjs';
 const commands = [
   ['ci', '--ignore-scripts'],
   ['run', 'lint'],
+  ['run', 'docs:check'],
   ['run', 'typecheck'],
+  ['run', 'composer:check'],
   ['run', 'build'],
   ['run', 'test:unit'],
   ['run', 'plugin:check'],
@@ -66,7 +68,13 @@ for (const args of commands) {
   }
 }
 report.status = report.status === 'failed' ? 'failed' : 'passed';
-report.sourceDigest = await sourceDigest();
+const finalSourceDigest = await sourceDigest();
+if (finalSourceDigest !== report.sourceDigest) {
+  report.status = 'failed';
+  report.finalSourceDigest = finalSourceDigest;
+  report.blocker =
+    'Product sources changed during verification. Build generated schemas first, freeze the candidate and rerun on unchanged source.';
+}
 await mkdir('docs/evidence', { recursive: true });
 await writeFile('docs/evidence/local-checks.json', JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify({ status: report.status, evidence: 'docs/evidence/local-checks.json' }));

@@ -1,3 +1,5 @@
+import { revisionStatus, sourceRevision } from './revision.ts';
+import { sourceInventory } from './deploy.ts';
 import path from 'node:path';
 import { readdir, realpath, stat } from 'node:fs/promises';
 import { z } from 'zod';
@@ -173,8 +175,19 @@ export class PanelService {
           }),
         )
       : [];
+    // Each source revision state separately: latest local, last validated, previewed, importing,
+    // last confirmed deployment and last failure per environment (revision.ts). Local read only.
+    let revisions: unknown = null;
+    if (ctx)
+      try {
+        const files = await sourceInventory(ctx);
+        revisions = await revisionStatus(ctx.root, sourceRevision(files, ctx.config));
+      } catch {
+        revisions = { status: 'unavailable' };
+      }
     return safe({
       sync,
+      revisions,
       version: VERSION,
       updatedAt: new Date().toISOString(),
       project: this.root,

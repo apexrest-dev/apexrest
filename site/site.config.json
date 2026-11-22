@@ -117,14 +117,6 @@
       "group": "Build applications"
     },
     {
-      "slug": "webapp",
-      "title": "Build a web application",
-      "source": "docs/webapp.md",
-      "lang": "en",
-      "key": "webapp",
-      "group": "Run and deploy"
-    },
-    {
       "slug": "apex-26.2",
       "title": "APEX 26.2 partial imports",
       "source": "docs/apex-26.2.md",

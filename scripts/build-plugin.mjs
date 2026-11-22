@@ -4,6 +4,8 @@ import { buildComponentCatalog } from './build-component-catalog.mjs';
 import { buildPatternCatalog } from './build-pattern-catalog.mjs';
 import { buildComposerCatalog } from './build-composer-catalog.mjs';
 import { checkPublicTemplateCatalog } from './build-public-template-catalog.mjs';
+import { generateSchemas } from './generate-schemas.mjs';
+await generateSchemas({ check: true });
 await checkPublicTemplateCatalog();
 await buildComposerCatalog(true);
 await buildComponentCatalog('resources/components', true);
@@ -52,9 +54,6 @@ await build({
     mcp: 'packages/mcp/src/main.ts',
     // Worker thread of the connected preview (preview/oracle/bridge.ts resolves it beside the chunks).
     'preview-oracle-worker': 'packages/core/src/preview/oracle/worker.ts',
-    // The web application runtime and its Oracle driver worker (apexrest build webapp copies them).
-    webapp: 'packages/core/src/webapp/runtime.ts',
-    'webapp-driver-worker': 'packages/core/src/webapp/driver-worker.ts',
   },
   outdir: 'dist/runtime',
   outExtension: { '.js': '.mjs' },
@@ -62,8 +61,6 @@ await build({
   chunkNames: 'chunk-[hash]',
   splitting: true,
   bundle: true,
-  // node-oracledb is a dependency of the built web application, never of the plug-in runtime.
-  external: ['oracledb'],
   platform: 'node',
   format: 'esm',
   target: 'node24',
@@ -99,7 +96,9 @@ await writeFile(
   `${root}/.mcp.json`,
   JSON.stringify(
     {
-      mcpServers: { apexrest: { command: 'node', args: ['runtime/mcp.mjs'], cwd: '.' } },
+      mcpServers: {
+        apexrest: { command: 'node', args: ['runtime/mcp.mjs'], cwd: '.', env: { APEXREST_HOST: 'codex' } },
+      },
     },
     null,
     2,
@@ -122,7 +121,11 @@ await writeFile(
       keywords: ['oracle', 'apex', 'apexlang', 'sqlcl', 'ords'],
       skills: './skills/',
       mcpServers: {
-        apexrest: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs'] },
+        apexrest: {
+          command: 'node',
+          args: ['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs'],
+          env: { APEXREST_HOST: 'claude' },
+        },
       },
     },
     null,

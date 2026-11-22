@@ -188,6 +188,42 @@ test('every request that touched Oracle ends with one rollback', () => {
   assert.equal(link.closed, true);
 });
 
+test('failed preview construction closes the attached Oracle session', async (t) => {
+  const { app, assets } = await workspace(t);
+  await writeFile(path.join(app, 'application.apx'), '');
+  const { link } = fakeOracle();
+  const oracle: ConnectedOracle = {
+    data: new OracleAppData(link, 'DEMO'),
+    environment: 'dev',
+    target: 'DEVDB/devdb_svc',
+    warnings: [],
+  };
+  assert.throws(
+    () => new PreviewServer({ sourceDir: app, assetsDir: assets, oracle }),
+    /does not declare an app component/u,
+  );
+  assert.equal(link.closed, true);
+});
+
+test('failed preview bind closes the attached Oracle session and SQLite state', async (t) => {
+  const { app, assets } = await workspace(t);
+  const listener = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  t.after(() => listener.stop());
+  const port = Number(new URL(await listener.start()).port);
+  const { link } = fakeOracle();
+  const oracle: ConnectedOracle = {
+    data: new OracleAppData(link, 'DEMO'),
+    environment: 'dev',
+    target: 'DEVDB/devdb_svc',
+    warnings: [],
+  };
+  const blocked = new PreviewServer({ sourceDir: app, assetsDir: assets, oracle, port });
+  t.after(() => blocked.stop());
+  await assert.rejects(blocked.start(), { code: 'EADDRINUSE' });
+  assert.equal(link.closed, true);
+  assert.equal(blocked.db.db.isOpen, false);
+});
+
 async function oraclePreview(
   t: import('node:test').TestContext,
   answer: (segment: string) => string,

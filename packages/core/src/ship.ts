@@ -41,10 +41,10 @@ export function fallbackCompilerDiagnostics(output: string): StructuredDiagnosti
   const entries: StructuredDiagnostic[] = [];
   for (const raw of output.split(/\r?\n/)) {
     const line = raw.replace(/\x1b\[[0-9;]*m/g, '').trim();
-    if (!line || !/\b(?:error|warning|ORA-\d+|PLS-\d+)\b/i.test(line)) continue;
+    if (!line || !/\b(?:error|warn(?:ing)?|ORA-\d+|PLS-\d+)\b/i.test(line)) continue;
     if (/^\d+\s+(?:errors?|warnings?)\b|validation (?:failed|completed)/i.test(line)) continue;
     const entry: StructuredDiagnostic = {
-      severity: /\bwarning\b/i.test(line) && !/\berror\b/i.test(line) ? 'warning' : 'error',
+      severity: /\bwarn(?:ing)?\b/i.test(line) && !/\berror\b/i.test(line) ? 'warning' : 'error',
       message: line.slice(0, 2000),
     };
     const file = /([\w./-]+\.apx)\b/.exec(line)?.[1];
@@ -184,13 +184,13 @@ export async function validateApplication(
   return {
     ...rest,
     ...(metadata ? { sourceDir: source, metadata } : {}),
-    diagnostics: warnings.slice(0, 50),
+    diagnostics: warnings,
     warningCount: warnings.length,
     staticAnalysis,
     upgradeAudit,
     ms: Date.now() - started,
-    output: output.length > 4000 ? output.slice(0, 4000) : output,
-    outputTruncated: output.length > 4000,
+    output,
+    outputTruncated: false,
   };
 }
 

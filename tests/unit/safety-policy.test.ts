@@ -3,11 +3,12 @@ import { referenceRead } from '../../packages/core/src/references.ts';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { workingCopyFixture } from '../fixtures/working-copy.ts';
 import { fixture } from '../fixtures/project.ts';
 import { inspectSql, executableSql } from '../../packages/core/src/sql-review.ts';
 import { localConnectionEndpoint } from '../../packages/core/src/locality.ts';
-import { policy, policySchema, environmentSchema } from '../../packages/core/src/config.ts';
+import { policy, policySchema, environmentSchema, targetDigest } from '../../packages/core/src/config.ts';
 import { authorizePlan, migrationRisk } from '../../packages/core/src/deploy.ts';
 import {
   shipApply,
@@ -25,7 +26,15 @@ import {
   SQLCL_WRITE_TIMEOUT_MS,
   type ProcessRequest,
 } from '../../packages/core/src/process.ts';
-import { atomicWrite, exists, writeJson } from '../../packages/core/src/fs.ts';
+import {
+  atomicWrite,
+  canonical,
+  exists,
+  hash,
+  inventory,
+  readJson,
+  writeJson,
+} from '../../packages/core/src/fs.ts';
 import { hostname, tmpdir } from 'node:os';
 import { LocalDeploymentControl } from '../../packages/core/src/deployment-control.ts';
 import { configureConnection } from '../../packages/core/src/connections.ts';
@@ -372,7 +381,7 @@ test('SQL inspection flags EXEC shorthand, anonymous blocks, query routine calls
   assert.deepEqual(actions('begin\n  remark := dangerous_fn;\nend;'), ['plsql-block']);
   assert.deepEqual(actions('select app_api.purge_everything() from dual;'), ['query-routine-call']);
   assert.deepEqual(actions('select own_fn(x) from t;'), ['query-routine-call']);
-  assert.deepEqual(actions('select count(*), to_char(sysdate) from t where x in (1, 2);'), []);
+  assert.deepEqual(actions('select count(*), to_char(sysdate) from t where 1 in (1, 2);'), []);
   assert.deepEqual(actions('create user hacker identified by x;'), ['create-user']);
   assert.deepEqual(actions('create role r;'), ['create-role']);
   assert.deepEqual(actions('alter trigger t_audit disable;'), ['alter-trigger']);
@@ -398,6 +407,78 @@ test('SQL inspection flags EXEC shorthand, anonymous blocks, query routine calls
     assert.deepEqual(migrationRisk(sql), ['database-mutation'], sql);
 });
 
+test('remote planner requires confirmation for bare routine and query-backed DDL, including quoted calls', async (t) => {
+  const f = await unlisted(t);
+  const migration = path.join(f.ctx.root, f.ctx.config.database.migrationsDir, '0001__query.sql');
+  for (const sql of [
+    'select app_api.recalculate from dual;',
+    'select recalculate from dual;',
+    'create table results as select app_api.recalculate(1) metric from dual;',
+    'create materialized view results as select "metrics"."Recalculate"(1) metric from dual;',
+    'select ticket_sequence.nextval from dual;',
+    'create index results_idx on results(app_api.recalculate(id));',
+  ]) {
+    await atomicWrite(migration, sql);
+    const plan = await f.service.plan(f.ctx, 'dev');
+    assert.ok(
+      plan.risks.some((risk) => risk.startsWith('database-mutation:')),
+      sql,
+    );
+    await assert.rejects(checkShipTarget(f.ctx, plan), { code: 'DATABASE_CONFIRMATION_REQUIRED' });
+  }
+  assert.deepEqual(migrationRisk('create index results_idx on results(id);'), []);
+  assert.deepEqual(migrationRisk('create table results as select count(*) from results_source;'), []);
+});
+
+test('full APEXlang restore plans and imports an absent application under the backed-up alias', async (t) => {
+  const f = await unlisted(t);
+  f.ctx.config.application.alias = 'current_alias';
+  f.controls.exists = false;
+  const backupId = randomUUID();
+  const directory = path.join(f.ctx.root, '.apexrest/backups', backupId);
+  const application = path.join(directory, 'application');
+  await cp(f.server, application, { recursive: true });
+  const files = await inventory(application);
+  await writeJson(path.join(directory, 'backup.json'), {
+    schemaVersion: 1,
+    backupId,
+    targetDigest: targetDigest(f.env),
+    environment: 'dev',
+    digest: hash(canonical(files)),
+    files,
+    alias: 'fixture',
+    scope: 'full',
+    format: 'APEXLANG',
+  });
+  const adapter = new OracleAdapter();
+  const importApplication = f.oracle.importApplication;
+  const checkedAliases: string[] = [];
+  Object.assign(f.oracle, {
+    async aliasHolders(_env: unknown, _connection: unknown, alias: string) {
+      checkedAliases.push(alias);
+      return alias === 'current_alias' ? [456] : [];
+    },
+  });
+  f.oracle.importApplication = async (...args) => {
+    const deployment = await adapter.nativeDeployment(args[0] as typeof f.ctx, f.env, args[3]);
+    try {
+      const { app } = (await readJson(deployment)) as { app: { alias: string } };
+      f.controls.alias = app.alias;
+      f.controls.exists = true;
+    } finally {
+      await adapter.discardStage(path.dirname(deployment));
+    }
+    await importApplication(...args);
+  };
+  const plan = await f.service.restorePlan(f.ctx, backupId);
+  assert.deepEqual(checkedAliases, ['fixture']);
+  assert.equal(plan.restore?.alias, 'fixture');
+  const result = await shipApply(f.ctx, plan, 'Restore this identified test application', f.service);
+  assert.equal(result.status, 'succeeded');
+  assert.equal(f.controls.alias, 'fixture');
+  assert.equal(f.ctx.config.application.alias, 'current_alias');
+});
+
 test('recovery preserves live and foreign workers even after a compatible server readback', async (t) => {
   const f = await unlisted(t);
   await f.service.sync(f.ctx, 'dev', 'init');
@@ -414,6 +495,9 @@ test('recovery preserves live and foreign workers even after a compatible server
   await assert.rejects(f.service.apply(f.ctx, planned.plan), { code: 'OUTCOME_UNKNOWN' });
   const control = new LocalDeploymentControl(f.env),
     original = (await control.owner())!;
+  const callsBeforeWrongEnvironment = f.calls.length;
+  await assert.rejects(f.service.recover(f.ctx, original.runId, 'qa'), { code: 'PLAN_ENVIRONMENT_MISMATCH' });
+  assert.equal(f.calls.length, callsBeforeWrongEnvironment);
   await writeJson(control.file('active.json'), { ...original, pid: process.ppid, hostname: hostname() });
   await assert.rejects(f.service.recover(f.ctx, original.runId), { code: 'TARGET_LOCKED' });
   assert.equal((await control.owner())!.pid, process.ppid);
@@ -442,7 +526,7 @@ select id from docs where id = 1 for update;
 delete from lines where id = 2;`);
   assert.deepEqual(
     operations
-      .filter((operation) => operation.dangerous)
+      .filter((operation) => operation.dangerous && operation.action !== 'query-unresolved-reference')
       .map((operation) => `${operation.action}:${operation.object}`),
     ['delete:LINES'],
   );

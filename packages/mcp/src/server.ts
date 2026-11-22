@@ -6,7 +6,13 @@ import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compilerPrewarmed, dispatch, prewarmCompiler, shutdownOracle } from '../../core/src/service.ts';
+import {
+  compilerPrewarmed,
+  dispatch,
+  prewarmCompiler,
+  shutdownOracle,
+  waitsForCompilerPrewarm,
+} from '../../core/src/service.ts';
 import { schemas, toolCatalog } from '../../core/src/operations.ts';
 import type { Operation } from '../../core/src/operations.ts';
 import { failure, Fault } from '../../core/src/result.ts';
@@ -20,6 +26,14 @@ import {
   shipWaitSeconds,
   prepareShipApplyPlan,
 } from './job-tools.ts';
+import {
+  codexShipWaitSeconds,
+  codexStatusWaitSeconds,
+  hostFromClient,
+  mcpHost,
+  type McpHost,
+} from './wait-policy.ts';
+export { hostFromClient } from './wait-policy.ts';
 
 const absoluteProject = z
   .string()
@@ -39,53 +53,76 @@ const absoluteProject = z
 const projectOptional = new Set<Operation>(['reference', 'status', 'project', 'apex.validate']);
 // MCP hosts may launch this process from a plugin cache. Keep this constraint
 // at the transport boundary so the CLI retains its current-directory behavior.
-export const mcpSchemas = new Map<Operation, z.ZodType<Record<string, unknown>>>();
-for (const { operation, long } of toolCatalog) {
-  const schema = schemas[operation];
-  const transportSchema =
-    'project' in schema.shape
-      ? schema.safeExtend({
-          project: projectOptional.has(operation) ? absoluteProject.optional() : absoluteProject,
-        })
-      : schema;
-  const boundarySchema =
-    operation === 'project'
-      ? transportSchema.safeExtend({
-          directory: absoluteProject.describe('Absolute directory for init.').optional(),
-          passwordFile: absoluteProject.describe('Absolute private password file.').optional(),
-          envFile: absoluteProject.describe('Absolute ignored local ENV credential file.').optional(),
-        })
-      : operation === 'apex.validate'
-        ? transportSchema
-            .safeExtend({
-              sourceDir: z
-                .string()
-                .max(4096)
-                .refine((value) => path.isAbsolute(value), 'sourceDir must be an absolute path.')
-                .describe('Absolute app folder')
-                .optional(),
-            })
-            .refine(
-              (input: Record<string, unknown>) =>
-                input.project !== undefined || input.sourceDir !== undefined,
-              {
-                message: 'Provide project or an absolute sourceDir.',
-                path: ['project'],
-              },
-            )
-        : transportSchema;
-  mcpSchemas.set(
-    operation,
-    long
-      ? boundarySchema.safeExtend({ waitSeconds: operation === 'ship' ? shipWaitSeconds : jobWaitSeconds })
-      : boundarySchema,
-  );
+function buildMcpSchemas(host?: McpHost) {
+  const result = new Map<Operation, z.ZodType<Record<string, unknown>>>();
+  for (const { operation, long } of toolCatalog) {
+    const schema = schemas[operation];
+    const transportSchema =
+      'project' in schema.shape
+        ? schema.safeExtend({
+            project: projectOptional.has(operation) ? absoluteProject.optional() : absoluteProject,
+          })
+        : schema;
+    const boundarySchema =
+      operation === 'project'
+        ? transportSchema.safeExtend({
+            directory: absoluteProject.describe('Absolute directory for init.').optional(),
+            passwordFile: absoluteProject.describe('Absolute private password file.').optional(),
+            envFile: absoluteProject.describe('Absolute ignored local ENV credential file.').optional(),
+          })
+        : operation === 'apex.validate'
+          ? transportSchema
+              .safeExtend({
+                sourceDir: z
+                  .string()
+                  .max(4096)
+                  .refine((value) => path.isAbsolute(value), 'sourceDir must be an absolute path.')
+                  .describe('Absolute app folder')
+                  .optional(),
+              })
+              .refine(
+                (input: Record<string, unknown>) =>
+                  input.project !== undefined || input.sourceDir !== undefined,
+                {
+                  message: 'Provide project or an absolute sourceDir.',
+                  path: ['project'],
+                },
+              )
+          : operation === 'job' && host === 'codex'
+            ? transportSchema.safeExtend({ waitSeconds: codexStatusWaitSeconds })
+            : transportSchema;
+    result.set(
+      operation,
+      long
+        ? boundarySchema.safeExtend({
+            waitSeconds:
+              operation === 'ship'
+                ? host === 'codex'
+                  ? codexShipWaitSeconds
+                  : shipWaitSeconds
+                : jobWaitSeconds,
+          })
+        : boundarySchema,
+    );
+  }
+  return result;
 }
-export function listTools(): Tool[] {
+export const mcpSchemas = buildMcpSchemas();
+let codexSchemas: ReturnType<typeof buildMcpSchemas> | undefined;
+function schemasForHost(host?: McpHost) {
+  if (host !== 'codex') return mcpSchemas;
+  return (codexSchemas ??= buildMcpSchemas('codex'));
+}
+/** The advertised catalog and request parser must use the same client identity. */
+export function mcpSchemasForClient(clientName?: string, registeredHost?: string) {
+  return schemasForHost(mcpHost(clientName, registeredHost));
+}
+function toolsForHost(host?: McpHost): Tool[] {
+  const selected = schemasForHost(host);
   return toolCatalog.map((t) => ({
     name: t.name,
     description: t.description,
-    inputSchema: z.toJSONSchema(mcpSchemas.get(t.operation)!, { target: 'draft-7', io: 'input' }) as {
+    inputSchema: z.toJSONSchema(selected.get(t.operation)!, { target: 'draft-7', io: 'input' }) as {
       type: 'object';
     },
     annotations: {
@@ -96,11 +133,8 @@ export function listTools(): Tool[] {
     },
   }));
 }
-export function hostFromClient(name: string | undefined) {
-  if (!name) return undefined;
-  if (/claude/i.test(name)) return 'claude';
-  if (/codex/i.test(name)) return 'codex';
-  return undefined;
+export function listTools(clientName?: string, registeredHost?: string): Tool[] {
+  return toolsForHost(mcpHost(clientName, registeredHost));
 }
 /** Database writes remain in a detached worker. */
 export function detachedJob(operation: Operation, _input: Record<string, unknown>) {
@@ -116,25 +150,34 @@ export async function startMcp() {
     const host = hostFromClient(server.getClientVersion()?.name);
     if (host && !process.env.APEXREST_HOST) process.env.APEXREST_HOST = host;
   };
-  let catalog: { tools: Tool[] } | undefined;
+  let catalog: { host: McpHost | undefined; tools: Tool[] } | undefined;
   const runtime = path.join(path.dirname(fileURLToPath(import.meta.url)), 'apexrest.mjs');
-  server.setRequestHandler(ListToolsRequestSchema, async () => (catalog ??= { tools: listTools() }));
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const name = server.getClientVersion()?.name;
+    const host = mcpHost(name, process.env.APEXREST_HOST);
+    if (!catalog || catalog.host !== host) catalog = { host, tools: toolsForHost(host) };
+    return { tools: catalog.tools };
+  });
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const tool = toolCatalog.find((t) => t.name === request.params.name);
     let result;
     let project: string | undefined;
     try {
       if (!tool) throw new Fault('UNKNOWN_TOOL', 'Tool is not in the catalog.', 2);
-      const input = parse(mcpSchemas.get(tool.operation)!, request.params.arguments ?? {});
+      const name = server.getClientVersion()?.name;
+      const host = mcpHost(name, process.env.APEXREST_HOST);
+      const selected = schemasForHost(host);
+      const shipWait = host === 'codex' ? codexShipWaitSeconds : shipWaitSeconds;
+      const input = parse(selected.get(tool.operation)!, request.params.arguments ?? {});
       project = typeof input.project === 'string' ? input.project : undefined;
       const localSync = tool.operation === 'apex.sync' && input.action === 'status';
       const planOnly = tool.operation === 'ship' && input.mode === 'plan';
       const peerStatus = tool.operation === 'peer' && input.action === 'status';
       const inProcess = localSync || planOnly || peerStatus;
       if (inProcess) delete input.waitSeconds;
-      // Operations that compile wait for a running compiler preload instead of starting beside it.
-      if (project && ['apex.validate', 'ship', 'preview'].includes(tool.operation))
-        await compilerPrewarmed(project);
+      // Operations that compile wait for a running compiler preload instead of starting beside it;
+      // the local preview does not wait for it (see waitsForCompilerPrewarm).
+      if (project && waitsForCompilerPrewarm(tool.operation, input)) await compilerPrewarmed(project);
       if (tool.long && !inProcess) {
         const jobs = new JobService(await loadProject(String(input.project)));
         if (tool.operation === 'ship' && input.mode === 'apply') {
@@ -160,7 +203,7 @@ export async function startMcp() {
               },
               runtime,
               extra.signal,
-              { waitSchema: shipWaitSeconds },
+              { waitSchema: shipWait },
             );
             result = jobToolResult('ship.apply', job);
             result = {
@@ -181,7 +224,7 @@ export async function startMcp() {
             // The boundary schema already allows ship its longer wait (recover included); use the same bound here.
             await runJobTool(jobs, tool.operation, input, runtime, extra.signal, {
               ...(inline ? { inline } : {}),
-              ...(tool.operation === 'ship' ? { waitSchema: shipWaitSeconds } : {}),
+              ...(tool.operation === 'ship' ? { waitSchema: shipWait } : {}),
             }),
           );
         }

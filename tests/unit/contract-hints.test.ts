@@ -44,7 +44,7 @@ test('invalid properties get a repair hint from the 26.2 inventory contract', as
       'Duplicated component within parent scope. For properties: advanced.executionMappingIdentifier: null',
       undefined,
     ))!,
-    /executionMappingIdentifier: <unique 20-digit number>/u,
+    /executionMappingIdentifier: <distinct numeric identifier>/u,
   );
   assert.equal(await propertyFix('LOV_NOT_FOUND', 'Invalid property: x', 'inside page 1'), undefined);
   assert.equal(await fix('Invalid property: x', 'inside nothing'), undefined);

@@ -123,9 +123,9 @@ test('an existing nonblank page is never overwritten, even after earlier spec pa
   assert.deepEqual(await inventory(root), before);
 });
 
-test('a 26.1 source refuses scaffolding without changing any source', async (t) => {
+test('an unsupported source release refuses scaffolding without changing any source', async (t) => {
   const { ctx, root } = await prepared(t);
-  await writeJson(path.join(root, '.apex/apexlang.json'), { mmdVersion: '26.1.0+3479' });
+  await writeJson(path.join(root, '.apex/apexlang.json'), { mmdVersion: '26.3.0+9999' });
   const before = await inventory(root);
   await assert.rejects(scaffold(ctx, 'spec.json'), { code: 'SCAFFOLD_RELEASE_UNSUPPORTED' });
   assert.deepEqual(await inventory(root), before);

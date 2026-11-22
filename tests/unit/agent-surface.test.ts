@@ -23,6 +23,24 @@ import { toolOutput } from '../../packages/mcp/src/output.ts';
 
 const parseDiagnostics = fallbackCompilerDiagnostics;
 
+test('public and detached ship apply refuse a plan for a different environment', async (t) => {
+  const { ctx, plan } = await fixture();
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  const planPath = '.apexrest/test-plan.json';
+  await writeJson(path.join(ctx.root, planPath), plan);
+  const args = {
+    project: ctx.root,
+    env: 'qa',
+    plan: planPath,
+    userRequest: 'Apply the reviewed plan to QA',
+  };
+  for (const operation of ['ship', 'ship.apply'] as const) {
+    const result = await dispatch(operation, { ...args, ...(operation === 'ship' ? { mode: 'apply' } : {}) });
+    assert.equal(result.ok, false);
+    assert.equal(result.diagnostics[0]!.code, 'PLAN_ENVIRONMENT_MISMATCH');
+  }
+});
+
 test('ship plan validates, plans and writes a reviewable plan without touching policy', async (t) => {
   const f = await workingCopyFixture();
   f.ctx.config.environments.dev!.baseUrl = 'https://localhost/ords/';
@@ -398,7 +416,8 @@ test('MCP catalog is twelve tools with correct annotations and a bounded footpri
   assert.equal(job.properties.waitSeconds!.maximum, 120);
   const bytes = Buffer.byteLength(JSON.stringify({ tools }), 'utf8');
   // apexrest_apex_validate sourceDir (parity with the CLI --source-dir) costs about 80 bytes.
-  assert.ok(bytes < 15000, `catalog is ${bytes} bytes`);
+  // apexrest_preview comments/resolve costs about 150 bytes; apexrest_project patch about 350.
+  assert.ok(bytes < 15500, `catalog is ${bytes} bytes`);
   assert.equal(detachedJob('ship', {}), true);
   assert.equal(detachedJob('apex.sync', { action: 'init' }), false);
 });

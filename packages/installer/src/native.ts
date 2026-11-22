@@ -1,5 +1,6 @@
 import path from 'node:path';
-import { cp, mkdir, readFile, rm, chmod } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { cp, mkdir, readFile, rm, chmod, realpath, stat } from 'node:fs/promises';
 import {
   canonical,
   exists,
@@ -13,7 +14,16 @@ import {
 } from '../../core/src/fs.ts';
 import { Fault } from '../../core/src/result.ts';
 import { nativeMarketplace, resolveNativePlugin, validateNative } from './package-source.ts';
-import { checkCodex, codexInvoke, inspectRegistration, listMarketplaces } from './registration.ts';
+import {
+  apexrestMarketplace,
+  checkCodex,
+  codexInvoke,
+  discoverAfterOwnedRemoval,
+  discoverRegistration,
+  foreignRegistrationsUnchanged,
+  inspectRegistration,
+  type RegistrationDiscovery,
+} from './registration.ts';
 import { canonicalHome, renameWithRetry } from './toolchain.ts';
 export interface NativeInstallRequest {
   source: string;
@@ -23,6 +33,7 @@ export interface NativeInstallRequest {
   node?: string;
   dryRun?: boolean;
   expectedRegistration?: string;
+  checkRuntime?: (root: string, node: string, home: string) => Promise<void>;
 }
 interface ClaudeManifest {
   name: string;
@@ -111,15 +122,34 @@ export async function installNative(r: NativeInstallRequest) {
   const cli = path.join(root, 'runtime/apexrest.mjs');
   // Fail before any registration change if a launcher cannot represent these paths safely.
   const launchers = launcherScripts(home, node, cli);
-  const invoke = codexInvoke(codexHome, (await exists(home)) ? home : process.cwd(), r.codex);
-  if (!(await exists(codexHome))) await checkCodex(codexHome, r.codex);
-  const inspect = async () =>
-    inspectRegistration(
-      (await exists(codexHome)) ? await listMarketplaces(invoke) : [],
-      home,
-      codexHome,
-      destination,
+  // Registration is user-scoped: discovery must not switch cwd when setup creates its home,
+  // or adopt marketplaces discovered from the invoking project.
+  const registrationCwd = await realpath(homedir());
+  if (!(await stat(registrationCwd)).isDirectory())
+    throw new Fault(
+      'CODEX_REGISTRATION_FAILED',
+      'Codex user-home working directory is unavailable.',
+      3,
+      'blocked',
     );
+  const invoke = codexInvoke(codexHome, registrationCwd, r.codex);
+  if (!(await exists(codexHome))) {
+    await checkCodex(codexHome, r.codex);
+    // Codex cannot enumerate an absent profile. Create only its directory for honest preflight;
+    // no configuration, plugin registration or managed payload is written by this step.
+    await mkdir(codexHome, { recursive: true, mode: 0o700 });
+  }
+  let removalProof: { before: RegistrationDiscovery; response: unknown } | undefined;
+  const discover = async (): Promise<RegistrationDiscovery> => {
+    try {
+      return await discoverRegistration(invoke, codexHome);
+    } catch (error) {
+      if (removalProof && error instanceof Fault && error.code === 'CODEX_CONFIG_SNAPSHOT_UNAVAILABLE')
+        return discoverAfterOwnedRemoval(invoke, codexHome, removalProof.before, removalProof.response);
+      throw error;
+    }
+  };
+  const inspect = async () => inspectRegistration(await discover(), home, codexHome, destination);
   let registration = await inspect();
   if (r.expectedRegistration && r.expectedRegistration !== registration.fingerprint)
     throw new Fault(
@@ -145,27 +175,38 @@ export async function installNative(r: NativeInstallRequest) {
     const stamp = Date.now();
     const configBackup = path.join(home, 'config-before-install-' + stamp + '.toml');
     if (await exists(config)) await cp(config, configBackup);
-    const repaired =
-      (await exists(destination)) && !(await reusable(destination, expectedFiles, mcpKey, expectedClaude));
-    if (repaired) {
-      // A content-addressed directory that no longer matches its address is rebuilt, never reused.
-      const broken = `${destination}.broken-${stamp}`;
-      await renameWithRetry(destination, broken);
-      await rm(broken, { recursive: true, force: true });
-    }
-    if (!(await exists(destination))) {
+    const present = await exists(destination);
+    const repaired = present && !(await reusable(destination, expectedFiles, mcpKey, expectedClaude));
+    if (!present || repaired) {
       const staging = destination + '.staging';
       await rm(staging, { recursive: true, force: true });
-      await mkdir(staging, { recursive: true, mode: 0o700 });
-      await mkdir(path.join(staging, 'plugins'), { recursive: true });
-      await cp(source, path.join(staging, 'plugins/apexrest-apex'), { recursive: true });
-      await writeJson(path.join(staging, '.agents/plugins/marketplace.json'), nativeMarketplace);
-      if (claudeMarketplace)
-        await writeJson(path.join(staging, '.claude-plugin/marketplace.json'), claudeMarketplace);
-      if (hash(canonical(await inventory(staging))) !== copyDigest)
-        throw new Fault('PACKAGE_COPY_INVALID', 'Native package copy changed.', 5);
-      await renameWithRetry(staging, destination);
-    }
+      try {
+        await mkdir(staging, { recursive: true, mode: 0o700 });
+        await mkdir(path.join(staging, 'plugins'), { recursive: true });
+        const stagedPlugin = path.join(staging, 'plugins/apexrest-apex');
+        await cp(source, stagedPlugin, { recursive: true });
+        await writeJson(path.join(staging, '.agents/plugins/marketplace.json'), nativeMarketplace);
+        if (claudeMarketplace)
+          await writeJson(path.join(staging, '.claude-plugin/marketplace.json'), claudeMarketplace);
+        if (hash(canonical(await inventory(staging))) !== copyDigest)
+          throw new Fault('PACKAGE_COPY_INVALID', 'Native package copy changed.', 5);
+        await r.checkRuntime?.(stagedPlugin, node, home);
+        if (repaired) {
+          // Keep the previous payload until the verified replacement is in place.
+          const broken = `${destination}.broken-${stamp}`;
+          await renameWithRetry(destination, broken);
+          try {
+            await renameWithRetry(staging, destination);
+          } catch (error) {
+            await renameWithRetry(broken, destination);
+            throw error;
+          }
+          await rm(broken, { recursive: true, force: true });
+        } else await renameWithRetry(staging, destination);
+      } finally {
+        await rm(staging, { recursive: true, force: true });
+      }
+    } else await r.checkRuntime?.(root, node, home);
     const portable = await exists(path.join(root, 'plugin.json'));
     const mcpPath = path.join(root, portable ? 'mcp.json' : '.mcp.json');
     const mcp = JSON.parse(await readFile(mcpPath, 'utf8')) as {
@@ -175,14 +216,14 @@ export async function installNative(r: NativeInstallRequest) {
     if (!server) throw new Fault('INVALID_PACKAGE', 'Native package has no apexrest MCP server.', 2);
     server.command = node;
     server.args = [path.join(root, 'runtime/mcp.mjs')];
-    server.env = { APEXREST_HOME: home };
+    server.env = { APEXREST_HOME: home, APEXREST_HOST: 'codex' };
     await writeJson(mcpPath, mcp);
     if (claude) {
       const installedClaude = normalizeClaude(
         (await readJson(path.join(root, claudeFile))) as ClaudeManifest,
       );
       installedClaude.mcpServers.apexrest!.command = node;
-      installedClaude.mcpServers.apexrest!.env = { APEXREST_HOME: home };
+      installedClaude.mcpServers.apexrest!.env = { APEXREST_HOME: home, APEXREST_HOST: 'claude' };
       // Claude expands its cache root; do not bind it to Codex's installation directory.
       await writeJson(path.join(root, claudeFile), installedClaude);
     }
@@ -209,7 +250,10 @@ export async function installNative(r: NativeInstallRequest) {
     let marketplace: unknown, installed: unknown, listing: unknown;
     const replacing = registration.previousRoot && registration.previousRoot !== destination;
     try {
-      if (replacing) await invoke(['plugin', 'marketplace', 'remove', 'apexrest', '--json']);
+      if (replacing) {
+        const response = await invoke(['plugin', 'marketplace', 'remove', 'apexrest', '--json']);
+        removalProof = { before: registration.discovery, response };
+      }
       marketplace = await invoke(['plugin', 'marketplace', 'add', destination, '--json']);
       installed = await invoke(['plugin', 'add', 'apexrest-apex@apexrest', '--json']);
       const cached = (installed as { installedPath?: string }).installedPath;
@@ -229,11 +273,10 @@ export async function installNative(r: NativeInstallRequest) {
           'Codex did not enable the installed APEXREST plugin.',
           3,
         );
-      const after = await listMarketplaces(invoke);
+      const after = await discover();
       if (
-        after.find((m) => m.name === 'apexrest')?.root !== destination ||
-        canonical(after.filter((m) => m.name !== 'apexrest')) !==
-          canonical(registration.markets.filter((m) => m.name !== 'apexrest'))
+        apexrestMarketplace(after)?.root !== destination ||
+        !foreignRegistrationsUnchanged(after, registration.discovery)
       )
         throw new Fault(
           'MARKETPLACE_CHANGED',
@@ -247,12 +290,11 @@ export async function installNative(r: NativeInstallRequest) {
       let unknown = error instanceof Fault && error.status === 'outcome_unknown';
       if (replacing && !(error instanceof Fault && error.status === 'outcome_unknown')) {
         try {
-          const after = await listMarketplaces(invoke);
-          const selected = after.find((m) => m.name === 'apexrest');
+          const after = await discover();
+          const selected = apexrestMarketplace(after);
           if (
-            canonical(after.filter((m) => m.name !== 'apexrest')) !==
-              canonical(registration.markets.filter((m) => m.name !== 'apexrest')) ||
-            (await inspectRegistration(registration.markets, home, codexHome, destination)).fingerprint !==
+            !foreignRegistrationsUnchanged(after, registration.discovery) ||
+            (await inspectRegistration(registration.discovery, home, codexHome, destination)).fingerprint !==
               registration.fingerprint
           )
             throw new Error('The prior registration or source changed externally.');
@@ -274,9 +316,10 @@ export async function installNative(r: NativeInstallRequest) {
             )
               throw new Error('The previous cached plugin could not be verified.');
           }
+          const restoredRegistration = await discover();
           if (
-            (await listMarketplaces(invoke)).find((m) => m.name === 'apexrest')?.root !==
-            registration.previousRoot
+            apexrestMarketplace(restoredRegistration)?.root !== registration.previousRoot ||
+            !foreignRegistrationsUnchanged(restoredRegistration, registration.discovery)
           )
             throw new Error('The previous marketplace could not be verified.');
           recovery = previousPlugin?.enabled

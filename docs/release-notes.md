@@ -28,6 +28,6 @@ Working copies bind their runtime/toolchain version. Reconcile local edits and u
 
 ## Distribution and verification
 
-Repository release and Oracle integration workflows remain disabled. The retained publisher local-evidence exception is bound to 2.2.0 and does not apply to 2.8.0. Publication requires its applicable authorization and current source-bound gates. CI runs on pushes to `main` only. Local packaging does not publish npm, create a Git tag or deploy a website.
+The maintainer approved npm publication of 2.8.0 with three current local reports. Full qualification still requires the external reports. Hosted CI runs on pushes to `main`. Repository release and Oracle integration workflows remain disabled.
 
 See [acceptance](acceptance.json), [open checks](next-actions.md) and [publishing](publishing.md). Repository fixtures remain separate from connected Oracle and native-host evidence.

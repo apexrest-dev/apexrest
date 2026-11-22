@@ -9,5 +9,6 @@ import './items.ts';
 import './live.ts';
 import './platform.ts';
 import './reports.ts';
+import './review.ts';
 import './server.ts';
 import './structure.ts';

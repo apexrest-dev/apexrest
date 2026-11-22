@@ -15,9 +15,11 @@ import {
   rm,
   symlink,
 } from 'node:fs/promises';
-import { atomicWrite, inventory, readJson, writeJson } from '../../packages/core/src/fs.ts';
+import { atomicWrite, exists, inventory, readJson, writeJson } from '../../packages/core/src/fs.ts';
+import { toolCatalog } from '../../packages/core/src/operations.ts';
+import { VERSION } from '../../packages/core/src/version.ts';
 import { installNative } from '../../packages/installer/src/native.ts';
-import { uninstallNative } from '../../packages/installer/src/setup.ts';
+import { setup, uninstallNative } from '../../packages/installer/src/setup.ts';
 import { nativeMarketplace, validateNative } from '../../packages/installer/src/package-source.ts';
 
 const quote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'";
@@ -94,12 +96,27 @@ appendFileSync(${JSON.stringify(stubCalls)}, JSON.stringify(args) + '\\n');
 const save = () => writeFileSync(stateFile, JSON.stringify(state));
 const emit = value => console.log(JSON.stringify(value));
 const fail = message => { console.error(message); process.exit(1); };
+const updateConfig = root => {
+  if (!state.scoped) return;
+  const file = path.join(process.env.CODEX_HOME, 'config.toml');
+  const marker = '# fixture-owned-apexrest\\n';
+  const prefix = readFileSync(file, 'utf8').split(marker)[0];
+  writeFileSync(file, prefix + marker + (root ? '[marketplaces.apexrest]\\nsource_type = "local"\\nsource = ' + JSON.stringify(root) + '\\n[plugins."apexrest-apex@apexrest"]\\nenabled = true\\n' : ''));
+};
 const command = args.slice(0, 3).join(' ');
-if (command === 'plugin marketplace list') {
+if (args[0] === '--version') {
+  console.log('codex-cli 0.154.0');
+} else if (command === 'plugin marketplace list') {
+  if (state.cwdSensitive) {
+    if (state.observedCwd && state.observedCwd !== process.cwd()) fail('Discovery working directory changed.');
+    state.observedCwd = process.cwd(); save();
+  }
+  if (state.scoped) fail('Unrelated marketplace manifest is missing.');
   if (state.invalidList) { console.log('{"marketplaces": ['); process.exit(0); }
   emit({ marketplaces: state.marketplaces });
 } else if (command === 'plugin marketplace remove') {
   state.marketplaces = state.marketplaces.filter(m => m.name !== args[3]);
+  updateConfig(undefined);
   save(); emit({ marketplaceName: args[3], installedRoot: null });
 } else if (command === 'plugin marketplace add') {
   const root = args[3];
@@ -110,6 +127,7 @@ if (command === 'plugin marketplace list') {
   if (existing && existing.root !== root) fail('Remove the existing marketplace before changing source.');
   state.marketplaces = state.marketplaces.filter(m => m.name !== 'apexrest');
   state.marketplaces.push({ name: 'apexrest', root, marketplaceSource: { sourceType: 'local', source: root } });
+  updateConfig(root);
   save(); emit({ marketplaceName: 'apexrest', installedRoot: root });
 } else if (args[0] === 'plugin' && args[1] === 'add') {
   const market = state.marketplaces.find(m => m.name === 'apexrest');
@@ -123,7 +141,9 @@ if (command === 'plugin marketplace list') {
   state.installed = { pluginId: 'apexrest-apex@apexrest', name: 'apexrest-apex', marketplaceName: 'apexrest', installedPath, version: manifest.version, enabled: true };
   save(); emit(state.installed);
 } else if (args[0] === 'plugin' && args[1] === 'list') {
-  emit({ installed: state.installed ? [state.installed] : [], available: [] });
+  const market = state.marketplaces.find(m => m.name === 'apexrest');
+  const entry = market ? { ...state.installed, pluginId: 'apexrest-apex@apexrest', name: 'apexrest-apex', marketplaceName: 'apexrest', source: { source: 'local', path: path.join(market.root, 'plugins/apexrest-apex') }, marketplaceSource: market.marketplaceSource } : undefined;
+  emit(state.scoped ? { installed: entry && state.installed ? [entry] : [], available: entry && !state.installed ? [entry] : [] } : { installed: state.installed ? [state.installed] : [], available: [] });
 } else if (args[0] === 'plugin' && args[1] === 'remove') {
   if (state.installed) rmSync(state.installed.installedPath, { recursive: true, force: true });
   delete state.installed; save(); emit({ pluginId: 'apexrest-apex@apexrest' });
@@ -208,8 +228,8 @@ test(
       mcpServers: typeof codex.mcpServers;
     };
     assert.equal(claude.mcpServers.apexrest!.command, codex.mcpServers.apexrest!.command);
-    assert.deepEqual(claude.mcpServers.apexrest!.env, { APEXREST_HOME: f.home });
-    assert.deepEqual(claude.mcpServers.apexrest!.env, codex.mcpServers.apexrest!.env);
+    assert.deepEqual(claude.mcpServers.apexrest!.env, { APEXREST_HOME: f.home, APEXREST_HOST: 'claude' });
+    assert.deepEqual(codex.mcpServers.apexrest!.env, { APEXREST_HOME: f.home, APEXREST_HOST: 'codex' });
     assert.deepEqual(claude.mcpServers.apexrest!.args, ['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs']);
     const market = (await readJson(path.join(installed.destination, '.claude-plugin/marketplace.json'))) as {
       plugins: { name: string; version: string; source: string }[];
@@ -286,7 +306,7 @@ test(
     };
     assert.equal(mcp.mcpServers.apexrest.command, process.execPath);
     assert.deepEqual(mcp.mcpServers.apexrest.args, [path.join(installed.root, 'runtime/mcp.mjs')]);
-    assert.deepEqual(mcp.mcpServers.apexrest.env, { APEXREST_HOME: f.home });
+    assert.deepEqual(mcp.mcpServers.apexrest.env, { APEXREST_HOME: f.home, APEXREST_HOST: 'codex' });
     const launcher = await readFile(path.join(f.home, 'bin/apexrest'), 'utf8');
     assert.ok(launcher.includes(quote(path.join(installed.root, 'runtime/apexrest.mjs'))));
     assert.ok(launcher.includes(quote(process.execPath)));
@@ -405,6 +425,60 @@ test(
     assert.deepEqual(await inventory(f.codexHome), profileBefore);
     assert.deepEqual(await readdir(f.home), []);
     assert.ok((await f.calls()).every((args) => args.slice(0, 3).join(' ') === 'plugin marketplace list'));
+  },
+);
+
+test(
+  'setup checks the candidate MCP server before replacing a working registration',
+  { skip: process.platform === 'win32' ? 'Fixture launcher uses a POSIX shell.' : false },
+  async (t) => {
+    const f = await fixture(t);
+    const manifest = path.join(f.plugin, '.codex-plugin/plugin.json');
+    await writeJson(manifest, { ...((await readJson(manifest)) as object), version: VERSION });
+    const runtime = path.join(f.plugin, 'runtime/mcp.mjs');
+    const catalog = toolCatalog.map(({ name }) => ({ name, inputSchema: { type: 'object' } }));
+    const server = (tools: typeof catalog) => `
+import { createInterface } from 'node:readline';
+for await (const line of createInterface({ input: process.stdin })) {
+  const request = JSON.parse(line);
+  if (request.id === undefined) continue;
+  const result = request.method === 'initialize'
+    ? { protocolVersion: request.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'apexrest-apex', version: ${JSON.stringify(VERSION)} } }
+    : { tools: ${JSON.stringify(tools)} };
+  console.log(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }));
+}
+`;
+    const input = { ...f.request, from: f.source, nativeOnly: true, yes: true };
+    await atomicWrite(runtime, server(catalog));
+    const installed = await setup(input);
+    assert.ok('components' in installed);
+    assert.equal(installed.components.mcp, 'verified');
+    const previous = {
+      profile: await inventory(f.codexHome),
+      native: await inventory(path.join(f.home, 'native')),
+      launchers: await inventory(path.join(f.home, 'bin')),
+      registration: await readJson(f.stubState),
+      receipt: await readJson(path.join(f.home, 'installation.json')),
+    };
+    for (const [contents, code] of [
+      ['process.exit(1);\n', 'MCP_STARTUP_FAILED'],
+      [server([]), 'MCP_CATALOG_MISMATCH'],
+      [server(catalog.slice(0, -1)), 'MCP_CATALOG_MISMATCH'],
+    ] as const) {
+      await atomicWrite(runtime, contents);
+      const calls = (await f.calls()).length;
+      await assert.rejects(setup(input), { code });
+      assert.deepEqual(await inventory(f.codexHome), previous.profile);
+      assert.deepEqual(await inventory(path.join(f.home, 'native')), previous.native);
+      assert.deepEqual(await inventory(path.join(f.home, 'bin')), previous.launchers);
+      assert.deepEqual(await readJson(f.stubState), previous.registration);
+      assert.deepEqual(await readJson(path.join(f.home, 'installation.json')), previous.receipt);
+      assert.ok(
+        (await f.calls())
+          .slice(calls)
+          .every((args) => args.slice(0, 3).join(' ') === 'plugin marketplace list'),
+      );
+    }
   },
 );
 
@@ -659,5 +733,108 @@ test(
     const after = (await readJson(f.stubState)) as { marketplaces: { name: string }[]; installed?: unknown };
     assert.equal(after.installed, undefined);
     assert.ok(!after.marketplaces.some((market) => market.name === 'apexrest'));
+  },
+);
+
+test(
+  'scoped native update preserves foreign config/source/cache when an unrelated marketplace is broken (local fixture)',
+  { skip: process.platform === 'win32' ? 'Fixture launcher uses a POSIX shell.' : false },
+  async (t) => {
+    for (const failAdd of [false, true]) {
+      const f = await fixture(t);
+      const previous = await f.existing(true);
+      const marker = '# fixture-owned-apexrest\n';
+      await atomicWrite(
+        path.join(f.codexHome, 'config.toml'),
+        `hide_agent_reasoning = true
+[marketplaces.other]
+source_type = "local"
+source = ${JSON.stringify(previous.unrelatedMarket.root)}
+[plugins."other@other"]
+enabled = true
+${marker}[marketplaces.apexrest]
+source_type = "local"
+source = ${JSON.stringify(previous.oldRoot)}
+[plugins."apexrest-apex@apexrest"]
+enabled = true
+`,
+      );
+      const state = (await readJson(f.stubState)) as Record<string, unknown>;
+      state.scoped = true;
+      await writeJson(f.stubState, state);
+      const { snapshotForeignConfig } = await import('../../packages/installer/src/registration-config.ts');
+      const before = await snapshotForeignConfig(f.codexHome);
+      const priorSource = await inventory(previous.oldRoot);
+      const foreignCache = path.join(f.codexHome, 'plugins/cache/other/other/1.0.0');
+      await atomicWrite(
+        path.join(foreignCache, 'fixture.txt'),
+        'Unrelated installed plugin remains byte-identical.',
+      );
+      const priorForeign = await inventory(foreignCache);
+      const plan = await installNative({ ...f.request, dryRun: true });
+      assert.equal(plan.registration.discovery.scope, 'apexrest');
+      assert.equal('markets' in plan.registration, false);
+      if (failAdd) {
+        state.failAddSource = plan.destination;
+        await writeJson(f.stubState, state);
+        await assert.rejects(
+          installNative({ ...f.request, expectedRegistration: plan.registration.fingerprint }),
+          /Recovery: previous-registration-restored/u,
+        );
+        const restored = (await readJson(f.stubState)) as { marketplaces: { name: string; root: string }[] };
+        assert.equal(restored.marketplaces.find((m) => m.name === 'apexrest')?.root, previous.oldRoot);
+        const cache = path.join(f.codexHome, 'plugins/cache/apexrest/apexrest-apex/0.1.0-test');
+        assert.deepEqual(
+          await inventory(cache),
+          await inventory(path.join(previous.oldRoot, 'plugins/apexrest-apex')),
+        );
+      } else {
+        const result = await installNative({
+          ...f.request,
+          expectedRegistration: plan.registration.fingerprint,
+        });
+        assert.equal(result.registration.discovery.scope, 'apexrest');
+        assert.ok('root' in result);
+        const cached = result.installed as { installedPath: string };
+        assert.deepEqual(await inventory(cached.installedPath), await inventory(result.root));
+      }
+      const after = await snapshotForeignConfig(f.codexHome);
+      assert.equal(after.foreignContentSha256, before.foreignContentSha256);
+      assert.equal(after.foreignRegistrySha256, before.foreignRegistrySha256);
+      assert.deepEqual(await inventory(previous.oldRoot), priorSource);
+      assert.deepEqual(await inventory(foreignCache), priorForeign);
+      const calls = await f.calls();
+      assert.ok(
+        calls.some((args) => args.join(' ') === 'plugin list --marketplace apexrest --available --json'),
+      );
+      assert.ok(
+        calls
+          .filter((args) => args.slice(0, 3).join(' ') === 'plugin marketplace remove')
+          .every((args) => args[3] === 'apexrest'),
+      );
+    }
+  },
+);
+
+test(
+  'fresh managed-home creation keeps user registration discovery independent of the invoking repository (local fixture)',
+  { skip: process.platform === 'win32' ? 'Fixture launcher uses a POSIX shell.' : false },
+  async (t) => {
+    const f = await fixture(t);
+    await rm(f.home, { recursive: true, force: true });
+    await rm(f.codexHome, { recursive: true, force: true });
+    await writeJson(f.stubState, {
+      marketplaces: [{ name: 'implicit-other', root: path.join(f.root, 'implicit-other') }],
+      cwdSensitive: true,
+    });
+    const plan = await installNative({ ...f.request, dryRun: true });
+    assert.equal(await exists(f.home), false);
+    assert.equal(await exists(f.codexHome), true);
+    assert.equal(await exists(path.join(f.codexHome, 'config.toml')), false);
+    const result = await installNative({ ...f.request, expectedRegistration: plan.registration.fingerprint });
+    assert.ok('root' in result);
+    const state = (await readJson(f.stubState)) as { observedCwd: string };
+    const { homedir } = await import('node:os');
+    assert.equal(state.observedCwd, await realpath(homedir()));
   },
 );

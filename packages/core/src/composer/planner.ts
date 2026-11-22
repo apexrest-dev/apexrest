@@ -18,12 +18,14 @@ import {
   planDigest,
   validate,
   documentText,
+  parseDocumentData,
   planLimits,
 } from './formats.ts';
 import { loadCatalog, resolvePackages, type Catalog } from './catalog.ts';
 import { inventorySymbols, declarations, threeWay } from './reader.ts';
 import { bind, type MetadataSnapshot } from './binding.ts';
 import { render } from './emitter.ts';
+import { planEnumLovs, sharedEnumValuesSupported, type EnumLovRequest } from './shared-lovs.ts';
 
 const extensionUnsafe = () =>
   new Fault(
@@ -281,6 +283,7 @@ export function planComposition(input: Snapshot): CompositionPlan {
         Object.fromEntries(Object.entries(input.sources).filter(([file]) => !ownedFiles.has(file))),
       );
     const allocated: Record<string, Allocation> = {};
+    const bindings = new Map<string, ReturnType<typeof bind>>();
     const nextPage = () => {
       for (let page = 100; page < 9999; page++)
         if (!used.has(page)) {
@@ -291,6 +294,7 @@ export function planComposition(input: Snapshot): CompositionPlan {
     };
     for (const [id, instance] of Object.entries(blueprint.blocks).sort(([a], [b]) => (a < b ? -1 : 1))) {
       const binding = bind(blueprint, instance, input.metadata ?? undefined);
+      bindings.set(id, binding);
       if (Object.keys(instance.extensions).length && instance.ownership !== 'extended')
         throw new Fault('EXTENSION_MODE_REQUIRED', 'Extension hooks require explicit extended ownership.', 5);
       for (const source of Object.values(instance.extensions)) extensionCode(source!);
@@ -356,7 +360,7 @@ export function planComposition(input: Snapshot): CompositionPlan {
       const publisher = blueprint.blocks[from[1]!]!,
         consumer = blueprint.blocks[to[1]!]!;
       if (
-        !bind(blueprint, publisher).writable ||
+        !bindings.get(from[1]!)!.writable ||
         packages.get(publisher.use)!.manifest.renderer !== 'report-dialog' ||
         packages.get(consumer.use)!.manifest.renderer !== 'status-summary' ||
         publisher.bindings.records !== consumer.bindings.records
@@ -418,6 +422,50 @@ export function planComposition(input: Snapshot): CompositionPlan {
         allocated[id]!.page = nextPage();
     for (const [child, host] of hosts) allocated[child]!.page = allocated[host]!.page;
     plan.allocations = allocated;
+    const enumRequests: EnumLovRequest[] = [];
+    for (const [id, instance] of Object.entries(blueprint.blocks)) {
+      const binding = bindings.get(id)!,
+        renderer = packages.get(instance.use)!.manifest.renderer;
+      if (
+        instance.ownership === 'detached' ||
+        !binding.writable ||
+        !['report-dialog', 'filtered-list'].includes(renderer)
+      )
+        continue;
+      for (const field of instance.parameters.editableFields) {
+        const specification = binding.entity.read.fields[field]!;
+        if (specification.enum && specification.type === 'string') {
+          if (sharedEnumValuesSupported(specification.enum))
+            enumRequests.push({
+              instanceId: id,
+              field,
+              type: specification.type,
+              values: specification.enum,
+            });
+          else
+            diagnostics.push({
+              code: 'ENUM_SHARED_ADAPTER_UNAVAILABLE',
+              severity: 'info',
+              message: `${id}.${field} retains its text field and server enum validation. Its literals are outside the bounded shared LOV adapter.`,
+            });
+        }
+      }
+    }
+    const shared = planEnumLovs({
+      profile: blueprint.application.compatibilityProfile,
+      requests: enumRequests,
+      sources: input.sources,
+      bases: input.bases,
+      ...(state?.sharedResources ? { previous: state.sharedResources } : {}),
+      detachedConsumers: new Set(
+        Object.entries(state?.owners ?? {})
+          .filter(
+            ([id, owner]) => owner.mode === 'detached' || blueprint.blocks[id]?.ownership === 'detached',
+          )
+          .map(([id]) => id),
+      ),
+    });
+    diagnostics.push(...shared.diagnostics);
     const desired: Record<string, string> = {},
       owners: Record<string, Owner> = {};
     for (const [id, instance] of Object.entries(blueprint.blocks).sort(([a], [b]) => (a < b ? -1 : 1))) {
@@ -437,10 +485,23 @@ export function planComposition(input: Snapshot): CompositionPlan {
         );
       const summaries = [...hosts]
         .filter(([, host]) => host === id)
-        .map(([child]) => ({ instance: blueprint.blocks[child]!, allocation: allocated[child]! }));
+        .map(([child]) => ({
+          instance: blueprint.blocks[child]!,
+          allocation: allocated[child]!,
+          binding: bindings.get(child)!,
+        }));
       const files = hosts.has(id)
         ? {}
-        : render(blueprint, id, instance, pkg.manifest, allocated[id]!, summaries);
+        : render(
+            blueprint,
+            id,
+            instance,
+            pkg.manifest,
+            allocated[id]!,
+            summaries,
+            bindings.get(id)!,
+            shared.references[id],
+          );
       for (const [file, source] of Object.entries(files)) {
         if (desired[file])
           throw new Fault('OWNERSHIP_COLLISION', 'Two instances own the same source file.', 5);
@@ -563,6 +624,25 @@ export function planComposition(input: Snapshot): CompositionPlan {
           reason: 'remove-owned-source',
         });
       }
+    for (const [file, content] of Object.entries(shared.files))
+      if (content !== input.sources[file])
+        operations.push({
+          path: input.sourceDir + '/' + file,
+          before: input.sourceInventory[file] ?? null,
+          after: hash(content),
+          content,
+          reason: 'create-shared-enum-lov',
+        });
+    for (const [digest, content] of Object.entries(shared.bases))
+      if (!(digest in input.bases))
+        operations.push({
+          path: `.apexrest-composer/bases/${digest}.apx`,
+          before: null,
+          after: digest,
+          content,
+          reason: 'retain-generated-base',
+        });
+    const sharedState = Object.keys(shared.resources).length ? { sharedResources: shared.resources } : {};
     const lock = {
       schemaVersion: 1 as const,
       generatorVersion: '1' as const,
@@ -578,7 +658,7 @@ export function planComposition(input: Snapshot): CompositionPlan {
       }),
     };
     const lockDigest = semanticDigest(lock),
-      generationDigest = semanticDigest({ blueprintDigest, lockDigest, owners });
+      generationDigest = semanticDigest({ blueprintDigest, lockDigest, owners, ...sharedState });
     plan.state = {
       schemaVersion: 1,
       generatorVersion: '1',
@@ -586,8 +666,11 @@ export function planComposition(input: Snapshot): CompositionPlan {
       blueprintDigest,
       lockDigest,
       owners,
+      ...sharedState,
     };
     plan.lock = lock;
+    // The tracked state must remain readable under the same authored-document limits.
+    parseDocumentData(documentText(plan.state));
     plan.status = 'materializable';
     if (input.validation === 'source-only')
       diagnostics.push({

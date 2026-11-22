@@ -5,6 +5,7 @@ import type { ApexError, ApexRenderer, RenderContext, Session } from '../render.
 import { runOraclePlsql } from '../oracle/plsql.ts';
 import { escapeHtml } from '../theme.ts';
 import { enforcing, hasRole } from './devtools/view-as.ts';
+import { applicationBuildOptionStatus } from './platform/dictionary.ts';
 import { rememberRenderer, setAuthorizer, type Runtime } from './server/apex-api.ts';
 import { itemText, runPlsql, truthy, type ExecResult, type PlsqlOwner } from './server/plsql.ts';
 import { pageRowValidation } from './server/rows.ts';
@@ -39,16 +40,22 @@ function report(
   who: PlsqlOwner,
   result: ExecResult,
   consequence: string,
+  startup = false,
 ): string | undefined {
   const failure = result.failure;
   if (!failure) return undefined;
   const where = failure.line ? ` (line ${failure.line})` : '';
   if (failure.kind === 'app') {
-    renderer.diagnose('info', `${who.label} raised: ${failure.message}${where}`, ctx.pageId, who.component);
+    renderer.diagnose(
+      startup ? 'error' : 'info',
+      `${who.label} raised: ${failure.message}${where}`,
+      ctx.pageId,
+      who.component,
+    );
     return failure.message.replace(/^ORA-20\d{3}:\s*/u, '');
   }
   renderer.diagnose(
-    failure.kind === 'unsupported' ? 'info' : 'warning',
+    failure.kind === 'unsupported' ? 'info' : startup ? 'error' : 'warning',
     `${who.label}: ${failure.kind === 'unsupported' ? (renderer.oracle ? 'PL/SQL not run' : 'PL/SQL not interpreted locally') : 'PL/SQL failed'} — ${failure.message}${where}; ${consequence}`,
     ctx.pageId,
     who.component,
@@ -124,14 +131,19 @@ function executeCode(
         who,
         result,
         unsupported ? 'the process was skipped' : 'processing stopped with this error',
+        point === 'beforeHeader',
       ) ?? (unsupported ? undefined : result.failure!.message);
     if (message === undefined) return { ran: false };
     errors.push(failureError(process, result, message));
   }
   if (errors.length) {
     if (point === 'beforeHeader') {
-      ctx.session.errors = [...(ctx.session.errors ?? []), ...errors];
-      return { ran: false };
+      if (result.ok)
+        for (const error of errors)
+          renderer.diagnose('error', `${who.label}: ${error.message}`, ctx.pageId, process.id);
+      // The existing request boundary reports this failure and still closes the Oracle request.
+      // Do not render regions or run later page/application work after failed initialization.
+      throw new Error(`${who.label}: ${errors.map((error) => error.message).join('; ')}`);
     }
     return { ran: false, errors };
   }
@@ -326,7 +338,21 @@ function appProcesses(
   const errors: ApexError[] = [];
   for (const process of sorted(sharedOf(renderer, 'appProcess'))) {
     if (!points.includes(str(process.props, 'execution.point', 'beforeHeader'))) continue;
-    if (!renderer.condition(ctx, process.props)) continue;
+    const buildOption = ref(process.props, 'config.buildOption');
+    if (buildOption) {
+      const status = applicationBuildOptionStatus(renderer, buildOption);
+      if (status !== 'include') {
+        if (!status)
+          renderer.diagnose(
+            'info',
+            `Application process ${process.id}: build option ${buildOption} could not be resolved; skipped`,
+            ctx.pageId,
+            process.id,
+          );
+        continue;
+      }
+    }
+    if (!renderer.visible(ctx, process)) continue;
     const type = str(process.props, 'type', 'executeCode');
     renderer.trace(ctx, {
       type: 'process',

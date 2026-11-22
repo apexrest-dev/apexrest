@@ -26,6 +26,7 @@ import {
 } from './formats.ts';
 import { loadCatalog } from './catalog.ts';
 import { blueprintSchema } from './schemas.ts';
+import { verifySharedLovs } from './shared-lovs.ts';
 
 const activeJournal = '.apexrest/composer/journal.json';
 const journalSchema = z.strictObject({
@@ -639,6 +640,17 @@ export async function deploymentBinding(ctx: ProjectContext) {
             5,
           );
       }
+  if (Object.keys(state.sharedResources ?? {}).length) {
+    const root = await safePath(ctx.root, ctx.config.application.sourceDir),
+      sources: Record<string, string> = {};
+    for (const file of Object.keys(await inventory(root)).filter((file) => file.endsWith('.apx'))) {
+      const source = await bytes(ctx, ctx.config.application.sourceDir + '/' + file);
+      if (!source || !Buffer.from(source.toString('utf8')).equals(source))
+        throw new Fault('COMPOSITION_DRIFT', 'Shared resource source is missing or invalid UTF-8.', 5);
+      sources[file] = source.toString('utf8');
+    }
+    verifySharedLovs(state.sharedResources!, sources);
+  }
   return {
     generationDigest: receipt.generationDigest,
     blueprintDigest,

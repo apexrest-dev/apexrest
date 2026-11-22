@@ -735,6 +735,25 @@ class Checker {
   /** Required properties and identifier formats, also for component types that are not checked. */
   checkRules(scope: Scope, report: (message: string) => void): void {
     this.checkRequired(scope, report);
+    if (
+      !atLeast(this.options.mmdVersion, '26.2') &&
+      scope.component.type === 'column' &&
+      scope.parent?.component.type === 'region' &&
+      get(scope.parent.component.props, 'type') === 'interactiveReport'
+    ) {
+      const dataType = get(scope.component.props, 'source.dataType');
+      const nativeTypes: Record<string, string> = {
+        number: 'NUMBER',
+        date: 'DATE',
+        string: 'STRING',
+        varchar2: 'STRING',
+      };
+      const expected = typeof dataType === 'string' ? nativeTypes[dataType.toLowerCase()] : undefined;
+      if (expected && dataType !== expected)
+        report(
+          `source.dataType "${dataType}" needs the native APEX 26.1 interactive report code ${expected}. The offline compiler can accept SQL datatype names or lowercase codes that Oracle import rejects`,
+        );
+    }
     for (const variant of scope.variants)
       for (const [dotted, format] of Object.entries(
         FORMATS[`${variant.parentContext} ${variant.context}`] ?? {},
@@ -745,13 +764,31 @@ class Checker {
       }
   }
 
-  /** Link targets: a URL needs `type: url`. */
+  /** Native plug-in links carry structured JSON targets. URL objects also need `type: url`. */
   checkStructured(
     dotted: string,
     value: ApxValue,
     entries: Property[],
     report: (message: string) => void,
   ): void {
+    if (
+      entries.some((entry) => entry.type === 'linkToTargetPageUrl') &&
+      typeof value === 'string' &&
+      value.trim() &&
+      !isRef(value)
+    ) {
+      // Preserve explicit serialized JSON targets accepted by existing sources.
+      try {
+        const parsed: unknown = JSON.parse(value);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return;
+      } catch {
+        /* A plain URL or row substitution is not a serialized target. */
+      }
+      report(
+        `property "${dotted}" needs a structured link target with page and optional items, or type: url and url. A scalar URL or row substitution can fail Oracle import with ORA-40441`,
+      );
+      return;
+    }
     if (!entries.some((entry) => LINK_TYPES.has(entry.type)) || !isObject(value)) return;
     if ('url' in value && value.type !== 'url')
       report(`property "${dotted}" has "url" without "type: url" (the compiler does not recognize it)`);

@@ -58,11 +58,7 @@
         }
       },
       "required": [
-        "title",
-        "editableFields",
-        "createEnabled",
-        "editEnabled",
-        "deleteEnabled"
+        "title"
       ],
       "additionalProperties": false
     },
@@ -109,9 +105,7 @@
   "required": [
     "use",
     "parameters",
-    "bindings",
-    "ownership",
-    "extensions"
+    "bindings"
   ],
   "additionalProperties": false
 }

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
 // UTF-8 JSON payload budgets, not tokenizer estimates or native-host billing.
-export const catalogByteBudget = 15000;
+// Raised from 15000 on 2026-11-22: +150 bytes for apexrest_preview comments/resolve, +350 for apexrest_project patch.
+export const catalogByteBudget = 15500;
 export const responseCases = [
   {
     id: 'defaultReferenceSearch',

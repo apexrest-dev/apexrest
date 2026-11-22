@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { cp, mkdir, lstat, readdir, writeFile, mkdtemp, rm, rename } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { contained, exists, inventory, atomicWrite, withLock } from './fs.ts';
+import { contained, exists, inventory, atomicWrite, withLock, canonical, hash } from './fs.ts';
 import { loadProject, parse, refName } from './config.ts';
 import type { ProjectContext, ProjectConfig } from './config.ts';
 import { Fault } from './result.ts';
@@ -164,7 +164,7 @@ export function projectSummary(ctx: ProjectContext) {
     toolchainLock: ctx.config.toolchain.lockFile,
     verification: 'host-browser',
     authoring:
-      '26.2 reports/cards/bar charts: project action:scaffold with specFile; custom components: reference mode:select',
+      'Pin toolchain.profile to 26.1/26.2; project action:scaffold with specFile supports IR/classic reports, form controls, cards, charts, calendars, navigation and server processes; custom components: reference mode:select',
     environments: environments.slice(0, 8).map(([name, env]) => ({
       name,
       kind: env.kind,
@@ -200,6 +200,7 @@ async function projectInventory(ctx: ProjectContext) {
   return {
     projectId: ctx.config.projectId,
     root: ctx.root,
+    configurationDigest: hash(canonical(ctx.config)),
     environments: Object.entries(ctx.config.environments).map(([name, env]) => ({
       name,
       kind: env.kind,

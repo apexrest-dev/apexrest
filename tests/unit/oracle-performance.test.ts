@@ -62,7 +62,7 @@ async function adapter(runner: Runner, identifiable = true) {
   return { oracle, executable, library };
 }
 
-test('target verification uses one live read-only session and preserves the existing result shape', async () => {
+test('target verification uses one live read-only session and returns exact decimal workspace identity', async () => {
   const calls: ProcessRequest[] = [];
   const { oracle } = await adapter(async (request) => {
     calls.push(request);
@@ -70,7 +70,7 @@ test('target verification uses one live read-only session and preserves the exis
   });
   assert.deepEqual(await oracle.verifyTarget(target, connection), {
     identity: { db_unique_name: 'DB', service_name: 'SERVICE', parsing_schema: 'FIXTURE' },
-    workspace: { workspace_id: 123, workspace: 'FIXTURE' },
+    workspace: { workspace_id: '123', workspace: 'FIXTURE' },
     application: { application_id: 1001, alias: 'fixture', owner: 'FIXTURE', workspace: 'FIXTURE' },
   });
   assert.equal(calls.length, 1);

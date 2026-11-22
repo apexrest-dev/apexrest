@@ -1,11 +1,12 @@
 import { VERSION } from '../../core/src/version.ts';
 import path from 'node:path';
 import { homedir } from 'node:os';
-import { readFile, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { exists, writeJson, containedChild, withLock } from '../../core/src/fs.ts';
 import { managedHome } from '../../core/src/config.ts';
+import { toolCatalog } from '../../core/src/operations.ts';
 import { Fault } from '../../core/src/result.ts';
 import { codexRun, codexInvoke, listMarketplaces } from './registration.ts';
 import { installNative, installationState } from './native.ts';
@@ -13,6 +14,55 @@ import { resolveNativePlugin, validateNative } from './package-source.ts';
 export { validateNative } from './package-source.ts';
 import { ToolchainService, canonicalHome, runtimeState } from './toolchain.ts';
 import type { SetupRequest } from './toolchain.ts';
+
+async function checkMcpRuntime(root: string, node: string, home: string, version: string) {
+  const client = new Client({ name: 'apexrest-installer', version: VERSION });
+  const transport = new StdioClientTransport({
+    command: node,
+    args: [path.join(root, 'runtime/mcp.mjs')],
+    cwd: root,
+    env: { APEXREST_HOME: home },
+    stderr: 'ignore',
+  });
+  try {
+    const options = { timeout: 20000 };
+    await client.connect(transport, options);
+    const server = client.getServerVersion();
+    const { tools, nextCursor } = await client.listTools({}, options);
+    const names = new Set(tools.map((tool) => tool.name));
+    // Other package versions can ship a different inventory. They must still
+    // publish the shared action tools and identify the exact requested package.
+    const expected =
+      version === VERSION
+        ? toolCatalog.map((tool) => tool.name)
+        : ['apexrest_status', 'apexrest_project', 'apexrest_ship'];
+    if (
+      server?.name !== 'apexrest-apex' ||
+      server.version !== version ||
+      nextCursor ||
+      names.size !== tools.length ||
+      (version === VERSION && names.size !== expected.length) ||
+      expected.some((name) => !names.has(name))
+    )
+      throw new Fault(
+        'MCP_CATALOG_MISMATCH',
+        'The candidate did not identify itself or advertise the expected APEXREST tools. Existing registration was left unchanged.',
+        3,
+        'blocked',
+      );
+  } catch (error) {
+    if (error instanceof Fault) throw error;
+    throw new Fault(
+      'MCP_STARTUP_FAILED',
+      'The candidate did not complete MCP startup. Existing registration was left unchanged.',
+      3,
+      'blocked',
+    );
+  } finally {
+    await client.close().catch(() => {});
+  }
+}
+
 export async function setup(input: Record<string, unknown>) {
   const text = (key: string) => input[key] as string | undefined;
   // Canonicalize once; toolchain records, the native install and APEXREST_HOME then agree.
@@ -87,26 +137,9 @@ export async function setup(input: Record<string, unknown>) {
     ...(codex ? { codex } : {}),
     node: runtime.node ?? process.execPath,
     expectedRegistration: nativePlan.registration.fingerprint,
+    checkRuntime: (root, node, home) => checkMcpRuntime(root, node, home, validation.version),
   });
   if (!('root' in native)) throw new Fault('INSTALL_NOT_COMPLETED', 'Native install remained a plan.', 3);
-  const mcp = JSON.parse(
-    await readFile(
-      path.join(native.root, validation.profile === 'portable' ? 'mcp.json' : '.mcp.json'),
-      'utf8',
-    ),
-  ) as { mcpServers: { apexrest: { command: string; args: string[] } } };
-  const env: Record<string, string> = Object.fromEntries(
-    Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
-  );
-  env.APEXREST_HOME = home;
-  const client = new Client({ name: 'apexrest-installer', version: VERSION });
-  const transport = new StdioClientTransport({ ...mcp.mcpServers.apexrest, env, stderr: 'pipe' });
-  try {
-    await client.connect(transport);
-    await client.listTools();
-  } finally {
-    await client.close();
-  }
   const result = {
     schemaVersion: 1,
     status: 'needs-user-action',

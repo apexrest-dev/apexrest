@@ -115,7 +115,8 @@ async function acquire(request: SqlclSessionRequest, key: string): Promise<Poole
       idle.client.transport.setActive(true);
       return idle;
     }
-    if (p.sessions.filter((s) => s.alive).length < limit) {
+    // A new session owns its slot before prepare() starts the child process.
+    if (p.sessions.filter((s) => !s.dead && (s.busy || s.alive)).length < limit) {
       const session = new PooledSession(key, request);
       p.sessions.push(session);
       installExitHook();
@@ -236,6 +237,7 @@ export async function runPooledSqlcl(request: SqlclSessionRequest): Promise<Proc
     return mcpResult(result, output);
   } catch (error) {
     session.kill();
+    if (session.client.transport.outputLimitExceeded) throw mcpFailure(error, request, submitted, true);
     if (error instanceof Fault) throw error;
     // Interrupted commands report like an interrupted CLI process: the adapter's
     // diagnostics turn these into TIMEOUT/CANCELLED with an unknown outcome for

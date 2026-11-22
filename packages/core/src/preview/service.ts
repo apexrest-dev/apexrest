@@ -5,6 +5,7 @@ import { Fault } from '../result.ts';
 import { APEX_DOWNLOAD_URL, APEX_FULL_VERSION, defaultAssetsDir, loadAssets, setupAssets } from './assets.ts';
 import { loadApplication } from './apexlang.ts';
 import { localGaps } from './gaps.ts';
+import { describeReviewComment, listReviewComments, reviewFilePath, setReviewStatus } from './review.ts';
 import type { Diagnostic } from './render.ts';
 import { connectOracle } from './oracle/connect.ts';
 import { checkApplication, PreviewServer } from './server.ts';
@@ -171,7 +172,9 @@ export async function previewStart(
   if (previous) await stopServer(sourceDir, previous);
   const oracle = input.env ? await connectOracle(root, input.env, undefined, { commit }) : undefined;
   const data = await projectData(root, sourceDir);
+  const reviewFile = await reviewFileFor(root);
   const server = new PreviewServer({
+    reviewFile,
     ...(oracle ? { oracle } : {}),
     ...(data.seedDirs ? { seedDirs: data.seedDirs } : {}),
     ...(data.database && !oracle ? { database: data.database } : {}),
@@ -417,6 +420,55 @@ export async function previewCheck(
   return { sourceDir, pages: result.pages, ...summarize(result.diagnostics), ...gapsFor(sourceDir) };
 }
 
+/** Review comments of the project the preview runs for (`.apexrest/review/comments.json`). */
+async function reviewFileFor(root: string): Promise<string> {
+  try {
+    return reviewFilePath((await loadProject(root)).root);
+  } catch {
+    return reviewFilePath(path.resolve(root));
+  }
+}
+
+/** Review comments left in the browser, with their component, source location and request. */
+async function previewComments(
+  root: string,
+  input: { status?: 'open' | 'resolved' | 'all' | undefined; page?: string | undefined },
+) {
+  const file = await reviewFileFor(root);
+  const comments = listReviewComments(file, {
+    status: input.status ?? 'open',
+    ...(input.page ? { page: input.page } : {}),
+  });
+  return {
+    file,
+    status: input.status ?? 'open',
+    count: comments.length,
+    comments,
+    summary: comments.map(describeReviewComment),
+    ...(comments.length
+      ? {
+          next: 'Apply each comment to the APEXlang source (file:line), validate, then call preview resolve with the ids and a short note.',
+        }
+      : {}),
+  };
+}
+
+async function previewResolve(
+  root: string,
+  input: { ids?: string[] | undefined; note?: string | undefined; reopen?: boolean | undefined },
+) {
+  const ids = input.ids ?? [];
+  if (
+    !ids.length ||
+    ids.length > 500 ||
+    ids.some((id) => typeof id !== 'string' || !/^rc-[\w-]{1,60}$/u.test(id))
+  )
+    throw new Fault('INVALID_INPUT', 'resolve needs 1-500 review comment ids (rc-...)', 2);
+  const file = await reviewFileFor(root);
+  const result = setReviewStatus(file, ids, input.reopen ? 'open' : 'resolved', input.note || undefined);
+  return { file, status: input.reopen ? 'open' : 'resolved', ...result };
+}
+
 /** Routes the composite MCP tool and the granular CLI commands. */
 export async function previewDispatch(operation: string, parsed: Record<string, unknown>, root: string) {
   const { action, ...input } = parsed as Record<string, never> & { action?: string };
@@ -432,6 +484,10 @@ export async function previewDispatch(operation: string, parsed: Record<string, 
       return previewCheck(root, input);
     case 'stop':
       return previewStop(root, input);
+    case 'comments':
+      return previewComments(root, input);
+    case 'resolve':
+      return previewResolve(root, input);
     case 'status':
       // The MCP tool always carries its project; its status keeps listing every running preview.
       return operation === 'preview'
@@ -440,18 +496,4 @@ export async function previewDispatch(operation: string, parsed: Record<string, 
     default:
       throw new Fault('INVALID_INPUT', `Unknown preview action: ${selected}`, 2);
   }
-}
-
-/** `apexrest build webapp`: a standalone Node.js application for the project's APEXlang sources. */
-export async function buildWebappOperation(root: string, input: Record<string, unknown>) {
-  const { buildWebapp } = await import('../webapp/build.ts');
-  const sourceDir = await resolveSource(root, input.sourceDir as string | undefined);
-  return buildWebapp({
-    sourceDir,
-    out: path.resolve(root, String(input.out)),
-    ...(input.auth ? { auth: input.auth as 'users' | 'plsql' | 'database' | 'open' } : {}),
-    ...(input.authFunction ? { authFunction: String(input.authFunction) } : {}),
-    ...(input.includeAssets ? { includeAssets: true } : {}),
-    ...(input.assetsDir ? { assetsDir: String(input.assetsDir) } : {}),
-  });
 }

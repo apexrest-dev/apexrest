@@ -66,6 +66,103 @@
     },
     "additionalProperties": false
   },
+  "settings.status": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+  },
+  "settings.configure": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "decisionApi": {
+        "description": "Default OpenAI Decisions selection for projects without decisionApi",
+        "type": "string",
+        "enum": [
+          "on",
+          "off"
+        ]
+      },
+      "apiKeyEnv": {
+        "description": "Environment variable with the OpenAI key (default OPENAI_API_KEY)",
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "decisionTimeoutMs": {
+        "type": "integer",
+        "minimum": 250,
+        "maximum": 10000
+      },
+      "catalog": {
+        "description": "Reference catalog tools (search, read, select)",
+        "type": "string",
+        "enum": [
+          "on",
+          "off"
+        ]
+      },
+      "usageLog": {
+        "description": "Opt-in local token counters and operation duration log",
+        "type": "string",
+        "enum": [
+          "on",
+          "off"
+        ]
+      }
+    },
+    "additionalProperties": false
+  },
+  "usage.status": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "limit": {
+        "default": 20,
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1000
+      }
+    },
+    "additionalProperties": false
+  },
+  "usage.import": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "host": {
+        "type": "string",
+        "enum": [
+          "codex",
+          "claude"
+        ]
+      },
+      "file": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096,
+        "description": "Native CLI JSON/JSON-lines output from one run"
+      },
+      "counterMode": {
+        "description": "Explicitly identify complete Codex cumulative session captures, including resumed turns",
+        "type": "string",
+        "enum": [
+          "cumulative-session"
+        ]
+      },
+      "elapsedMs": {
+        "description": "Caller-measured elapsed time for that run",
+        "type": "number",
+        "minimum": 0,
+        "maximum": 604800000
+      }
+    },
+    "required": [
+      "host",
+      "file"
+    ],
+    "additionalProperties": false
+  },
   "setup": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -427,6 +524,72 @@
         ]
       }
     },
+    "additionalProperties": false
+  },
+  "project.patch": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "page": {
+        "type": "string",
+        "pattern": "^\\d{1,5}$",
+        "description": "Page number"
+      },
+      "operations": {
+        "minItems": 1,
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "target": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "property": {
+              "type": "string",
+              "enum": [
+                "title",
+                "label",
+                "heading",
+                "format",
+                "sequence"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "maxLength": 4000
+            }
+          },
+          "required": [
+            "target",
+            "property",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        "description": "JSON: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property, value}]"
+      },
+      "expectedDigest": {
+        "description": "Page file digest you read; required to write",
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "dryRun": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "page",
+      "operations"
+    ],
     "additionalProperties": false
   },
   "project.scaffold": {
@@ -1463,7 +1626,7 @@
     },
     "additionalProperties": false
   },
-  "build.webapp": {
+  "preview.comments": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
@@ -1472,46 +1635,57 @@
         "minLength": 1,
         "maxLength": 4096
       },
-      "sourceDir": {
-        "description": "APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir",
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 4096
-      },
-      "out": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 4096,
-        "description": "Output folder: new, empty, or a previous build"
-      },
-      "auth": {
-        "description": "Sign-in of the built application; users (accounts file) by default",
+      "status": {
+        "default": "open",
         "type": "string",
         "enum": [
-          "users",
-          "plsql",
-          "database",
-          "open"
+          "open",
+          "resolved",
+          "all"
         ]
       },
-      "authFunction": {
-        "description": "auth plsql: function(p_username, p_password) return boolean",
+      "page": {
+        "description": "Only comments of this page id",
         "type": "string",
         "minLength": 1,
-        "maxLength": 255
-      },
-      "includeAssets": {
-        "description": "Copy the locally extracted APEX browser files (Oracle software) into the output",
-        "type": "boolean"
-      },
-      "assetsDir": {
+        "maxLength": 64
+      }
+    },
+    "additionalProperties": false
+  },
+  "preview.resolve": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
         "type": "string",
         "minLength": 1,
         "maxLength": 4096
+      },
+      "ids": {
+        "minItems": 1,
+        "maxItems": 500,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "description": "Review comment ids (rc-...)"
+      },
+      "note": {
+        "description": "What was changed, shown next to the resolved comment",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "reopen": {
+        "default": false,
+        "type": "boolean"
       }
     },
     "required": [
-      "out"
+      "ids"
     ],
     "additionalProperties": false
   },
@@ -1558,6 +1732,7 @@
           "adopt",
           "inspect",
           "scaffold",
+          "patch",
           "connection_add",
           "connection_list",
           "connection_test"
@@ -1568,6 +1743,28 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 1024
+      },
+      "page": {
+        "type": "string"
+      },
+      "operations": {
+        "description": "patch: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property: title|label|heading|format|sequence, value}]",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "expectedDigest": {
+        "type": "string"
+      },
+      "dryRun": {
+        "type": "boolean"
       },
       "directory": {
         "description": "init: new or empty directory for the project",
@@ -2065,7 +2262,9 @@
           "start",
           "check",
           "stop",
-          "status"
+          "status",
+          "comments",
+          "resolve"
         ]
       },
       "sourceDir": {
@@ -2102,6 +2301,16 @@
           "minLength": 1,
           "maxLength": 255
         }
+      },
+      "ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 2000
       }
     },
     "required": [

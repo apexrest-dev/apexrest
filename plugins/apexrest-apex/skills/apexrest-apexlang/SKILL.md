@@ -1,6 +1,6 @@
 ---
 name: apexrest-apexlang
-description: Write or edit Oracle APEXlang (.apx) sources using pinned Oracle references, bundled component and pattern recipes, and compiler validation. Read when a change needs syntax, a component contract or a page composition. Excludes Salesforce Apex.
+description: Answer Oracle APEX reference questions and write or edit APEXlang (.apx) using pinned Oracle references, component and pattern recipes, and compiler validation. Read for syntax, component contracts or page composition. Excludes Salesforce Apex.
 ---
 
 # APEXlang
@@ -9,6 +9,7 @@ Pass the absolute project directory as `project`. Reuse source already read; ret
 
 ## Retrieval
 
+- Documentation questions: search once with the component and property names, passing `project` or an explicit release. Use the returned owning property production; read it and its owning group only if needed instead of repeating broad searches. Cite the actual entry IDs used, and distinguish reference guidance from compiler or runtime proof.
 - Page composition: call `apexrest_reference mode:select` once with `project` and concise UI-only `request` (no private source/data/credentials). Optional project Decisions settings or local retrieval select candidates. Read contracts/dependencies, adapt recipes and compose final APEXlang in this host. Supplement gaps with search; selection proves neither compilation nor runtime behavior.
 - Known entry: `apexrest_reference` `mode:read` with the ID. `oracle:` is a complete document, `grammar:production-name` one production, `component:`/`pattern:` a bundled recipe. Follow only the `requires` and `related` links you need; page with `offset`/`nextOffset`.
 - Unknown syntax: `mode:search` with the exact property or short English terms, `kind` (`grammar`, `template`, `contract`, `guide`), the route `family` and `limit:3`. With `project`, `toolchain.profile` in apexrest.json selects the release (`26.2` or `26.1`; unset means 26.1); `version` overrides it. Pass the same version on reads. Empty results do not prove a feature absent.

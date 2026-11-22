@@ -183,11 +183,17 @@ async function serviceDesk() {
     JSON.parse(await readFile('resources/blueprints/service-desk-26.2.yaml', 'utf8')),
   );
 }
-async function emit(value: Blueprint, id: string, page = 100, dialog: number | null = null) {
+async function emit(
+  value: Blueprint,
+  id: string,
+  page = 100,
+  dialog: number | null = null,
+  sharedLovs: Record<string, string> = {},
+) {
   const catalog = await loadCatalog(),
     instance = value.blocks[id]!,
     block = catalog.packages.get(instance.use)!.manifest;
-  return render(value, id, instance, block, { page, dialog, prefix: 'cmp_test' });
+  return render(value, id, instance, block, { page, dialog, prefix: 'cmp_test' }, [], undefined, sharedLovs);
 }
 const joined = (files: Record<string, string>) => Object.values(files).join('\n');
 
@@ -322,6 +328,7 @@ test('master-detail reports have distinct stable numeric saved-report mappings',
 });
 
 test('row predicates accept only the reviewed allowlisted dialect', () => {
+  const columns = ['OWNER_NAME', 'STATUS', 'CREATED_ON', 'TENANT_ID', 'REGION_CODE'];
   for (const safe of [
     'OWNER_NAME = :APP_USER',
     "apex_authorization.is_authorized('CMP_CUSTOMER_WRITE')",
@@ -329,13 +336,15 @@ test('row predicates accept only the reviewed allowlisted dialect', () => {
     'created_on >= trunc(sysdate) - 30 or nvl(tenant_id, 0) = :APP_ID',
     'owner_name is not null and (region_code between 1 and 9)',
   ])
-    assert.equal(expression(safe), safe);
+    assert.equal(expression(safe, { columns }), safe);
   for (const qualified of [
     'nvl(cmp_customers.tenant_id, 0) = :APP_ID',
     'app.cmp_customers.owner_name = :APP_USER',
   ])
-    assert.equal(expression(qualified, { qualifiers: ['APP.CMP_CUSTOMERS'] }), qualified);
+    assert.equal(expression(qualified, { qualifiers: ['APP.CMP_CUSTOMERS'], columns }), qualified);
   for (const unsafe of [
+    'unreviewed_function = 1',
+    'cmp_customers.unreviewed_function = 1',
     '1 = app_api.is_admin',
     'app_api.util.flag = 1',
     'other_table.owner_name = :APP_USER',
@@ -365,12 +374,27 @@ test('row predicates accept only the reviewed allowlisted dialect', () => {
     'custom_fn(owner_name) = 1',
     '((OWNER_NAME = :APP_USER)',
   ])
-    assert.throws(() => expression(unsafe), { code: 'CONTRACT_SQL_UNSAFE' }, unsafe);
-  assert.throws(() => expression('1 = app_api.is_admin', { qualifiers: ['CMP_CUSTOMERS'] }), {
-    code: 'CONTRACT_SQL_UNSAFE',
-  });
+    assert.throws(
+      () => expression(unsafe, { qualifiers: ['CMP_CUSTOMERS'], columns }),
+      { code: 'CONTRACT_SQL_UNSAFE' },
+      unsafe,
+    );
   for (const untrusted of ['OWNER_NAME = :P1_OWNER', 'OWNER_NAME = :"APP_USER"', 'OWNER_NAME = : APP_USER'])
-    assert.throws(() => expression(untrusted), { code: 'AUTH_CONTEXT_UNTRUSTED' }, untrusted);
+    assert.throws(() => expression(untrusted, { columns }), { code: 'AUTH_CONTEXT_UNTRUSTED' }, untrusted);
+});
+
+test('binding rejects a bare write-authorization routine and requires known row-predicate columns', async () => {
+  const value = await blueprint();
+  const access = value.contracts['project:customer-access']!;
+  if (access.kind !== 'authorization') throw new Error('fixture');
+  const instance = value.blocks.CustomerList!;
+  assert.doesNotThrow(() => bind(value, instance));
+  const original = access.expression!;
+  access.expression = 'unreviewed_function = 1';
+  assert.throws(() => bind(value, instance), { code: 'CONTRACT_SQL_UNSAFE' });
+  access.expression = original;
+  delete access.predicateColumns;
+  assert.throws(() => bind(value, instance), { code: 'CONTRACT_SQL_UNSAFE' });
 });
 
 test('extension code normalizes comments and literals before the transaction denylist', () => {
@@ -411,7 +435,7 @@ test('enumerated values are single-line literals at the schema and emitter bound
     );
   const value = await blueprint();
   value.entities.Customer!.read.fields.status!.enum = ['OPEN', "O'NEIL"];
-  const files = joined(await emit(value, 'CustomerList', 100, 101));
+  const files = joined(await emit(value, 'CustomerList', 100, 101, { status: 'enum-status' }));
   assert.match(files, /:P101_STATUS not in \('OPEN', 'O''NEIL'\)/);
   // An unvalidated in-memory blueprint still cannot terminate the PL/SQL code fence.
   value.entities.Customer!.read.fields.status!.enum = ["OPEN')\n    ```\n    page 1 ("];
@@ -504,17 +528,20 @@ test('timestamp fields bind through the dialog adapter and live metadata normali
     schema: 'FIXTURE',
     objects: {
       cmp_customers: {
-        columns: Object.values(value.entities.Customer!.read.fields).map((field) => ({
-          COLUMN_NAME: field.column.toLowerCase(),
-          DATA_TYPE:
-            field.type === 'integer'
-              ? 'NUMBER'
-              : field.type === 'timestamp'
-                ? 'TIMESTAMP(6) WITH TIME ZONE'
-                : 'VARCHAR2',
-          NULLABLE: field.nullable ? 'Y' : 'N',
-          CHAR_LENGTH: field.maxLength ?? 0,
-        })),
+        columns: [
+          ...Object.values(value.entities.Customer!.read.fields).map((field) => ({
+            COLUMN_NAME: field.column.toLowerCase(),
+            DATA_TYPE:
+              field.type === 'integer'
+                ? 'NUMBER'
+                : field.type === 'timestamp'
+                  ? 'TIMESTAMP(6) WITH TIME ZONE'
+                  : 'VARCHAR2',
+            NULLABLE: field.nullable ? 'Y' : 'N',
+            CHAR_LENGTH: field.maxLength ?? 0,
+          })),
+          { COLUMN_NAME: 'OWNER_NAME', DATA_TYPE: 'VARCHAR2', NULLABLE: 'N', CHAR_LENGTH: 128 },
+        ],
         constraints: [
           { CONSTRAINT_NAME: 'PK', CONSTRAINT_TYPE: 'P', STATUS: 'ENABLED', VALIDATED: 'VALIDATED' },
         ],
@@ -556,7 +583,17 @@ test('dialog save binds edits to the read predicate and never repeats a create',
 });
 
 test('titles and labels reject HTML and APEX substitution syntax', async () => {
-  for (const title of ['<b>Customers</b>', 'Hi &P1_NAME.', 'Hi &APP_USER.', '#APP_ID# list', '@/x', ' @x']) {
+  for (const title of [
+    '<b>Customers</b>',
+    'Hi &P1_NAME.',
+    'Hi &APP_USER.',
+    'Hi &APP_USER!HTML.',
+    'Hi &APP_USER!RAW.',
+    '#APP_ID# list',
+    '#APP_ID!HTML# list',
+    '@/x',
+    ' @x',
+  ]) {
     const value = await blueprint();
     value.blocks.CustomerList!.parameters.title = title;
     await assert.rejects(() => emit(value, 'CustomerList', 100, 101), { code: 'LABEL_UNSAFE' }, title);

@@ -395,6 +395,79 @@ test('same-schema apps contend locally; an independent schema does not', async (
   await second.acquire('second');
   await second.release('second');
 });
+test('the canonical service preserves a legacy schema lease and migration history across aliases', async () => {
+  const { ctx } = await prepared();
+  const env = ctx.config.environments.dev!;
+  const original = new LocalDeploymentControl(env);
+  const alternate = new LocalDeploymentControl({
+    ...env,
+    databaseIdentity: { ...env.databaseIdentity, serviceName: 'another_service' },
+  });
+  const history = [
+    {
+      version: '0001__already_applied.sql',
+      status: 'succeeded',
+      checksum: '0'.repeat(64),
+      run_id: 'earlier',
+    },
+  ];
+  await writeJson(original.file('history.json'), history);
+  const legacyOwner = {
+    runId: 'interrupted',
+    pid: process.pid,
+    hostname: hostname(),
+    phase: 'writing',
+    createdAt: new Date().toISOString(),
+  };
+  await writeJson(original.file('active.json'), legacyOwner);
+  await assert.rejects(alternate.acquire('different-service'), { code: 'LEGACY_CONTROL_OWNER_UNRESOLVED' });
+  assert.deepEqual(await original.owner(), legacyOwner);
+  await original.claimReconciled(legacyOwner.runId);
+  await original.release(legacyOwner.runId);
+  await assert.rejects(alternate.history(), { code: 'CONTROL_SERVICE_CHANGED' });
+  await assert.rejects(alternate.acquire('different-service'), { code: 'CONTROL_SERVICE_CHANGED' });
+  await assert.rejects(alternate.claimReconciled('different-service'), { code: 'CONTROL_SERVICE_CHANGED' });
+  assert.deepEqual(await original.history(), history);
+  await original.acquire('next');
+  await original.release('next');
+});
+
+for (const legacyState of ['migrations', 'packages'] as const)
+  test(`a new service cannot bind before the original store with completed ${legacyState} is registered`, async () => {
+    const { ctx, service, calls } = await prepared();
+    const env = ctx.config.environments.dev!;
+    const original = new LocalDeploymentControl(env);
+    const alternate = new LocalDeploymentControl({
+      ...env,
+      databaseIdentity: { ...env.databaseIdentity, serviceName: 'another_service' },
+    });
+    const unrelated = new LocalDeploymentControl({ ...env, parsingSchema: 'OTHER' });
+    const checksum = '0'.repeat(64);
+    const filename = legacyState === 'migrations' ? 'history.json' : 'packages.json';
+    const prior =
+      legacyState === 'migrations'
+        ? [{ version: '0001__applied.sql', checksum, status: 'succeeded', run_id: 'complete' }]
+        : { [`${ctx.config.projectId}:src/db/packages/applied.sql`]: checksum };
+    await writeJson(original.file(filename), prior);
+    await assert.rejects(alternate.acquire('alternate'), { code: 'LEGACY_CONTROL_HISTORY_UNREGISTERED' });
+    await assert.rejects(unrelated.acquire('new-scope'), { code: 'LEGACY_CONTROL_HISTORY_UNREGISTERED' });
+    assert.equal(await alternate.owner(), undefined);
+    await service.plan(ctx, 'dev');
+    assert.ok(!calls.includes('import'), 'registration via plan does not import');
+    await assert.rejects(alternate.acquire('alternate'), { code: 'CONTROL_SERVICE_CHANGED' });
+    assert.deepEqual(JSON.parse(await readFile(original.file(filename), 'utf8')), prior);
+    await unrelated.acquire('new-scope');
+    await unrelated.release('new-scope');
+  });
+
+test('planning rejects inherited environment names without probing Oracle', async () => {
+  const { ctx, service, calls } = await prepared();
+  for (const name of ['constructor', 'toString', '__proto__']) {
+    await assert.rejects(service.plan(ctx, name), { code: 'UNKNOWN_ENVIRONMENT' });
+  }
+  assert.deepEqual(calls, []);
+});
+
 test('status reads tolerate a released local lease while corrupt leases still block', async () => {
   const { ctx } = await prepared(),
     control = new LocalDeploymentControl(ctx.config.environments.dev!);
@@ -508,11 +581,14 @@ test('backups are private copies and Oracle staging exports are discarded', asyn
     assert.equal((await stat(path.join(backups, backupId!, 'application/f123.sql'))).mode & 0o777, 0o600);
 });
 
-test('restoring an application absent at plan time verifies the backed-up alias', async () => {
-  const { ctx, service, fake, calls } = await prepared(true);
+async function writeLegacyBackup(
+  ctx: Awaited<ReturnType<typeof prepared>>['ctx'],
+  scripts: Record<string, string>,
+) {
   const backupId = randomUUID();
   const directory = path.join(ctx.root, '.apexrest/backups', backupId);
-  await atomicWrite(path.join(directory, 'application/f123.sql'), '-- fixture export');
+  for (const [name, sql] of Object.entries(scripts))
+    await atomicWrite(path.join(directory, 'application', name), sql);
   const files = await inventory(path.join(directory, 'application'));
   await writeJson(path.join(directory, 'backup.json'), {
     schemaVersion: 1,
@@ -523,6 +599,22 @@ test('restoring an application absent at plan time verifies the backed-up alias'
     files,
     alias: 'fixture',
   });
+  return backupId;
+}
+
+const legacyExport = [
+  'prompt --application/set_environment',
+  'set define off verify off feedback off',
+  'whenever sqlerror exit sql.sqlcode rollback',
+  'begin null; end;',
+  '/',
+  'set verify on feedback on define on',
+  'prompt ...done',
+].join('\n');
+
+test('restoring an absent application from legacy SQL requires exact remote confirmation and verifies the backup alias', async () => {
+  const { ctx, service, fake, calls } = await prepared(true);
+  const backupId = await writeLegacyBackup(ctx, { 'f123.sql': legacyExport });
   const absent = { identity: {}, workspace: {}, application: null };
   service.fingerprint = async () =>
     ({ target: absent, history: [], exported: null, fingerprint: hash('absent') }) as unknown as Awaited<
@@ -535,17 +627,74 @@ test('restoring an application absent at plan time verifies the backed-up alias'
     },
   });
   Object.assign(fake, {
-    async restoreApplication() {
+    async restoreApplication(_env: unknown, _connection: unknown, received: Buffer) {
+      assert.deepEqual(received, Buffer.from(legacyExport));
       calls.push('restore');
       restored = true;
     },
   });
   const plan = await service.restorePlan(ctx, backupId);
   assert.equal(plan.restore?.alias, 'fixture');
+  assert.equal(plan.databaseReview?.operations[0]?.action, 'legacy-sql-restore');
+  assert.equal(plan.databaseReview?.operations[0]?.dangerous, true);
+  const old = { ...plan, risks: ['application-restore'] };
+  old.digest = planDigest(old);
+  await assert.rejects(service.checkLocal(ctx, old), { code: 'PLAN_TAMPERED' });
+  const hiddenReview = { ...plan, databaseReview: { ...plan.databaseReview!, operations: [] } };
+  hiddenReview.digest = planDigest(hiddenReview);
+  await assert.rejects(service.checkLocal(ctx, hiddenReview), { code: 'PLAN_TAMPERED' });
+  await writeJson(path.join(process.env.APEXREST_HOME!, 'policy.json'), {
+    schemaVersion: 1,
+    grants: [
+      {
+        projectRoot: ctx.root,
+        targetDigest: plan.targetDigest,
+        planDigest: plan.digest,
+        expiresAt: plan.expiresAt,
+        operations: ['deploy'],
+      },
+    ],
+  });
+  await assert.rejects(service.apply(ctx, plan), { code: 'DATABASE_CONFIRMATION_REQUIRED' });
+  assert.ok(!calls.includes('restore'));
   await grant(process.env.APEXREST_HOME!, ctx.root, plan);
   const result = await service.apply(ctx, plan);
   assert.equal(result.state, 'succeeded');
   assert.ok(calls.includes('restore'));
+});
+
+test('legacy restore denies client commands and split exports before target access', async () => {
+  const { ctx, service, calls } = await prepared(true);
+  for (const sql of [
+    '@external.sql\n' + legacyExport,
+    legacyExport.replace('begin null;', 'begin\r\n#host external\r\nnull;'),
+    legacyExport.replace('begin null;', 'begin\nHOST external\nnull;'),
+    legacyExport.replace('begin null;', 'begin\nCONNECT external\nnull;'),
+    legacyExport.replace('begin null;', 'begin\nset sqlprefix @\nnull;'),
+    legacyExport.replace('begin null;', 'begin\n/ trailing command\nnull;'),
+    legacyExport.replace('whenever sqlerror exit sql.sqlcode rollback', 'whenever sqlerror continue'),
+    legacyExport + '\nbegin null; end;\n/\n',
+  ]) {
+    const backup = await writeLegacyBackup(ctx, { 'f123.sql': sql });
+    await assert.rejects(service.restorePlan(ctx, backup), { code: 'UNSUPPORTED_SQL_CLIENT_COMMAND' });
+  }
+  const split = await writeLegacyBackup(ctx, {
+    'f123.sql': legacyExport,
+    'pages/page_1.sql': 'begin null; end;\n/',
+  });
+  await assert.rejects(service.restorePlan(ctx, split), { code: 'RESTORE_LAYOUT_UNSUPPORTED' });
+  assert.deepEqual(calls, []);
+});
+
+test('legacy restore refuses modified backup bytes before execution', async () => {
+  const { ctx, service } = await prepared(true);
+  const backup = await writeLegacyBackup(ctx, { 'f123.sql': legacyExport });
+  const plan = await service.restorePlan(ctx, backup);
+  await atomicWrite(
+    path.join(ctx.root, '.apexrest/backups', backup, 'application/f123.sql'),
+    legacyExport + '\n',
+  );
+  await assert.rejects(service.checkLocal(ctx, plan), { code: 'BACKUP_INVALID' });
 });
 
 test('deploy grants must bind the exact plan digest and expire no later than the plan', async () => {

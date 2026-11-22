@@ -2,6 +2,7 @@ import { str } from '../../apexlang.ts';
 import { oracleText, registerOracleFunction } from '../../database.ts';
 import { RESERVED_BUILTINS, type ApexError, type ApexRenderer, type RenderContext } from '../../render.ts';
 import { escapeHtml, escapeJs } from '../../theme.ts';
+import { unescapeReference } from '../../html-entities.ts';
 import { aclCheck } from '../devtools/view-as.ts';
 
 /** What package stubs can touch while PL/SQL runs. */
@@ -360,6 +361,11 @@ export const STUBS: Record<string, Stub> = {
   'apex_escape.striphtml': {
     params: p('p_string'),
     fn: (args) => (text(args.p_string) === null ? null : String(args.p_string).replace(/<[^>]*>/gu, '')),
+    sql: true,
+  },
+  'utl_i18n.unescape_reference': {
+    params: p('str'),
+    fn: (args) => (text(args.str) === null ? null : unescapeReference(String(args.str))),
     sql: true,
   },
   'htf.escape_sc': {

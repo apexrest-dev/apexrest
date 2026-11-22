@@ -42,6 +42,7 @@ apexrest settings configure --decision-api on --catalog on --json
 | `--api-key-env NAME`      | Environment variable holding the key for the global default (`OPENAI_API_KEY`). The global default never reads an ENV file; that stays per project. |
 | `--decision-timeout-ms N` | Timeout for the global default, 250–10000 (3000).                                                                                                   |
 | `--catalog on\|off`       | `off` turns off reference search, read and select for every host: they return `CATALOG_DISABLED` and agents continue without lookups.               |
+| `--usage-log on\|off`     | Enables private, bounded usage records for backend elapsed time and reported token counters. Disabled by default.                                   |
 
 `settings status` also reports, without any database, network or credential read:
 
@@ -49,7 +50,50 @@ apexrest settings configure --decision-api on --catalog on --json
 - the bundled catalog sizes;
 - recent projects in `recent-projects.json`: a successful operation with `--project` makes that project current; status reads do not.
 
-Recent projects stay on the computer and are written only when APEXREST_HOME already exists. APEXREST keeps no usage, token or timing statistics. Set `APEXREST_USAGE=0` to stop recording recent projects; the repository test runner sets it.
+Recent projects stay on the computer and are written only when APEXREST_HOME already exists. Set `APEXREST_USAGE=0` to disable recent-project recording and usage logging. The repository test runner sets it.
+
+### Local token and time logging
+
+Enable logging for both hosts that share this managed home, then inspect the most recent entries.
+
+```sh
+apexrest settings configure --usage-log on --json
+apexrest usage status --limit 20 --json
+apexrest settings configure --usage-log off --json
+```
+
+The owner-private `APEXREST_HOME/usage-log.json` retains at most 1,000 entries and 2 MiB. Retention removes the oldest entries first. Each backend operation records elapsed wall time, SQLcl time, host identity when known and success or failure. Composite action routing records one outer operation. Settings and log-inspection commands do not create timing entries. A logging failure does not change the operation's outcome.
+
+Decisions selection records the input, cache-read, cache-write, output, reasoning-output and total token counters supplied by its API response, with the model and source. Cache reads and writes must fit within input, reasoning tokens must fit within output, and total must equal input plus output. Inconsistent API counters remain unavailable in the log. Each operation without token counters reports their unavailability. A CLI or MCP process cannot observe the host model's token consumption.
+
+For actual native-host accounting, explicitly import JSON output from one completed native CLI run.
+
+```sh
+# Capture each run using the host's own JSON output option.
+codex exec --json 'Your task' > /private/path/codex-run.jsonl
+claude -p --output-format json 'Your task' > /private/path/claude-run.json
+
+apexrest usage import --host codex --file /private/path/codex-run.jsonl --elapsed-ms 12345 --json
+# For complete cumulative output from an initial Codex session and its resumed turns:
+apexrest usage import --host codex --file /private/path/codex-session.jsonl --counter-mode cumulative-session --elapsed-ms 23456 --json
+apexrest usage import --host claude --file /private/path/claude-run.json --json
+```
+
+The default Codex import accepts one completed turn from one identified thread. Multiple turns or resumed output require `--counter-mode cumulative-session`: this explicitly declares the cumulative counters observed in Codex CLI 0.160.0. The importer uses the final complete snapshot, rather than summing earlier snapshots; repeated announcements of the same thread are allowed. Different threads, counter decreases, dropped known counters, open turns and failed turns without completed usage are rejected. The native output does not identify its counter semantics, so historical per-turn formats cannot be inferred automatically. Wait for all included native runs to finish before importing.
+
+New Codex imports retain an opaque SHA-256 session identity and counter mode, without the raw session ID. A different overlapping capture of the same retained session is rejected by default. Explicit cumulative snapshots can replace one previous cumulative entry when every known counter and the whole-session measured elapsed time are nondecreasing. An identical snapshot adds nothing. Historical entries without that identity remain unchanged; do not reimport their overlapping work. Deduplication and overlap checks cover the retained log.
+
+Claude imports use one final result's counters, normalizing input to include cache reads and writes. A synthetic failed login result with no provider-backed usage remains unavailable. Genuine reported error-phase usage is retained. Models reported by the host are retained. Claude's reported duration is preserved. Supply `--elapsed-ms` only with elapsed time measured by the caller for the exact included work; for a resumed cumulative Codex session, sum its measured native phases without idle time. An absent duration remains unavailable.
+
+Exact input contents are deduplicated within the retained records. Host-run totals and plugin-operation measurements have separate scopes and token sources. Summing the same work across those scopes would count it twice. Logging retains no prompt, completion, tool arguments, source path, database identity, credentials or session ID, and it calculates no cost. The explicit import reader accepts bounded, owner-controlled regular files up to 8 MiB and reads no other host history. Captured native output can contain task content, so keep the capture private.
+
+### Native job waits
+
+Codex MCP requests accept `waitSeconds` up to 30 for `apexrest_ship` and `apexrest_job`, leaving headroom below [Codex's default 60-second tool timeout](https://learn.chatgpt.com/docs/extend/mcp?surface=cli). The advertised field schema and request validator share the limit. Larger values are rejected before project loading or work starts. Ship defaults to 25 seconds, and job status defaults to an immediate read. CLI job status and Claude retain their existing 120-second maximum.
+
+The MCP protocol client name identifies known Codex and Claude clients. Managed launchers supply `APEXREST_HOST=codex|claude` for unfamiliar client names. A recognized protocol identity takes precedence for this wait policy. An unrecognized client without that registration retains the generic limit of 120 seconds. Check its client timeout before choosing a longer wait.
+
+These values cap observation waits. Planning, compilation and apply preflight can run in process before a background job exists. Plan responses retain their usual shape. Workers can continue after an observation ends. Poll the original `jobId` and reconcile a lost outcome before requesting another execution.
 
 ## Configure an environment
 
@@ -152,6 +196,7 @@ See the canonical [deployment safety rules](deployment-safety.md) for locality, 
 - Connection setup may use `envFile` with optional `urlKey`, `usernameKey` and `passwordKey` from a regular user-owned, Git-ignored and untracked local ENV file.
 - It is parsed as literal data and values are never returned in operation results.
 - Authorized requested browser login may use such local credentials without a paste/trust step; never persist browser cookies/profiles.
+- For `passwordFile`, the private regular file must physically resolve inside the managed home, working directory or a configured project. The reader checks the opened file's identity and enforces owner-only permissions on POSIX.
 
 ## Cross-vendor peer review
 

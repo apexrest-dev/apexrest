@@ -8,7 +8,11 @@ import { tmpdir } from 'node:os';
 import { configureSqlcl, sqlclConfig } from '../../packages/core/src/sqlcl-config.ts';
 import { OracleAdapter } from '../../packages/core/src/oracle.ts';
 import { runSqlclMcp, SqlclMcpClient } from '../../packages/core/src/sqlcl-mcp.ts';
-import { closeSqlclSessions, sqlclSessionStats } from '../../packages/core/src/sqlcl-session.ts';
+import {
+  closeSqlclSessions,
+  runPooledSqlcl,
+  sqlclSessionStats,
+} from '../../packages/core/src/sqlcl-session.ts';
 import type { ProcessResult } from '../../packages/core/src/process.ts';
 
 const completed = (stdout: string): ProcessResult => ({
@@ -163,6 +167,10 @@ for await (const line of createInterface({input:process.stdin})) {
   else {
    if(scenario==='disconnect') process.exit(0);
    if(scenario==='hang') continue;
+   if(scenario==='overlong-frame') {
+    process.stdout.write('x'.repeat(11 * 1024 * 1024));
+    continue;
+   }
    result=scenario?.startsWith('async')?{content:[],structuredContent:{tool_request_id:'fixture-id'}}:
     {content:[{type:'text',text:scenario==='error'?'ORA-00942: missing table':r.params.arguments.sqlcl}],isError:scenario==='error'};
   }
@@ -199,6 +207,14 @@ for await (const line of createInterface({input:process.stdin})) {
   await assert.rejects(
     runSqlclMcp({ ...request, mutation: true, env: { ...process.env, SCENARIO: 'disconnect' } }),
     { code: 'SQLCL_MCP_OUTCOME_UNKNOWN', status: 'outcome_unknown' },
+  );
+  await assert.rejects(runSqlclMcp({ ...request, env: { ...process.env, SCENARIO: 'overlong-frame' } }), {
+    code: 'OUTPUT_LIMIT',
+    status: 'failed',
+  });
+  await assert.rejects(
+    runPooledSqlcl({ ...request, mutation: true, env: { ...process.env, SCENARIO: 'overlong-frame' } }),
+    { code: 'OUTPUT_LIMIT', status: 'outcome_unknown' },
   );
   const controller = new AbortController();
   const pending = runSqlclMcp({
@@ -245,7 +261,7 @@ test('CLI script sessions run restricted at level 2 and private staging is remov
       allowedOrigins: [],
     },
     undefined as never,
-    path.join(root, 'f123.sql'),
+    Buffer.from('begin null; end;\n/\n'),
   );
   assert.equal(seen[0]!.args.includes('-R'), false);
   const restricted = seen.find((call) => call.args.includes('-R'));
@@ -358,6 +374,33 @@ test(
     assert.ok((await starts()).includes('-R 2 -mcp'));
     await closeSqlclSessions();
     assert.deepEqual(sqlclSessionStats(), []);
+  },
+);
+
+test(
+  'concurrent cold SQLcl requests reserve no more than the per-key session limit',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { launcher, starts } = await pooledFixture(t);
+    const request = {
+      executable: launcher,
+      args: ['-mcp'],
+      cwd: path.dirname(launcher),
+      mutation: false,
+      limit: 2,
+    };
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, index) => runPooledSqlcl({ ...request, input: `prompt batch-${index}` })),
+    );
+    assert.deepEqual(
+      results.map((result) => [result.code, result.stdout.trim()]),
+      Array.from({ length: 6 }, (_, index) => [0, `batch-${index}`]),
+    );
+    assert.equal((await starts()).length, request.limit);
+    assert.equal(
+      sqlclSessionStats().reduce((count, entry) => count + entry.sessions, 0),
+      request.limit,
+    );
   },
 );
 

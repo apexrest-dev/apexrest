@@ -22,6 +22,10 @@ Three rules apply everywhere:
 
 Read-only dictionary batches verify identity from the same session before any row is returned. Queries may execute together, but a mismatch discards the entire batch.
 
+Target identity records capture workspace identifiers as exact decimal text. An old unsafe JavaScript number cannot establish the original Oracle identifier. Existing plans, fingerprints and recovery evidence retain their original bytes; APEXREST does not reconstruct an identifier from a rounded value.
+
+After upgrading an older profile, regenerate saved plans. A clean working copy with a numeric workspace baseline can establish a fresh exact baseline through `apexrest apex sync --env dev --action refresh --json`, using its actual environment name. Dirty working copies remain protected. Explicit full read-only replanning on 26.2 observes a fresh exact identity without rewriting the old sync record. Reconcile held or unknown-outcome runs through their original runtime before upgrading; a mixed-format identity never releases their coordination or enables SQL replay.
+
 ### How a target becomes production
 
 Production takes precedence over locality. A target is production when any of these is true:
@@ -116,6 +120,7 @@ The runtime checks the exact digest; confirmation cannot authorize another plan,
 
 - Migration and package inputs remain contained, frozen SQL/PLSQL files.
 - Names, immutable checksums and ordered migration history are checked.
+- SQL queries in migrations, including query-backed DDL, require confirmation on a remote target when the scanner cannot prove a name is a column or a side-effect-free built-in.
 - SQLcl host commands, credential switching and unbound external scripts are unsupported even on a local server: local database permission is not permission to execute arbitrary host commands.
 - SQLcl imports/scripts retain restriction level `-R 2`.
 - DDL is not assumed transactional, and an APEX application backup does not restore business data.
@@ -129,7 +134,7 @@ The runtime checks the exact digest; confirmation cannot authorize another plan,
 - A plan that exports the target keeps that export in private project storage. Apply reuses it as the backup only after proving it is the planned one: the target identity and migration history are read again and, with the kept files' digest, must reproduce the plan fingerprint. An altered or missing copy is ignored and apply exports as before.
 - The export taken immediately before the first write must still equal the plan. That is the drift check, and it also proves the backup equals the content the write replaces.
 - Restore uses a separate exact plan and a fresh snapshot; production restore is blocked.
-- Existing legacy SQL backups remain explicitly restorable.
+- Legacy SQL backups can be restored when they contain one complete Oracle export (`fNNN.sql`) with the standard SQLcl wrapper and self-contained PL/SQL blocks. Split exports, external scripts, host commands and connection changes are unsupported. For a remote target, the restore plan identifies the SQL file for review and requires human confirmation of the exact plan before execution.
 - Application backups restore APEX metadata, not business data.
 - A creation snapshot records absence and cannot undo creation through an empty import; deletion requires a separately reviewed operation.
 
@@ -138,6 +143,7 @@ The runtime checks the exact digest; confirmation cannot authorize another plan,
 - Clean supported APEX requires no APEXREST control tables.
 - Local durable migration history and schema ownership live under `$APEXREST_HOME/deployment-control/`.
 - Runners sharing that home are serialized.
+- Upgrade every runner sharing a managed home before enabling writes. Reconcile any interrupted earlier runs. If the home has older migration or package history, run a full read-only deployment plan (`mode:plan`, `importMode:full`) for each original environment against its original Oracle service. The plan registers the verified store without changing its history or ownership. New stores are blocked while old history remains unregistered, and changing a registered Oracle service is blocked because the runtime cannot prove the new service shares that history.
 - Independent homes/machines require external serialization; changing or deleting durable history is not recovery.
 - Preserve foreign/live ownership and unrelated local or server changes.
 

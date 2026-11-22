@@ -11,6 +11,7 @@ const text = z.string().max(OWNED_TEXT_LIMIT);
 /** Enumerated values become SQL literals inside generated code fences. */
 export const literalValue = z
   .string()
+  .min(1, 'Empty enum values are Oracle NULL. Use nullable for nullability.')
   .max(128)
   .regex(/^[^\x00-\x1f\x7f`]*$/, 'Enumerated values must be single-line text without backticks.');
 export const fieldSchema = z.strictObject({
@@ -20,7 +21,13 @@ export const fieldSchema = z.strictObject({
   maxLength: z.number().int().positive().optional(),
   precision: z.number().int().positive().optional(),
   scale: z.number().int().optional(),
-  enum: z.array(literalValue).max(100).optional(),
+  enum: z
+    .array(literalValue)
+    .min(1, 'Omit enum when no enumeration is intended.')
+    .max(100)
+    .refine((values) => new Set(values).size === values.length, 'Enum values must be distinct.')
+    .meta({ uniqueItems: true })
+    .optional(),
 });
 const contractBase = {
   schemaVersion: z.literal(1),
@@ -32,6 +39,7 @@ export const contractSchema = z.discriminatedUnion('kind', [
       ...contractBase,
       kind: z.literal('authorization'),
       rowPredicate: text.optional(),
+      predicateColumns: z.array(identifier).max(64).optional(),
       expression: text.optional(),
     })
     .refine(
@@ -200,6 +208,20 @@ export const ownerSchema = z.strictObject({
   consumers: z.array(name),
   provenance: digest,
 });
+export const sharedResourceSchema = z.strictObject({
+  kind: z.literal('static-enum-lov'),
+  formatVersion: z.literal(1),
+  identity: name,
+  name,
+  profile: z.string().min(1).max(128),
+  type: z.literal('string'),
+  values: fieldSchema.shape.enum.unwrap(),
+  file: relativePath,
+  base: digest,
+  digest,
+  consumers: z.array(name).max(256),
+  retained: z.boolean(),
+});
 export const stateSchema = z.strictObject({
   schemaVersion: z.literal(1),
   generatorVersion: z.literal('1'),
@@ -207,6 +229,8 @@ export const stateSchema = z.strictObject({
   blueprintDigest: digest,
   lockDigest: digest,
   owners: z.record(name, ownerSchema),
+  // Optional without a default: historical state/plan/journal digests must not change.
+  sharedResources: z.record(digest, sharedResourceSchema).optional(),
 });
 export const lockSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -307,3 +331,4 @@ export type Owner = z.infer<typeof ownerSchema>;
 export type Entity = z.infer<typeof entitySchema>;
 export type Instance = z.infer<typeof instanceSchema>;
 export type Allocation = z.infer<typeof allocationSchema>;
+export type SharedResource = z.infer<typeof sharedResourceSchema>;

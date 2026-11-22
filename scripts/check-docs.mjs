@@ -8,10 +8,10 @@ import { renderMarkdown } from './lib/site-markdown.mjs';
 // Human documentation is English only; functional references, licenses and agent skills retain their sources.
 const documents = ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CHANGELOG.md'];
 for (const root of ['docs', 'site/content', 'templates', 'plugins/apexrest-apex/skills']) {
-  for (const file of await files(root)) {
-    // docs/evidence/ holds ignored, generated verification output, including third-party files.
-    if (file.endsWith('.md') && !(root === 'docs' && file.startsWith('evidence/')))
-      documents.push(root + '/' + file);
+  // Exclude generated evidence before walking it; it can contain private third-party
+  // trees and symlinks which are deliberately not documentation or release inputs.
+  for (const file of await files(root, '', root === 'docs' ? ['evidence'] : [])) {
+    if (file.endsWith('.md')) documents.push(root + '/' + file);
   }
 }
 const site = JSON.parse(await readFile('site/site.config.json', 'utf8'));

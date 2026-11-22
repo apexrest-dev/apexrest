@@ -29,7 +29,6 @@ APEXREST is a plugin for Codex and Claude Code that builds, runs, ships and veri
 
 | Goal                                                          | Guide                                             |
 | ------------------------------------------------------------- | ------------------------------------------------- |
-| Build a standalone Node.js application for an Oracle database | [Build a web application](webapp.md)              |
 | Import only the changed pages and components on APEX 26.2     | [APEX 26.2 partial imports](apex-26.2.md)         |
 | Learn the plan, grant, import and recovery model              | [Deployment safety](deployment-safety.md)         |
 | Deploy without service tables                                 | [Clean APEX deployment](clean-apex-deployment.md) |

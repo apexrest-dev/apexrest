@@ -41,7 +41,7 @@ export async function workingCopyFixture() {
   };
   const target = () => ({
     identity: { db_unique_name: 'fixture', service_name: 'fixture', parsing_schema: 'FIXTURE' },
-    workspace: { workspace: 'FIXTURE', workspace_id: 123 },
+    workspace: { workspace: 'FIXTURE', workspace_id: '123' },
     application: controls.exists
       ? { application_id: env.applicationId, workspace: 'FIXTURE', owner: 'FIXTURE', alias: controls.alias }
       : null,

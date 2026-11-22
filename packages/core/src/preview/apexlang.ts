@@ -305,8 +305,15 @@ function deploymentSubstitutions(root: string, deployment: string): Record<strin
   return values;
 }
 
+/**
+ * Parsed files kept between loads of the same source tree (preview incremental refresh): a file is
+ * parsed again only when its size, modification time or the deployment substitutions changed.
+ * Callers treat the components as read-only.
+ */
+export type ApxParseCache = Map<string, { key: string; components: ApxComponent[] }>;
+
 /** Loads an APEXlang source tree (the folder that contains `application.apx`). */
-export function loadApplication(root: string, deployment = 'default'): ApxApplication {
+export function loadApplication(root: string, deployment = 'default', cache?: ApxParseCache): ApxApplication {
   const appFile = path.join(root, 'application.apx');
   if (!fs.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
   const substitutions = deploymentSubstitutions(root, deployment);
@@ -317,6 +324,32 @@ export function loadApplication(root: string, deployment = 'default'): ApxApplic
   for (const file of files) {
     // Component files use '/' on every platform; diagnostics and lint messages print them.
     const relative = path.relative(root, file).split(path.sep).join('/');
+    const info = cache ? fs.statSync(file) : undefined;
+    const key = info ? `${info.size}:${info.mtimeMs}:${JSON.stringify(substitutions)}` : '';
+    const cached = cache?.get(relative);
+    const parsed =
+      cached && cached.key === key ? cached.components : parseFile(file, relative, root, substitutions);
+    if (cache && cached?.components !== parsed) cache.set(relative, { key, components: parsed });
+    for (const component of parsed) {
+      if (component.type === 'app') app = component;
+      else if (component.type === 'page') pages.set(component.id, component);
+      else shared.push(component);
+    }
+  }
+  if (cache)
+    for (const relative of [...cache.keys()])
+      if (!files.some((file) => path.relative(root, file).split(path.sep).join('/') === relative))
+        cache.delete(relative);
+  if (!app) throw new Error(`${appFile} does not declare an app component`);
+  // Oracle also permits pages directly inside the app. Keep their original AST ownership;
+  // index them once, after root pages so existing root-page precedence is unchanged.
+  for (const child of app.children)
+    if (child.type === 'page' && !pages.has(child.id)) pages.set(child.id, child);
+  return { root, app, pages, shared, substitutions, files };
+}
+
+function parseFile(file: string, relative: string, root: string, substitutions: Record<string, string>) {
+  {
     const text = fs
       .readFileSync(file, 'utf8')
       .replace(
@@ -329,12 +362,6 @@ export function loadApplication(root: string, deployment = 'default'): ApxApplic
               ? path.basename(root)
               : whole),
       );
-    for (const component of parseApexLang(text, relative)) {
-      if (component.type === 'app') app = component;
-      else if (component.type === 'page') pages.set(component.id, component);
-      else shared.push(component);
-    }
+    return parseApexLang(text, relative);
   }
-  if (!app) throw new Error(`${appFile} does not declare an app component`);
-  return { root, app, pages, shared, substitutions, files };
 }

@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import fsPromises, { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   OracleAdapter,
+  compilerDetails,
   compilerFault,
   diagnosticHint,
   jsonDocuments,
@@ -16,8 +18,13 @@ import type { ProcessRequest, ProcessResult } from '../../packages/core/src/proc
 import {
   compilerFault as shipCompilerFault,
   fallbackCompilerDiagnostics,
+  validateApplication,
 } from '../../packages/core/src/ship.ts';
-import { Fault, failure } from '../../packages/core/src/result.ts';
+import { Fault, failure, success } from '../../packages/core/src/result.ts';
+import { fixture } from '../fixtures/project.ts';
+import { ArtifactService } from '../../packages/core/src/artifacts.ts';
+import { toolOutput } from '../../packages/mcp/src/output.ts';
+import { loadApplication } from '../../packages/core/src/preview/apexlang.ts';
 
 // Verbatim SQLcl 26.1.2 `apex validate` output shapes (offline compiler).
 const report = `APEXLang Compile Errors:
@@ -52,6 +59,11 @@ const completed = (stdout: string, changes: Partial<ProcessResult> = {}): Proces
   cancelled: false,
   truncated: false,
   ...changes,
+});
+
+test('the blank application starter explicitly enables session state protection', () => {
+  const app = loadApplication(path.resolve('templates/blank-app/application'));
+  assert.equal((app.app.props.sessionStateProtection as { enabled?: boolean }).enabled, true);
 });
 
 test('compiler report parses into file/line/column/type/message with valid values', () => {
@@ -94,6 +106,111 @@ test('compiler report parses into file/line/column/type/message with valid value
     parseCompilerDiagnostics(colored).map((d) => [d.file, d.line, d.message]),
     [['a.apx', 1, 'm more']],
   );
+});
+
+const warningReport = `APEXlang Compile Warnings:
+File: pages/p00070-activity-calendar.apx
+Line: 22
+Column: 12
+Type: INVALID_LOV
+Warning: Invalid Slot value: layout - slot (STRING) : contentBody
+Valid values are :
+banner
+-body
+-footer
+Validation successful.
+`;
+
+test('compiler warnings preserve severity, repair options and unlocated WARN/ERROR lines', () => {
+  assert.deepEqual(parseCompilerDiagnostics(warningReport), [
+    {
+      code: 'INVALID_LOV',
+      severity: 'warning',
+      file: 'pages/p00070-activity-calendar.apx',
+      line: 22,
+      column: 12,
+      type: 'INVALID_LOV',
+      message: 'Invalid Slot value: layout - slot (STRING) : contentBody',
+      validValues: ['banner', 'body', 'footer'],
+    },
+  ]);
+  assert.deepEqual(
+    parseCompilerDiagnostics(report + warningReport).map(({ severity }) => severity),
+    ['error', 'error', 'error', 'warning'],
+  );
+  assert.deepEqual(
+    parseCompilerDiagnostics('[WARN] Source option was ignored\nERROR: Invalid source\n').map(
+      ({ severity, message }) => [severity, message],
+    ),
+    [
+      ['warning', 'Source option was ignored'],
+      ['error', 'Invalid source'],
+    ],
+  );
+});
+
+test('large successful validation retains every compiler warning and complete archived raw output', async (t) => {
+  const { ctx } = await fixture();
+  const previousHome = process.env.APEXREST_HOME;
+  process.env.APEXREST_HOME = path.join(ctx.root, 'managed');
+  t.after(async () => {
+    if (previousHome === undefined) delete process.env.APEXREST_HOME;
+    else process.env.APEXREST_HOME = previousHome;
+    await rm(ctx.root, { recursive: true, force: true });
+  });
+  const output = Array.from({ length: 70 }, (_, index) =>
+    warningReport.replace('22\nColumn', index + 1 + '\nColumn'),
+  ).join('\n');
+  const oracle = {
+    async validate() {
+      return { status: 'passed', compiler: { version: 'fixture' }, output };
+    },
+  } as unknown as OracleAdapter;
+  const result = await validateApplication(
+    oracle,
+    path.join(ctx.root, ctx.config.application.sourceDir),
+    parseCompilerDiagnostics,
+  );
+  assert.equal(result.warningCount, 70);
+  assert.equal(result.diagnostics.length, 70);
+  assert.equal(result.output, output);
+  assert.equal(result.outputTruncated, false);
+  const response = await toolOutput(success('apex.validate', result), ctx.root);
+  assert.ok(response.content[0]!.text.length < 8192);
+  const compact = JSON.parse(response.content[0]!.text);
+  assert.equal(compact.data.warningCount, 70);
+  const service = new ArtifactService(ctx);
+  let offset: number | null = 0;
+  let content = '';
+  while (offset !== null) {
+    const page = await service.read(compact.data.output.artifactId, offset, 4096);
+    content += page.content;
+    offset = page.nextOffset;
+  }
+  const archived = JSON.parse(content);
+  assert.equal(archived.data.output, output);
+  assert.equal(archived.data.diagnostics.length, 70);
+});
+
+test('compiler failure capture keeps errors after the bounded SQLcl message', async () => {
+  const output = warningReport.repeat(30) + report;
+  assert.throws(
+    () => oracleDiagnostics(completed(output), false, 'text', true),
+    (error) => {
+      assert.ok(error instanceof Fault);
+      assert.ok(error.message.length <= 6000);
+      const captured = error.details?.output;
+      assert.equal(captured, output + '\n');
+      assert.equal(
+        parseCompilerDiagnostics(String(captured)).filter(({ severity }) => severity === 'error').length,
+        3,
+      );
+      return true;
+    },
+  );
+  const fault = await compilerFault(output);
+  assert.equal(fault.details?.output, output);
+  assert.equal(fault.details?.diagnostics?.length, 33);
 });
 
 test('hints name the enclosing declarations read from the source file', async (t) => {
@@ -165,6 +282,149 @@ test('hints name the enclosing declarations read from the source file', async (t
   assert.equal(unconfirmed.code, 'VALIDATION_UNCONFIRMED');
   assert.equal(unconfirmed.details, undefined);
 });
+
+test('compiler details reuse contained source lines only within one report', async (t) => {
+  const temporary = await fsPromises.realpath(await mkdtemp(path.join(tmpdir(), 'apexrest-diag-cache-')));
+  const root = path.join(temporary, 'project');
+  await mkdir(path.join(root, 'pages'), { recursive: true });
+  const source = (page: number, section = 'navigation') =>
+    `page ${page} (\n    name: Fixture\n    ${section} {\n        cursorFocus: doNotFocusCursor\n        bogusProperty: true\n    }\n)\n`;
+  const a = path.join(root, 'pages/a.apx');
+  const b = path.join(root, 'pages/b.apx');
+  const missing = path.join(root, 'pages/missing.apx');
+  const outside = path.join(temporary, 'outside.apx');
+  await writeFile(a, source(1));
+  await writeFile(b, source(2));
+  await writeFile(outside, source(99));
+  // Windows file symlinks require privileges that ordinary CI users may not have.
+  const checkFileSymlinks = process.platform !== 'win32';
+  if (checkFileSymlinks) await fsPromises.symlink(outside, path.join(root, 'pages/escaped.apx'));
+  else t.diagnostic('Skipping the POSIX file symlink subcase; cache and freshness assertions still run.');
+  const cases = [
+    ['pages/a.apx', 'a-1', 5, 'INVALID_PROPERTY'],
+    ['pages/b.apx', 'b-1', 5, 'REFERENCE_NOT_FOUND'],
+    ['pages/./a.apx', 'a-2', 5, 'INVALID_PROPERTY'],
+    ['pages/missing.apx', 'missing-1', 5, 'INVALID_PROPERTY'],
+    ['../outside.apx', 'outside', 5, 'INVALID_PROPERTY'],
+    ...(checkFileSymlinks ? [['pages/escaped.apx', 'symlink', 5, 'INVALID_PROPERTY'] as const] : []),
+    ['pages/b.apx', 'b-2', 5, 'MISSING_REQUIRED_PROPERTY'],
+    ['pages/missing.apx', 'missing-2', 5, 'INVALID_PROPERTY'],
+    ['pages/\0broken.apx', 'malformed', 5, 'INVALID_PROPERTY'],
+    ['pages/a.apx', 'unlocated', 0, 'INVALID_PROPERTY'],
+    ['pages/a.apx', 'ineligible', 5, 'SYNTAX'],
+  ] as const;
+  const output =
+    'APEXLang Compile Errors:\n' +
+    cases
+      .map(
+        ([file, label, line, type]) =>
+          `File: ${file}\nLine: ${line}\nColumn: 8\nType: ${type}\nError: fixture ${label}\n\n`,
+      )
+      .join('');
+  const parsed = parseCompilerDiagnostics(output);
+  assert.equal(parsed.length, cases.length);
+  const sourceHints: Record<string, string> = {
+    'a-1': 'inside navigation of page 1',
+    'b-1': 'inside navigation of page 2',
+    'a-2': 'inside navigation of page 1',
+    'b-2': 'inside navigation of page 2',
+  };
+  const hints = cases.map(([, label]) => sourceHints[label]);
+  const expected = (values: (string | undefined)[]) =>
+    parsed.map((diagnostic, index) =>
+      values[index] ? { ...diagnostic, hint: values[index] } : { ...diagnostic },
+    );
+  const originalRead = fsPromises.readFile;
+  const reads = new Map<string, number>();
+  const spy = t.mock.method(fsPromises, 'readFile', (...args: Parameters<typeof originalRead>) => {
+    const file = String(args[0]);
+    reads.set(file, (reads.get(file) ?? 0) + 1);
+    return originalRead(...args);
+  });
+  syncBuiltinESMExports();
+  try {
+    // The existing standalone contract remains fresh and gives exactly the same source hints.
+    for (const [index, diagnostic] of parsed.entries())
+      assert.equal(await diagnosticHint(root, diagnostic), hints[index]);
+    reads.clear();
+    assert.deepEqual(await compilerDetails(output), { diagnostics: parsed, output });
+    assert.equal(reads.size, 0);
+    const first = await compilerDetails(output, root);
+    assert.equal(JSON.stringify(first), JSON.stringify({ diagnostics: expected(hints), output }));
+    assert.deepEqual(Object.fromEntries(reads), { [a]: 1, [b]: 1, [missing]: 1 });
+
+    await writeFile(a, source(1, 'appearance'));
+    await writeFile(missing, source(3));
+    const updatedHints = cases.map(([, label], index) =>
+      label.startsWith('a-')
+        ? 'inside appearance of page 1'
+        : label.startsWith('missing-')
+          ? 'inside navigation of page 3'
+          : hints[index],
+    );
+    assert.deepEqual(await compilerDetails(output, root), {
+      diagnostics: expected(updatedHints),
+      output,
+    });
+    assert.deepEqual(Object.fromEntries(reads), { [a]: 2, [b]: 2, [missing]: 2 });
+
+    await writeFile(a, source(1, 'layout'));
+    assert.equal(await diagnosticHint(root, parsed[0]!), 'inside layout of page 1');
+    assert.equal(await diagnosticHint(root, parsed[0]!), 'inside layout of page 1');
+    assert.equal(reads.get(a), 4);
+  } finally {
+    spy.mock.restore();
+    syncBuiltinESMExports();
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test(
+  'cached source hints still recheck containment for each diagnostic',
+  {
+    skip:
+      process.platform === 'win32' &&
+      'requires POSIX file symlinks; cache and freshness are tested separately',
+  },
+  async (t) => {
+    const temporary = await fsPromises.realpath(
+      await mkdtemp(path.join(tmpdir(), 'apexrest-diag-containment-')),
+    );
+    const root = path.join(temporary, 'project');
+    await mkdir(root);
+    const file = path.join(root, 'page.apx');
+    const outside = path.join(temporary, 'outside.apx');
+    const source = 'page 1 (\n    navigation {\n        bogusProperty: true\n    }\n)\n';
+    await writeFile(file, source);
+    await writeFile(outside, source.replace('page 1', 'page 99'));
+    const block = 'File: page.apx\nLine: 3\nColumn: 8\nType: INVALID_PROPERTY\nError: fixture\n\n';
+    const output = 'APEXLang Compile Errors:\n' + block + block;
+    const originalRead = fsPromises.readFile;
+    const reads: string[] = [];
+    const spy = t.mock.method(fsPromises, 'readFile', async (...args: Parameters<typeof originalRead>) => {
+      reads.push(String(args[0]));
+      const text = await originalRead(...args);
+      if (String(args[0]) === file) {
+        await rm(file);
+        await fsPromises.symlink(outside, file);
+      }
+      return text;
+    });
+    syncBuiltinESMExports();
+    try {
+      const parsed = parseCompilerDiagnostics(output);
+      assert.deepEqual(await compilerDetails(output, root), {
+        diagnostics: [{ ...parsed[0]!, hint: 'inside navigation of page 1' }, parsed[1]],
+        output,
+      });
+      assert.deepEqual(reads, [file]);
+    } finally {
+      spy.mock.restore();
+      syncBuiltinESMExports();
+      await rm(temporary, { recursive: true, force: true });
+    }
+  },
+);
 
 test('validate and import surface structured compiler diagnostics on the fault', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'apexrest-diag-validate-'));

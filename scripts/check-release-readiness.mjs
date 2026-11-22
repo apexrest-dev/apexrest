@@ -1,7 +1,8 @@
-import { readFile } from 'node:fs/promises';
+import { lstat, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { sourceDigest } from './lib/release.mjs';
+import { validateExternalEvidence } from './lib/release-evidence.mjs';
 export async function readiness() {
   const digest = await sourceDigest();
   const pkg = JSON.parse(await readFile('package.json', 'utf8'));
@@ -21,23 +22,46 @@ export async function readiness() {
     ['oracle-integration', 'oracle-integration.json', false],
   ]) {
     let evidence;
+    let status;
+    let reasons = [];
     try {
+      const info = await lstat('docs/evidence/' + file);
+      if (!info.isFile() || info.isSymbolicLink() || info.size > 2 * 1024 * 1024)
+        throw new Error('Evidence must be a regular report of at most 2 MiB.');
       evidence = JSON.parse(await readFile('docs/evidence/' + file, 'utf8'));
-    } catch {
-      /* missing is a blocker */
+      if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence))
+        throw new Error('Evidence must be a JSON object.');
+    } catch (error) {
+      status = error.code === 'ENOENT' ? 'missing' : 'invalid';
+      reasons = [
+        status === 'missing' ? 'No evidence report exists.' : 'Report is unreadable, malformed or unsafe.',
+      ];
+    }
+    if (!status) {
+      if (evidence.status !== 'passed') {
+        status = 'blocked';
+        reasons = ['The report has not passed. Retain its findings and complete the unverified scenarios.'];
+      } else if (evidence.sourceDigest !== digest) {
+        status = 'stale';
+        reasons = ['Evidence belongs to another source digest. Qualify the frozen current candidate.'];
+      } else if (!local) {
+        try {
+          const checked = await validateExternalEvidence(evidence, id, digest);
+          status = checked.valid ? 'passed' : 'invalid';
+          reasons = checked.errors;
+        } catch {
+          status = 'invalid';
+          reasons = ['External evidence could not be safely validated.'];
+        }
+      } else status = 'passed';
     }
     requirements.push({
       id,
       evidence: 'docs/evidence/' + file,
       local,
       requiredForNpm: local || !localOnlyNpm,
-      status: !evidence
-        ? 'missing'
-        : evidence.status !== 'passed'
-          ? 'blocked'
-          : evidence.sourceDigest !== digest
-            ? 'stale'
-            : 'passed',
+      status,
+      ...(reasons.length ? { reasons } : {}),
     });
   }
   const allEvidencePassed = requirements.every((r) => r.status === 'passed');
@@ -63,6 +87,7 @@ export async function readiness() {
     requirements,
     limitations: [
       'No automated evidence substitutes for an independently protected trusted CI runner.',
+      'External report validation checks declared scope and content-addressed proof bytes; it does not independently establish native or Oracle execution.',
       'Optional sandbox is unsupported; it is not a required client gate.',
       'Only a version-bound npm exception makes external reports advisory; full qualification still requires them.',
       'CI, package integrity, registry ownership and clean-install verification remain separate npm publication checks.',

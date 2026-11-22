@@ -132,6 +132,94 @@
         ],
         "additionalProperties": false
       }
+    },
+    "sharedResources": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "static-enum-lov"
+          },
+          "formatVersion": {
+            "type": "number",
+            "const": 1
+          },
+          "identity": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          },
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+          },
+          "profile": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "type": {
+            "type": "string",
+            "const": "string"
+          },
+          "values": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[^\\x00-\\x1f\\x7f`]*$"
+            },
+            "uniqueItems": true
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "base": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "consumers": {
+            "maxItems": 256,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+            }
+          },
+          "retained": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "formatVersion",
+          "identity",
+          "name",
+          "profile",
+          "type",
+          "values",
+          "file",
+          "base",
+          "digest",
+          "consumers",
+          "retained"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [

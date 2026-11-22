@@ -229,6 +229,6 @@ test('ORDS APEX exports, imports and restores use the bridge and keep native sou
   assert.deepEqual(Object.keys(backup.files), ['f100.sql']);
   const ctx = { config: { application: { alias: 'test' } } } as ProjectContext;
   await adapter.importApplication(ctx, env, connection, exported.directory);
-  await adapter.restoreApplication(env, connection, path.join(backup.directory, 'f100.sql'));
+  await adapter.restoreApplication(env, connection, await readFile(path.join(backup.directory, 'f100.sql')));
   assert.deepEqual(calls, ['export', 'export', 'import', 'script']);
 });

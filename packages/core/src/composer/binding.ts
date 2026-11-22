@@ -48,6 +48,21 @@ const safeFunctions = new Set([
   'APEX_AUTHORIZATION.IS_AUTHORIZED',
 ]);
 const groupingWords = new Set(['AND', 'OR', 'NOT', 'IN']);
+const scalarWords = new Set([
+  ...groupingWords,
+  'IS',
+  'NULL',
+  'TRUE',
+  'FALSE',
+  'BETWEEN',
+  'LIKE',
+  'ESCAPE',
+  'SYSDATE',
+  'SYSTIMESTAMP',
+  'CURRENT_DATE',
+  'CURRENT_TIMESTAMP',
+  'LOCALTIMESTAMP',
+]);
 const deniedWords =
   /^(?:SELECT|WITH|COMMIT|ROLLBACK|SAVEPOINT|GRANT|REVOKE|INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|CREATE|TRUNCATE|EXECUTE|IMMEDIATE|HOST|CONNECT|BEGIN|DECLARE|CALL|LOCK)$/;
 const deniedOwners = /^(?:DBMS_|UTL_|WWV_|OWA_|APEX_(?!AUTHORIZATION$)|(?:OWA|HTP|HTF|SYS)$)/;
@@ -65,14 +80,14 @@ function match(pattern: RegExp, value: string, at: number) {
 }
 /**
  * Accepts only a reviewed, allowlisted SQL boolean expression; never statements or session reads.
- * Dotted names are either allowlisted functions or columns of the given table qualifiers;
- * Oracle calls parameterless functions without parentheses, so an unknown `owner.name` is
- * treated as a routine call and rejected.
+ * Oracle can resolve a bare SQL identifier as a parameterless function.
+ * Accept only known columns, syntax words and explicitly allowlisted calls.
  */
-export function expression(value: string, context: { qualifiers?: string[] } = {}) {
+export function expression(value: string, context: { qualifiers?: string[]; columns?: string[] } = {}) {
   const qualifiers = new Set(
     (context.qualifiers ?? []).flatMap((q) => [q, q.split('.').at(-1)!]).map((q) => q.toUpperCase()),
   );
+  const columns = new Set((context.columns ?? []).map((column) => column.toUpperCase()));
   if (!value.trim() || value.length > 4000) throw unsafeSql();
   if (/:\s*"/.test(value)) throw untrustedContext();
   if (/[\x00-\x08\x0a-\x1f\x7f;`&#$"@{}\[\]|]|--|\/\*|\*\//.test(value)) throw unsafeSql();
@@ -95,15 +110,16 @@ export function expression(value: string, context: { qualifiers?: string[] } = {
       // q'..', n'..' and similar prefixed literals are not part of the reviewed dialect.
       if (value[at] === "'") throw unsafeSql();
       const next = value.slice(at).match(/^[ \t]*(.)/)?.[1];
-      if (next === '(' && !safeFunctions.has(name) && !groupingWords.has(name)) throw unsafeSql();
-      if (next !== '(' && safeFunctions.has(name) && name.includes('.')) throw unsafeSql();
-      if (
-        next !== '(' &&
-        parts.length > 1 &&
-        !(parts.length === 2 && qualifiers.has(parts[0]!)) &&
-        !(parts.length === 3 && qualifiers.has(parts[0] + '.' + parts[1]))
-      )
+      const column = parts.at(-1)!;
+      const qualifier = parts.slice(0, -1).join('.');
+      if (next === '(') {
+        if (!safeFunctions.has(name) && !groupingWords.has(name)) throw unsafeSql();
+      } else if (
+        !(parts.length === 1 && scalarWords.has(name)) &&
+        !(columns.has(column) && (!qualifier || qualifiers.has(qualifier)))
+      ) {
         throw unsafeSql();
+      }
     } else if ((found = match(tokens.number, value, at))) at += found[0].length;
     else if ((found = match(tokens.operator, value, at))) {
       if (found[0] === '(') depth++;
@@ -121,6 +137,11 @@ export function oracleName(value: unknown) {
   return /^".*"$/.test(text) ? text.slice(1, -1) : text.toUpperCase();
 }
 const sameName = (a: unknown, b: unknown) => oracleName(a) === oracleName(b);
+export function predicateColumnNames(rows: Record<string, unknown>[]) {
+  return rows
+    .map((row) => row.COLUMN_NAME)
+    .filter((name): name is string => typeof name === 'string' && /^[A-Z][A-Z0-9_]*$/.test(name));
+}
 /** ALL_TAB_COLUMNS reports precision inside DATA_TYPE, for example TIMESTAMP(6) WITH TIME ZONE. */
 export function oracleType(value: unknown) {
   return String(value ?? '')
@@ -155,7 +176,13 @@ export function bind(blueprint: Blueprint, instance: Instance, metadata?: Metada
     throw new Fault('KEY_MAPPING_DUPLICATE', 'Each ordered key part must occur once.', 5);
   if (!auth || auth.kind !== 'authorization' || !auth.rowPredicate)
     throw new Fault('AUTH_CONTRACT_MISSING', 'A reviewed server row-read contract is required.', 5);
-  const predicate = expression(auth.rowPredicate, { qualifiers: [entity.read.object] });
+  const object = metadata && entry(metadata.objects, entity.read.object);
+  if (metadata && !object)
+    throw new Fault('OBJECT_BINDING_MISSING', 'The selected Oracle object was not verified.', 5);
+  const columns = object
+    ? predicateColumnNames(object.columns)
+    : [...Object.values(entity.read.fields).map((field) => field.column), ...(auth.predicateColumns ?? [])];
+  const predicate = expression(auth.rowPredicate, { qualifiers: [entity.read.object], columns });
   if (entity.read.kind === 'oracle-view') {
     const key = blueprint.contracts[entity.read.keyContract ?? ''];
     if (!key || key.kind !== 'key' || JSON.stringify(key.fields) !== JSON.stringify(keys))
@@ -341,9 +368,7 @@ export function bind(blueprint: Blueprint, instance: Instance, metadata?: Metada
       }
     }
   }
-  if (metadata) {
-    const object = entry(metadata.objects, entity.read.object);
-    if (!object) throw new Fault('OBJECT_BINDING_MISSING', 'The selected Oracle object was not verified.', 5);
+  if (object) {
     for (const field of Object.values(entity.read.fields)) {
       const column = object.columns.find((row) => sameName(row.COLUMN_NAME, field.column));
       if (!column || (column.NULLABLE === 'Y' && !field.nullable))

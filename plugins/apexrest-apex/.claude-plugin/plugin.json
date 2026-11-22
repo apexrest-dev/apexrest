@@ -22,7 +22,10 @@
       "command": "node",
       "args": [
         "${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs"
-      ]
+      ],
+      "env": {
+        "APEXREST_HOST": "claude"
+      }
     }
   }
 }

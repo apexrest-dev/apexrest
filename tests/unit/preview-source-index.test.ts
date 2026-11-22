@@ -1,0 +1,142 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { loadApplication, type ApxParseCache } from '../../packages/core/src/preview/apexlang.ts';
+import { affectedPages, apxSignatures, changedFiles } from '../../packages/core/src/preview/source-index.ts';
+import { PreviewServer } from '../../packages/core/src/preview/server.ts';
+import { workspace } from '../fixtures/preview.ts';
+
+const LOV = `lov statuses (
+    name: Statuses
+    type: static
+)
+`;
+const PAGE3 = `page 3 (
+    name: Third
+    alias: THIRD
+    title: Third
+    region notes (
+        name: Notes
+        type: staticContent
+        layout {
+            sequence: 10
+        }
+    )
+    pageItem P3_STATUS (
+        type: selectList
+        lov {
+            lov: @/statuses
+        }
+        layout {
+            sequence: 20
+        }
+    )
+)
+`;
+const strip = (value: unknown) => JSON.parse(JSON.stringify(value));
+
+test('a cached reload parses only changed files and equals a clean full load', async (t) => {
+  const { app } = await workspace(t, {
+    'shared-components/lovs/statuses.apx': LOV,
+    'pages/p00003-third.apx': PAGE3,
+  });
+  const cache: ApxParseCache = new Map();
+  const first = loadApplication(app, 'default', cache);
+  const page1 = first.pages.get('1')!;
+  const file = path.join(app, 'pages/p00003-third.apx');
+  await writeFile(file, (await readFile(file, 'utf8')).replace('name: Notes', 'name: Remarks'));
+  const second = loadApplication(app, 'default', cache);
+  assert.equal(second.pages.get('1'), page1, 'an unchanged page keeps its parsed components');
+  assert.notEqual(second.pages.get('3'), first.pages.get('3'));
+  const clean = loadApplication(app);
+  assert.deepEqual(strip({ ...second, files: [] }), strip({ ...clean, files: [] }));
+  // A removed file leaves the cache and the application.
+  await rm(file);
+  const third = loadApplication(app, 'default', cache);
+  assert.equal(third.pages.has('3'), false);
+  assert.equal([...cache.keys()].includes('pages/p00003-third.apx'), false);
+});
+
+test('changes affect their page, the pages that reference a shared component, or every page', async (t) => {
+  const { app } = await workspace(t, {
+    'shared-components/lovs/statuses.apx': LOV,
+    'pages/p00003-third.apx': PAGE3,
+  });
+  const before = apxSignatures(app);
+  const application = loadApplication(app);
+  assert.deepEqual(affectedPages(['pages/p00003-third.apx'], [application]), ['3']);
+  assert.deepEqual(affectedPages(['shared-components/lovs/statuses.apx'], [application]), ['3']);
+  assert.equal(affectedPages(['application.apx'], [application]), 'all');
+  assert.equal(affectedPages(['pages/p99999-new.apx'], [application]), 'all');
+  // A renamed page file is known to the earlier application (removed) and the new one (added).
+  const page = path.join(app, 'pages/p00003-third.apx');
+  const content = await readFile(page, 'utf8');
+  await rm(page);
+  await writeFile(path.join(app, 'pages/p00003-renamed.apx'), content);
+  const after = apxSignatures(app);
+  const files = changedFiles(before, after);
+  assert.deepEqual(files, ['pages/p00003-renamed.apx', 'pages/p00003-third.apx']);
+  assert.deepEqual(affectedPages(files, [application, loadApplication(app)]), ['3']);
+});
+
+test('a broken source keeps the last good render, marked stale, until a valid change', async (t) => {
+  const { app, assets } = await workspace(t);
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await server.start();
+  t.after(() => server.stop());
+  const page = async () => (await fetch(`${server.url}/r/demo/home`)).text();
+  assert.doesNotMatch(await page(), /apex-local-stale/u);
+  const file = path.join(app, 'pages/p00001-home.apx');
+  const good = await readFile(file, 'utf8');
+  await writeFile(file, good + '\nregion broken (\n    name: Broken\n');
+  const stale = await page();
+  assert.match(stale, /class="apex-local-stale"/u);
+  assert.match(stale, /<title>Home<\/title>/u, 'the last good version is still served');
+  const revision = server.revision;
+  await writeFile(file, good.replace('title: Home', 'title: Fixed home'));
+  const fixed = await page();
+  assert.doesNotMatch(fixed, /apex-local-stale/u);
+  assert.match(fixed, /<title>Fixed home<\/title>/u);
+  assert.equal(server.revision, revision + 1);
+});
+
+test('only in-place edits of allowlisted regions are replaced without a page reload', async () => {
+  const { parseApexLang } = await import('../../packages/core/src/preview/apexlang.ts');
+  const { replaceableRegions } = await import('../../packages/core/src/preview/source-index.ts');
+  const page = (source: string) => parseApexLang(source, 'pages/p00003-third.apx')[0]!;
+  const before = page(PAGE3);
+  const dom = (region: { id: string }) => `${region.id}_dom`;
+  // Inserting lines above shifts line numbers only; the region body changed.
+  const renamed = page(
+    PAGE3.replace('    region notes (', '    // note\n    region notes (').replace(
+      'name: Notes',
+      'name: Remarks',
+    ),
+  );
+  assert.deepEqual(replaceableRegions(before, renamed, dom), ['notes_dom']);
+  // Item, page property, added component or non-allowlisted region changes reload the page.
+  assert.equal(
+    replaceableRegions(before, page(PAGE3.replace('sequence: 20', 'sequence: 25')), dom),
+    undefined,
+  );
+  assert.equal(replaceableRegions(before, page(PAGE3.replace('title: Third', 'title: 3rd')), dom), undefined);
+  assert.equal(
+    replaceableRegions(before, page(PAGE3.replace('type: staticContent', 'type: chart')), dom),
+    undefined,
+  );
+  assert.equal(
+    replaceableRegions(
+      before,
+      page(
+        PAGE3.replace(
+          '    pageItem P3_STATUS (',
+          '    region more (\n        type: staticContent\n    )\n    pageItem P3_STATUS (',
+        ),
+      ),
+      dom,
+    ),
+    undefined,
+  );
+  assert.equal(replaceableRegions(before, before, dom), undefined);
+});

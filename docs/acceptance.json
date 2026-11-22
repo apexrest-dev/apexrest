@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "asOf": "2026-11-15",
+  "asOf": "2026-11-17",
   "release": "2.8.0",
   "overall": "partial-local",
   "statusSemantics": {
@@ -164,8 +164,12 @@
       "criterion": "An existing-app backup is created and verified before import; restore uses a separate plan",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
-      "blocker": "Backup-before-import ordering is covered by unit fixtures. The 2026-10-31 fake-Oracle review reproduced full APEXlang restore importing the current configured alias while verifying the backed-up alias, failing after the write when they differ. Actual Oracle backup, restore and restore-failure evidence remains open."
+      "evidence": [
+        "packages/core/src/deploy.ts",
+        "tests/unit/deployment.test.ts",
+        "tests/unit/safety-policy.test.ts"
+      ],
+      "blocker": "Local regressions verify backup ordering, consistent full restore aliases and exact-plan binding of standalone legacy SQL. Actual Oracle backup, restore and restore-failure verification remains open."
     },
     {
       "id": "A14",
@@ -185,8 +189,12 @@
       "criterion": "Concurrent deployments from different runners to the same target are coordinated",
       "implementation": "partial",
       "verification": "partial",
-      "evidence": ["packages/core/src/deploy.ts", "tests/unit/deployment.test.ts"],
-      "blocker": "Local coordination covers one shared managed home/schema. Independent machines/homes require external serialization and separate connected contention checks."
+      "evidence": [
+        "packages/core/src/deploy.ts",
+        "tests/unit/deployment.test.ts",
+        "docs/evidence/production-qualification-20261117/oracle/qualification-2e26960f-01/fault/live-03/contender.json"
+      ],
+      "blocker": "A second normal deployment runner was refused with TARGET_LOCKED during the controlled TEST ATP run in a shared managed home. Independent machines and homes require external serialization and separate evidence."
     },
     {
       "id": "A16",
@@ -201,9 +209,10 @@
         "tests/unit/safety-policy.test.ts",
         "tests/unit/working-copy.test.ts",
         "docs/deployment-safety.md",
-        "tests/unit/process-tree.test.ts"
+        "tests/unit/process-tree.test.ts",
+        "docs/evidence/production-qualification-20261117/oracle/qualification-2e26960f-01/fault/live-03/controlled-outcome-proof.json"
       ],
-      "blocker": "Local recovery fixtures and one authorized connected already-applied reconciliation passed. POSIX process regressions cover drain-expiry timeout/unknown outcomes and cancellation of the drain timer after normal close. Oracle/JVM interruption, Windows, multi-host and operation-specific SQL reconciliation remain separate qualification."
+      "blocker": "Controlled loss of the response after a successful native TEST ATP import passed. Server readback confirmed the original run after one native submission. Interruption while Oracle or the JVM is still executing, Windows, multi-host and operation-specific SQL reconciliation remain separate qualification."
     },
     {
       "id": "A17",
@@ -234,9 +243,10 @@
         "SECURITY.md",
         "packages/core/src/result.ts",
         "packages/core/src/artifacts.ts",
-        "tests/packaging/packages.test.mjs"
+        "tests/packaging/packages.test.mjs",
+        "tests/unit/core.test.ts"
       ],
-      "blocker": "Credential references, private auth, redaction and bundle scan verified locally. The 2026-10-31 disposable-file review reproduced passwordFile containment escaping through a parent-directory symlink. No claim of exhaustive business-secret detection or full live trace audit."
+      "blocker": "Local fixtures verify that passwordFile cannot escape through a parent symlink or use an unconfigured directory as a project root. Full live trace and credential lifecycle verification remain open."
     },
     {
       "id": "A22",
@@ -255,9 +265,11 @@
         "packages/core/src/sqlcl-config.ts",
         "packages/core/src/sqlcl-mcp.ts",
         "tests/unit/sqlcl-transport.test.ts",
-        "scripts/verify-sqlcl-transports.mjs"
+        "scripts/verify-sqlcl-transports.mjs",
+        "tests/unit/safety-policy.test.ts",
+        "tests/unit/agent-surface.test.ts"
       ],
-      "blocker": "CLI and MCP contracts cover local policy/error behavior; connected target checks remain separate."
+      "blocker": "Local regressions cover exact-plan confirmation for remote ambiguous SQL and legacy standalone SQL restore, and reject saved plans and recovery runs for the wrong environment. Connected negative and recovery checks remain separate."
     },
     {
       "id": "A23",
@@ -293,8 +305,13 @@
       "criterion": "Version-bound npm local-evidence eligibility is separate from full native-platform and Oracle qualification; missing, failed or stale required evidence blocks its applicable gate",
       "implementation": "implemented",
       "verification": "passed",
-      "evidence": ["scripts/check-release-readiness.mjs", "tests/contracts/release-readiness.test.mjs"],
-      "blocker": "The retained local-evidence exception is bound to 2.2.0 and does not apply to source version 2.8.0. Current source-bound evidence, CI, package integrity, registry verification and applicable authorization remain required; full native/Oracle qualification is incomplete.",
+      "evidence": [
+        "scripts/check-release-readiness.mjs",
+        "tests/contracts/release-readiness.test.mjs",
+        "scripts/lib/release-evidence.mjs",
+        "tests/contracts/documentation-inventory.test.mjs"
+      ],
+      "blocker": "The approved npm exception applies only to 2.8.0 and requires three current local reports. Full qualification requires all nine current source-bound reports. External claims require actual platform and scenario provenance, native-session evidence where applicable and contained content-addressed proofs. Package integrity, registry verification and applicable authorization remain separate requirements.",
       "regeneratedEvidence": ["dist/releases/release-readiness.json"]
     },
     {
@@ -322,6 +339,7 @@
         "packages/mcp/src/server.ts",
         "tests/contracts/mcp.test.mjs",
         "tests/unit/apexlang-corpus.test.ts",
+        "tests/unit/reference-property-routing.test.ts",
         "tests/unit/sqlcl-transport.test.ts"
       ],
       "blocker": "Fresh native-host and connected qualification is required where applicable."
@@ -365,6 +383,7 @@
       "evidence": [
         "docs/codex-automation.md",
         "tests/unit/job-tools.test.ts",
+        "tests/unit/mcp-wait-policy.test.ts",
         "tests/unit/metadata-batch.test.ts",
         "tests/unit/project-summary.test.ts",
         "tests/unit/mcp-output.test.ts",
@@ -570,8 +589,14 @@
       "criterion": "Commands, authorization contracts and transaction semantics",
       "implementation": "implemented",
       "verification": "partial",
-      "evidence": ["tests/unit/composer.test.ts"],
-      "blocker": "The 2026-10-31 local binding review reproduced unqualified parameterless routine names passing both the row-predicate and write-authorization expression guards. Oracle runtime side effects were not executed."
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "tests/unit/composer-binding-review.test.ts",
+        "tests/unit/composer-enum.test.ts",
+        "docs/evidence/production-qualification-20261117/enum-null-proof.json",
+        "docs/evidence/production-qualification-20261117/oracle/composer-connected-2e26960f/proof.json"
+      ],
+      "blocker": "Real ATP metadata verified the reviewed predicate columns and package signature. Connected planning refused a nonexistent predicate column. Empty and duplicate enums refuse before generation. Authenticated command authorization, optimistic conflicts and transaction rollback remain unobserved."
     },
     {
       "id": "CMP015",
@@ -584,10 +609,18 @@
     {
       "id": "CMP016",
       "criterion": "Stable allocator and shared resource ownership",
-      "implementation": "partial",
-      "verification": "partial",
-      "evidence": ["tests/unit/composer.test.ts"],
-      "blocker": "Shared LOV semantic deduplication and ownership are absent."
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "tests/unit/composer.test.ts",
+        "packages/core/src/composer/shared-lovs.ts",
+        "tests/unit/composer-shared-lovs.test.ts",
+        "docs/evidence/production-qualification-20261117/shared-lov-qualification/26.1/legacy-text/proof.json",
+        "docs/evidence/production-qualification-20261117/shared-lov-qualification/26.2/legacy-text/proof.json",
+        "docs/evidence/production-qualification-20261117/composer-legacy-proof.json",
+        "docs/evidence/production-qualification-20261117/oracle/composer-connected-2e26960f/proof.json"
+      ],
+      "blocker": null
     },
     {
       "id": "CMP017",
@@ -698,9 +731,10 @@
         "tests/unit/composer.test.ts",
         "scripts/verify-composer.mjs",
         "tests/fixtures/composer/crm.sql",
-        "tests/fixtures/composer/service-desk.sql"
+        "tests/fixtures/composer/service-desk.sql",
+        "docs/evidence/composer-runtime.json"
       ],
-      "blocker": "Live qualification deferred by agreed scope."
+      "blocker": "The approved TEST ATP application import and scoped metadata readback passed. Authenticated form behavior and transaction semantics remain unobserved because APEX login was unavailable and the user directed qualification to continue without browser."
     },
     {
       "id": "CMP028",
@@ -849,20 +883,23 @@
     },
     {
       "id": "AUTHOR262-01",
-      "criterion": "A bounded JSON specification generates native 26.2 reports, cards, bar charts and navigation while preserving Oracle metadata/security and blocking replacement of unowned or manually edited pages; optional target-bound SQL observations are generated only",
+      "criterion": "A bounded JSON specification generates supported native 26.1/26.2 reports, cards, charts, calendars, form controls, server processes and navigation while preserving Oracle metadata/security and protecting unowned or manually edited source. Optional target-bound SQL observations have release-specific compatibility checks",
       "implementation": "implemented",
       "verification": "partial",
       "evidence": [
         "packages/core/src/scaffold.ts",
+        "packages/core/src/scaffold-spec.ts",
+        "packages/core/src/scaffold-renderer.ts",
         "packages/core/src/scaffold-observations.ts",
         "resources/scaffold/observations.sql",
         "tests/unit/scaffold.test.ts",
+        "tests/unit/scaffold-native.test.ts",
         "tests/plugin-server/apex-26.2.extensions.json",
         "plugins/apexrest-apex/skills/apexrest-work/references/scaffold.md",
         "docs/evidence/box-optimization-20261115/mechanical-audit.txt",
         "docs/evidence/box-optimization-20261115/with-readback/report.json"
       ],
-      "blocker": "Local Oracle compiler/import and native Codex CLI creation cases cover a Universal Theme starter with three reports, KPI cards and a bar chart. Regeneration/conflict behavior has repository coverage; real update performance, custom components, non-26.2 releases, browser behavior and broader platforms remain unqualified. Scaffold and ship never execute the optional observation file or add a test gate."
+      "blocker": "Ten fresh 26.1 Home Finance generations and exact TEST ATP updates passed their frozen source/compiler/parse/local-render scopes, with native authoring and every repair measured. Historical controls and the separate pilot are retained. Broader workloads, rich-component native 26.2 runtime behavior and supported-host qualification remain separate; the descriptive historical speed ratio is not a general causal claim. Browser coverage follows the task's requested scope."
     },
     {
       "id": "VERIFY-01",
@@ -888,9 +925,12 @@
         "tests/unit/safety-policy.test.ts",
         "packages/core/src/sql-review.ts",
         "packages/core/src/local-env.ts",
-        "docs/deployment-safety.md"
+        "docs/deployment-safety.md",
+        "tests/unit/deployment.test.ts",
+        "tests/unit/core.test.ts",
+        "tests/unit/sqlcl-transport.test.ts"
       ],
-      "blocker": "Local regressions and requested DEV demo are separate from broad transport/platform qualification. Missing remote confirmation for parameterless query calls and calls inside CTAS, and a passwordFile parent-symlink escape remain open. Process-drain classification and stale-timer defects have local POSIX regression coverage; real stalled Oracle/JVM, Windows and native-host process termination remain unqualified."
+      "blocker": "Fixture coverage verifies remote confirmation, password-file containment, service-bound durable migration history, and incomplete SQLcl response handling. Remote/platform combinations and real stalled Oracle/JVM recovery remain unqualified."
     },
     {
       "id": "REF262-01",
@@ -920,9 +960,10 @@
         "tests/installers/native-source.test.ts",
         "tests/packaging/packages.test.mjs",
         "tests/unit/partial-import.test.ts",
-        "docs/evidence/host-parity/latest.json"
+        "docs/evidence/host-parity/latest.json",
+        "docs/evidence/native-codex-compat.json"
       ],
-      "blocker": "Manifest-driven subprocess and installer fixtures do not prove fresh native model-host skill/tool execution. Managed setup registers Codex only; Claude uses its native plugin registration commands. No new Oracle or browser run is authorized by host parity work."
+      "blocker": "Fresh native Codex and Claude macOS sessions loaded the current plugin and completed read-only ATP work. Full native lifecycle, golden task, timeout and browser suites remain incomplete. Linux x64 and Windows x64 native routes are unavailable."
     },
     {
       "id": "DECISIONS-01",
@@ -939,6 +980,24 @@
         "docs/evidence/decisions/page-ab/report.json"
       ],
       "blocker": "Four fixed selection scenarios have 20 successful warm samples each; 89/92 attempts used Decisions, with three HTTP fallbacks. A separate one-page API generation pilot completed three runs per flag at the same offline compiler/46-check threshold, retaining one timeout fallback and all repairs. Fixed two-template retrieval is not native-host authoring; broader semantic quality, cold-process/backend-cache distributions, connected Oracle and browser behavior remain unqualified. Timeout usage is unavailable."
+    },
+    {
+      "id": "USAGE-01",
+      "criterion": "Opt-in private bounded logging records actual backend elapsed time and validated Decisions tokens, with explicit completed native Codex and Claude usage imports in separate scopes",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/usage.ts",
+        "tests/unit/usage.test.ts",
+        "docs/configuration.md#local-token-and-time-logging",
+        "docs/evidence/usage-review/final-tests.tap",
+        "docs/evidence/local-checks.json",
+        "docs/evidence/home-finance-benchmark-v2/native-usage-imports.json",
+        "docs/evidence/home-finance-benchmark-v2/native-usage-imports-additional.json",
+        "docs/evidence/home-finance-optimization-v3/usage-review/import-verification.json",
+        "docs/evidence/production-qualification-20261117/native/final-67dce7d5/usage-proof/actual-two-turn-reconciliation.json"
+      ],
+      "blocker": "Sixteen local tests cover valid counters, session overlap, incomplete turns, idempotent import, concurrency and retention. An actual resumed Codex session was reconciled as one entry using cumulative counters. Cross-platform native host qualification remains open. Backend timing cannot supply unreported host token counters."
     },
     {
       "id": "PEER-01",

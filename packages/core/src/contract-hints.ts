@@ -160,7 +160,7 @@ const list = (names: string[]) => [...new Set(names)].slice(0, 30).join(', ');
 export async function propertyFix(type: string, message: string, hint: string | undefined) {
   // Processes without their own mapping identifier all map to null and collide.
   if (type === 'DUPLICATED_COMPONENT' && /executionMappingIdentifier: null/u.test(message))
-    return 'give every process of the page its own advanced { executionMappingIdentifier: <unique 20-digit number> }';
+    return 'give every process of the page its own advanced { executionMappingIdentifier: <distinct numeric identifier> }';
   if (type.startsWith('MISSING_REQUIRED')) return missingFix(message, hint);
   if (type !== 'INVALID_PROPERTY' || !hint) return undefined;
   const property = /Invalid property: ([A-Za-z]\w*)/u.exec(message)?.[1];

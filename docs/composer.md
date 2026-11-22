@@ -69,6 +69,8 @@ Composer is experimental. See [Authoring and qualification](#authoring-and-quali
 - an ordered key;
 - explicit row-read authorization.
 
+Connected row predicates may reference unquoted columns verified in the selected Oracle object's dictionary metadata. For source-only work, list any non-projected authorization columns in the authorization contract's `predicateColumns`. Write authorization expressions can use the supported server session binds and authorization functions.
+
 **Write adapters** require:
 
 - exact PL/SQL mappings;
@@ -99,6 +101,16 @@ The API independently enforces row authorization and expected versions. A succes
 - **Restore limits.** Local restoration never rolls back business data.
 - Preserve active bases and unresolved journals.
 
+### Shared enum lists
+
+Writable string fields with a supported literal `enum` use managed native shared LOVs. Identical ordered values in the same pinned profile share one immutable resource across form instances. Values must be distinct, nonempty literal text; use `nullable` for nullability. The shared adapter does not support markup, APEX substitutions or implicit defaults. Native entry nodes preserve punctuation, quotes and Unicode without a delimiter-based `STATIC:` encoding.
+
+Existing numeric, temporal and otherwise valid string enumerations outside that adapter retain their text fields and server validation; the plan explains the shared-LOV limit. Empty, duplicate or explicitly empty-array enum declarations are rejected because they cannot establish the intended Oracle membership check.
+
+APEX 26.1 keeps owned LOV declarations inside the native `shared-components/lovs.apx` container and preserves unrelated declarations and surrounding bytes. APEX 26.2 uses individual files. Resource state is optional, so reading historical state, saved plans and journals does not insert defaults or change their digests. Composer refuses unmanaged alias/name/path collisions and edits to an owned definition.
+
+Changing values allocates another resource. Retired resources remain tracked and unchanged for detached or unknown consumers, with an explicit diagnostic. Automatic resource deletion and adoption are unsupported; at most 512 resources may be tracked within the existing document limits. Review any cleanup separately and preserve active ownership and recovery records.
+
 ## Authoring and qualification
 
 To author a block package:
@@ -115,8 +127,8 @@ To author a block package:
 
 Limits:
 
-- Source-only drafts require explicit `--validation source-only` and `composerSourceDrafts` policy. They remain unqualified.
-- Shared-resource ownership, broader property/fault cases and authenticated Oracle/browser behavior still need work.
+- Source-only drafts require explicit `--validation source-only` and the project setting `composer.allowSourceOnly`. They remain unqualified.
+- Managed string-enum LOV ownership has local preservation, legacy-state and both-profile offline compiler checks. Broader property/fault cases and authenticated Oracle/browser behavior still need qualification.
 - Missing required qualification blocks release readiness.
 
 ## Related

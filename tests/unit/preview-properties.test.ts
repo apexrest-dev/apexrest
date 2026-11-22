@@ -273,6 +273,65 @@ ${target}
   );
 });
 
+test('native calendar links require structured targets even when the compiler accepts a scalar', () => {
+  const calendar = (target: string, property = 'viewEditLink') =>
+    region('events', 'calendar', `        settings {\n            ${property}: ${target}\n        }`);
+  for (const target of ['&EDIT_URL.', '#EVENT_LINK#', 'https://example.com/event'])
+    for (const property of ['viewEditLink', 'createLink']) {
+      const result = findings(calendar(target, property));
+      assert.equal(result.length, 1);
+      assert.match(result[0]!, new RegExp(`property "settings.${property}" needs a structured link target`));
+      assert.match(result[0]!, /ORA-40441/);
+    }
+  for (const target of [
+    '{\n                page: 11\n                items: {\n                    P11_ID: &ID.\n                }\n            }',
+    '{\n                type: url\n                url: &EDIT_URL.\n            }',
+    '{"page":11}',
+    '',
+  ])
+    assert.deepEqual(findings(calendar(target)), []);
+  assert.deepEqual(findings(region('plain', 'staticContent', '')), []);
+});
+
+test('APEX 26.1 interactive report column datatypes use native case-sensitive codes', () => {
+  const report = (dataType: string, type = 'interactiveReport') =>
+    region(
+      'transactions',
+      type,
+      '',
+      column(
+        'AMOUNT',
+        `            type: plainText
+            layout {
+                sequence: 10
+            }
+            source {
+                dataType: ${dataType}
+            }`,
+      ),
+    );
+  for (const [input, expected] of [
+    ['number', 'NUMBER'],
+    ['date', 'DATE'],
+    ['string', 'STRING'],
+    ['varchar2', 'STRING'],
+    ['VARCHAR2', 'STRING'],
+  ])
+    assert.deepEqual(findings(report(input!), '26.1.0+3102'), [
+      `column AMOUNT: source.dataType "${input}" needs the native APEX 26.1 interactive report code ${expected}. The offline compiler can accept SQL datatype names or lowercase codes that Oracle import rejects`,
+    ]);
+  for (const value of ['NUMBER', 'DATE', 'STRING', 'CLOB', 'TIMESTAMP'])
+    assert.deepEqual(findings(report(value), '26.1.0+3102'), []);
+  assert.ok(
+    !findings(report('number', 'interactiveGrid'), '26.1.0+3102').some((message) =>
+      message.includes('native APEX 26.1 interactive report code'),
+    ),
+  );
+  assert.deepEqual(findings(report('number'), '26.2'), []);
+  assert.deepEqual(findings(report('varchar2'), '26.2'), []);
+  assert.deepEqual(findings(report('number')), []);
+});
+
 test('a static ID property is rejected: the component identifier is the static ID', () => {
   assert.deepEqual(
     findings(region('r', 'classicReport', '        advanced {\n            staticId: r\n        }')),

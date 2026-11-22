@@ -41,6 +41,7 @@ app APEXREST-BLANK (
         scheme: @oracle-apex-accounts
     }
     sessionStateProtection {
+        enabled: true
         checksumSalt: BE8E26C19CF3511FBFEB1A6F9F79DA741A84B7ED70299369E025F6E56E2FFF65
     }
     runtime {

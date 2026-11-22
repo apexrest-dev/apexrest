@@ -213,6 +213,13 @@ test('Oracle SQL shims cover sequences, MERGE, rownum, connect by, listagg order
     assert.equal(db.scalar("select to_char(1234.5, '999G999D00')"), '1,234.50');
     assert.equal(db.scalar("select regexp_substr('ab12cd345', '[0-9]+', 1, 2)"), '345');
     assert.equal(db.scalar("select apex_escape.html('<a>')"), '&lt;a&gt;');
+    assert.equal(db.scalar("select utl_i18n.unescape_reference('hello &lt; &#xe5;')"), 'hello < å');
+    assert.equal(db.scalar("select utl_i18n.unescape_reference('&aring;&nbsp;&#39;&#x2F;')"), "å\u00a0'/");
+    assert.equal(db.scalar("select utl_i18n.unescape_reference('&amp;lt;')"), '&lt;');
+    assert.equal(db.scalar("select utl_i18n.unescape_reference('&unknown; &amp;')"), '&unknown; &amp;');
+    assert.equal(db.scalar("select utl_i18n.unescape_reference('&#x110000;')"), '&#x110000;');
+    assert.equal(db.scalar('select utl_i18n.unescape_reference(null)'), null);
+    assert.equal(db.scalar("select utl_i18n.unescape_reference('')"), null);
     assert.equal(db.scalar("select count(*) from table(apex_string.split('a:b:c', ':'))"), 3);
     db.execute(
       `merge into emp e using (select 'Bob' name, 999 sal from dual union all select 'Dan', 50 from dual) s
@@ -494,7 +501,12 @@ test('submit runs PL/SQL validations, computations, processes and computed branc
   const submit = (title: string) =>
     fetch(`${server.url}/r/demo/wwv_flow.accept`, {
       method: 'POST',
-      headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' },
+      headers: {
+        cookie,
+        origin: server.url,
+        'sec-fetch-site': 'same-origin',
+        'content-type': 'application/x-www-form-urlencoded',
+      },
       body: new URLSearchParams({
         p_flow_step_id: '3',
         p_request: 'SAVE',
@@ -556,27 +568,24 @@ test('submit runs PL/SQL validations, computations, processes and computed branc
   );
 });
 
-test('preview refuses foreign hosts, cross-origin writes and cross-site subresources', () => {
-  const ok = (headers: http.IncomingHttpHeaders, method = 'GET', bind?: string) =>
-    previewRequestRefusal(headers, method, 4321, bind) === undefined;
+test('preview refuses foreign hosts, origins and cross-site requests', () => {
+  const ok = (headers: http.IncomingHttpHeaders, bind?: string) =>
+    previewRequestRefusal(headers, 4321, bind) === undefined;
   // Non-browser clients and same-origin browser requests.
   assert.ok(ok({ host: '127.0.0.1:4321' }));
-  assert.ok(ok({ host: 'LOCALHOST:4321' }, 'POST'));
+  assert.ok(ok({ host: 'LOCALHOST:4321' }));
   assert.ok(ok({ host: '[::1]:4321' }));
-  assert.ok(
-    ok({ host: 'localhost:4321', origin: 'http://localhost:4321', 'sec-fetch-site': 'same-origin' }, 'POST'),
-  );
-  // Links into the preview from another site or a typed URL still open.
-  assert.ok(ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' }));
+  assert.ok(ok({ host: 'localhost:4321', origin: 'http://localhost:4321', 'sec-fetch-site': 'same-origin' }));
+  // Address-bar and bookmark launches start directly at the preview.
   assert.ok(ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'none', 'sec-fetch-mode': 'navigate' }));
   // DNS rebinding, wrong port, missing Host.
   assert.equal(ok({ host: 'attacker.example:4321' }), false);
   assert.equal(ok({ host: '127.0.0.1:9999' }), false);
   assert.equal(ok({}), false);
-  // CSRF: cross-origin or opaque Origin on unsafe methods, including no-cors text/plain POSTs.
-  assert.equal(ok({ host: '127.0.0.1:4321', origin: 'https://attacker.example' }, 'POST'), false);
-  assert.equal(ok({ host: '127.0.0.1:4321', origin: 'null' }, 'POST'), false);
-  assert.equal(ok({ host: '127.0.0.1:4321', origin: 'http://localhost:4321' }, 'POST'), false);
+  // A foreign or opaque Origin is refused even when Fetch Metadata is absent.
+  assert.equal(ok({ host: '127.0.0.1:4321', origin: 'https://attacker.example' }), false);
+  assert.equal(ok({ host: '127.0.0.1:4321', origin: 'null' }), false);
+  assert.equal(ok({ host: '127.0.0.1:4321', origin: 'http://localhost:4321' }), false);
   // Cross-site GET subresources (img/script/no-cors fetch) carry no Origin.
   assert.equal(
     ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'no-cors' }),
@@ -587,12 +596,63 @@ test('preview refuses foreign hosts, cross-origin writes and cross-site subresou
     false,
   );
   assert.equal(
-    ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' }, 'POST'),
+    ok({ host: '127.0.0.1:4321', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' }),
     false,
   );
   // An explicit non-wildcard bind host is accepted; a wildcard adds nothing.
-  assert.ok(ok({ host: '192.168.1.5:4321' }, 'GET', '192.168.1.5'));
-  assert.equal(ok({ host: '192.168.1.5:4321' }, 'GET', '0.0.0.0'), false);
+  assert.ok(ok({ host: '192.168.1.5:4321' }, '192.168.1.5'));
+  assert.equal(ok({ host: '192.168.1.5:4321' }, '0.0.0.0'), false);
+});
+
+test('foreign page navigation cannot run a before-header process', async (t) => {
+  const server = await preview(t, {
+    'pages/p00004-on-open.apx': `page 4 (
+    name: On Open
+    process write-on-open (
+        name: Write on Open
+        type: executeCode
+        source {
+            plsqlCode: insert into tasks (title) values ('Page opened');
+        }
+        execution {
+            sequence: 10
+            point: beforeHeader
+        }
+    )
+)
+`,
+  });
+  await server.start();
+  t.after(() => server.stop());
+  const page = server.pages().find(({ id }) => id === '4')!;
+  const request = (site: string, method = 'GET') =>
+    new Promise<http.IncomingMessage>((resolve, reject) => {
+      const navigation = http.request(
+        page.url,
+        { method, headers: { 'sec-fetch-site': site, 'sec-fetch-mode': 'navigate' } },
+        (response) => {
+          response.resume();
+          response.on('end', () => resolve(response));
+        },
+      );
+      navigation.on('error', reject);
+      navigation.end();
+    });
+  const writes = () => server.db.scalar("select count(*) from tasks where title = 'Page opened'");
+  for (const [site, method] of [
+    ['cross-site', 'GET'],
+    ['same-site', 'GET'],
+    ['cross-site', 'HEAD'],
+  ] as const) {
+    const response = await request(site, method);
+    assert.equal(response.statusCode, 403);
+    assert.equal(response.headers['set-cookie'], undefined);
+    assert.equal(writes(), 0);
+  }
+  assert.equal((await request('none')).statusCode, 200);
+  assert.equal(writes(), 1);
+  assert.equal((await request('same-origin')).statusCode, 200);
+  assert.equal(writes(), 2);
 });
 
 test('a forged Host or cross-origin POST never reaches server-side code execution', async (t) => {

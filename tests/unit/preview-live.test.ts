@@ -184,7 +184,7 @@ test('live preview maps regions to tables and pushes writes, presence and source
   const mine = socket(live, cookie, server.url);
   assert.equal(await mine.opened, true);
   t.after(() => mine.ws.close());
-  assert.deepEqual(await mine.next('hello'), { type: 'hello', data: true });
+  assert.deepEqual(await mine.next('hello'), { type: 'hello', data: true, revision: 0 });
   assert.equal((await mine.next('presence')).viewers, 1);
 
   // A second user in another session sees the first one's changes as someone else's.
@@ -235,12 +235,16 @@ test('live preview maps regions to tables and pushes writes, presence and source
     false,
   );
 
-  // Editing the APEXlang source reloads every open page.
+  // Editing a page's APEXlang source reloads the pages it affects, with the new source revision.
   await writeFile(
     path.join(app, 'pages', 'p00007-board.apx'),
     withActions(PAGE, ADD_TASK).replace('Open tasks', 'Open work'),
   );
-  assert.equal((await mine.next('reload', 5000)).type, 'reload');
+  const reload = await mine.next('reload', 5000);
+  assert.deepEqual(
+    { revision: reload.revision, pages: reload.pages, files: reload.files },
+    { revision: 1, pages: ['7'], files: ['pages/p00007-board.apx'] },
+  );
   await theirs.next('reload', 5000);
   assert.match(
     await (await fetch(`${server.url}/r/demo/board`, { headers: { cookie } })).text(),

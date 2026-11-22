@@ -282,12 +282,15 @@ test('connected signatures reject extra parameters, changed defaults and ambiguo
     schema: 'FIXTURE',
     objects: {
       CMP_CUSTOMERS: {
-        columns: Object.values(entity.read.fields).map((f) => ({
-          COLUMN_NAME: f.column,
-          DATA_TYPE: f.type === 'integer' ? 'NUMBER' : 'VARCHAR2',
-          NULLABLE: f.nullable ? 'Y' : 'N',
-          CHAR_LENGTH: f.maxLength ?? 0,
-        })),
+        columns: [
+          ...Object.values(entity.read.fields).map((f) => ({
+            COLUMN_NAME: f.column,
+            DATA_TYPE: f.type === 'integer' ? 'NUMBER' : 'VARCHAR2',
+            NULLABLE: f.nullable ? 'Y' : 'N',
+            CHAR_LENGTH: f.maxLength ?? 0,
+          })),
+          { COLUMN_NAME: 'OWNER_NAME', DATA_TYPE: 'VARCHAR2', NULLABLE: 'N', CHAR_LENGTH: 128 },
+        ],
         constraints: [
           { CONSTRAINT_NAME: 'PK', CONSTRAINT_TYPE: 'P', STATUS: 'ENABLED', VALIDATED: 'VALIDATED' },
         ],
@@ -297,6 +300,9 @@ test('connected signatures reject extra parameters, changed defaults and ambiguo
     signatures: { CMP_CUSTOMER_API: rows },
   };
   assert.doesNotThrow(() => bind(blueprint, instance, metadata));
+  metadata.objects.CMP_CUSTOMERS.columns.at(-1)!.COLUMN_NAME = 'Owner_Name';
+  assert.throws(() => bind(blueprint, instance, metadata), { code: 'CONTRACT_SQL_UNSAFE' });
+  metadata.objects.CMP_CUSTOMERS.columns.at(-1)!.COLUMN_NAME = 'OWNER_NAME';
   for (const altered of [
     [...rows, { ...rows[0]!, ARGUMENT_NAME: 'P_EXTRA', POSITION: 6 }],
     rows.map((r, i) => (i ? r : { ...r, DEFAULTED: 'Y' })),

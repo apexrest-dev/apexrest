@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { OracleAdapter } from '../../packages/core/src/oracle.ts';
 import { metadataRead } from '../../packages/core/src/metadata.ts';
 import type { Environment } from '../../packages/core/src/config.ts';
@@ -28,7 +31,9 @@ const identity = [
     alias: 'fixture',
   },
 ];
-test('metadata execution timings contain exact labels and never SQL, binds or usernames', async () => {
+test('metadata execution timings contain exact labels and never SQL, binds or usernames', async (t) => {
+  const stage = await mkdtemp(path.join(tmpdir(), 'apexrest-timings-'));
+  t.after(() => rm(stage, { recursive: true, force: true }));
   const oracle = new OracleAdapter(async (request) => {
     const sql = request.input ?? '';
     // Injected transport timings test explicit sanitization, not Oracle performance.
@@ -61,6 +66,7 @@ test('metadata execution timings contain exact labels and never SQL, binds or us
       truncated: false,
     };
   });
+  oracle.stage = async () => stage;
   oracle.settings = async () => ({
     schemaVersion: 1,
     mode: 'cli',

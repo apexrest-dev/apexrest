@@ -129,13 +129,16 @@
                       "maximum": 9007199254740991
                     },
                     "enum": {
+                      "minItems": 1,
                       "maxItems": 100,
                       "type": "array",
                       "items": {
                         "type": "string",
+                        "minLength": 1,
                         "maxLength": 128,
                         "pattern": "^[^\\x00-\\x1f\\x7f`]*$"
-                      }
+                      },
+                      "uniqueItems": true
                     }
                   },
                   "required": [
@@ -193,8 +196,7 @@
         },
         "required": [
           "read",
-          "authorization",
-          "capabilities"
+          "authorization"
         ],
         "additionalProperties": false
       }
@@ -341,6 +343,14 @@
                 "type": "string",
                 "maxLength": 1048576
               },
+              "predicateColumns": {
+                "maxItems": 64,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                }
+              },
               "expression": {
                 "type": "string",
                 "maxLength": 1048576
@@ -450,8 +460,7 @@
                   },
                   "required": [
                     "mode",
-                    "type",
-                    "defaulted"
+                    "type"
                   ],
                   "additionalProperties": false
                 }
@@ -558,11 +567,7 @@
               }
             },
             "required": [
-              "title",
-              "editableFields",
-              "createEnabled",
-              "editEnabled",
-              "deleteEnabled"
+              "title"
             ],
             "additionalProperties": false
           },
@@ -609,9 +614,7 @@
         "required": [
           "use",
           "parameters",
-          "bindings",
-          "ownership",
-          "extensions"
+          "bindings"
         ],
         "additionalProperties": false
       }
@@ -656,10 +659,7 @@
     "schemaVersion",
     "application",
     "entities",
-    "commands",
-    "contracts",
-    "blocks",
-    "connections"
+    "blocks"
   ],
   "additionalProperties": false
 }

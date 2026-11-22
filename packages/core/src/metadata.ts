@@ -67,6 +67,7 @@ export async function metadataRead(
   connection: Connection,
   value: unknown,
   debugTimings = false,
+  signal?: AbortSignal,
 ) {
   const input = parse(z.union([metadataRequest, metadataBatchRequest]), value);
   const batch = 'requests' in input;
@@ -102,7 +103,7 @@ export async function metadataRead(
       ...requests.map(query),
     ],
     connection,
-    undefined,
+    signal,
     'metadata-batch',
     debugTimings,
   );

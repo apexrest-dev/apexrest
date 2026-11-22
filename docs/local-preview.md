@@ -74,11 +74,11 @@ Every running preview is recorded in `APEXREST_HOME/preview/servers/` (process I
 
 ### Request safeguards
 
-Pages run SQL and PL/SQL sent by the browser, so the server protects itself against other web pages:
+Displaying a page can run its SQL and PL/SQL before it renders. The preview checks where a request came from:
 
-- It refuses requests whose `Host` is not its own loopback address and port (DNS rebinding), unsafe requests with a foreign or `null` `Origin`, and cross-site or same-site requests other than top-level GET navigations, so another web page cannot drive it.
+- It refuses requests with a foreign `Host`, a foreign or `null` `Origin`, or a `Sec-Fetch-Site` value of `cross-site` or `same-site`. This includes top-level GET and HEAD navigation.
 - Execute Server-side Code and SQL/PL/SQL Set Value actions run only the code of the rendered page: the browser sends a reference, never code, and only the declared Items to Submit and Items to Return pass. As in APEX, that code takes values through bind variables, not `&ITEM.` substitution.
-- Open the preview through the printed `127.0.0.1` URL or `localhost` on the same port.
+- Open the printed `127.0.0.1` URL or `localhost` on the same port. If a link from another website receives a 403 response, paste the preview URL directly into a browser tab. Direct navigation and links within the preview are supported.
 - URL parameters set page and application items, but never APEX built-ins such as `APP_USER`, `APP_ID` or `APP_SESSION`. Use the developer toolbar's view-as roles to preview other authorization outcomes.
 
 ### Developer toolbar
@@ -92,7 +92,27 @@ The developer toolbar at the bottom of every page follows APEX's runtime develop
 - preview the page at tablet or phone size;
 - reset the local database from its seed scripts;
 - open the local e-mail outbox;
-- pick a theme style (for example Vita, Vita - Dark or Redwood Light).
+- pick a theme style (for example Vita, Vita - Dark or Redwood Light);
+- leave review comments on components for an agent (see [Review comments](#review-comments)).
+
+### Review comments
+
+**Review** on the toolbar (or **Alt+Shift+C**) lets you point at what should change and leave a comment for an agent, independent of Codex or Claude Code:
+
+1. Press **Select on page**. Hovering highlights the component under the pointer: a report column, a page item, a button, a region, or any element.
+2. Click it. The form offers every target from the exact element up to the page, an optional kind of change (`change`, `rename`, `move`, `remove`, `add`, `style`, `bug`, `question`) and the comment text. **Ctrl/Cmd+Enter** saves; **Esc** closes the form, a second **Esc** stops selecting.
+3. Numbered pins mark commented components. The panel lists the comments of the page (or of all pages); you can edit, resolve, reopen or delete them, and **Copy** puts the open ones on the clipboard as text.
+
+Comments are stored in `<project>/.apexrest/review/comments.json`, Git-ignored local state. Each comment names the page, the APEXlang component, the source folder, file and line, the selected element and your text. The preview never edits source or data for a comment.
+
+Agents read and close them without a running preview:
+
+```bash
+apexrest preview comments --json
+apexrest preview resolve --ids rc-... --note "Renamed the column heading"
+```
+
+The MCP equivalents are `apexrest_preview action:comments` and `action:resolve`. Ask the agent to "apply the preview review comments".
 
 "View as" is off by default, so every authorization scheme allows access. When you choose a set of ACL roles, role checks and authorization schemes are enforced, denied pages show an access error and denied components are hidden.
 
@@ -111,6 +131,7 @@ The developer toolbar at the bottom of every page follows APEX's runtime develop
   - **Project application.** When the preview runs a project's own application (`apexrest.json`), nothing is written into the deployed source tree. The database is `<project>/.apexrest/preview/preview.sqlite`. On first start it is seeded from the project migrations followed by `<project>/.apex-local/*.sql` (data); PL/SQL units in them are kept for the [application database code](#application-database-code).
   - **Folder without a project, or a legacy `<sourceDir>/.apex-local`.** The database is `<sourceDir>/.apex-local/preview.sqlite`, seeded from `.apex-local/*.sql` in name order, or from the supporting objects' install scripts in the order `supporting-objects/install-scripts.apx` declares (`execution.sequence`).
   - **Translation.** Common Oracle syntax is translated or provided as functions: `nvl`, `nvl2`, `decode`, `to_char`, `to_date`, `to_number`, `trunc`, `initcap`, `lpad`/`rpad`, `add_months`, `months_between`, `regexp_like`, `listagg`, `sysdate`, `from dual`, `fetch first … rows only`, identity columns and `v('ITEM')`. Bind variables use session state.
+  - **Character references.** `UTL_I18N.UNESCAPE_REFERENCE` decodes HTML 4 names and decimal/hexadecimal character references in SQL and local PL/SQL, including values escaped by APEX. Empty input returns NULL. Invalid references retain the original string.
   - **Install scripts.** Install scripts written for Oracle load as Oracle would run them: statements without a local meaning (`COMMENT ON`, `ALTER TRIGGER`, grants, `ALTER SESSION`, domain indexes, foreign key and check constraints added later) are skipped, `ALTER TABLE … ADD PRIMARY KEY/UNIQUE` becomes a unique index, identity options, time zones, `NUMBER(*,0)` and storage clauses are dropped, and SQL\*Plus commands such as `SHOW ERRORS` are ignored.
 - **Sample tables.** A table that a page uses but the database lacks is created automatically with sample rows. Column types, keys and lengths come from form items anywhere in the application; columns referenced later are added on demand. Each such action is reported. Put real DDL and data in `.apex-local/*.sql` (add `.apex-local/` to `.gitignore` if the data is private).
 - **Extensions.** Feature modules under `packages/core/src/preview/extensions/` register region, item, column, process, condition, validation and code handlers, server routes and browser code with the renderer; see `extensions.ts`.
@@ -130,7 +151,14 @@ Every page with the developer toolbar keeps a WebSocket to the preview server (`
   - Form regions are never refreshed; they show a notice with a Reload button.
   - Refreshes of one region are coalesced to at most one every 800 ms.
   - Region refreshes and Ajax reads do not publish changes, so two pages cannot keep refreshing each other.
-- **Source edits.** An `.apx` or static-file change reloads open pages and keeps the scroll position. A page with unsaved changes gets a Reload button instead. A parse error is shown on the page.
+- **Source edits.**
+  - The preview keeps each parsed `.apx` file and re-reads only files whose size or modification time changed. A rename or restore with an older timestamp is still detected. While the file watcher is healthy, requests do not rescan the source tree, except for a scan at most every two seconds in case an event was missed.
+  - Each successful load increases the source revision; pages ignore older or repeated notifications.
+  - Only the pages a change affects reload: the edited page itself, or the pages that reference a changed shared component. A change to the application, the global page, a theme or an unknown file reloads every page.
+  - When an edit changes only static content, classic or interactive report, or cards regions in place, those regions are replaced without a reload, through their normal refresh. Any other change reloads the page and keeps its scroll position.
+  - A changed CSS static file replaces its stylesheet link without a reload.
+  - A page with unsaved changes gets a Reload button instead.
+  - A source that does not parse keeps the last good version, marked "Stale preview" with the error, until a valid change.
 - **Presence and control.** The toolbar's **Live** button shows the connection state and how many tabs view the same page, and as which users. Clicking it turns live updates off or on for the browser. After a server restart, a page offers a reload instead of reconnecting with a session the server no longer knows.
 - **Scope.**
   - The socket accepts only same-origin pages with a known preview session on the loopback server.
@@ -250,7 +278,7 @@ The toolbar's Session panel and the `start` result name the environment and targ
 
 - **Charts.** Charts are drawn by a local SVG renderer styled after Oracle JET's Redwood theme: bar, line, area, combination, pie, donut, scatter, bubble, funnel, pyramid, status meter gauge, radar and polar charts, with legends, axis titles, value labels, links and hover tooltips, redrawn at the region's real width. A Refresh dynamic action updates a chart without reloading the page; `source.pageItemsToSubmit` from every series is combined with region declarations and used for both refresh and width redraws.
 - **Calendars.** Calendar regions use the genuine FullCalendar shipped with APEX (month, week, day and list views), fed from the region SQL.
-- **Maps.** Map regions plot their layers on an offline canvas without background tiles, with a layer and feature list. Layers read longitude/latitude columns, GeoJSON text, or an Oracle `SDO_GEOMETRY` object as a built web application receives it from the database: points, lines and polygons with straight edges, optimized rectangles and their multi forms; arcs and compound elements are not drawn. The SQLite preview has no `SDO_GEOMETRY` type.
+- **Maps.** Map regions plot their layers on an offline canvas without background tiles, with a layer and feature list. Layers read longitude/latitude columns, GeoJSON text or a JSON representation of Oracle `SDO_GEOMETRY`. Supported shapes include points, lines and polygons with straight edges, optimized rectangles and their multi forms. Arcs and compound elements are omitted.
 - **Not Oracle JET.** None of this is Oracle JET. Initialization JavaScript functions (`componentAdvanced` or `advanced.initJavaScriptFunction`) are not run: a chart that has one shows a visible note under it and a warning, and `start`, `check` and `status` list every such function in `notAppliedLocally`. Check its axes, formats and tooltips on the imported application.
 
 ### Page items
@@ -326,6 +354,8 @@ When the application loads, property paths and enumerated values are checked aga
 - A property whose display condition is false is reported too, as the compiler rejects it (a legend position on a pyramid chart, the first hour of a calendar without time display, a selector that depends on an invalid selection type).
 - Further checks:
   - link targets with a `url` need `type: url`;
+  - native plug-in link attributes, including calendar create and view/edit links, need structured targets. Scalar URLs and row substitutions can pass the offline compiler and fail Oracle import with `ORA-40441`.
+  - APEX 26.1 interactive report column data types use native codes such as `NUMBER`, `DATE` and `STRING`. Lowercase codes and the SQL datatype `VARCHAR2` are reported with their native replacement when the source declares 26.1 metadata.
   - `advanced.staticId` is rejected because the component identifier is the static ID;
   - page items need `layout.slot`;
   - report columns need `layout.sequence`;
@@ -409,6 +439,5 @@ That is local evidence only.
 
 ## Related
 
-- [Build a web application](webapp.md): the same renderer as a standalone Node.js application.
 - [Testing](testing.md): which checks establish what.
 - [Deployment safety](deployment-safety.md): production marks and the local-target check that commit mode uses.

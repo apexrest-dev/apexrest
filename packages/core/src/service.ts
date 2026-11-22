@@ -16,12 +16,15 @@ import { OracleAdapter, installSources } from './oracle.ts';
 import { projectInit, projectInspect } from './project.ts';
 import { metadataRead } from './metadata.ts';
 import { SyncStore, checkpoint } from './sync.ts';
-import { DeploymentService, deployPlanSchema } from './deploy.ts';
+import { DeploymentService, deployPlanSchema, sourceInventory } from './deploy.ts';
+import { recordRevision, revisionOf } from './revision.ts';
+import { patchPage } from './edit/patch.ts';
 import { ArtifactService } from './artifacts.ts';
 import { jobToolResult, JobService, type JobPhase } from './jobs.ts';
 import { configureSqlcl, sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { PanelService } from './panel.ts';
 import { configureGlobalSettings, recordProject, requireCatalog, settingsStatus } from './global-settings.ts';
+import { importUsage, observeUsage, usageStatus } from './usage.ts';
 import { peerReview, peerReviewGate, peerStatus, type PeerVendor } from './peer-review.ts';
 import {
   fallbackCompilerDiagnostics,
@@ -42,6 +45,13 @@ const engine = oracleModule as unknown as {
 };
 export const parseDiagnostics: DiagnosticParser = (output) =>
   (engine.parseCompilerDiagnostics ?? fallbackCompilerDiagnostics)(output);
+
+async function readRequestedPlan(root: string, file: string, env: string) {
+  const plan = parse(deployPlanSchema, await readJson(await contained(root, file)));
+  if (env !== plan.environment)
+    throw new Fault('PLAN_ENVIRONMENT_MISMATCH', 'The saved plan belongs to another environment.', 5);
+  return plan;
+}
 
 // Resolve settings and connection credentials for each operation. The SQLcl pool
 // and capability cache live independently of this adapter.
@@ -76,6 +86,31 @@ export function prewarmCompiler(project: string) {
     })(),
   );
 }
+/**
+ * Whether a call waits for a running compiler preload. Compiling operations reuse the preload's
+ * SQLcl server instead of starting a second one, and a connected preview (env) starts its own SQLcl
+ * session, so it waits rather than cold-starting a second JVM beside the preload. The local preview
+ * (SQLite) and its status, stop, comments and resolve never touch the compiler and proceed at once.
+ */
+export function waitsForCompilerPrewarm(operation: string, input: Record<string, unknown>): boolean {
+  if (operation === 'apex.validate' || operation === 'ship') return true;
+  if (operation !== 'preview') return false;
+  return (
+    (input.action === 'start' || input.action === 'check') &&
+    typeof input.env === 'string' &&
+    input.env !== ''
+  );
+}
+/** The project source revision a validation binds to; undefined outside a configured project. */
+async function validationRevision(root: string): Promise<{ root: string; revision: string } | undefined> {
+  let ctx;
+  try {
+    ctx = await loadProject(root);
+  } catch {
+    return undefined;
+  }
+  return { root: ctx.root, revision: revisionOf(await sourceInventory(ctx)) };
+}
 /** Wait for a running preload so a validation reuses its server instead of starting a second one. */
 export async function compilerPrewarmed(project: string) {
   await compilerPrewarms.get(project);
@@ -104,6 +139,11 @@ function routeProject(parsed: Record<string, unknown>) {
       return { operation: 'project.adopt', input: pick('project', 'env', 'appId', 'workingCopy') };
     case 'inspect':
       return { operation: 'project.inspect', input: pick('project', 'detail') };
+    case 'patch':
+      return {
+        operation: 'project.patch',
+        input: pick('project', 'page', 'operations', 'expectedDigest', 'dryRun'),
+      };
     case 'scaffold':
       return { operation: 'project.scaffold', input: pick('project', 'specFile', 'env') };
     case 'connection_add':
@@ -169,40 +209,46 @@ export async function dispatch(
   signal?: AbortSignal,
   progress?: (phase: JobPhase) => void,
 ): Promise<Result> {
-  return withSqlclTimings(async () => {
-    const result = await dispatchObserved(operation, input, signal, progress);
-    const timings = sqlclTimings().map(({ statementMs, ...r }) => ({
-      ...r,
-      ...(input.debugTimings === true && statementMs ? { statementMs } : {}),
-    }));
-    if (operation === 'metadata.read' && result.ok) {
-      return {
-        ...result,
-        data: {
-          ...(result.data as object),
-          sessions: timings.length,
-          sqlclMs: timings.reduce((sum, r) => sum + r.totalMs, 0),
-          ...(input.debugTimings === true ? { sqlclTimings: timings } : {}),
-        },
-      };
-    }
-    if ((operation === 'ship' || operation === 'ship.apply') && (result.ok || timings.length)) {
-      const data = (result.data ?? {}) as Record<string, unknown>;
-      return {
-        ...result,
-        data: {
-          ...data,
-          details: {
-            ...((data.details as object) ?? {}),
-            sqlclTimings: timings,
-          },
-        },
-      };
-    }
-    if (input.debugTimings === true && result.ok)
-      return { ...result, data: { ...(result.data as object), sqlclTimings: timings } };
-    return result;
-  });
+  return withSqlclTimings(() =>
+    observeUsage(
+      operation,
+      async () => {
+        const result = await dispatchObserved(operation, input, signal, progress);
+        const timings = sqlclTimings().map(({ statementMs, ...r }) => ({
+          ...r,
+          ...(input.debugTimings === true && statementMs ? { statementMs } : {}),
+        }));
+        if (operation === 'metadata.read' && result.ok) {
+          return {
+            ...result,
+            data: {
+              ...(result.data as object),
+              sessions: timings.length,
+              sqlclMs: timings.reduce((sum, r) => sum + r.totalMs, 0),
+              ...(input.debugTimings === true ? { sqlclTimings: timings } : {}),
+            },
+          };
+        }
+        if ((operation === 'ship' || operation === 'ship.apply') && (result.ok || timings.length)) {
+          const data = (result.data ?? {}) as Record<string, unknown>;
+          return {
+            ...result,
+            data: {
+              ...data,
+              details: {
+                ...((data.details as object) ?? {}),
+                sqlclTimings: timings,
+              },
+            },
+          };
+        }
+        if (input.debugTimings === true && result.ok)
+          return { ...result, data: { ...(result.data as object), sqlclTimings: timings } };
+        return result;
+      },
+      () => sqlclTimings().reduce((sum, entry) => sum + entry.totalMs, 0),
+    ),
+  );
 }
 async function dispatchObserved(
   operation: string,
@@ -260,11 +306,6 @@ async function dispatchObserved(
         signal,
       );
       return { ...result, operation };
-    }
-    if (operation === 'build.webapp') {
-      // Writes files only: no database connection, no SQLcl.
-      const { buildWebappOperation } = await import('./preview/service.ts');
-      return success(operation, await buildWebappOperation(root, parsed));
     }
     if (operation === 'preview' || operation.startsWith('preview.')) {
       const { previewDispatch } = await import('./preview/service.ts');
@@ -385,7 +426,19 @@ async function dispatchObserved(
             ? { decisionTimeoutMs: Number(parsed.decisionTimeoutMs) }
             : {}),
           ...(parsed.catalog ? { catalog: parsed.catalog === 'on' } : {}),
+          ...(parsed.usageLog ? { usageLog: parsed.usageLog === 'on' } : {}),
         });
+        break;
+      case 'usage.status':
+        data = await usageStatus(Number(parsed.limit));
+        break;
+      case 'usage.import':
+        data = await importUsage(
+          parsed.host as 'codex' | 'claude',
+          text('file'),
+          parsed.elapsedMs as number | undefined,
+          parsed.counterMode as 'cumulative-session' | undefined,
+        );
         break;
       case 'docs.search':
         await requireCatalog();
@@ -411,8 +464,12 @@ async function dispatchObserved(
       case 'peer.status':
         data = await peerStatus(parsed.project ? await loadProject(root) : undefined);
         break;
-      case 'apex.validate':
+      case 'apex.validate': {
         // --source-dir validates any APEXlang folder; without it the project's application is used.
+        // A project validation is bound to the source revision observed before the compiler's
+        // staged copy (which itself refuses drift while staging), and recorded for that revision.
+        const bound = parsed.sourceDir ? undefined : await validationRevision(root);
+        const startedAt = new Date().toISOString();
         data = await validateApplication(
           oracle,
           await validationSource(root, {
@@ -422,7 +479,18 @@ async function dispatchObserved(
           parseDiagnostics,
           signal,
         );
+        if (bound) {
+          const warnings = Number((data as { warningCount?: unknown }).warningCount ?? 0);
+          await recordRevision(bound.root, 'validated', {
+            revision: bound.revision,
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            detail: { warnings },
+          });
+          data = { ...(data as object), revision: bound.revision };
+        }
         break;
+      }
       default: {
         const ctx = await loadProject(root);
         switch (operation) {
@@ -431,6 +499,9 @@ async function dispatchObserved(
             break;
           case 'compose.materialize':
             data = await composeMaterialize(ctx, schemas['compose.materialize'].parse(parsed), signal);
+            break;
+          case 'project.patch':
+            data = await patchPage(ctx, schemas['project.patch'].parse(parsed));
             break;
           case 'project.inspect':
             data = await projectInspect(ctx, parsed.detail as 'full' | 'summary');
@@ -509,7 +580,7 @@ async function dispatchObserved(
             if (parsed.mode === 'recover') {
               if (!parsed.run)
                 throw new Fault('INVALID_INPUT', 'Recover requires the original deployment run UUID.', 2);
-              const recovered = await deployment.recover(ctx, text('run'));
+              const recovered = await deployment.recover(ctx, text('run'), text('env'));
               data =
                 recovered.status === 'succeeded'
                   ? recovered
@@ -533,7 +604,7 @@ async function dispatchObserved(
               ? await (async () => {
                   const { plan } = await deployment.checkLocal(
                     ctx,
-                    await readJson(await contained(ctx.root, text('plan'))),
+                    await readRequestedPlan(ctx.root, text('plan'), text('env')),
                   );
                   return { plan, planPath: text('plan'), phases: [], preview: planPreview(ctx, plan) };
                 })()
@@ -571,7 +642,7 @@ async function dispatchObserved(
             break;
           }
           case 'ship.apply': {
-            const plan = parse(deployPlanSchema, await readJson(await contained(ctx.root, text('plan'))));
+            const plan = await readRequestedPlan(ctx.root, text('plan'), text('env'));
             const peer = await peerReviewGate(ctx, plan);
             data = await shipApply(
               ctx,
@@ -684,6 +755,8 @@ const observationOnly = new Set([
   'doctor',
   'version',
   'settings.status',
+  'usage.status',
+  'usage.import',
   'jobs.status',
   'peer.status',
   // Polled by the Omarchy panel on every refresh.

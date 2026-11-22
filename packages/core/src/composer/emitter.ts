@@ -2,7 +2,9 @@ import type { Blueprint, Instance, Allocation, Block, Entity } from './schemas.t
 import { bind, expression } from './binding.ts';
 import { Fault } from '../result.ts';
 import { COMPOSER_262_PROFILE } from './profiles.ts';
+import { sharedEnumValuesSupported } from './shared-lovs.ts';
 
+type Binding = ReturnType<typeof bind>;
 const indent = (value: string, depth = 4) =>
   value
     .split('\n')
@@ -14,7 +16,7 @@ const scalar = (value: string) => {
   if (/[\r\n\x00-\x1f\x7f{}()`]/.test(value))
     throw new Fault('PARAMETER_UNSUPPORTED', 'Labels must be single-line literal values.', 2);
   // APEX renders titles and labels with substitutions and, for some templates, as HTML.
-  if (/[<>]|&[A-Za-z0-9_$#]+\.|#[A-Za-z0-9_$]+#|^\s*@/.test(value))
+  if (/[<>]|&[A-Za-z0-9_$#]+(?:![A-Za-z0-9_]+)?\.|#[A-Za-z0-9_$]+(?:![A-Za-z0-9_]+)?#|^\s*@/.test(value))
     throw new Fault(
       'LABEL_UNSAFE',
       'Titles and labels cannot contain HTML, &ITEM. or #NAME# substitutions, or a leading @ reference.',
@@ -105,26 +107,46 @@ function process(key: string, mapping: number | undefined, point: string, sql: s
     `name: ${key}\ntype: executeCode\n${mapping === undefined ? '' : group('advanced', `executionMappingIdentifier: ${mapping}`) + '\n'}${group('source', `plsqlCode:${code('plsql', sql)}`)}\n${group('execution', `sequence: 10\npoint: ${point}`)}`,
   );
 }
-function item(name: string, field: string, sequence: number, hidden: boolean, required: boolean) {
+function item(
+  name: string,
+  field: string,
+  sequence: number,
+  hidden: boolean,
+  required: boolean,
+  sharedLov?: string,
+) {
   return node(
     'pageItem',
     name,
     [
-      `type: ${hidden ? 'hidden' : 'textField'}`,
+      `type: ${hidden ? 'hidden' : sharedLov ? 'selectList' : 'textField'}`,
       hidden ? '' : group('label', `label: ${scalar(field)}\nalignment: left`),
       group('layout', `sequence: ${sequence}\nregion: @form\nslot: regionBody`),
       hidden
         ? group('security', 'sessionStateProtection: checksumRequiredSessionLevel')
-        : group('appearance', 'template: @/optional-floating\ntemplateOptions: #DEFAULT#\nwidth: 32'),
+        : group(
+            'appearance',
+            'template: @/optional-floating\ntemplateOptions: #DEFAULT#' + (sharedLov ? '' : '\nwidth: 32'),
+          ),
       hidden ? '' : group('validation', `valueRequired: ${required}`),
+      sharedLov && !hidden
+        ? group(
+            'lov',
+            `type: sharedComponent\nlov: @${sharedLov}\ndisplayNullValue: true\ndisplayExtraValues: false`,
+          )
+        : '',
     ]
       .filter(Boolean)
       .join('\n'),
   );
 }
-export function summaryRegion(blueprint: Blueprint, instance: Instance, allocation: Allocation) {
-  const { entity, predicate } = bind(blueprint, instance),
-    field = entity.read.fields[instance.parameters.groupField ?? ''];
+export function summaryRegion(
+  blueprint: Blueprint,
+  instance: Instance,
+  allocation: Allocation,
+  { entity, predicate }: Binding = bind(blueprint, instance),
+) {
+  const field = entity.read.fields[instance.parameters.groupField ?? ''];
   if (!field) throw new Fault('GROUP_FIELD_REQUIRED', 'Summary blocks require a mapped grouping field.', 5);
   return node(
     'region',
@@ -150,10 +172,11 @@ export function render(
   instance: Instance,
   block: Block,
   allocation: Allocation,
-  summaries: { instance: Instance; allocation: Allocation }[] = [],
+  summaries: { instance: Instance; allocation: Allocation; binding?: Binding }[] = [],
+  binding = bind(blueprint, instance),
+  sharedLovs: Record<string, string> = {},
 ) {
-  const binding = bind(blueprint, instance),
-    { entity, keys, predicate, command, writable } = binding;
+  const { entity, keys, predicate, command, writable } = binding;
   const currentProfile = blueprint.application.compatibilityProfile === COMPOSER_262_PROFILE,
     dataType = (type: Entity['read']['fields'][string]['type']) =>
       currentProfile
@@ -172,7 +195,7 @@ export function render(
       [file(allocation.page)]: page(
         allocation,
         instance.parameters.title,
-        summaryRegion(blueprint, instance, allocation),
+        summaryRegion(blueprint, instance, allocation, binding),
       ),
     };
   if (block.renderer === 'read-only-detail') {
@@ -349,7 +372,8 @@ export function render(
       region,
       `action: redirectThisApp\ntarget: {\n    page: ${allocation.dialog}\n    clearCache: ${allocation.dialog}\n}`,
     );
-  for (const summary of summaries) body += summaryRegion(blueprint, summary.instance, summary.allocation);
+  for (const summary of summaries)
+    body += summaryRegion(blueprint, summary.instance, summary.allocation, summary.binding);
   if (writable) {
     const targets = [
       allocation.prefix + '_records',
@@ -423,14 +447,28 @@ export function render(
     `name: Actions\ntype: staticContent\n${layout(20, 'dialogFooter')}\n${appearance('buttons-container')}`,
   );
   for (const [field, spec] of fields)
-    if (instance.parameters.editableFields.includes(field) || keys.includes(field) || field === version)
+    if (instance.parameters.editableFields.includes(field) || keys.includes(field) || field === version) {
+      if (
+        spec.enum &&
+        spec.type === 'string' &&
+        sharedEnumValuesSupported(spec.enum) &&
+        instance.parameters.editableFields.includes(field) &&
+        !sharedLovs[field]
+      )
+        throw new Fault(
+          'ENUM_LOV_BINDING_REQUIRED',
+          'Editable enum fields require a planned managed shared LOV.',
+          5,
+        );
       form += item(
         itemName(field),
         field,
         fields.findIndex(([n]) => n === field) * 10 + 10,
         !instance.parameters.editableFields.includes(field),
         !spec.nullable,
+        sharedLovs[field],
       );
+    }
   form += button('save', 'Save', 'buttons', 'action: definedByDynamicAction');
   form += button('cancel', 'Cancel', 'buttons', 'action: definedByDynamicAction');
   form += dynamic(

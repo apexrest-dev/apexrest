@@ -388,6 +388,56 @@ export function createReferenceCatalog<
     return result;
   }
 
+  /** Compatible ready recipes reached through registered owning-contract relationships. */
+  async function recipeGroups(id: string, version: string) {
+    const index = await catalogIndex();
+    const selected = index.byId.get(id);
+    if (
+      !selected ||
+      (selected.version !== version && (version.includes('@') || selected.version.split('@')[0] !== version))
+    )
+      throw new Fault('REFERENCE_NOT_FOUND', 'No registered compatible component contract.', 2);
+    // Reuse the reader's integrity/containment checks, not rendered navigation for relationships.
+    await read(id, 0, 1, version);
+    const info = (entry: CatalogReference) => ({
+      ...metadata(entry),
+      compatibility: { ...entry.compatibility },
+      sha256: entry.sha256,
+      requires: [...entry.requires],
+    });
+    const compatible = (entry: CatalogReference) =>
+      entry.version === selected.version &&
+      (['apexVersion', 'themeVersion', 'mmdVersion'] as const).every(
+        (key) => entry.compatibility[key] === selected.compatibility[key],
+      );
+    const roots = [
+      selected,
+      ...selected.related
+        .map((target) => index.byId.get(target))
+        .filter(
+          (entry): entry is CatalogReference =>
+            !!entry && entry.kind === 'contract' && entry.requires.includes(id),
+        ),
+    ];
+    const groups = [];
+    for (const root of new Map(roots.map((entry) => [entry.id, entry])).values()) {
+      if (root.kind !== 'contract' || !compatible(root)) continue;
+      const recipes = root.related
+        .map((target) => index.byId.get(target))
+        .filter(
+          (entry): entry is CatalogReference =>
+            !!entry &&
+            entry.kind === 'template' &&
+            entry.readiness === 'ready' &&
+            compatible(entry) &&
+            entry.requires.some((target) => target === id || root.requires.includes(target)),
+        );
+      if (!recipes.length) continue;
+      if (root.id !== id) await read(root.id, 0, 1, version);
+      groups.push({ root: info(root), recipes: recipes.map(info) });
+    }
+    return { selected: info(selected), groups };
+  }
   async function candidates(request: string, version: string) {
     const index = await catalogIndex();
     return rankSelection(
@@ -396,5 +446,5 @@ export function createReferenceCatalog<
       version,
     );
   }
-  return { search, read, candidates };
+  return { search, read, candidates, recipeGroups };
 }

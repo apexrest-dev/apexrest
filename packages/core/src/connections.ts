@@ -1,8 +1,8 @@
 import path from 'node:path';
-import { chmod, constants, lstat, mkdir, open, rm, stat } from 'node:fs/promises';
+import { chmod, constants, lstat, mkdir, open, realpath, rm, stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { contained, exists, readJson, withLock, writeJson } from './fs.ts';
-import { managedHome, parse, refName } from './config.ts';
+import { loadProject, managedHome, parse, refName } from './config.ts';
 import { Fault } from './result.ts';
 import { readLocalEnv } from './local-env.ts';
 // Passed as one SQLcl argv value, never interpolated into a command or SQL.
@@ -112,7 +112,10 @@ export async function ordsCredentials(connection: Connection): Promise<OrdsCrede
 }
 export async function connections(): Promise<Record<string, Connection>> {
   const file = path.join(managedHome(), 'connections.json');
-  return (await exists(file)) ? parse(storeSchema, await readJson(file)) : {};
+  return Object.assign(
+    Object.create(null),
+    (await exists(file)) ? parse(storeSchema, await readJson(file)) : {},
+  );
 }
 export async function resolveConnection(name: string): Promise<Connection> {
   const connection = (await connections())[name];
@@ -143,15 +146,44 @@ export async function editConnection(name: string, value?: Connection) {
   });
 }
 
-/** A password file must be a private regular file; symlinks and shared files are rejected. */
-async function readPasswordFile(file: string) {
+function isChild(root: string, file: string) {
+  const relative = path.relative(root, file);
+  return (
+    relative !== '' &&
+    relative !== '..' &&
+    !relative.startsWith('..' + path.sep) &&
+    !path.isAbsolute(relative)
+  );
+}
+
+/** Resolve parent aliases before opening, then verify that the opened file is the one checked. */
+async function readPasswordFile(file: string, roots: string[]) {
+  const candidates = roots.filter((root) => isChild(root, file));
+  if (!candidates.length)
+    throw new Fault(
+      'PASSWORD_FILE_UNSAFE',
+      'The password file must be inside the managed home, the project directory or the current working directory.',
+      2,
+    );
   let handle;
   let before;
+  let physical: string;
   try {
     before = await lstat(file);
     if (before.isSymbolicLink() || !before.isFile())
       throw new Fault('PASSWORD_FILE_UNSAFE', 'The password file must be a regular non-symlink file.', 2);
-    handle = await open(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    physical = await realpath(file);
+    const resolved = await Promise.all(candidates.map((root) => realpath(root).catch(() => null)));
+    if (!resolved.some((root) => root !== null && isChild(root, physical)))
+      throw new Fault(
+        'PASSWORD_FILE_UNSAFE',
+        'The password file must resolve inside the managed home, the project directory or the current working directory.',
+        2,
+      );
+    handle = await open(
+      physical,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
+    );
   } catch (error) {
     if (error instanceof Fault) throw error;
     const code = (error as NodeJS.ErrnoException).code;
@@ -170,19 +202,32 @@ async function readPasswordFile(file: string) {
       !info.isFile() ||
       !current.isFile() ||
       current.isSymbolicLink() ||
+      (await realpath(file)) !== physical ||
       before.dev !== info.dev ||
       before.ino !== info.ino ||
       current.dev !== info.dev ||
       current.ino !== info.ino
     )
       throw new Fault('PASSWORD_FILE_UNSAFE', 'The password file changed or is not a regular file.', 2);
-    if (process.platform !== 'win32' && (info.mode & 0o077) !== 0)
+    if (
+      process.platform !== 'win32' &&
+      ((info.mode & 0o077) !== 0 || (typeof process.getuid === 'function' && info.uid !== process.getuid()))
+    )
       throw new Fault(
         'PASSWORD_FILE_UNSAFE',
-        'The password file must only be accessible by its owner (chmod 600).',
+        'The password file must belong to the current user and only be accessible by that user (chmod 600).',
         2,
       );
-    return await handle.readFile('utf8');
+    const buffer = Buffer.alloc(4 * 4096 + 3);
+    if (info.size >= buffer.length)
+      throw new Fault('PASSWORD_FILE_UNSAFE', 'The password file exceeds the maximum credential size.', 2);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    if (bytesRead !== info.size)
+      throw new Fault('PASSWORD_FILE_UNSAFE', 'The password file changed while being read.', 2);
+    return buffer.toString('utf8', 0, bytesRead);
+  } catch (error) {
+    if (error instanceof Fault) throw error;
+    throw new Fault('PASSWORD_FILE_UNSAFE', 'The password file could not be verified and read.', 2);
   } finally {
     await handle.close();
   }
@@ -241,18 +286,23 @@ export async function configureConnection(name: string, input: ConfigureConnecti
       const file = path.resolve(input.passwordFile);
       // Bound the readable locations: an agent-supplied path must not turn
       // connection setup into a reader for arbitrary private files on the host.
-      const roots = [managedHome(), ...(input.project ? [path.resolve(input.project)] : []), process.cwd()];
-      const inside = (root: string) => {
-        const relative = path.relative(root, file);
-        return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
-      };
-      if (!roots.some(inside))
-        throw new Fault(
-          'PASSWORD_FILE_UNSAFE',
-          'The password file must be inside the managed home, the project directory or the current working directory.',
-          2,
-        );
-      password = (await readPasswordFile(file)).replace(/\r?\n$/, '');
+      const roots = [managedHome(), process.cwd()];
+      if (input.project && !roots.some((root) => isChild(root, file))) {
+        const requested = path.resolve(input.project);
+        if (requested !== path.parse(requested).root && isChild(requested, file)) {
+          try {
+            await loadProject(requested);
+          } catch {
+            throw new Fault(
+              'PASSWORD_FILE_UNSAFE',
+              'Use a configured project to bound its password file.',
+              2,
+            );
+          }
+          roots.push(requested);
+        }
+      }
+      password = (await readPasswordFile(file, roots)).replace(/\r?\n$/, '');
     }
     if (password !== undefined && !ords)
       throw new Fault(

@@ -60,10 +60,6 @@
       "route": "/apexrest/troubleshooting/"
     },
     {
-      "source": "docs/webapp.md",
-      "route": "/apexrest/webapp/"
-    },
-    {
       "source": "docs/apex-26.2.md",
       "route": "/apexrest/apex-26.2/"
     },
@@ -221,8 +217,6 @@
     "testing.html",
     "troubleshooting/index.html",
     "troubleshooting.html",
-    "versions/index.html",
-    "webapp/index.html",
-    "webapp.html"
+    "versions/index.html"
   ]
 }

@@ -1,51 +1,57 @@
-# Scaffold routine APEX 26.2 pages
+# Generate native APEX pages
 
-Use `apexrest_project action:scaffold` with `project` and `specFile` (project-relative JSON). It writes native APEXlang from fixed component emitters; the host supplies the SQL, labels and column meanings. It does not import or execute SQL. The emitters use the generated Universal Theme template references. Use it for interactive reports, KPI cards and bar charts, including several pages in one call. No reference selection or syntax lookup is needed for these supported properties.
+Use `apexrest_project action:scaffold` with `project` and a project-relative JSON `specFile` for supported Oracle APEX 26.1 and 26.2 pages. The host supplies verified SQL, PL/SQL, labels and behavior. The emitter generates native component syntax, navigation and distinct numeric process identifiers. Follow the project's pinned release.
 
-Read the relevant source and batch table columns once with `apexrest_metadata_read` before choosing SQL. If the task supplies verified columns, reuse them. Environment inputs use the exact configured key (for example `dev`), not the workspace (`DEV`).
-
-Write a compact spec file like this; use real verified tables/columns instead of the illustrative names:
+Read the necessary metadata once, or use the verified schema supplied by the task. When Decisions is enabled, call `apexrest_reference mode:select` once with a concise UI-only request covering the components. Read this guide, write one complete specification and materialize it in one call. Shared query strings and repeated columns can be assembled programmatically in a project-local script.
 
 ```json
 {
-  "applicationName": "Catalog Monitor",
+  "applicationName": "Task Desk",
   "pages": [
     {
-      "id": 1,
-      "name": "Home",
+      "id": 10,
+      "name": "Tasks",
       "regions": [
         {
-          "type": "cards",
-          "name": "Catalog totals",
-          "sql": "select 'Products' title, to_char(count(*)) value from PRODUCTS",
-          "titleColumn": "TITLE",
-          "bodyColumn": "VALUE"
-        },
+          "id": "tasks",
+          "type": "interactiveReport",
+          "name": "Tasks",
+          "sql": "select task_id, title, status from TASKS order by task_id",
+          "columns": [
+            {
+              "name": "TASK_ID",
+              "heading": "ID",
+              "dataType": "number",
+              "link": { "page": 11, "items": { "P11_ID": "#TASK_ID#" }, "clearCache": [11] }
+            },
+            { "name": "TITLE", "heading": "Title", "dataType": "varchar2" },
+            { "name": "STATUS", "heading": "Status", "dataType": "varchar2" }
+          ],
+          "emptyMessage": "No tasks match this selection."
+        }
+      ],
+      "buttons": [
         {
-          "type": "barChart",
-          "name": "Products by state",
-          "sql": "select state label, count(*) value from PRODUCTS group by state order by state",
-          "labelColumn": "LABEL",
-          "valueColumn": "VALUE",
-          "xTitle": "State",
-          "yTitle": "Products"
+          "id": "new-task",
+          "label": "New Task",
+          "region": "tasks",
+          "target": { "page": 11, "clearCache": [11] }
         }
       ]
     },
     {
-      "id": 10,
-      "name": "Products",
+      "id": 70,
+      "name": "Activity",
       "regions": [
         {
-          "type": "interactiveReport",
-          "name": "Products",
-          "sql": "select code, name, weight_kg from PRODUCTS order by name, code",
-          "columns": [
-            { "name": "CODE", "heading": "Code", "dataType": "varchar2" },
-            { "name": "NAME", "heading": "Name", "dataType": "varchar2" },
-            { "name": "WEIGHT_KG", "heading": "Weight (kg)", "dataType": "number", "formatMask": "FM999G990D000" }
-          ],
-          "emptyMessage": "No products found. Clear filters or add source data."
+          "id": "activity",
+          "type": "calendar",
+          "name": "Task activity",
+          "sql": "select task_id, title, start_date from TASKS",
+          "displayColumn": "TITLE",
+          "startDateColumn": "START_DATE",
+          "keyColumn": "TASK_ID",
+          "link": { "page": 11, "items": { "P11_ID": "&TASK_ID." }, "clearCache": [11] }
         }
       ]
     }
@@ -53,20 +59,57 @@ Write a compact spec file like this; use real verified tables/columns instead of
 }
 ```
 
-Reports accept `varchar2`, `number`, `date` and `timestamp`; `formatMask` and `emptyMessage` are optional. Columns/mappings use uppercase SQL aliases. Cards accept any SELECT returning the two mapped columns; UNION ALL can supply several KPI cards. Charts are bar charts with their axes and column mappings emitted together. Page IDs are unique, 1–9998. Navigation entries are added, preserving existing entries.
+The example expects an existing `TASKS` object and an authored editor on page 11. Supply their verified contracts or adapt the SQL and target together. Query aliases in column mappings are uppercase. Spec report types are `varchar2`, `number`, `date` or `timestamp`; the emitter supplies the release-specific native representation. The first report column is emitted as an accessible row header, so choose a useful row label or identifier.
 
-On a blank generated Home page, the emitter adds regions while retaining Oracle's page header and hero. Other existing pages are protected. Re-running a spec may update its unchanged generated pages; an intervening human edit blocks replacement. Backups and outputs live in `.apexrest/scaffolds/`. For custom layouts/components or a human-edited page, edit APEXlang normally and use targeted references.
+## Regions
 
-After scaffolding, call `apexrest_ship mode:apply` once. It performs the mandatory compiler validation and exact deployment checks. Fix diagnostics and retry only as directed. A separate validate, plan or preview is unnecessary for routine scaffold output; use preview for custom visual behavior or when requested. Never bypass ship with a raw import after an unknown outcome. Check additional metadata/SQL only when the task requests it; batch metadata requests and use one read-only SQLcl session for remaining SQL observations.
+Every region has `type`, `name` and optional stable `id`. Generated IDs are `r1`, `r2` and so on. Query regions accept `sql` and optional `itemsToSubmit`, an array of full page item names.
 
-## Requested server observations
+| Type                                 | Fields                                                                                                                                                                                 |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `interactiveReport`, `classicReport` | `sql`, `columns` with `name`, `heading`, `dataType` and optional `formatMask`, `link`, `linkText`. Optional `emptyMessage`. Interactive reports also accept a region `link`.           |
+| `cards`                              | `sql`, `titleColumn`, `bodyColumn`, optional `keyColumn` and `link`.                                                                                                                   |
+| `barChart`                           | `sql`, `labelColumn`, `valueColumn`, `xTitle`, `yTitle`.                                                                                                                               |
+| `chart`                              | `chartType` of `bar`, `line`, `pie` or `donut`, and `series` with `name`, `sql`, `labelColumn`, `valueColumn`, optional `id`, `itemsToSubmit` and `link`. Optional `xTitle`, `yTitle`. |
+| `calendar`                           | `sql`, `displayColumn`, `startDateColumn`, optional `endDateColumn`, `keyColumn`, `showTime`, `initialDate` and `link`. Linked calendars need the query's key column.                  |
+| `staticContent`                      | Optional `html` for authored information or a container with native items.                                                                                                             |
+| `form`                               | `sql` for a native read-only query form and items with `sourceColumn`.                                                                                                                 |
 
-When the task also requests imported metadata and SQL checks, pass the exact `env` key to `action:scaffold`. It returns `readback.sqlFile`, a target-bound SQLcl script in private `.apexrest/` storage. After successful ship, run it once with the task's authorized saved connection, in a noninteractive batch:
+Targets have `page`, optional `items` mapping full target item names to values, and optional `clearCache` page IDs. Use the native substitution for the component, such as `#TASK_ID#` in a report column and `&TASK_ID.` in a calendar. The emitter creates structured links. Supply `initialDate` when the task specifies a calendar date. Its JavaScript retains the preview's local-coverage diagnostic.
 
-```sh
-"$SQLCL_BIN" -S -L -name "AUTHORIZED_SAVED_NAME" @"RETURNED_SQL_FILE"
+## Items and server behavior
+
+Pages have `id`, `name`, optional `alias` and `navigation` (default true), plus regions and the optional arrays below. Editors can set `navigation:false` and expose links from their report pages.
+
+| Array         | Fields                                                                                                                                                                                                                                                                                                                                   |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `items`       | `name`, `region`, `type` of `selectList`, `datePicker`, `numberField`, `textField`, `textarea`, `hidden` or `displayOnly`. Optional `label`, `required`, `defaultValue`, `formatMask`. Select lists require `lov`, either `[{label,value}]` or `{sql}`. Native form items also use `sourceColumn`, optional `dataType` and `primaryKey`. |
+| `buttons`     | `id`, `label`, `region`. A `target` redirects to its page. A submit button may explicitly set `action:submitPage`. Optional `confirmation` supplies `message` and a native `style`.                                                                                                                                                      |
+| `processes`   | `id`, authored `plsql`, optional `point`, `sequence`, `button`, `successMessage`. Points are `beforeHeader`, `afterSubmit`, `processing` or `ajaxCallback`. Use `button` to restrict a submit process to that button.                                                                                                                    |
+| `validations` | `id`, Boolean function body in `plsql`, `errorMessage`, optional associated `item` and submit `button`.                                                                                                                                                                                                                                  |
+| `branches`    | `id`, `target`, optional submit `button`. Branches run after processing.                                                                                                                                                                                                                                                                 |
+| `refreshes`   | Triggering `items` and affected region IDs in `regions`. Every affected query or chart series must include these item names in `itemsToSubmit`.                                                                                                                                                                                          |
+
+Use `staticContent` containers with native items and authored PL/SQL processes for collection- or API-backed editing. The `form` variant initializes a read-only query row and its `sourceColumn` items.
+
+Top-level `applicationProcesses` hold session initialization with `id`, `plsql` and optional `point` (default `beforeHeader`). Initialize each absent collection independently so recovery preserves members already present. Reserve truncation for an explicit reset. Supply the actual server validation, mutation, reset and redirect logic required by the task. An item's `required` flag supplements business validation on the server.
+
+Prefer one complete PL/SQL block per Execute Code process. Enclose adjacent complete blocks in an explicit outer `begin ... end;` so the supplied source also forms one standalone Oracle parse unit. Keep local declarations and exception handlers inside their original blocks.
+
+The emitter allocates process mappings and protects hidden items. Name each form item with its full page prefix, such as `P11_ID`. Keep record existence, uniqueness, optimistic locking and other business rules in host-authored SQL/PLSQL.
+
+For a Number Field's server value, use `apex_session_state.get_number('P10_AMOUNT')`, which uses the item's format mask. Convert other numeric text with Oracle `to_number` and a matching format/NLS contract. JavaScript uses `apex.locale.toNumber`. See [Oracle's numeric item contract](https://docs.oracle.com/en/database/oracle/apex/26.1/apxdc/working-data-values-numbers.html).
+
+Pages and their components accept optional `authorizationScheme`, `buildOption` and `condition`. Conditions support `always`, `never`, `userIsAuthenticated`, `userIsPublicUser`, `itemIsNull`/`itemIsNotNull` with `item`, `item=value`/`item!=value` with `item` and `value`, `request=Value`/`request!=Value` with `value`, or `expression` with `plsqlExpression`.
+
+## Materialize and verify
+
+```text
+apexrest_project action:scaffold project:/abs/project specFile:application-spec.json
 ```
 
-The script uses the reviewed 26.2 dictionary columns, checks database/service/schema/workspace/application identity, and reads the imported pages, regions, report columns, chart mappings and navigation. It executes the selected pages' stored report/card/chart SELECT sources in a read-only transaction, returning row counts and bounded samples. Queries needing bind values or APEX session context need separate explicit observations. At most 10,000 rows are fetched per source; `allRowsFetched` reports truncation. Compare the actual observations with the task's requirements. There are no expected business values or application-test verdicts in this artifact.
+The operation returns generated files and staged before/after source. Regeneration checks ownership and hashes. Resolve a human-edited page through normal source editing before replacing its generated structure. The emitter uses the starter's metadata, theme, authentication and existing navigation.
 
-Scaffold and ship never execute this file. Use it only for explicitly requested observations, without adding a deployment gate. Keep it outside the app source. Reuse it instead of discovering dictionary fields or writing another verification script. It does not establish browser behavior.
+Run `apexrest_preview action:check` for requested local control. Validate the complete application once with `apexrest_apex_validate`, or continue to `apexrest_ship mode:apply` when the task includes deployment. Fix actionable diagnostics and repeat the necessary step. Source-only benchmark instructions assign deployment to the operator. Preview identifies JavaScript and native APEX features requiring host-browser observation. Treat `notAppliedLocally` as a coverage limit: preserve required native behavior and record browser behavior as unobserved until requested and performed.
+
+For independently requested server observations, an exact `env` can return a target-bound `readback.sqlFile` on the supported release. After import the operator can execute that private script with the authorized saved connection and compare its metadata/query observations to the task. The release-specific observation helper supplies its compatibility checks.

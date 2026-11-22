@@ -54,20 +54,24 @@ This rule applies when the user requests browser verification. Ordinary confirme
 
 These commands verify the repository implementation, not applications through the plugin:
 
-| Command                                    | What it establishes                                            |
-| ------------------------------------------ | -------------------------------------------------------------- |
-| `npm run lint`                             | Formatting and source conventions                              |
-| `npm run typecheck`                        | TypeScript consistency                                         |
-| `npm run test:unit`                        | Core and failure/concurrency fixtures                          |
-| `npm run test:contracts`                   | CLI/MCP contracts, both host manifest launches and tool parity |
-| `npm run test:installers`                  | Download, archive, integrity and platform fixtures             |
-| `npm run test:packaging`                   | Package schemas, containment, manifests and site checks        |
-| `npm run docs:check`                       | Links, anchors and documented commands                         |
-| `npm run plugin:check`                     | Checked-in bundle matches a fresh build                        |
-| `npm run site:build`                       | Local documentation site generation                            |
-| `npm run preview:corpus -- --archive PATH` | Local preview over Oracle's public 26.2 applications           |
+| Command                                    | What it establishes                                                   |
+| ------------------------------------------ | --------------------------------------------------------------------- |
+| `npm run lint`                             | Formatting and source conventions                                     |
+| `npm run typecheck`                        | TypeScript consistency                                                |
+| `npm run schemas:build`                    | Regenerate public JSON contracts from the authoritative input schemas |
+| `npm run schemas:check`                    | Detect missing or stale public contracts without rewriting them       |
+| `npm run test:unit`                        | Core and failure/concurrency fixtures                                 |
+| `npm run test:contracts`                   | CLI/MCP contracts, both host manifest launches and tool parity        |
+| `npm run test:installers`                  | Download, archive, integrity and platform fixtures                    |
+| `npm run test:packaging`                   | Package schemas, containment, manifests and site checks               |
+| `npm run docs:check`                       | Links, anchors and documented commands                                |
+| `npm run plugin:check`                     | Checked-in bundle matches a fresh build                               |
+| `npm run site:build`                       | Local documentation site generation                                   |
+| `npm run preview:corpus -- --archive PATH` | Local preview over Oracle's public 26.2 applications                  |
 
 Build with `npm run build` before checks that consume `dist/`.
+
+The build checks schema freshness before replacing any release payload. After changing schema definitions, run `npm run schemas:build` and the applicable catalog refresh before building. Published schemas describe accepted input, including omitted runtime defaults; normalized records remain subject to their normal integrity checks.
 
 What these checks do and do not cover:
 
@@ -81,9 +85,17 @@ What these checks do and do not cover:
 
 `preview:corpus` renders every page of the 33 public Oracle APEX 26.2 applications in the [local preview](local-preview.md) and counts what it could not run by kind (placeholders, application calls, seed and SQL failures). Pass the pinned `oracle/apex` source archive that the public template catalog uses; the script checks its SHA-256 and writes the scorecard to `docs/evidence/preview-corpus/`. It measures the preview, not Oracle behavior.
 
-### Built web application
+### Fast-development clocks
 
-`node tests/webapp/e2e.mjs` checks a running [built web application](webapp.md) end to end against an Oracle database that holds the Bitcoin Price Monitor schema (sign-in, reports, a committed form insert, sign-out); its header lists the environment variables. It needs a local DEV or TEST database and is not part of the automatic checks.
+`node scripts/benchmark-fast-dev.mjs --project PATH [--reps 20] [--env ENV --connected-reps 3] [--out FILE]` measures the clocks of [source revisions](architecture.md#edit-to-deploy-paths-and-clocks) on a temporary copy of the project:
+
+- the source revision digest;
+- server-side preview readiness after an edit, a burst save and a rename that keeps an older mtime;
+- the cold and warm offline compiler.
+
+With `--env`, it also runs at most five guarded `ship` applies of a page title on that DEV/QA/TEST target and records their phases.
+
+The benchmark only runs when invoked. Write its output under `docs/evidence/`. Rows it cannot run are marked `not_run` with their prerequisite.
 
 ## Host and Oracle checks
 
@@ -106,20 +118,50 @@ The reusable [APEX 26.1 plugin server cases](../tests/plugin-server/README.md) c
 
 ### Integration harness
 
-`npm run test:integration` requires all of the following before apply:
+`npm run test:integration` defaults to **prepare**. It validates the application and saves a normal read-only deployment plan. It never imports during preparation. Configure:
 
 - `APEXREST_INTEGRATION_PROJECT`
 - `APEXREST_INTEGRATION_ENV`
 - named SQLcl connections
 - a supported non-production APEX target
-- `APEXREST_INTEGRATION_ALLOW_WRITES=true`
+- optional `APEXREST_INTEGRATION_OUTPUT`, a new private attempt directory under `docs/evidence/`
 
-How it handles authorization:
+For one reviewed apply, also provide:
 
-- The integration harness uses `ship --mode apply --user-request TEXT` to bind the operator's consent to the exact project, target and plan.
-- It verifies that this grant was removed after each attempt.
-- Missing prerequisites remain blocked; recovery and fault injection require separately authorized targets.
+- `APEXREST_INTEGRATION_MODE=apply`
+- `APEXREST_INTEGRATION_ALLOW_WRITES=true`, an execution switch which does not supply human consent
+- `APEXREST_INTEGRATION_USER_REQUEST`, the actual scoped human instruction
+- `APEXREST_INTEGRATION_PLAN`, the contained project-relative saved plan
+- `APEXREST_INTEGRATION_PLAN_DIGEST`, its exact digest
+- `APEXREST_INTEGRATION_REVIEW`, the separate local review record binding the canonical project, environment, plan bytes/digest and instruction hash
+- `APEXREST_INTEGRATION_CONFIRMATION` when the plan requires exact remote-risk confirmation; the file contains the actual human instruction and exact plan digest
+
+The harness checks review bindings, expiry, exact target and source preimages before connected work. The normal `ship --mode apply --plan PATH` safeguards remain active. It applies only that saved plan and verifies removal of its temporary grant. Another no-op, restore or recovery requires its own applicable reviewed plan; the harness never silently replans or repeats an unknown write.
+
+`APEXREST_INTEGRATION_EXPECT_NOOP=true` additionally compares complete before/after export inventories, including Oracle metadata. It rejects plans with database scripts or restore operations. Every attempt retains its raw results and explicit per-scenario status under `docs/evidence/`; a passing happy path remains partial until the full connected matrix is complete. The harness never overwrites the canonical full-qualification report.
+
+- Missing prerequisites remain blocked; recovery and fault injection require identified authorized targets.
 - Independent managed homes/machines must be serialized externally.
+- Browser observations stay separate from confirmed deployment completion.
+
+### External release evidence
+
+The default release gate requires nine source-bound reports. Three are local repository/compiler groups; six require actual external execution:
+
+| Report                          | Required scope                                                                                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `composer-native-new-chat.json` | A fresh native host discovers Composer and completes the composition workflow with the installed candidate.                                                                                    |
+| `composer-runtime.json`         | Actual Oracle command/authorization, shared-resource ownership and authenticated browser qualification (`CMP014`, `CMP016`, `CMP027`).                                                         |
+| `native-codex-compat.json`      | Native macOS arm64 Codex and Claude host scenarios.                                                                                                                                            |
+| `native-linux-x64.json`         | Native Linux x64 Codex and Claude host scenarios.                                                                                                                                              |
+| `native-win32-x64.json`         | Native Windows x64 Codex and Claude host scenarios.                                                                                                                                            |
+| `oracle-integration.json`       | Actual compiler/identity/plan/backup/import, no-op and existing-component preservation, drift refusals, reviewed restore, interruption recovery, contention and unsupported-component refusal. |
+
+The exact required scenario IDs are maintained in [the external evidence contract](../scripts/lib/release-evidence.mjs), using the current host catalogs and acceptance matrix. Host golden tasks retain their catalog repetition and release-specific requirements. An ARM64 VM does not establish Linux x64 qualification, and hosted repository self-tests do not establish native model-host execution.
+
+A passing external report records its kind, exact `sourceDigest`, `mock: false`, execution scope, ordered UTC start/completion times, actual platform/architecture/Node and tool versions, and a passing result for every required scenario. Native reports also identify fresh sessions, observed models/efforts and installed payload hashes. Each claim references nonempty regular proof files beneath `docs/evidence/` by relative path and SHA-256. Browser evidence is separately disclosed and is required for Composer runtime qualification.
+
+The readiness checker rejects malformed reports, mock/fixture claims, wrong platforms, missing scenarios and changed, missing or unsafe proof files. These checks validate declared scope and proof integrity; they cannot independently establish that execution occurred. An operator must inspect the actual native, Oracle and browser records before promoting a report. Preserve incomplete reports and failed attempts; never replace missing observations with fixture results or mark an unrun case passed. Ordinary application deployments do not inherit this release-qualification matrix.
 
 ## Diagnose and rerun
 

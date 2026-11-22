@@ -13,7 +13,7 @@ import {
   ordsCredentials,
   type OrdsCredentials,
 } from './connections.ts';
-import { canonical, contained, exists, hash, inventory, readJson, writeJson } from './fs.ts';
+import { atomicWrite, canonical, contained, exists, hash, inventory, readJson, writeJson } from './fs.ts';
 import { Fault } from './result.ts';
 import { runProcess, SQLCL_READ_TIMEOUT_MS, SQLCL_WRITE_TIMEOUT_MS } from './process.ts';
 import type { ProcessRequest, ProcessResult } from './process.ts';
@@ -30,19 +30,44 @@ import {
 } from './compatibility.ts';
 import { parseCodeScan, type AdvisoryFinding } from './upgrade-audit.ts';
 import { localConnectionEndpoint, localServerHost } from './locality.ts';
+import { LocalDeploymentControl } from './deployment-control.ts';
 import { scopedExportFile, supportedFile } from './partial-import.ts';
 export const targetIdentitySql = `select 'identity' target_record,
         sys_context('USERENV','DB_UNIQUE_NAME') db_unique_name,
         sys_context('USERENV','SERVICE_NAME') service_name,
         sys_context('USERENV','CURRENT_SCHEMA') parsing_schema,
-        null workspace_id, null workspace, null application_id, null alias, null owner
+        cast(null as varchar2(64)) workspace_id, null workspace, null application_id, null alias, null owner
        from dual
        union all
-       select 'workspace', null, null, null, workspace_id, workspace, null, null, null
+       select 'workspace', null, null, null, to_char(workspace_id, 'TM9', 'NLS_NUMERIC_CHARACTERS=''.,'''), workspace, null, null, null
        from apex_workspaces where workspace = :p_workspace
        union all
        select 'application', null, null, null, null, workspace, application_id, alias, owner
-       from apex_applications where application_id = :p_app_id`;
+       from apex_applications where application_id = :p_app_id
+       union all
+       select 'schema', null, null, username, null, null, null,
+              to_char(created - (sysdate - cast(sys_extract_utc(systimestamp) as date)), 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z', null
+       from all_users where username = sys_context('USERENV','CURRENT_SCHEMA')`;
+/** Exact observations only. A rounded legacy number cannot recover an Oracle identifier. */
+function workspaceIdentifier(value: unknown): string {
+  if (typeof value === 'string' && /^(?:0|[1-9][0-9]{0,63})$/.test(value)) return value;
+  // Explicit compatibility for old observations that are still exactly representable.
+  // Stored plans/fingerprints/history retain their original bytes and comparisons.
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return String(value);
+  throw new Fault(
+    'WORKSPACE_ID_UNCONFIRMED',
+    'Workspace identity requires exact decimal text. An unsafe legacy numeric ID cannot be reconstructed. Preserve held recovery evidence and obtain a fresh exact observation.',
+    3,
+    'blocked',
+    {
+      nextActions: [
+        'Obtain a fresh exact-string target observation and create a new apexrest_ship mode:plan. Preserve saved numeric plans, fingerprints and history.',
+        'For a completed ready working copy, use apexrest_apex_sync action:refresh with clean sources before replanning. A 26.2 full plan can obtain a fresh target without changing the stored baseline.',
+        'For importing or outcome_unknown runs, keep ownership and the original recovery evidence. Reconcile the original run before retry, refresh or invalidate.',
+      ],
+    },
+  );
+}
 const applicationMetadataSql = `select to_char(last_updated_on, 'YYYY-MM-DD"T"HH24:MI:SS', 'NLS_DATE_LANGUAGE=American') last_updated_on,
         last_updated_by,
         case when last_updated_on is null then 'Y' else 'N' end last_updated_on_is_null,
@@ -126,7 +151,12 @@ export function sqlLiteral(value: string) {
     throw new Fault('INVALID_SQL_LITERAL', 'Invalid SQL literal.', 2);
   return "'" + value.replaceAll("'", "''") + "'";
 }
-export function oracleDiagnostics(r: ProcessResult, mutation = false, format: 'text' | 'json' = 'text') {
+export function oracleDiagnostics(
+  r: ProcessResult,
+  mutation = false,
+  format: 'text' | 'json' = 'text',
+  captureCompilerOutput = false,
+) {
   const stdout = r.stdout.replace(/\x1b\[[0-9;]*m/g, ''),
     stderr = r.stderr.replace(/\x1b\[[0-9;]*m/g, ''),
     output = stdout + '\n' + stderr;
@@ -168,6 +198,8 @@ export function oracleDiagnostics(r: ProcessResult, mutation = false, format: 't
       'ORACLE_COMMAND_FAILED',
       output.trim().slice(0, 6000) || 'SQLcl exited without success.',
       1,
+      'failed',
+      captureCompilerOutput ? { output } : undefined,
     );
   return output;
 }
@@ -484,7 +516,7 @@ export class OracleAdapter {
         : raw;
     let output: string;
     try {
-      output = oracleDiagnostics(result, mutation, format);
+      output = oracleDiagnostics(result, mutation, format, label === 'validate' || label === 'import');
     } catch (error) {
       if (secret && error instanceof Error) error.message = error.message.replaceAll(secret, '[REDACTED]');
       throw error;
@@ -900,8 +932,9 @@ export class OracleAdapter {
     } catch (error) {
       // Compile errors are text with exit code 0 that the session classifies
       // as a failed command; a parsed report becomes a validation failure.
-      if (error instanceof Fault && error.code === 'ORACLE_COMMAND_FAILED' && !error.details) {
-        const details = await compilerDetails(error.message, source);
+      if (error instanceof Fault && error.code === 'ORACLE_COMMAND_FAILED' && !error.details?.diagnostics) {
+        const output = typeof error.details?.output === 'string' ? error.details.output : error.message;
+        const details = await compilerDetails(output, source);
         if (details) throw new Fault('VALIDATION_FAILED', error.message, 1, 'failed', details);
       }
       throw error;
@@ -1371,7 +1404,7 @@ export class OracleAdapter {
       );
     const workspaces = rows
       .filter((row) => row.target_record === 'workspace')
-      .map((row) => ({ workspace_id: row.workspace_id, workspace: row.workspace }));
+      .map((row) => ({ workspace_id: workspaceIdentifier(row.workspace_id), workspace: row.workspace }));
     if (workspaces.length !== 1)
       throw new Fault(
         'WORKSPACE_UNCONFIRMED',
@@ -1396,6 +1429,18 @@ export class OracleAdapter {
         'Application belongs to a different workspace or parsing schema.',
         5,
       );
+    // The 'schema' row carries the parsing schema's creation time (UTC) in its alias column. A
+    // recreated schema must not inherit the local migration history of the one it replaced.
+    const instance = rows.find(
+      (row) => row.target_record === 'schema' && row.parsing_schema === env.parsingSchema,
+    )?.alias;
+    if (typeof instance === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u.test(instance)) {
+      const { archived } = await new LocalDeploymentControl(env).reconcileSchemaInstance(instance);
+      if (archived)
+        process.stderr.write(
+          `APEXREST: ${env.parsingSchema} was created at ${instance}, after the local migration history was written; that history belonged to an earlier schema and was moved to ${archived}.\n`,
+        );
+    }
     return { identity, workspace: workspaces[0]!, application: applications[0] ?? null };
   }
   /** Other applications of the workspace that already use this alias (APEX aliases are case-insensitive). */
@@ -1643,8 +1688,10 @@ export class OracleAdapter {
       );
     } catch (error) {
       // Compiler output arrives as text with exit code 0; keep the fault, add structure.
-      if (error instanceof Fault && error.code === 'ORACLE_COMMAND_FAILED' && !error.details)
-        error.details = await compilerDetails(error.message, source);
+      if (error instanceof Fault && error.code === 'ORACLE_COMMAND_FAILED' && !error.details?.diagnostics) {
+        const output = typeof error.details?.output === 'string' ? error.details.output : error.message;
+        error.details = { ...error.details, ...(await compilerDetails(output, source)) };
+      }
       throw error;
     }
     if (!/import.*(?:success|complete)|successfully.*import/is.test(result.output))
@@ -1656,35 +1703,36 @@ export class OracleAdapter {
       );
     return result.output;
   }
-  async restoreApplication(env: Environment, connection: Connection, file: string, signal?: AbortSignal) {
+  async restoreApplication(env: Environment, connection: Connection, sql: Buffer, signal?: AbortSignal) {
     const setup = `begin\n apex_application_install.set_workspace(${sqlLiteral(env.workspace)});\n apex_application_install.set_schema(${sqlLiteral(env.parsingSchema)});\n apex_application_install.set_application_id(${env.applicationId});\nend;\n/\n`;
-    if ((await this.settings()).databaseTransport === 'ords') {
-      await this.requireMutationSupport();
-      // Keep installation context and the complete non-split backup in one
-      // server-side script request. Do not execute the setup as a separate call.
-      const stage = await this.stage();
-      try {
-        const input = path.join(stage, 'restore.sql');
-        await (await import('./fs.ts')).atomicWrite(input, setup + (await readFile(file, 'utf8')));
+    const ords = (await this.settings()).databaseTransport === 'ords';
+    const stage = await this.stage();
+    try {
+      const input = path.join(stage, 'restore.sql');
+      if (ords) {
+        await this.requireMutationSupport();
+        // Keep installation context and the complete backup in one server-side request.
+        await atomicWrite(input, Buffer.concat([Buffer.from(setup), sql]));
         return await this.ordsBridge({ operation: 'script', input }, connection, signal, stage);
-      } finally {
-        await this.discardStage(stage);
       }
+      await atomicWrite(input, sql);
+      return await this.session(
+        setup + `@${sqlclToken(input)}`,
+        connection,
+        true,
+        signal,
+        stage,
+        'text',
+        SCRIPT_RESTRICT_LEVEL,
+      );
+    } finally {
+      await this.discardStage(stage);
     }
-    return this.session(
-      setup + `@${sqlclToken(file)}`,
-      connection,
-      true,
-      signal,
-      undefined,
-      'text',
-      SCRIPT_RESTRICT_LEVEL,
-    );
   }
 }
 export interface CompilerDiagnostic {
   code: string;
-  severity: 'error';
+  severity: 'error' | 'warning';
   file: string;
   line: number;
   column: number;
@@ -1707,7 +1755,7 @@ export function parseCompilerDiagnostics(output: string): CompilerDiagnostic[] {
     if (current?.file && current.type && current.message !== undefined)
       diagnostics.push({
         code: current.type,
-        severity: 'error',
+        severity: current.severity ?? 'error',
         file: current.file,
         line: current.line ?? 0,
         column: current.column ?? 0,
@@ -1720,21 +1768,39 @@ export function parseCompilerDiagnostics(output: string): CompilerDiagnostic[] {
   };
   for (const raw of output.replace(/\x1b\[[0-9;]*m/g, '').split(/\r?\n/)) {
     const line = raw.trimEnd();
-    const field = line.match(/^(File|Line|Column|Type|Error):\s?(.*)$/);
-    if (field?.[1] === 'File') {
+    const field = line.match(/^\s*(File|Line|Column|Type|Error|Warning|Warn):\s?(.*)$/i);
+    const name = field?.[1]?.toLowerCase();
+    if (/^\s*(?:APEXlang Compile (?:Errors|Warnings):|Validation (?:successful|complete))/i.test(line)) {
       flush();
-      current = { file: field[2]!.trim() };
-    } else if (!current) continue;
-    else if (field?.[1] === 'Line') current.line = Number(field[2]);
-    else if (field?.[1] === 'Column') current.column = Number(field[2]);
-    else if (field?.[1] === 'Type') current.type = field[2]!.trim();
-    else if (field?.[1] === 'Error') current.message = field[2]!.trim();
-    else if (!line.trim()) flush();
+    } else if (name === 'file') {
+      flush();
+      current = { file: field![2]!.trim() };
+    } else if (!current) {
+      const unlocated = /^\s*(?:\[(warn(?:ing)?|error)\]|(warn(?:ing)?|error):)\s*(.+)$/i.exec(line);
+      if (unlocated) {
+        const severity = /^warn/i.test(unlocated[1] ?? unlocated[2]!) ? 'warning' : 'error';
+        diagnostics.push({
+          code: severity === 'warning' ? 'COMPILER_WARNING' : 'COMPILER_ERROR',
+          severity,
+          file: '',
+          line: 0,
+          column: 0,
+          type: severity === 'warning' ? 'COMPILER_WARNING' : 'COMPILER_ERROR',
+          message: unlocated[3]!,
+        });
+      }
+    } else if (name === 'line') current.line = Number(field![2]);
+    else if (name === 'column') current.column = Number(field![2]);
+    else if (name === 'type') current.type = field![2]!.trim();
+    else if (name === 'error' || name === 'warning' || name === 'warn') {
+      current.message = field![2]!.trim();
+      current.severity = name === 'error' ? 'error' : 'warning';
+    } else if (!line.trim()) flush();
     else if (current.message === undefined) continue;
     else {
-      const valid = line.match(/^Valid (?:parameters|values|options) are:\s*(.*)$/i);
+      const valid = line.match(/^Valid (?:parameters|values|options) are\s*:\s*(.*)$/i);
       if (valid) values = valid[1]!.trim() ? [valid[1]!.trim()] : [];
-      else if (values && /^-\S/.test(line.trim())) values.push(line.trim().slice(1));
+      else if (values) values.push(line.trim().replace(/^-/, ''));
       else current.message += ' ' + line.trim();
     }
   }
@@ -1747,11 +1813,23 @@ export function parseCompilerDiagnostics(output: string): CompilerDiagnostic[] {
  * reported file around the reported line. Never fails the diagnostic itself.
  */
 export async function diagnosticHint(root: string, diagnostic: CompilerDiagnostic) {
+  return diagnosticHintFromSource(root, diagnostic);
+}
+async function diagnosticHintFromSource(
+  root: string,
+  diagnostic: CompilerDiagnostic,
+  sourceLines?: Map<string, Promise<string[]>>,
+) {
   if (!diagnostic.line || !/^INVALID_PROPERTY|MISSING_REQUIRED|_NOT_FOUND$|INVALID_/.test(diagnostic.type))
     return;
   try {
     const file = await contained(root, diagnostic.file);
-    const lines = (await readFile(file, 'utf8')).split(/\r?\n/);
+    let pending = sourceLines?.get(file);
+    if (!pending) {
+      pending = readFile(file, 'utf8').then((text) => text.split(/\r?\n/));
+      sourceLines?.set(file, pending);
+    }
+    const lines = await pending;
     const indent = (text: string) => text.match(/^\s*/)![0].length;
     const open = /^\s*([A-Za-z][\w-]*)(?:\s+([^\s({]+))?\s*[({]\s*$/;
     const chain: string[] = [];
@@ -1789,14 +1867,17 @@ export async function diagnosticHint(root: string, diagnostic: CompilerDiagnosti
 }
 export async function compilerDetails(output: string, root?: string) {
   const diagnostics = parseCompilerDiagnostics(output);
-  if (root)
+  if (root) {
+    // Reuse source lines only for this report; containment is still checked for every diagnostic.
+    const sourceLines = new Map<string, Promise<string[]>>();
     for (const diagnostic of diagnostics) {
-      const hint = await diagnosticHint(root, diagnostic);
+      const hint = await diagnosticHintFromSource(root, diagnostic, sourceLines);
       if (hint) diagnostic.hint = hint;
       const fix = await propertyFix(diagnostic.type, diagnostic.message, hint);
       if (fix) diagnostic.hint = hint ? `${hint}. Fix: ${fix}` : `Fix: ${fix}`;
     }
-  return diagnostics.length ? { diagnostics } : undefined;
+  }
+  return diagnostics.length ? { diagnostics, output } : undefined;
 }
 /** Validation failure with structured diagnostics; the raw report stays the message. */
 export async function compilerFault(output: string, root?: string) {
@@ -1832,7 +1913,12 @@ export function compilerSucceeded(output: string) {
     /(?:^|\n)\s*(?:error\b|errors?:)|\bwith\s+errors?\b|compile\s+errors?|\bfail(?:ed|ure)\b|\bunsuccessful\b|\bnot\s+successful\b/i.test(
       output,
     );
-  return success && !counted && !failed;
+  return (
+    success &&
+    !counted &&
+    !failed &&
+    !parseCompilerDiagnostics(output).some((entry) => entry.severity === 'error')
+  );
 }
 export async function installSources(source: string, root: string, destination: string) {
   const target = await contained(root, destination);

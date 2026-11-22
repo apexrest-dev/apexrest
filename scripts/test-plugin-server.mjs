@@ -149,15 +149,17 @@ function rejected(...codes) {
 }
 async function finishJob(r) {
   if (r.data?.result) return r.data.result;
-  if (!['running', 'queued', 'outcome_unknown'].includes(r.data?.status)) return r;
+  const activeStates = ['queued', 'running'];
+  if (!activeStates.includes(r.data?.status)) return r;
   const jobId = r.data?.jobId ?? r.data?.id;
   assert.ok(jobId, 'Running operation must return its existing job ID.');
   for (let attempt = 0; attempt < 30; attempt++) {
     const job = await call('apexrest_job', { action: 'status', jobId, project, waitSeconds: 20 });
     if (job.data?.result) return job.data.result;
-    success(job);
-    if (['failed', 'cancelled'].includes(job.data?.status))
-      throw Object.assign(new Error('Job failed.'), { testCode: job.data.status });
+    if (!job.ok || !activeStates.includes(job.data?.status))
+      throw Object.assign(new Error('Job outcome unavailable; inspect the existing job.'), {
+        testCode: job.diagnostics?.[0]?.code ?? 'JOB_COMPLETION_UNCONFIRMED',
+      });
   }
   throw Object.assign(new Error('Job did not complete; do not retry write.'), {
     testCode: 'JOB_COMPLETION_UNCONFIRMED',
@@ -173,8 +175,8 @@ try {
       return client.listTools();
     },
     (r) => {
-      assert.equal(r.tools.length, 10);
-      assert.equal(new Set(r.tools.map((t) => t.name)).size, 10);
+      assert.equal(r.tools.length, 12);
+      assert.equal(new Set(r.tools.map((t) => t.name)).size, r.tools.length);
     },
   );
   if (!connected) throw Object.assign(new Error('MCP unavailable.'), { testCode: 'MCP_UNAVAILABLE' });

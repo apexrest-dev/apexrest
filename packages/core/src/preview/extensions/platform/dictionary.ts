@@ -625,6 +625,34 @@ export function ensureDictionary(renderer: ApexRenderer): void {
   renderer.db.untracked(() => buildDictionary(renderer));
 }
 
+/** Current local build-option state, including the preview administration override. */
+export function applicationBuildOptionStatus(
+  renderer: ApexRenderer,
+  key: string,
+): 'include' | 'exclude' | undefined {
+  const lower = key.toLowerCase();
+  const option = sharedOf(renderer, 'buildOption').find(
+    (component) =>
+      component.id.toLowerCase() === lower ||
+      staticIdOf(component).toLowerCase() === lower ||
+      str(component.props, 'name').toLowerCase() === lower,
+  );
+  if (!option) return undefined;
+  try {
+    ensureDictionary(renderer);
+    const row = all(
+      raw(renderer),
+      'select build_option_status as status from APEX_APPLICATION_BUILD_OPTIONS where static_id = ?',
+      option.id,
+    )[0];
+    const status = String(row?.status ?? '').toLowerCase();
+    return status === 'include' || status === 'exclude' ? status : undefined;
+  } catch {
+    // The caller reports that the process was skipped; unknown state must not run code.
+    return undefined;
+  }
+}
+
 function buildDictionary(renderer: ApexRenderer): void {
   const db = raw(renderer);
   ensureStateTables(db);

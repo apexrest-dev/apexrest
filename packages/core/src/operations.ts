@@ -114,6 +114,26 @@ export const schemas = {
       .describe('Environment variable with the OpenAI key (default OPENAI_API_KEY)'),
     decisionTimeoutMs: z.number().int().min(250).max(10000).optional(),
     catalog: z.enum(['on', 'off']).optional().describe('Reference catalog tools (search, read, select)'),
+    usageLog: z
+      .enum(['on', 'off'])
+      .optional()
+      .describe('Opt-in local token counters and operation duration log'),
+  }),
+  'usage.status': z.strictObject({ limit: z.number().int().min(1).max(1000).default(20) }),
+  'usage.import': z.strictObject({
+    host: z.enum(['codex', 'claude']),
+    file: z.string().min(1).max(4096).describe('Native CLI JSON/JSON-lines output from one run'),
+    counterMode: z
+      .enum(['cumulative-session'])
+      .optional()
+      .describe('Explicitly identify complete Codex cumulative session captures, including resumed turns'),
+    elapsedMs: z
+      .number()
+      .finite()
+      .min(0)
+      .max(7 * 86400000)
+      .optional()
+      .describe('Caller-measured elapsed time for that run'),
   }),
   setup: z.strictObject(setup),
   'dependencies.install': z.strictObject(dependencies),
@@ -144,6 +164,30 @@ export const schemas = {
     workingCopy: z.boolean().default(false),
   }),
   'project.inspect': z.strictObject({ ...base, detail: z.enum(['full', 'summary']).default('full') }),
+  'project.patch': z.strictObject({
+    ...base,
+    page: z
+      .string()
+      .regex(/^\d{1,5}$/u)
+      .describe('Page number'),
+    operations: z
+      .array(
+        z.strictObject({
+          target: z.string().min(1).max(300),
+          property: z.enum(['title', 'label', 'heading', 'format', 'sequence']),
+          value: z.string().max(4000),
+        }),
+      )
+      .min(1)
+      .max(50)
+      .describe('JSON: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property, value}]'),
+    expectedDigest: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional()
+      .describe('Page file digest you read; required to write'),
+    dryRun: z.boolean().default(false),
+  }),
   'project.scaffold': z.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
   'connection.add': z
     .strictObject({
@@ -301,24 +345,21 @@ export const schemas = {
     pages: z.array(z.string().min(1).max(255)).min(1).max(500).optional(),
   }),
   'preview.stop': z.strictObject({ ...previewSelect, all: z.boolean().default(false) }),
-  'build.webapp': z.strictObject({
-    ...previewSource,
-    out: z.string().min(1).max(4096).describe('Output folder: new, empty, or a previous build'),
-    auth: z
-      .enum(['users', 'plsql', 'database', 'open'])
-      .optional()
-      .describe('Sign-in of the built application; users (accounts file) by default'),
-    authFunction: z
+  'preview.comments': z.strictObject({
+    ...base,
+    status: z.enum(['open', 'resolved', 'all']).default('open'),
+    page: z.string().min(1).max(64).optional().describe('Only comments of this page id'),
+  }),
+  'preview.resolve': z.strictObject({
+    ...base,
+    ids: z.array(z.string().min(1).max(64)).min(1).max(500).describe('Review comment ids (rc-...)'),
+    note: z
       .string()
       .min(1)
-      .max(255)
+      .max(2000)
       .optional()
-      .describe('auth plsql: function(p_username, p_password) return boolean'),
-    includeAssets: z
-      .boolean()
-      .optional()
-      .describe('Copy the locally extracted APEX browser files (Oracle software) into the output'),
-    assetsDir: z.string().min(1).max(4096).optional(),
+      .describe('What was changed, shown next to the resolved comment'),
+    reopen: z.boolean().default(false),
   }),
   'preview.status': z.strictObject(previewSelect),
   // Composite MCP operations. Each routes to the operations above so the CLI
@@ -331,11 +372,21 @@ export const schemas = {
       'adopt',
       'inspect',
       'scaffold',
+      'patch',
       'connection_add',
       'connection_list',
       'connection_test',
     ]),
     specFile: relativePath.optional().describe('scaffold: JSON spec; see work skill scaffold guide'),
+    page: z.string().optional(),
+    operations: z
+      .array(z.record(z.string(), z.string()))
+      .optional()
+      .describe(
+        'patch: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property: title|label|heading|format|sequence, value}]',
+      ),
+    expectedDigest: z.string().optional(),
+    dryRun: z.boolean().optional(),
     directory: z.string().min(1).optional().describe('init: new or empty directory for the project'),
     template: z.enum(['blank-app', 'customer-crm', 'existing-app']).optional(),
     alias: refName.optional(),
@@ -467,7 +518,7 @@ export const schemas = {
   status: z.strictObject({ ...base, detail: z.enum(['doctor', 'project']).default('project') }),
   preview: z.strictObject({
     project,
-    action: z.enum(['setup', 'start', 'check', 'stop', 'status']),
+    action: z.enum(['setup', 'start', 'check', 'stop', 'status', 'comments', 'resolve']),
     sourceDir: z.string().min(1).max(4096).optional(),
     env: env.optional(),
     commit: z.boolean().optional(),
@@ -475,6 +526,8 @@ export const schemas = {
     port: z.number().int().min(0).max(65535).optional(),
     reset: z.boolean().optional(),
     pages: z.array(z.string().min(1).max(255)).min(1).max(500).optional(),
+    ids: z.array(z.string()).optional(),
+    note: z.string().max(2000).optional(),
   }),
 };
 export type Operation = keyof typeof schemas;
@@ -503,7 +556,7 @@ export const toolCatalog: {
     name: 'apexrest_project',
     operation: 'project',
     description:
-      'App init/adopt/inspect/scaffold (26.2 reports/cards/bar charts). Connections add/list/test; private passwordFile/envFile.',
+      'App init/adopt/inspect/scaffold: native 26.1/26.2 pages from JSON. Connections add/list/test; private passwordFile/envFile.',
     readOnly: false,
     destructive: false,
     openWorld: true,
@@ -564,7 +617,7 @@ export const toolCatalog: {
     name: 'apexrest_preview',
     operation: 'preview',
     description:
-      'APEXlang preview (UT 26.2): SQLite, or env (DEV/QA/TEST) for rolled-back Oracle data/PL/SQL. setup; start: URLs; check: gaps. Not evidence.',
+      'APEXlang preview (UT 26.2): SQLite, or env (DEV/QA/TEST) for rolled-back Oracle data/PL/SQL. setup; start: URLs; check: gaps; comments/resolve: review notes. Not evidence.',
     readOnly: false,
     destructive: false,
     openWorld: true,
@@ -583,7 +636,7 @@ export const toolCatalog: {
     name: 'apexrest_job',
     operation: 'job',
     description:
-      'status: read a job (waitSeconds up to 120 waits for completion; phase shows progress). cancel: request cancellation; the database outcome may remain unknown. Reuse the jobId; never rerun work to fetch results.',
+      'Read status and phase by jobId. See the tool schema for waits. Action cancel requests cancellation. The database outcome can remain unknown.',
     readOnly: false,
     destructive: true,
   },

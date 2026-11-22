@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hydrate261Recipes } from './reference-recipes261.ts';
 import { componentNote, contractSkeleton, exampleValues } from './contract-hints.ts';
 import {
   componentExample,
@@ -347,6 +348,7 @@ export async function referenceSelect(
   while (results.length && size(results) > budget) results.pop();
   // The components are fitted first, as without value lists; the lists then add at most
   // VALUES_BYTES, which keeps the MCP envelope inside its 32,768-byte inline limit.
+  await hydrate261Recipes(results, input.request, version, size, signal);
   shareValues(new Set<object>([...results, ...pages]));
   cancelled(signal);
   return { selection, results, ...(pages.length ? { pageExamples: pages } : {}) };

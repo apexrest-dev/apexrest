@@ -45,6 +45,8 @@ import {
   type Row,
 } from './database.ts';
 import type { ConnectedOracle } from './oracle/app-data.ts';
+import { ensureDictionary } from './extensions/platform/dictionary.ts';
+import { transaction } from './extensions/server/transaction.ts';
 import {
   forgetRow,
   LOST_UPDATE_MESSAGE,
@@ -131,10 +133,6 @@ export interface Session {
   success?: string | undefined;
   errors?: ApexError[] | undefined;
   pagination: Record<string, number>;
-  /** Set after a successful sign-in in application mode (webapp/server.ts). */
-  authenticated?: boolean | undefined;
-  /** Time of the last request, for the application-mode idle timeout. */
-  lastSeen?: number | undefined;
   /** `http://host:port` of the preview as the browser addressed it (apex_util.host_url). */
   origin?: string | undefined;
   /** Session time zone set by apex_util.set_session_time_zone. */
@@ -224,6 +222,8 @@ export interface RenderOptions {
   seedDirs?: string[];
   /** Connected mode: application data and PL/SQL run in this Oracle session (oracle/connect.ts). */
   oracle?: ConnectedOracle;
+  /** Review comments file of the project (review.ts); review mode is off without it. */
+  reviewFile?: string;
 }
 
 type Lov = { d: string; r: string }[];
@@ -386,7 +386,11 @@ export class ApexRenderer {
   readonly alias: string;
   readonly appId: string;
   readonly diagnostics: Diagnostic[] = [];
-  readonly options: Required<Omit<RenderOptions, 'oracle'>>;
+  readonly options: Required<Omit<RenderOptions, 'oracle' | 'reviewFile'>>;
+  /** Review comments file of the project; undefined turns review mode off. */
+  readonly reviewFile: string | undefined;
+  /** Set on the last good renderer when a later source change failed to load: pages are stale. */
+  sourceError?: string;
   #autoTables = new Set<string>();
   #diagnosticKeys = new Set<string>();
   /** False after the application's error handling function could not be called once. */
@@ -397,6 +401,7 @@ export class ApexRenderer {
     this.assets = assets;
     this.db = db;
     this.oracle = options.oracle;
+    this.reviewFile = options.reviewFile;
     this.data = options.oracle?.data ?? db;
     this.theme = indexTheme(assets.theme);
     this.alias = slug(app.app.id || 'app').toLowerCase();
@@ -1213,6 +1218,26 @@ export class ApexRenderer {
 
   /** Before-header computations and form initialization. */
   prepare(session: Session, pageKey: string, request = ''): RenderContext {
+    // Connected requests keep their existing Oracle rollback/commit boundary.
+    if (this.oracle) return this.#prepare(session, pageKey, request);
+    // Lazy dictionary DDL must survive a failed request, together with its built-renderer cache.
+    ensureDictionary(this);
+    const before = structuredClone(session);
+    try {
+      return transaction(
+        this.db.db,
+        () => this.#prepare(session, pageKey, request),
+        () => false,
+      );
+    } catch (error) {
+      const state = session as unknown as Record<string, unknown>;
+      for (const key of Object.keys(state)) delete state[key];
+      Object.assign(session, before);
+      throw error;
+    }
+  }
+
+  #prepare(session: Session, pageKey: string, request: string): RenderContext {
     const page = this.findPage(pageKey);
     if (!page) throw new Error(`Page ${pageKey} does not exist`);
     const ctx: RenderContext = {
@@ -2299,7 +2324,12 @@ end;`,
       builtins,
     );
     this.trace(ctx, { type: 'end', name: ctx.denied ? 'Access denied' : 'Page rendered' });
-    return this.substitute(ctx.session, html, page, 'HTML');
+    const rendered = this.substitute(ctx.session, html, page, 'HTML');
+    // A failed source load keeps this last good render; every developer page says so until fixed.
+    if (!this.sourceError || !this.options.toolbar) return rendered;
+    const stale = `<div class="apex-local-stale" role="alert" style="position:fixed;top:0;left:0;right:0;z-index:2001;padding:6px 12px;background:#b00020;color:#fff;font:12px/16px system-ui,sans-serif"><strong>Stale preview:</strong> the latest APEXlang change does not load, so this is the last good version. ${escapeHtml(this.sourceError)}</div>`;
+    const end = rendered.lastIndexOf('</body>');
+    return end < 0 ? rendered + stale : rendered.slice(0, end) + stale + rendered.slice(end);
   }
 
   favicons(): string {
@@ -2358,6 +2388,7 @@ end;`,
         ? `<span class="apex-local-badge is-${level}" title="${plural(count, label)}">${count}</span>`
         : '';
     const summary = `${plural(errors, 'error')} · ${plural(warnings, 'warning')} · ${plural(notes, 'note')}`;
+
     const diagnostics = `<button type="button" class="apex-local-tb-button${errors ? ' has-errors' : ''}" data-apex-local-panel="diagnostics" title="Diagnostics: ${summary}"><span class="fa ${errors ? 'fa-exclamation-circle' : 'fa-info-circle'}" aria-hidden="true"></span><span class="apex-local-tb-label">Diagnostics</span>${badge(errors, 'error', 'error')}${badge(warnings, 'warning', 'warning')}${badge(notes, 'info', 'note')}</button><div class="apex-local-panel" data-panel="diagnostics" hidden><header><strong>Diagnostics · page ${escapeHtml(ctx.pageId)}</strong><span>${summary}</span><a href="${LOCAL_PREFIX}/diagnostics" target="_blank" rel="noopener">JSON</a></header><ul class="apex-local-diagnostics">${items || '<li>No diagnostics</li>'}</ul></div>`;
     return `<div class="apex-local-toolbar" id="apexLocalToolbar" role="region" aria-label="APEX local developer toolbar"><div class="apex-local-tb-bar" role="toolbar"><span class="apex-local-tb-brand" title="APEX local preview · page ${escapeHtml(ctx.pageId)}"><span class="fa fa-apex" aria-hidden="true"></span><span class="apex-local-tb-label">APEX local · page ${escapeHtml(ctx.pageId)}</span></span>${diagnostics}${tools}${picker}<button type="button" class="apex-local-tb-button apex-local-tb-collapse" data-apex-local-collapse title="Hide toolbar"><span class="fa fa-chevron-down" aria-hidden="true"></span></button></div></div>`;
   }

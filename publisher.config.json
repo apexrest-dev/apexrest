@@ -6,7 +6,7 @@
   "githubRepository": "apexrest-dev/apexrest",
   "npmEnabled": true,
   "npmReadiness": {
-    "version": "2.2.0",
+    "version": "2.8.0",
     "qualification": "local"
   }
 }

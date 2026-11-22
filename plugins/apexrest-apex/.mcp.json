@@ -5,7 +5,10 @@
       "args": [
         "runtime/mcp.mjs"
       ],
-      "cwd": "."
+      "cwd": ".",
+      "env": {
+        "APEXREST_HOST": "codex"
+      }
     }
   }
 }

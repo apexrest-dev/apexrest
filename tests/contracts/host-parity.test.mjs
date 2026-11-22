@@ -56,20 +56,33 @@ test('both host manifests launch the same scoped ship contract, references and m
       path.resolve(host === 'codex' ? plugin : root, args[0]),
       path.join(plugin, 'runtime/mcp.mjs'),
     );
-    const client = new Client({ name: `host-parity-${host}`, version: '1' });
+    // The shipped launch binding classifies the host even when the MCP client uses a generic name.
+    const client = new Client({ name: 'host-parity-contract', version: '1' });
     clients.push(client);
     await client.connect(
       new StdioClientTransport({
         ...server,
         args,
         cwd: host === 'codex' ? plugin : root,
-        env,
+        env: { ...env, ...server.env },
         stderr: 'pipe',
       }),
     );
   }
   const catalogs = await Promise.all(clients.map((client) => client.listTools()));
-  assert.deepEqual(catalogs[0], catalogs[1]);
+  const waitTools = new Set(['apexrest_ship', 'apexrest_job']);
+  const normalized = catalogs.map((catalog, index) => {
+    const copy = structuredClone(catalog);
+    for (const tool of copy.tools) {
+      if (!waitTools.has(tool.name)) continue;
+      const wait = tool.inputSchema.properties.waitSeconds;
+      assert.equal(wait.maximum, index === 0 ? 30 : 120);
+      delete wait.maximum;
+      delete wait.description;
+    }
+    return copy;
+  });
+  assert.deepEqual(normalized[0], normalized[1]);
   const ship = catalogs[0].tools.find((tool) => tool.name === 'apexrest_ship');
   assert.equal(ship.inputSchema.properties.importMode.default, 'auto');
   assert.deepEqual(ship.inputSchema.properties.importMode.enum, ['auto', 'full', 'files', 'none']);

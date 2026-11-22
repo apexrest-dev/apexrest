@@ -93,6 +93,40 @@ function versionMatches(actual: string, requested?: string) {
   // A release selector includes its pinned snapshot. An explicit snapshot remains exact.
   return actual === requested || (!requested.includes('@') && actual.split('@')[0] === requested);
 }
+type PropertyFacet = { terms: string[]; context: string[] };
+/** Read only RHS symbol edges; comments and quoted terminals do not establish ownership. */
+function grammarSymbols(text: string) {
+  const declaration = text.match(/^<[^>\n]+>\s*::=/);
+  if (!declaration) return [];
+  const symbols = new Set<string>();
+  let comment = 0;
+  let quote = '';
+  for (let i = declaration[0].length; i < text.length; i++) {
+    const char = text[i];
+    const pair = text.slice(i, i + 2);
+    if (comment) {
+      if (pair === '(*') (comment++, i++);
+      else if (pair === '*)') (comment--, i++);
+    } else if (quote) {
+      if (char === '\\') i++;
+      else if (char === quote) {
+        if (text[i + 1] === quote) i++;
+        else quote = '';
+      }
+    } else if (pair === '(*') {
+      comment++;
+      i++;
+    } else if (char === '"' || char === "'") quote = char;
+    else if (char === '<') {
+      const symbol = text.slice(i).match(/^<([A-Za-z][\w-]*)>/);
+      if (symbol) {
+        symbols.add(symbol[1]!);
+        i += symbol[0].length - 1;
+      }
+    }
+  }
+  return quote || comment ? [] : [...symbols];
+}
 function indexReferences(
   upstream: Reference[],
   file?: string,
@@ -128,6 +162,69 @@ function indexReferences(
       code: undefined as CodeBlock | null | undefined,
     };
   });
+  // The grammar names a property group separately from its defining properties.
+  // Derive that relationship from real productions, rather than a component-specific
+  // query table, so prose can find a property's definition despite extra context words.
+  const propertyFacets = new Map<number, PropertyFacet>();
+  const propertyOwners = new Map<string, string[]>();
+  const ownerReachability = new Map<string, Set<string> | null>();
+  const ownsGroup = (owner: string, group: string) => {
+    if (!ownerReachability.has(owner)) {
+      const seen = new Set([owner]);
+      const queue = [owner];
+      let bounded = true;
+      for (let cursor = 0; cursor < queue.length && bounded; cursor++) {
+        const id = bySymbol.get(queue[cursor]!);
+        const production = id ? byId.get(id) : undefined;
+        if (production?.kind !== 'grammar') continue;
+        for (const child of grammarSymbols(production.text)) {
+          if (!child.startsWith(owner + '-') || seen.has(child)) continue;
+          // A bounded traversal may decline a boost, never invent an owning edge.
+          if (seen.size >= 2048) {
+            bounded = false;
+            break;
+          }
+          seen.add(child);
+          queue.push(child);
+        }
+      }
+      ownerReachability.set(owner, bounded ? seen : null);
+    }
+    return ownerReachability.get(owner)?.has(group) ?? false;
+  };
+  for (const [position, { reference }] of searchable.entries()) {
+    if (reference.kind !== 'grammar') continue;
+    const symbol = reference.text.match(/^<([^>\n]+)-property>\s*::=/)?.[1];
+    if (!symbol) continue;
+    const groupId = bySymbol.get(symbol);
+    if (!groupId) continue;
+    const group = byId.get(groupId);
+    const label = group?.text.match(/^<[^>\n]+>\s*::=\s*<indent>\s*"([A-Za-z][\w]*)"/)?.[1];
+    if (!group || !label || !group.text.includes('"{"')) continue;
+    const propertyLineId = bySymbol.get(symbol + '-property-line');
+    const propertyLine = propertyLineId ? byId.get(propertyLineId) : undefined;
+    const groupSymbols = grammarSymbols(group.text);
+    if (
+      !groupSymbols.includes(symbol + '-property') &&
+      !(
+        groupSymbols.includes(symbol + '-property-line') &&
+        propertyLine &&
+        grammarSymbols(propertyLine.text).includes(symbol + '-property')
+      )
+    )
+      continue;
+    const suffix = '-' + referenceWords(label).join('-');
+    if (!symbol.endsWith(suffix)) continue;
+    const ownerSymbol = symbol.slice(0, -suffix.length);
+    const ownerId = bySymbol.get(ownerSymbol);
+    if (!ownerId || !ownsGroup(ownerSymbol, symbol)) continue;
+    const terms = referenceStems(label);
+    // One-letter grammar disambiguators (column-g, parameter-c) are not user context.
+    const context = referenceStems(ownerSymbol).filter((term) => term.length > 1 && !terms.includes(term));
+    if (!terms.length || !context.length) continue;
+    propertyFacets.set(position, { terms, context });
+    propertyOwners.set(reference.id, [groupId, ownerId]);
+  }
   let pendingPostings: Promise<Record<string, number[]>> | undefined;
   const postings = () =>
     (pendingPostings ??= (async () => {
@@ -203,6 +300,8 @@ function indexReferences(
     bySymbol,
     positionById,
     searchable,
+    propertyFacets,
+    propertyOwners,
     postings,
     positionsForStem,
     link,
@@ -412,6 +511,27 @@ export async function referenceSearch(query: string, version?: string, options: 
         : undefined);
     const quotedQuery = '"' + query.trim() + '"';
     const quotable = identifier || options.kind === 'grammar';
+    const normalizedQuery = queryPhrase(terms);
+    const propertyMatches = new Map<number, number>();
+    const propertyIntent =
+      options.kind === 'grammar' ||
+      terms.some((term) => ['property', 'attribute', 'grammar', 'syntax'].includes(term.stem));
+    // Preserve identifier lookups and ordinary component-generation queries. A
+    // one-word group such as page/card/region needs explicit property intent;
+    // its name is otherwise easily confused with the requested component itself.
+    for (const [position, facet] of exactId || identifier ? [] : index.propertyFacets) {
+      if (facet.terms.length < 2 && !propertyIntent) continue;
+      const labelMatches =
+        normalizedQuery.includes(' ' + facet.terms.join(' ') + ' ') ||
+        terms.some((term) => term.stem === facet.terms.join(''));
+      if (!labelMatches) continue;
+      const contextMatches = facet.context.filter((context) =>
+        terms.some((term) =>
+          term.alternatives.some((alternative) => alternative.length === 1 && alternative[0] === context),
+        ),
+      ).length;
+      if (contextMatches) propertyMatches.set(position, 1200 + contextMatches * 100);
+    }
     const scoreAt = (position: number, final: boolean) => {
       const entry = index.searchable[position]!;
       const { reference } = entry;
@@ -423,7 +543,7 @@ export async function referenceSearch(query: string, version?: string, options: 
         entry.routing = routingReference(reference.id, entry.title);
         entry.canonical = canonicalReference(reference.id);
       }
-      return scoreReference({
+      const score = scoreReference({
         terms,
         phrase,
         navigational,
@@ -451,12 +571,14 @@ export async function referenceSearch(query: string, version?: string, options: 
         quoted: quotable && reference.text.includes(quotedQuery),
         bodyText: final ? () => (entry.bodyText ??= stemmedReference(reference.text)) : undefined,
       });
+      const propertyScore = propertyMatches.get(position);
+      return propertyScore === undefined ? score : (score ?? 0) + propertyScore;
     };
     const first: { position: number; score: number }[] = [];
     const half = terms.length / 2;
     for (let position = 0; position < total; position++) {
       const r = index.searchable[position]!.reference;
-      if (counts[position]! < half && r !== exactId) continue;
+      if (counts[position]! < half && r !== exactId && !propertyMatches.has(position)) continue;
       if (
         !versionMatches(r.version, filterVersion) ||
         (options.kind && r.kind !== options.kind) ||
@@ -499,7 +621,7 @@ export async function referenceSearch(query: string, version?: string, options: 
       const { reference: r, title } = entry;
       const text = await referenceText(r);
       const requires = r.requires ?? [];
-      const related = r.related ?? [];
+      const related = [...new Set([...(index.propertyOwners.get(r.id) ?? []), ...(r.related ?? [])])];
       const code = codeWanted(options.include, offset, i)
         ? (entry.code ??= r.kind === 'grammar' ? null : primaryCodeBlock(text, CODE_LIMIT))
         : undefined;
@@ -588,7 +710,7 @@ export async function referenceRead(
   const symbols = [...content.matchAll(/<([^>\n]+)>/g)].map((match) => index.bySymbol.get(match[1]!));
   const related = [
     ...new Set(
-      [...(item.related ?? []), ...symbols].filter(
+      [...(index.propertyOwners.get(item.id) ?? []), ...(item.related ?? []), ...symbols].filter(
         (target): target is string => Boolean(target) && target !== item.id,
       ),
     ),

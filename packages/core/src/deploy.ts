@@ -4,7 +4,17 @@ import path from 'node:path';
 import { readFile, mkdir, cp, open, readdir, rename, rm, rmdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { canonical, contained, exists, hash, inventory, readJson, writeJson, withLock } from './fs.ts';
+import {
+  atomicWrite,
+  canonical,
+  contained,
+  exists,
+  hash,
+  inventory,
+  readJson,
+  writeJson,
+  withLock,
+} from './fs.ts';
 import {
   environment,
   isProductionTarget,
@@ -17,6 +27,7 @@ import {
 import type { ProjectContext, Environment } from './config.ts';
 import { resolveConnection } from './connections.ts';
 import type { Connection } from './connections.ts';
+import { recordRevision, revisionOf } from './revision.ts';
 import { Fault } from './result.ts';
 import { OracleAdapter, SCRIPT_RESTRICT_LEVEL, sqlclToken } from './oracle.ts';
 import { LocalDeploymentControl, coordination } from './deployment-control.ts';
@@ -31,6 +42,7 @@ import {
 } from './sync.ts';
 import type { SyncState } from './sync.ts';
 import { deploymentBinding } from './composer/materializer.ts';
+import { verifyDeploymentPredicates } from './composer/service.ts';
 import { VERSION } from './version.ts';
 import { inspectSql, executableSql, type DatabaseOperation } from './sql-review.ts';
 import { APEXLANG_EQUIVALENCE_POLICY, compareApplicationExports } from './apexlang-equivalence.ts';
@@ -335,6 +347,86 @@ export function migrationRisk(sql: string): string[] {
   if (sqlclControlLines(executableSql(sql)).length) risks.push('sqlcl-script-control');
   return risks;
 }
+const legacyRestoreRisk = 'legacy-sql-restore';
+const legacyRestoreOperation = (backupId: string, file: string) => ({
+  file: `.apexrest/backups/${backupId}/application/${file}`,
+  action: legacyRestoreRisk,
+  object: null,
+  dangerous: true,
+  consequence:
+    'Executes PL/SQL from the backup in Oracle. Review application, schema and data effects in the complete script.',
+  dependencies: [],
+  dependenciesStatus: 'unavailable' as const,
+});
+
+/** Legacy Oracle exports are one file of slash-terminated blocks with a known client-side wrapper. */
+async function readLegacyRestore(directory: string, checksum: string) {
+  const files = await inventory(directory);
+  if (hash(canonical(files)) !== checksum)
+    throw new Fault('BACKUP_INVALID', 'Legacy restore source changed after review.', 5);
+  const entries = Object.keys(files);
+  const file = entries[0];
+  if (entries.length !== 1 || !file || !/^f\d+\.sql$/i.test(file))
+    throw new Fault('RESTORE_LAYOUT_UNSUPPORTED', 'Legacy restore requires one non-split export file.', 3);
+  const bytes = await readFile(await contained(directory, file));
+  if (hash(bytes) !== files[file]) throw new Fault('BACKUP_INVALID', 'Legacy restore file changed.', 5);
+  const sql = bytes.toString('utf8');
+  if (!Buffer.from(sql).equals(bytes) || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(sql))
+    throw new Fault(
+      'BACKUP_INVALID',
+      'Legacy restore requires UTF-8 text without client control characters.',
+      5,
+    );
+
+  const lines = sql.split(/\r\n|\r|\n/u);
+  let start: number | undefined;
+  let blocks = 0;
+  let footer = false;
+  const unsupported = (line: number) =>
+    new Fault(
+      'UNSUPPORTED_SQL_CLIENT_COMMAND',
+      `Legacy restore contains an unsupported command or export layout at line ${line + 1}.`,
+      4,
+      'blocked',
+    );
+  for (const [index, line] of lines.entries()) {
+    const text = line
+      .trim()
+      .replace(/[\t ]+/gu, ' ')
+      .toLowerCase();
+    if (start === undefined) {
+      if (!text || /^(?:--|(?:rem(?:ark)?|prompt)(?: |$))/u.test(text)) continue;
+      if (
+        !blocks &&
+        !footer &&
+        ['set define off verify off feedback off', 'whenever sqlerror exit sql.sqlcode rollback'].includes(
+          text,
+        )
+      )
+        continue;
+      if (blocks && !footer && text === 'set verify on feedback on define on') {
+        footer = true;
+        continue;
+      }
+      if (footer || !/^(?:begin|declare)(?:\s|$)/u.test(text)) throw unsupported(index);
+      start = index;
+    }
+    // These characters can direct the SQL client before Oracle parses the block.
+    if (/^\s*[!$@#]|^\s*\.\s*$/u.test(line)) throw unsupported(index);
+    if (/^\s*\/(?!\*)/u.test(line) && text !== '/') throw unsupported(index);
+    if (text !== '/') continue;
+    const block = lines.slice(start, index).join('\n');
+    const commands = sqlclControlLines(block);
+    if (commands.length) throw unsupported(start + commands[0]! - 1);
+    const executable = executableSql(block).trim();
+    if (!/\bend\s*;$/iu.test(executable) || /^\s*(?:set|whenever|prompt)\b/imu.test(executable))
+      throw unsupported(index);
+    blocks++;
+    start = undefined;
+  }
+  if (!blocks || start !== undefined) throw unsupported(start ?? 0);
+  return { file, bytes };
+}
 const securityHeader =
   /^(?:(?:authentication|authorization)(?:[-_ ]?scheme)?\s*[:=]|(?:authentication|authorization)\s*(?:\{|[\w.-]+\s*\())/i;
 /**
@@ -411,7 +503,8 @@ export async function authorizePlan(ctx: ProjectContext, plan: DeployPlan, env: 
   if (
     !local &&
     plan.risks.some((r) => r !== 'application-restore') &&
-    !plan.risks.filter((r) => r !== 'application-restore').every((r) => grant.confirmedRisks?.includes(r))
+    (!plan.risks.filter((r) => r !== 'application-restore').every((r) => grant.confirmedRisks?.includes(r)) ||
+      (plan.risks.includes(legacyRestoreRisk) && !grant.confirmationRequest?.trim()))
   )
     throw new Fault(
       'DATABASE_CONFIRMATION_REQUIRED',
@@ -840,7 +933,7 @@ export class DeploymentService {
       const readConnection = await resolveConnection(env.readConnectionRef),
         deployConnection = await resolveConnection(env.deployConnectionRef),
         runId = randomUUID();
-      await this.lease(env, runId, true);
+      await new LocalDeploymentControl(env).acquire(runId, false);
       try {
         if (signal?.aborted) throw new Fault('CANCELLED', 'Sync cancelled before export.', 6, 'cancelled');
         const target = await this.oracle.verifyTarget(env, readConnection);
@@ -988,7 +1081,9 @@ export class DeploymentService {
   }
   /** Planning only reads the target: its reads share one connected SQLcl server. */
   async plan(ctx: ProjectContext, name: string, options: ImportOptions | boolean = {}): Promise<DeployPlan> {
-    return withConnectedReads(() => this.planObserved(ctx, name, options));
+    const plan = await withConnectedReads(() => this.planObserved(ctx, name, options));
+    await new LocalDeploymentControl(environment(ctx, name)).registerExisting();
+    return plan;
   }
   private async planObserved(
     ctx: ProjectContext,
@@ -997,7 +1092,8 @@ export class DeploymentService {
   ): Promise<DeployPlan> {
     // Production is refused from configuration before any connection or SQLcl call. An unknown
     // environment is reported where it was before, after the source-level checks.
-    const configured = name ? ctx.config.environments[name] : undefined;
+    const configured =
+      name && Object.hasOwn(ctx.config.environments, name) ? ctx.config.environments[name] : undefined;
     if (configured) await refuseProductionDeployment(configured, name);
     if (typeof options === 'boolean') return this.legacyPlan(ctx, name, options);
     const requested = importOptions(options);
@@ -1316,6 +1412,7 @@ export class DeploymentService {
     restore = false,
     fresh = false,
     observed?: Parameters<DeploymentService['fingerprint']>[3],
+    backupAlias?: string,
   ): Promise<DeployPlan> {
     const env = environment(ctx, name);
     await refuseProductionDeployment(env, name);
@@ -1323,6 +1420,7 @@ export class DeploymentService {
     const syncStore = new SyncStore(ctx, env, name),
       stored = await syncStore.read();
     const working = !restore && stored?.status !== 'invalidated' ? stored : null;
+    const alias = restore ? backupAlias : ctx.config.application.alias;
     if (working) await syncStore.validate(working);
     if (restore && stored && ['importing', 'outcome_unknown'].includes(stored.status))
       throw new Fault('SYNC_BLOCKED', 'Reconcile interrupted writes before restore planning.', 5);
@@ -1334,9 +1432,16 @@ export class DeploymentService {
         : this.fingerprint(env, connection, undefined, observed),
       (async () => {
         const sources = await sourceInventory(ctx);
+        const startedAt = new Date().toISOString();
         const validation = await this.oracle.validate(
           await contained(ctx.root, ctx.config.application.sourceDir),
         );
+        // The compiler staged exactly these application bytes (it refuses drift while staging).
+        await recordRevision(ctx.root, 'validated', {
+          revision: revisionOf(sources),
+          startedAt,
+          finishedAt: new Date().toISOString(),
+        }).catch(() => false);
         const lock = await contained(ctx.root, ctx.config.toolchain.lockFile);
         if (!(await exists(lock)))
           throw new Fault('TOOLCHAIN_LOCK_REQUIRED', 'The project needs its pinned toolchain lock.', 3);
@@ -1346,8 +1451,8 @@ export class DeploymentService {
       // under a changed alias, which then fails post-import verification. Refuse it here.
       // Only without a sync baseline (a new or first-imported application); the post-import identity
       // check stays the guard, so a failed lookup never blocks planning.
-      !working && typeof this.oracle.aliasHolders === 'function'
-        ? this.oracle.aliasHolders(env, connection, ctx.config.application.alias).catch(() => [] as number[])
+      !working && alias && typeof this.oracle.aliasHolders === 'function'
+        ? this.oracle.aliasHolders(env, connection, alias).catch(() => [] as number[])
         : Promise.resolve([] as number[]),
     ]);
     if (targetCheck.status === 'rejected') throw targetCheck.reason;
@@ -1356,12 +1461,12 @@ export class DeploymentService {
     if (aliasCheck.value.length)
       throw new Fault(
         'APPLICATION_ALIAS_IN_USE',
-        `Alias ${ctx.config.application.alias} is already used by application ${aliasCheck.value.join(', ')} in workspace ${env.workspace}. ` +
+        `Alias ${alias} is already used by application ${aliasCheck.value.join(', ')} in workspace ${env.workspace}. ` +
           `APEX would import application ${env.applicationId} under a changed alias and the deployment would fail verification. ` +
           'Choose an unused alias, set it in apexrest.json (application.alias) and in application.apx (alias), then plan again.',
         5,
         'conflict',
-        { alias: ctx.config.application.alias, usedBy: aliasCheck.value },
+        { alias, usedBy: aliasCheck.value },
       );
     const current = targetCheck.value,
       { sources, validation, lock } = sourceCheck.value,
@@ -1605,6 +1710,30 @@ export class DeploymentService {
           throw new Fault('PLAN_TAMPERED', 'Plan omits a SQL risk.', 5);
       }
       expected.sort(operationOrder);
+    } else if (plan.restore.format !== 'APEXLANG') {
+      if (!plan.risks.includes(legacyRestoreRisk))
+        throw new Fault('PLAN_TAMPERED', 'Legacy restore plan omits executable SQL. Create a new plan.', 5);
+      const backup = await contained(ctx.root, '.apexrest/backups/' + plan.restore.backupId);
+      const metadata = (await readJson(await contained(backup, 'backup.json'))) as {
+        environment?: string;
+        targetDigest?: string;
+        digest?: string;
+        format?: string;
+      };
+      if (metadata.environment !== plan.environment || metadata.targetDigest !== plan.targetDigest)
+        throw new Fault('BACKUP_TARGET_MISMATCH', 'Backup belongs to another target.', 5);
+      if (metadata.format === 'APEXLANG' || metadata.digest !== plan.restore.checksum)
+        throw new Fault('BACKUP_INVALID', 'Legacy backup metadata changed after review.', 5);
+      const { file } = await readLegacyRestore(await contained(backup, 'application'), plan.restore.checksum);
+      if (
+        canonical(plan.databaseReview?.operations ?? []) !==
+        canonical([legacyRestoreOperation(plan.restore.backupId, file)])
+      )
+        throw new Fault(
+          'PLAN_TAMPERED',
+          'Legacy restore plan omits or changes the SQL review. Create a new plan.',
+          5,
+        );
     }
     if (!databaseOnly) expected.push({ kind: 'import' }, { kind: 'verify' });
     if (databaseOnly && !expected.length)
@@ -1904,6 +2033,35 @@ export class DeploymentService {
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
     let timingCursor = applyTimingStart;
+    // Revision states (revision.ts) follow the journal: the first write marks the plan's source
+    // revision as importing, success as deployed, failure as failed. An unknown outcome leaves both
+    // the import and the last confirmed deployment as they are. Recording never alters the run.
+    const revisionStartedAt = new Date().toISOString();
+    const recordRunRevision = async (nextState: DeployState, details: unknown) => {
+      const revision = (plan as { sourceDigest?: string }).sourceDigest;
+      const kind =
+        nextState === 'migrating'
+          ? 'importing'
+          : nextState === 'succeeded'
+            ? 'deployed'
+            : nextState === 'failed'
+              ? 'failed'
+              : undefined;
+      if (!revision || !kind) return;
+      try {
+        const code = (details as { code?: unknown })?.code;
+        await recordRevision(ctx.root, kind, {
+          revision,
+          startedAt: revisionStartedAt,
+          finishedAt: new Date().toISOString(),
+          environment: plan.environment,
+          runId,
+          ...(kind === 'failed' && typeof code === 'string' ? { detail: { code } } : {}),
+        });
+      } catch {
+        /* The journal is the deployment record; the revision report is derived from it. */
+      }
+    };
     const record = async (nextState: DeployState, details: unknown = {}) => {
       assertTransition(state, nextState);
       const timingPhase = state;
@@ -1925,6 +2083,7 @@ export class DeploymentService {
       };
       timingCursor = sqlclTimings().length;
       await appendJournal(runDir, event);
+      await recordRunRevision(nextState, details);
     };
     await writeJson(path.join(runDir, 'plan.json'), plan);
     await record('approved');
@@ -2133,25 +2292,19 @@ export class DeploymentService {
       }
       await record('importing');
       await this.lease(env, runId, false);
+      // Restoring an absent application still uses the alias captured with its backup.
+      const previousAlias = (plan.target.application as { alias?: unknown } | null)?.alias;
+      const expectedAlias = plan.restore
+        ? (plan.restore.alias ??
+          (typeof previousAlias === 'string' ? previousAlias : ctx.config.application.alias))
+        : ctx.config.application.alias;
       if (plan.restore && plan.restore.format !== 'APEXLANG') {
         const backupRoot = await contained(
           ctx.root,
           '.apexrest/backups/' + plan.restore.backupId + '/application',
         );
-        if (hash(canonical(await inventory(backupRoot))) !== plan.restore.checksum)
-          throw new Fault('BACKUP_INVALID', 'Restore source changed after approval.', 5);
-        const frozen = path.join(runDir, 'restore');
-        await privateCopy(backupRoot, frozen);
-        const files = await inventory(frozen);
-        if (hash(canonical(files)) !== plan.restore.checksum)
-          throw new Fault('BACKUP_INVALID', 'Restore copy changed.', 5);
-        const main = Object.keys(files).filter((f) => /^f\d+\.sql$/i.test(f));
-        if (main.length !== 1)
-          throw new Fault(
-            'RESTORE_LAYOUT_UNSUPPORTED',
-            'Restore requires one complete non-split Oracle SQL export.',
-            3,
-          );
+        const { file, bytes } = await readLegacyRestore(backupRoot, plan.restore.checksum);
+        await atomicWrite(path.join(runDir, 'restore', file), bytes);
         const restoredSync = await syncStore.read();
         if (restoredSync && restoredSync.status !== 'invalidated')
           await syncStore.lock(() =>
@@ -2161,12 +2314,7 @@ export class DeploymentService {
         if (controller.signal.aborted)
           throw new Fault('CANCELLED', 'Deployment cancelled before import.', 6, 'cancelled');
         writeStarted = true;
-        await this.oracle.restoreApplication(
-          env,
-          deployConnection,
-          path.join(frozen, main[0]!),
-          controller.signal,
-        );
+        await this.oracle.restoreApplication(env, deployConnection, bytes, controller.signal);
       } else {
         if (
           plan.restore &&
@@ -2210,12 +2358,34 @@ export class DeploymentService {
         await checkBeforeImport();
         if (selection && canonical(await inventory(importSource)) !== canonical(selection.effective!.files))
           throw new Fault('SOURCE_DRIFT', 'Frozen selected source changed before import.', 5);
+        const composer = (plan.schemaVersion === 3 || plan.schemaVersion === 4) && plan.composer;
+        if (!plan.restore && composer) {
+          try {
+            await verifyDeploymentPredicates(
+              ctx,
+              composer,
+              env,
+              readConnection,
+              this.oracle,
+              controller.signal,
+            );
+          } catch (error) {
+            // All database scripts finished and were journaled before this read. No APEX import began.
+            importRejected = true;
+            throw error;
+          }
+        }
         if (controller.signal.aborted)
           throw new Fault('CANCELLED', 'Deployment cancelled before import.', 6, 'cancelled');
         writeStarted = true;
         try {
           await this.oracle.importApplication(
-            ctx,
+            plan.restore && !selection
+              ? {
+                  ...ctx,
+                  config: { ...ctx.config, application: { ...ctx.config.application, alias: expectedAlias } },
+                }
+              : ctx,
             env,
             deployConnection,
             importSource,
@@ -2260,12 +2430,6 @@ export class DeploymentService {
           target = observed.target;
           postImportMetadata = observed.metadata;
         } else target = await this.oracle.verifyTarget(env, readConnection);
-        // A restored app may have been absent at plan time; use the alias recorded with the backup.
-        const expectedAlias = plan.restore
-          ? (plan.restore.alias ??
-            (plan.target.application as { alias?: unknown } | null | undefined)?.alias ??
-            ctx.config.application.alias)
-          : ctx.config.application.alias;
         if (
           !target.application ||
           String(target.application.alias).toLowerCase() !== String(expectedAlias).toLowerCase()
@@ -2380,7 +2544,7 @@ export class DeploymentService {
         writeStarted &&
         !importRejected &&
         (!importConfirmed || !(error instanceof Fault) || error.exitCode === 6);
-      // A rejected import changed nothing: the working copy is as it was before this run.
+      // A refused or rejected APEX import leaves the application working copy unchanged.
       const applicationWritten = writeStarted && !importRejected;
       if (working && syncMarked) {
         try {
@@ -2484,7 +2648,7 @@ export class DeploymentService {
       });
     });
   }
-  private async recoveryRead(ctx: ProjectContext, runId: string) {
+  private async recoveryRead(ctx: ProjectContext, runId: string, requestedEnvironment?: string) {
     parse(z.uuid(), runId);
     const directory = await contained(ctx.root, '.apexrest/deployments/' + runId);
     if (!(await exists(path.join(directory, 'plan.json'))))
@@ -2494,6 +2658,12 @@ export class DeploymentService {
         2,
       );
     const plan = parse(deployPlanSchema, await readJson(path.join(directory, 'plan.json')));
+    if (requestedEnvironment !== undefined && requestedEnvironment !== plan.environment)
+      throw new Fault(
+        'PLAN_ENVIRONMENT_MISMATCH',
+        'The interrupted deployment belongs to a different environment. Use the environment recorded with the run.',
+        5,
+      );
     const env = environment(ctx, plan.environment);
     if (
       plan.digest !== planDigest(plan) ||
@@ -2611,8 +2781,8 @@ export class DeploymentService {
     }
   }
   /** Observe first. Recover APEX metadata only; never replay database scripts. */
-  async recover(ctx: ProjectContext, runId: string) {
-    const observed = await this.recoveryRead(ctx, runId);
+  async recover(ctx: ProjectContext, runId: string, requestedEnvironment?: string) {
+    const observed = await this.recoveryRead(ctx, runId, requestedEnvironment);
     const { result, plan, env, current, selection, directory } = observed;
     try {
       if (await isProductionTarget(env, plan.targetDigest))
@@ -2759,7 +2929,7 @@ export class DeploymentService {
   async restorePlan(ctx: ProjectContext, backupId: string) {
     parse(z.uuid(), backupId);
     const directory = await contained(ctx.root, '.apexrest/backups/' + backupId);
-    const backup = (await readJson(path.join(directory, 'backup.json'))) as {
+    const backup = (await readJson(await contained(directory, 'backup.json'))) as {
       digest: string;
       environment: string;
       targetDigest: string;
@@ -2769,11 +2939,17 @@ export class DeploymentService {
       selectedFiles?: string[];
       absentFiles?: string[];
     };
-    await refuseProductionDeployment(environment(ctx, backup.environment), backup.environment);
-    const files = await inventory(path.join(directory, 'application'));
-    if (hash(canonical(files)) !== backup.digest)
+    const env = environment(ctx, backup.environment);
+    await refuseProductionDeployment(env, backup.environment);
+    if (targetDigest(env) !== backup.targetDigest)
+      throw new Fault('BACKUP_TARGET_MISMATCH', 'Backup belongs to another target.', 5);
+    const application = await contained(directory, 'application');
+    const legacy = backup.format === 'APEXLANG' ? null : await readLegacyRestore(application, backup.digest);
+    const files = legacy ? {} : await inventory(application);
+    if (!legacy && hash(canonical(files)) !== backup.digest)
       throw new Fault('BACKUP_INVALID', 'Backup digest does not match.', 5);
     let plan: DeployPlan;
+    const backupAlias = refName.safeParse(backup.alias).data;
     if (backup.format === 'APEXLANG' && backup.scope === 'selected') {
       if (!backup.selectedFiles?.length || backup.absentFiles?.length || !Object.keys(files).length)
         throw new Fault(
@@ -2783,9 +2959,6 @@ export class DeploymentService {
         );
       if (canonical(Object.keys(files).sort()) !== canonical([...backup.selectedFiles].sort()))
         throw new Fault('BACKUP_INVALID', 'Selected backup files differ from its recorded scope.', 5);
-      const env = environment(ctx, backup.environment);
-      if (targetDigest(env) !== backup.targetDigest)
-        throw new Fault('BACKUP_TARGET_MISMATCH', 'Backup belongs to another target.', 5);
       const context = await syncPath(ctx, '.apexrest/restore-context/' + randomUUID());
       await overlaySelection(
         await syncPath(ctx, ctx.config.application.sourceDir),
@@ -2808,15 +2981,14 @@ export class DeploymentService {
       }
     } else {
       if (backup.format === 'APEXLANG') await this.oracle.validate(path.join(directory, 'application'));
-      plan = await this.plan(ctx, backup.environment, true);
+      plan = await withConnectedReads(() =>
+        this.legacyPlan(ctx, backup.environment, true, false, undefined, backupAlias),
+      );
     }
     if (plan.targetDigest !== backup.targetDigest)
       throw new Fault('BACKUP_TARGET_MISMATCH', 'Backup belongs to another target.', 5);
     // Record the backed-up alias: the application may be absent when restoring.
-    const alias =
-      typeof backup.alias === 'string'
-        ? backup.alias
-        : (plan.target.application as { alias?: unknown } | null)?.alias;
+    const alias = backupAlias ?? (plan.target.application as { alias?: unknown } | null)?.alias;
     plan.restore = {
       backupId,
       checksum: backup.digest,
@@ -2825,6 +2997,15 @@ export class DeploymentService {
     };
     plan.risks = ['application-restore'];
     plan.operations = [{ kind: 'import' }, { kind: 'verify' }];
+    if (legacy) {
+      plan.risks.push(legacyRestoreRisk);
+      const locality = await this.localTarget(ctx, plan);
+      plan.databaseReview = {
+        local: locality.local,
+        localityEvidence: locality.evidence,
+        operations: [legacyRestoreOperation(backupId, legacy.file)],
+      };
+    }
     plan.digest = planDigest(plan);
     return plan;
   }

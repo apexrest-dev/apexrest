@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { chmod, mkdir, symlink, readFile, readdir, utimes, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, symlink, readFile, readdir, rm, utimes, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { fixture } from '../fixtures/project.ts';
 import { parse, projectSchema, environment, loadProject } from '../../packages/core/src/config.ts';
 import {
@@ -23,7 +24,7 @@ import {
   installSources,
   compilerSucceeded,
 } from '../../packages/core/src/oracle.ts';
-import { configureConnection, ordsUrl } from '../../packages/core/src/connections.ts';
+import { configureConnection, ordsUrl, resolveConnection } from '../../packages/core/src/connections.ts';
 import {
   DeploymentService,
   planDigest,
@@ -49,6 +50,7 @@ test('environment must be explicit and exact', async () => {
   const { ctx } = await fixture();
   assert.throws(() => environment(ctx), rejectCode('ENVIRONMENT_REQUIRED'));
   assert.throws(() => environment(ctx, 'prd'), rejectCode('UNKNOWN_ENVIRONMENT'));
+  assert.throws(() => environment(ctx, 'constructor'), rejectCode('UNKNOWN_ENVIRONMENT'));
   assert.equal(environment(ctx, 'dev').applicationId, 123);
 });
 test('hashing is independent of object key order but binds content', () => {
@@ -381,8 +383,11 @@ test('ORDS URLs allow plaintext HTTP only for loopback hosts', () => {
   for (const url of ['http://ords.example.com/ords/app/', 'http://10.0.0.5/ords/app/'])
     assert.equal(ordsUrl.safeParse(url).success, false, url);
 });
-test('password files must be private regular files and not symlinks', async () => {
+test('password files must be private contained regular files', async (t) => {
   const { ctx } = await fixture();
+  const outside = await mkdtemp(path.join(tmpdir(), 'apexrest-outside-'));
+  t.after(() => rm(ctx.root, { recursive: true, force: true }));
+  t.after(() => rm(outside, { recursive: true, force: true }));
   const old = process.env.APEXREST_HOME;
   process.env.APEXREST_HOME = path.join(ctx.root, 'home');
   try {
@@ -404,6 +409,21 @@ test('password files must be private regular files and not symlinks', async () =
       configureConnection('deploy', { ...input, passwordFile: ctx.root }),
       rejectCode('PASSWORD_FILE_UNSAFE'),
     );
+    const directoryLink = path.join(ctx.root, 'directory-link');
+    await writeFile(path.join(outside, 'password'), 'test-only\n', { mode: 0o600 });
+    await symlink(path.resolve(outside), directoryLink, process.platform === 'win32' ? 'junction' : 'dir');
+    await assert.rejects(
+      configureConnection('deploy', { ...input, passwordFile: path.join(directoryLink, 'password') }),
+      rejectCode('PASSWORD_FILE_UNSAFE'),
+    );
+    await assert.rejects(
+      configureConnection('deploy', {
+        ...input,
+        project: outside,
+        passwordFile: path.join(outside, 'password'),
+      }),
+      rejectCode('PASSWORD_FILE_UNSAFE'),
+    );
     if (process.platform !== 'win32') {
       await writeFile(shared, 'secret\n', { mode: 0o644 });
       await chmod(shared, 0o644);
@@ -420,6 +440,9 @@ test('password files must be private regular files and not symlinks', async () =
       (await configureConnection('deploy', { ...input, passwordFile: owned })).status,
       'configured',
     );
+    await assert.rejects(resolveConnection('constructor'), rejectCode('CONNECTION_REQUIRED'));
+    await configureConnection('constructor', { sqlclName: 'explicitly-configured' });
+    assert.equal((await resolveConnection('constructor')).name, 'explicitly-configured');
   } finally {
     if (old === undefined) delete process.env.APEXREST_HOME;
     else process.env.APEXREST_HOME = old;

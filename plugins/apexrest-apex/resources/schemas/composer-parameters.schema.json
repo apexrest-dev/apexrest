@@ -51,11 +51,7 @@
     }
   },
   "required": [
-    "title",
-    "editableFields",
-    "createEnabled",
-    "editEnabled",
-    "deleteEnabled"
+    "title"
   ],
   "additionalProperties": false
 }

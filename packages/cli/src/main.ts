@@ -55,7 +55,6 @@ const booleans = new Set([
   'includeUnresolved',
   'reset',
   'all',
-  'includeAssets',
 ]);
 const numbers = new Set([
   'appId',
@@ -65,6 +64,7 @@ const numbers = new Set([
   'port',
   'sampleRows',
   'decisionTimeoutMs',
+  'elapsedMs',
 ]);
 const BANNER = 'APEXREST for Codex and Claude Code — independent Oracle APEX developer tools';
 const EXIT_CODES =
@@ -100,7 +100,7 @@ function optionLine(name: string, field: Field) {
       ? ' ' + Object.values(def.entries).join('|')
       : numbers.has(name)
         ? ' N'
-        : name === 'confirmation'
+        : name === 'confirmation' || name === 'requests' || name === 'operations'
           ? ' JSON'
           : def.type === 'array'
             ? ' VALUE...'
@@ -263,11 +263,23 @@ function help() {
     lines.push(
       '',
       'Machine-wide settings in APEXREST_HOME/settings.json for every project and host on this computer.',
-      'apexrest settings configure --decision-api on|off --catalog on|off --json',
+      'apexrest settings configure --decision-api on|off --catalog on|off --usage-log on|off --json',
       '--decision-api: default OpenAI Decisions selection; a project decisionApi in apexrest.json overrides it.',
       'The global default reads the key only from the environment variable named by --api-key-env.',
       '--catalog off: reference search, read and select return CATALOG_DISABLED.',
-      'settings status adds catalog sizes and recent projects; APEXREST_USAGE=0 stops recording recent projects.',
+      '--usage-log on: record operation duration and actual Decisions tokens locally; off by default.',
+      'settings status adds catalog sizes and recent projects; APEXREST_USAGE=0 disables local usage records.',
+    );
+  if (key === 'usage.status' || key === 'usage.import')
+    lines.push(
+      '',
+      'Local opt-in usage records in APEXREST_HOME/usage-log.json; at most 1000 entries.',
+      'apexrest usage import --host codex|claude --file /abs/native-run.jsonl [--elapsed-ms N] [--counter-mode cumulative-session] --json',
+      'Codex defaults to one completed fresh turn. Resumed or multi-turn session totals require explicit cumulative-session mode; any supplied elapsed time must cover the whole session.',
+      'Import actual codex exec --json or claude -p --output-format json|stream-json counters; contents are never logged.',
+      'Exact captures deduplicate; compatible cumulative revisions replace one known session entry. Unknown or overlapping counter scopes are refused.',
+      'Historical records without a session identity remain unchanged. Host counters and plugin operation timings have separate scopes.',
+      'MCP tool processes cannot observe the host model token usage. Missing counters remain unavailable.',
     );
   if (key === 'sqlcl.configure' || key === 'sqlcl.status')
     lines.push(
@@ -328,17 +340,19 @@ try {
           const value = argv[++i];
           if (!value || value.startsWith('--'))
             throw new Fault('INVALID_INPUT', `Missing value for ${token}`, 2);
-          if (name === 'files' || name === 'pages') {
+          if (name === 'files' || name === 'pages' || name === 'ids') {
             const files = [value];
             while (argv[i + 1] && !argv[i + 1]!.startsWith('--')) files.push(argv[++i]!);
             input[name] = files;
-          } else if (name === 'confirmation') {
+          } else if (name === 'confirmation' || name === 'requests' || name === 'operations') {
             try {
               input[name] = JSON.parse(value);
             } catch {
               throw new Fault(
                 'INVALID_INPUT',
-                'Confirmation must be a JSON object bound to the reviewed plan digest.',
+                name === 'requests'
+                  ? 'Metadata requests must be a JSON array of scoped requests.'
+                  : 'Confirmation must be a JSON object bound to the reviewed plan digest.',
                 2,
               );
             }

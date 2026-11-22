@@ -3,139 +3,245 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { sourceDigest, files, sha256 } from './lib/release.mjs';
+import { sourceDigest, sha256 } from './lib/release.mjs';
+import {
+  integrationOptions,
+  readReviewedIntegrationPlan,
+  integrationChecks,
+  integrationStatus,
+  privateIntegrationDirectory,
+  integrationToolProbes,
+  integrationExportInventory,
+  integrationApplyConfirmed,
+} from './lib/integration.mjs';
 
-// Happy-path Oracle integration. Writes go only through `ship --mode apply`, which
-// records the operator's consent as a short-lived deploy grant bound to the exact
-// project, target and plan digest, and removes it after the attempt. The harness
-// never edits policy grants; it only reads policy.json to confirm the removal.
+// Prepare never imports. Apply consumes exactly one reviewed saved plan; another
+// no-op/restore/recovery needs its own normal plan/review. Flags are not consent.
+const startedAt = new Date().toISOString();
 const evidence = {
-  schemaVersion: 2,
-  timestamp: new Date().toISOString(),
+  schemaVersion: 1,
+  kind: 'oracle-integration',
   sourceDigest: await sourceDigest(),
   mock: false,
+  execution: 'connected-oracle',
+  startedAt,
+  platform: process.platform,
+  arch: process.arch,
+  node: process.version,
+  tools: [],
   status: 'running',
-  authorization: 'ship-plan-bound-grant',
-  checks: [],
-  knownBlockers: [],
-  prerequisites: [
-    'APEXREST_INTEGRATION_PROJECT',
-    'APEXREST_INTEGRATION_ENV',
-    'APEXREST_INTEGRATION_ALLOW_WRITES=true',
-    'Trusted project, named SQLcl connections and a supported APEX target',
-  ],
+  checks: integrationChecks(),
+  runs: [],
+  browserObservation: {
+    status: 'unobserved',
+    reason: 'Browser observations are recorded separately from compiler/import/metadata evidence.',
+  },
 };
-const project = process.env.APEXREST_INTEGRATION_PROJECT,
-  env = process.env.APEXREST_INTEGRATION_ENV,
-  cli = path.resolve('dist/runtime/apexrest.mjs');
-const run = (args) => {
-  const r = spawnSync(process.execPath, [cli, ...args, '--project', project, '--json'], {
-    encoding: 'utf8',
-    timeout: 900000,
-    maxBuffer: 4 * 1024 * 1024,
-  });
-  let result = {};
-  try {
-    result = JSON.parse(r.stdout || '{}');
-  } catch {
-    /* reported below as an operation failure */
-  }
-  return { r, result, codes: result.diagnostics?.map((d) => d.code) ?? [] };
-};
-const invoke = (args) => {
-  const { r, result, codes } = run(args);
-  if (r.status !== 0 || !result.ok)
-    throw new Error(
-      `${args.slice(0, 2).join(' ')}: ${codes.join(',') || r.error?.message || 'operation failed'}`,
-    );
-  return result;
-};
-const readJsonFile = async (file) => JSON.parse(await readFile(file, 'utf8'));
-const policyFile = () =>
-  path.join(path.resolve(process.env.APEXREST_HOME ?? path.join(os.homedir(), '.apexrest')), 'policy.json');
-
+const cli = path.resolve('dist/runtime/apexrest.mjs');
+const evidenceRoot = path.resolve('docs/evidence');
+let directory = path.join(evidenceRoot, 'integration-attempts', randomUUID());
+const json = (file) => readFile(file, 'utf8').then(JSON.parse);
+const proof = (file, bytes) => ({
+  path: path.relative(evidenceRoot, file).split(path.sep).join('/'),
+  sha256: sha256(bytes),
+});
 try {
-  if (!project || !env || process.env.APEXREST_INTEGRATION_ALLOW_WRITES !== 'true')
-    throw new Error(
-      'Authorized disposable integration project/environment/write consent are not configured. No DB write attempted.',
-    );
-  const root = await realpath(project);
-  const config = await readJsonFile(path.join(project, 'apexrest.json'));
-  const target = config.environments[env];
-  if (!target || target.kind === 'production')
-    throw new Error('Integration requires an explicitly configured non-production target.');
-  // The operator's APEXREST_INTEGRATION_ALLOW_WRITES=true is the consent; the request text
-  // names exactly this project, environment and application and nothing wider.
-  const userRequest =
-    process.env.APEXREST_INTEGRATION_USER_REQUEST ??
-    `Integration harness (APEXREST_INTEGRATION_ALLOW_WRITES=true): import application ${target.applicationId} of project ${config.projectId} into non-production environment ${env}.`;
-  evidence.target = { projectId: config.projectId, environment: env, applicationId: target.applicationId };
-  const directory = '.apexrest/integration/' + randomUUID();
-  await mkdir(path.join(project, directory), { recursive: true });
-  const record = (name, result, extra = {}) => {
-    evidence.checks.push({ name, ok: result.ok, runId: result.runId, data: result.data, ...extra });
-  };
-
-  const assertNoShipGrant = async (step) => {
-    let grants = [];
-    try {
-      grants = (await readJsonFile(policyFile())).grants ?? [];
-    } catch {
-      /* no policy file means no grant */
-    }
-    if (grants.some((g) => g.grantedBy === 'ship' && g.projectRoot === root))
-      throw new Error(`${step}: a ship grant for this project remained in policy.json after the attempt.`);
-  };
-
-  const ship = async (name) => {
-    const result = invoke(['ship', '--env', env, '--mode', 'apply', '--user-request', userRequest]);
-    await assertNoShipGrant(name);
-    if (!result.data?.grant?.removed) throw new Error(`${name}: ship did not confirm grant removal.`);
-    record(name, result);
-    return result;
-  };
-
-  record('real-compiler', invoke(['apex', 'validate']));
-  const planned = invoke(['ship', '--env', env, '--mode', 'plan', '--user-request', userRequest]);
-  record('plan-identity', planned, { resolvedMode: planned.data?.importSelection?.resolvedMode });
-  await ship('ship-apply-with-backup-and-verification');
-  record('export-before-noop', invoke(['apex', 'export', '--env', env, '--output', directory + '/before']));
-  await ship('noop-ship-apply');
-  record('export-after-noop', invoke(['apex', 'export', '--env', env, '--output', directory + '/after']));
-  const inventory = async (dir) =>
-    Object.fromEntries(
-      await Promise.all((await files(dir)).map(async (f) => [f, sha256(await readFile(path.join(dir, f)))])),
-    );
-  const before = await inventory(path.join(project, directory, 'before')),
-    after = await inventory(path.join(project, directory, 'after'));
-  if (JSON.stringify(before) !== JSON.stringify(after))
-    throw new Error(
-      'No-op export differs; inspect exact component/MMD differences before accepting a normalization.',
-    );
-  evidence.checks.push({
-    name: 'noop-complete-file-and-mmd-preservation',
-    ok: true,
-    files: Object.keys(before).length,
+  const options = integrationOptions();
+  directory = await privateIntegrationDirectory(evidenceRoot, options.output ?? directory);
+  await writeFile(path.join(directory, 'started.json'), JSON.stringify({ startedAt, mode: options.mode }), {
+    flag: 'wx',
+    mode: 0o600,
   });
-  // Other acceptance fixtures (target drift, cross-runner contention, unsupported components)
-  // must be executed in a separately approved fault-injection environment.
-  evidence.status = 'partial';
-  evidence.blocker = [
-    'Authenticated browser interactions require separate host-browser verification.',
-    'Cross-runner/fault-injection and existing-app page/LOV preservation fixtures require additional actual target evidence.',
-  ].join(' ');
-  process.exitCode = 3;
+  const root = await realpath(options.project);
+  const config = await json(path.join(root, 'apexrest.json'));
+  const manifestBytes = await readFile('plugins/apexrest-apex/bundle-manifest.json');
+  const manifest = JSON.parse(manifestBytes);
+  evidence.runtime = {
+    sourceDigest: manifest.sourceDigest,
+    manifestSha256: sha256(manifestBytes),
+    cliSha256: sha256(await readFile(cli)),
+    current: manifest.sourceDigest === evidence.sourceDigest,
+  };
+  if (options.mode === 'apply' && !evidence.runtime.current)
+    throw new Error('Apply requires the final built runtime to match current product sources.');
+  if (!Object.hasOwn(config.environments, options.environment))
+    throw new Error('Named environment is absent.');
+  const target = config.environments[options.environment];
+  if (target.kind === 'production') throw new Error('Integration requires a non-production target.');
+  evidence.target = {
+    projectId: config.projectId,
+    projectRoot: root,
+    environment: options.environment,
+    ...target,
+  };
+  // Bad/mismatched reviews fail locally before any compiler or database process.
+  let reviewed = null;
+  const record = (id, bytes, file) => {
+    const check = evidence.checks.find((check) => check.id === id);
+    if (!check) throw new Error('Unknown integration scenario.');
+    check.status = 'passed';
+    check.proofs.push(proof(file, bytes));
+  };
+  const invoke = async (label, args) => {
+    const start = performance.now(),
+      commandStartedAt = new Date().toISOString();
+    const result = spawnSync(process.execPath, [cli, ...args, '--project', root, '--json'], {
+      encoding: 'utf8',
+      timeout: 900000,
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    const payload =
+      JSON.stringify(
+        {
+          args,
+          startedAt: commandStartedAt,
+          completedAt: new Date().toISOString(),
+          elapsedMs: performance.now() - start,
+          code: result.status,
+          signal: result.signal,
+          error: result.error?.message,
+          stdout: result.stdout,
+          stderr: result.stderr,
+        },
+        null,
+        2,
+      ) + '\n';
+    const file = path.join(directory, label + '.json');
+    await writeFile(file, payload, { flag: 'wx', mode: 0o600 });
+    let value;
+    try {
+      value = JSON.parse(result.stdout);
+    } catch {
+      /* retain raw output */
+    }
+    evidence.runs.push({ label, proof: proof(file, payload), ok: result.status === 0 && value?.ok === true });
+    if (result.status !== 0 || value?.ok !== true)
+      throw new Error(
+        `${label} failed or has an unknown outcome. Preserve the original run; do not replay. See ${file}`,
+      );
+    return { value, payload, file };
+  };
+  if (options.mode === 'apply') {
+    const inspected = await invoke('local-project-inspection', ['project', 'inspect', '--detail', 'full']);
+    options.configurationDigest = inspected.value.data?.configurationDigest;
+    reviewed = await readReviewedIntegrationPlan(options, config);
+  }
+  const doctor = await invoke('tools', ['doctor']);
+  const probes = doctor.value.data?.probes ?? [];
+  evidence.tools.push({
+    name: 'node',
+    version: process.version,
+    proofs: [proof(doctor.file, doctor.payload)],
+  });
+  for (const { name, probe } of integrationToolProbes(probes))
+    evidence.tools.push({ name, version: probe.version, proofs: [proof(doctor.file, doctor.payload)] });
+  const validated = await invoke('compiler', ['apex', 'validate']);
+  record('real-compiler', validated.payload, validated.file);
+  if (options.mode === 'prepare') {
+    const out = '.apexrest/integration/' + randomUUID() + '.plan.json';
+    const planned = await invoke('plan', [
+      'deploy',
+      'plan',
+      '--env',
+      options.environment,
+      '--out',
+      out,
+      '--import-mode',
+      'full',
+    ]);
+    evidence.preparedPlan = { path: out, result: planned.value.data };
+    const workspaceId = planned.value.data?.target?.workspace?.workspace_id;
+    if (typeof workspaceId !== 'string' || !/^[1-9][0-9]*$/.test(workspaceId))
+      throw new Error('Plan did not retain the exact workspace ID as decimal text.');
+    record('same-session-exact-identity', planned.payload, planned.file);
+  } else {
+    const reviewBytes = JSON.stringify({ ...reviewed.review, plan: reviewed.plan }, null, 2) + '\n';
+    const reviewFile = path.join(directory, 'reviewed-plan.json');
+    await writeFile(reviewFile, reviewBytes, { flag: 'wx', mode: 0o600 });
+    record('reviewed-plan-source-and-environment-binding', reviewBytes, reviewFile);
+    const relativeDirectory = '.apexrest/integration/' + randomUUID();
+    let before;
+    if (options.expectNoop) {
+      await invoke('before-noop-export', [
+        'apex',
+        'export',
+        '--env',
+        options.environment,
+        '--output',
+        relativeDirectory + '/before',
+      ]);
+      before = await integrationExportInventory(path.join(root, relativeDirectory, 'before'));
+    }
+    const args = [
+      'ship',
+      '--env',
+      options.environment,
+      '--mode',
+      'apply',
+      '--plan',
+      options.plan,
+      '--user-request',
+      options.userRequest,
+    ];
+    if (reviewed.confirmation) args.push('--confirmation', JSON.stringify(reviewed.confirmation));
+    const applied = await invoke('saved-plan-apply', args);
+    if (!integrationApplyConfirmed(applied.value, reviewed.plan.digest))
+      throw new Error(
+        'Apply did not confirm the exact plan import and temporary grant removal. Preserve its original outcome; do not replay.',
+      );
+    const policy = path.join(
+      path.resolve(process.env.APEXREST_HOME ?? path.join(os.homedir(), '.apexrest')),
+      'policy.json',
+    );
+    const grants = (await json(policy)).grants ?? [];
+    if (grants.some((grant) => grant.grantedBy === 'ship' && grant.projectRoot === root))
+      throw new Error('A ship grant remains after apply. Stop before another operation.');
+    record('confirmed-error-free-import/readback', applied.payload, applied.file);
+    if (options.expectNoop) {
+      await invoke('after-noop-export', [
+        'apex',
+        'export',
+        '--env',
+        options.environment,
+        '--output',
+        relativeDirectory + '/after',
+      ]);
+      const after = await integrationExportInventory(path.join(root, relativeDirectory, 'after'));
+      const comparison =
+        JSON.stringify({ before, after, equal: JSON.stringify(before) === JSON.stringify(after) }, null, 2) +
+        '\n';
+      const file = path.join(directory, 'noop-inventory.json');
+      await writeFile(file, comparison, { flag: 'wx', mode: 0o600 });
+      if (JSON.stringify(before) !== JSON.stringify(after))
+        throw new Error('Complete no-op export/MMD differs. Do not normalize differences.');
+      record('repeated-noop-full-file-and-MMD-preservation', comparison, file);
+    }
+  }
+  if ((await sourceDigest()) !== evidence.sourceDigest)
+    throw new Error('Product sources changed during qualification.');
+  if (!evidence.runtime.current)
+    throw new Error(
+      'Preliminary read-only evidence uses an earlier built runtime; repeat qualification after the final source build.',
+    );
+  evidence.status = integrationStatus(evidence.checks);
 } catch (error) {
   evidence.status = 'blocked';
   evidence.blocker = String(error);
-  process.exitCode = 3;
+} finally {
+  evidence.completedAt = new Date().toISOString();
+  directory = await privateIntegrationDirectory(evidenceRoot, directory);
+  await writeFile(path.join(directory, 'report.json'), JSON.stringify(evidence, null, 2) + '\n', {
+    flag: 'wx',
+    mode: 0o600,
+  });
 }
-await mkdir('docs/evidence', { recursive: true });
-await writeFile('docs/evidence/oracle-integration.json', JSON.stringify(evidence, null, 2) + '\n');
 console.log(
   JSON.stringify({
     status: evidence.status,
     blocker: evidence.blocker,
-    evidence: 'docs/evidence/oracle-integration.json',
+    evidence: path.join(directory, 'report.json'),
   }),
 );
+// All remaining matrix scenarios retain explicit not_run entries. No happy-path
+// run overwrites the canonical full-qualification report or implies browser success.
+if (evidence.status !== 'passed') process.exitCode = 3;

@@ -6,12 +6,12 @@
 
 ## Choose an import mode
 
-| Mode             | Planner behavior                                                                               | When to use it                                                              |
-| ---------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `auto` (default) | Selects eligible application changes, or a database-only plan for pending scripts when the application is unchanged. Conflicts block. | Routine changes to an existing 26.2 development/test app. |
-| `files`          | Imports only the listed files; rejects an ineligible selection and never widens it to `full`.  | A specific page, or a page together with changed shared dependencies.       |
-| `full`           | Requests a complete application import through the existing safeguards.                        | Initial application creation or changes requiring the complete application. |
-| `none`           | Plans pending migrations and changed package scripts without importing the application. | Explicit database-only work. |
+| Mode             | Planner behavior                                                                                                                      | When to use it                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `auto` (default) | Selects eligible application changes, or a database-only plan for pending scripts when the application is unchanged. Conflicts block. | Routine changes to an existing 26.2 development/test app.                   |
+| `files`          | Imports only the listed files; rejects an ineligible selection and never widens it to `full`.                                         | A specific page, or a page together with changed shared dependencies.       |
+| `full`           | Requests a complete application import through the existing safeguards.                                                               | Initial application creation or changes requiring the complete application. |
+| `none`           | Plans pending migrations and changed package scripts without importing the application.                                               | Explicit database-only work.                                                |
 
 - The CLI and the `apexrest_ship` MCP tool expose the same modes.
 - The requirement to use **direct SQLcl CLI** describes how APEXREST connects to Oracle; it does not prevent using the feature through Codex or Claude Code's APEXREST MCP tools.
@@ -19,7 +19,7 @@
 
 ## Generate routine pages
 
-For interactive reports, KPI cards and bar charts on an Oracle-generated 26.2 Universal Theme starter, use one JSON specification containing the verified queries, column aliases/types and labels. `project scaffold` emits the APEXlang, chart axes, report columns and navigation together. See the [specification guide](../plugins/apexrest-apex/skills/apexrest-work/references/scaffold.md).
+For supported reports, cards, charts, calendars, query forms and native page behavior on an Oracle-generated 26.1 or 26.2 Universal Theme starter, use one JSON specification containing verified queries, PL/SQL, column aliases/types and labels. `project scaffold` emits native APEXlang and navigation together. See the [specification guide](../plugins/apexrest-apex/skills/apexrest-work/references/scaffold.md). Partial import described on this page remains specific to 26.2.
 
 ```sh
 apexrest project scaffold --project /abs/project --spec-file catalog.json --env dev --json
@@ -28,7 +28,18 @@ apexrest ship --project /abs/project --env dev --mode apply --user-request "Crea
 
 Scaffolding changes local sources only. It retains Oracle metadata and authentication, appends to a blank Home and refuses to replace unowned or manually edited pages. Unchanged pages it generated can be updated by re-running a specification. Ship remains responsible for compiler validation, exact planning and the normal deployment safeguards; a separate validate/plan call is unnecessary for routine generated output.
 
-If a task requests server metadata and query observations, supplying `env` also generates `readback.sqlFile` in private `.apexrest/` storage. After a successful import, the caller can run that file manually with the authorized SQLcl saved connection. It checks target identity and returns imported metadata, query row counts and bounded samples in a read-only transaction. It does not contain expected business values or a test verdict. Neither scaffold nor ship executes it or adds a deployment gate. Keep observation scripts outside application sources. Browser behavior is checked separately on request.
+If a task requests server metadata and query observations on 26.2, supplying `env` also generates `readback.sqlFile` in private `.apexrest/` storage. The 26.1 scaffold reports this helper as unavailable. After a successful import, the caller can run the generated file manually with the authorized SQLcl saved connection. It checks target identity and returns imported metadata, query row counts and bounded samples in a read-only transaction. It does not contain expected business values or a test verdict. Neither scaffold nor ship executes it or adds a deployment gate. Keep observation scripts outside application sources. Browser behavior is checked separately on request.
+
+## Edit existing pages
+
+`apexrest project patch` changes one property without rewriting the page: a page title, region title, item or button label, report-column heading or format mask, or a layout sequence. Only the value bytes of that property change, and a missing property or group is inserted in the file's own style. The edit is bound to the digest of the page file you read and checked again right before the atomic write; a dry run, or a call without the digest, returns the current digest and writes nothing.
+
+```sh
+apexrest project patch --project /abs/project --page 10 --operations '[{"target":"column:customers.EMAIL","property":"heading","value":"E-mail address"}]' --dry-run --json
+apexrest project patch --project /abs/project --page 10 --operations '[{"target":"column:customers.EMAIL","property":"heading","value":"E-mail address"}]' --expected-digest <currentDigest> --json
+```
+
+A source edit is not a compiler or import result; validate or ship afterwards. See the [patch guide](../plugins/apexrest-apex/skills/apexrest-work/references/patch.md).
 
 ## Requirements
 

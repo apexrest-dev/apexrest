@@ -7,13 +7,13 @@
   "cases": [
     {
       "id": "A261-001",
-      "title": "MCP startup and eleven-tool discovery",
+      "title": "MCP startup and twelve-tool discovery",
       "acceptance": ["A01", "A03", "A27", "A36", "HOST-PARITY-01"],
       "execution": "harness",
       "surface": "stdio-MCP",
       "authorization": "read-only-or-local",
       "steps": ["List tools through real stdio MCP."],
-      "expected": ["Exactly ten unique supported tools; removed controllers absent."],
+      "expected": ["Exactly twelve unique supported tools; removed controllers absent."],
       "evidence": [
         "sanitized result code",
         "monotonic wall time",
@@ -944,11 +944,11 @@
       "authorization": "read-only-or-local",
       "steps": [
         "Check source/compiler profile; on copied sources request explicit file mode on 26.1; use 26.1 references only.",
-        "Request project scaffold on a copied 26.1 starter with a valid report/card/bar specification and compare the complete source inventory before and after."
+        "Materialize a valid native page specification on a copied 26.1 starter. Compile its reports, cards, charts, calendar, items and server processes, and compare preserved metadata, authentication and unrelated source."
       ],
       "expected": [
         "Unsupported partial import refused with no full fallback; 26.2 functionality is not claimed.",
-        "Scaffold returns SCAFFOLD_RELEASE_UNSUPPORTED before changing source files or accessing Oracle; successful 26.2 authoring is qualified separately by A262-018."
+        "Scaffold uses release-specific native syntax and preserves the 26.1 pin, authentication and unrelated components. Regeneration is idempotent, edited generated files are protected, and 26.2 observation SQL has an explicit unsupported result on 26.1."
       ],
       "evidence": [
         "exact runtime/source/catalog digest",
@@ -1511,6 +1511,33 @@
         "host, peer vendor, CLI version and sign-in method",
         "per-run wall time, verdict and finding counts",
         "apply outcome per gate state, with no grant recorded when blocked"
+      ],
+      "budgetMs": null,
+      "samples": 1
+    },
+    {
+      "id": "A261-071",
+      "title": "Private token and elapsed-time logging with native host imports",
+      "category": "quality",
+      "acceptance": ["USAGE-01"],
+      "execution": "manual",
+      "surface": "CLI-and-native-host",
+      "authorization": "Isolated local managed home and explicitly selected native output files; live Decisions calls require the user's model API authorization.",
+      "steps": [
+        "Use a temporary APEXREST_HOME to verify default-off behavior, enable usage logging and run a backend operation. Check that APEXREST_USAGE=0 prevents recording.",
+        "Import completed native codex exec JSON-lines and Claude result output with measured or host-reported duration. Import the same contents again and inspect usage status.",
+        "Run the usage unit regressions for token bounds, per-turn consistency, repeated or unfinished sessions, concurrent recording and byte retention. Inspect the private journal for payload or credential leakage."
+      ],
+      "expected": [
+        "Backend time, SQLcl time and validated Decisions counters retain their provenance. Native host counters remain in a separate scope and unavailable measurements stay explicit.",
+        "Exact repeated imports are deduplicated, malformed or incomplete reports are refused, and the journal retains at most 1,000 entries and 2 MiB. Logging failure preserves the operation outcome.",
+        "The journal stores no prompts, SQL, credentials, source paths or raw session identifiers. Local fixtures and actual native-host observations have separate evidence."
+      ],
+      "evidence": [
+        "runtime digest, host and CLI version",
+        "sanitized usage status and exact measured duration provenance",
+        "completed native counter comparison and duplicate-import result",
+        "unit results, journal size and platform-specific private-file permission check"
       ],
       "budgetMs": null,
       "samples": 1

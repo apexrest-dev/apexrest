@@ -113,9 +113,9 @@ export async function loadProject(root: string): Promise<ProjectContext> {
 }
 export function environment(ctx: ProjectContext, name?: string): Environment {
   if (!name) throw new Fault('ENVIRONMENT_REQUIRED', 'Select an explicit environment with --env.', 2);
-  const env = ctx.config.environments[name];
-  if (!env) throw new Fault('UNKNOWN_ENVIRONMENT', `Environment ${name} is not configured.`, 2);
-  return env;
+  if (!Object.hasOwn(ctx.config.environments, name))
+    throw new Fault('UNKNOWN_ENVIRONMENT', `Environment ${name} is not configured.`, 2);
+  return ctx.config.environments[name]!;
 }
 /** Stable identity of a deployment target: database, workspace, schema and application. */
 export function targetDigest(env: Environment) {

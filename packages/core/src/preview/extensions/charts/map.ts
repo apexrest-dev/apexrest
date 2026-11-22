@@ -47,7 +47,6 @@ interface Layer {
 const esc = escapeHtml;
 const fixed = (value: number) => Number(value.toFixed(2));
 
-/** Flattens GeoJSON geometry into point/line/polygon parts (lon, lat). */
 interface SdoGeometry {
   SDO_GTYPE?: number | null;
   SDO_POINT?: { X?: number | null; Y?: number | null } | null;
@@ -56,8 +55,8 @@ interface SdoGeometry {
 }
 
 /**
- * An Oracle SDO_GEOMETRY object (as node-oracledb returns it) as GeoJSON. Points, lines, polygons with
- * straight edges, optimized rectangles and their multi forms are converted; arcs and compound elements are not.
+ * Converts SDO_GEOMETRY represented as JSON into GeoJSON. Supports points, straight lines and
+ * polygons, rectangles, and their multi forms.
  */
 function sdoToGeoJson(sdo: SdoGeometry): unknown {
   const gtype = Number(sdo.SDO_GTYPE ?? 0);
@@ -101,6 +100,7 @@ function sdoToGeoJson(sdo: SdoGeometry): unknown {
   };
 }
 
+/** Flattens map geometry into point, line, or polygon parts (longitude, latitude). */
 function geometry(value: unknown): { kind: Feature['kind']; parts: Position[][] }[] {
   let json: unknown = value;
   if (typeof value === 'string') {
@@ -300,7 +300,7 @@ export function renderMap(renderer: ApexRenderer, ctx: RenderContext, region: Ap
     if (dataType === 'sdoGeometry' && result.rows.length && features.length === drawnBefore)
       renderer.diagnose(
         'warning',
-        `Map layer ${definition.id} uses SDO_GEOMETRY; it is drawn from an Oracle connection that returns the object, or from GeoJSON text in that column`,
+        `Map layer ${definition.id} uses SDO_GEOMETRY; return it as JSON or convert the column to GeoJSON`,
         ctx.pageId,
         region.id,
       );

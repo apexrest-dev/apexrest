@@ -22,7 +22,6 @@ APEXREST gives that agent what it needs to do the work well. One plugin installs
 | **See**   | Pages render locally with the genuine Universal Theme, without a database or against your own.                    | [Local preview](https://apexrest-dev.github.io/apexrest/local-preview/)     |
 | **Check** | The official Oracle compiler validates the sources and reports file, line, column and valid values.               | [Testing](https://apexrest-dev.github.io/apexrest/testing/)                 |
 | **Ship**  | Only the changed pages and components are imported into a DEV, QA or TEST application, after a plan and a backup. | [Deployment safety](https://apexrest-dev.github.io/apexrest/deployment/)    |
-| **Run**   | `apexrest build webapp` builds the application into a standalone Node.js application for your Oracle database.    | [Build a web application](https://apexrest-dev.github.io/apexrest/webapp/)  |
 
 ![APEXREST connects an agent request to APEXlang source, a verified deployment plan, Oracle APEX and runtime checks.](docs/assets/overview.svg)
 
@@ -40,7 +39,6 @@ You ask for a change, such as "add an order status report". The agent writes the
 
 - **Local preview.** Run APEXlang on Node.js and SQLite with the genuine Universal Theme 26.2: reports, grids, forms, items, charts, calendars, maps, dynamic actions and a PL/SQL interpreter.
 - **Connected and live preview.** Run the preview's backend in your own DEV, QA or TEST database, and watch open pages follow each source edit.
-- **Standalone web application.** `apexrest build webapp` builds an APEXlang application into a Node.js application that renders the pages and runs their SQL and PL/SQL in your Oracle database, without the APEX engine or ORDS. A first version; the [guide](https://apexrest-dev.github.io/apexrest/webapp/) explains how it works and its limits.
 
 **Shipping**
 
@@ -121,7 +119,6 @@ An explicit request to change an identified DEV/QA/TEST application authorizes t
 
 **Run and deploy**
 
-- [Build a web application](https://apexrest-dev.github.io/apexrest/webapp/): turn an APEXlang application into a standalone Node.js application for an Oracle database.
 - [Deployment safety](https://apexrest-dev.github.io/apexrest/deployment/): plans, backups, drift and authorization rules.
 - [Configuration](https://apexrest-dev.github.io/apexrest/configuration/): environments, connection references, trust policy and deployment coordination.
 - [Codex Cloud](https://apexrest-dev.github.io/apexrest/codex-cloud/): run the CLI in a Cloud container over ORDS.

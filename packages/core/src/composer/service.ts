@@ -1,8 +1,8 @@
 import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { environment, relativePath, refName, type ProjectContext } from '../config.ts';
-import { resolveConnection } from '../connections.ts';
+import { environment, relativePath, refName, type Environment, type ProjectContext } from '../config.ts';
+import { resolveConnection, type Connection } from '../connections.ts';
 import { OracleAdapter } from '../oracle.ts';
 import { metadataRead } from '../metadata.ts';
 import { ArtifactService } from '../artifacts.ts';
@@ -13,7 +13,7 @@ import { snapshot, planComposition } from './planner.ts';
 import { stagePlan, freeze, readPlan, materialize, recoveryPlan, journal } from './materializer.ts';
 import { readDocument, safePath, semanticDigest, validate, canonical } from './formats.ts';
 import { bundledBlueprintProfiles, loadCatalog } from './catalog.ts';
-import type { MetadataSnapshot } from './binding.ts';
+import { expression, predicateColumnNames, type MetadataSnapshot } from './binding.ts';
 import { requireComposerCompiler } from './profiles.ts';
 
 export const composePlanInput = z.strictObject({
@@ -32,46 +32,160 @@ export const composeMaterializeInput = z.strictObject({
   expectedDigest: digest,
 });
 export type PlanInput = z.infer<typeof composePlanInput>;
+
+function checkMetadataCancellation(signal?: AbortSignal) {
+  if (signal?.aborted)
+    throw new Fault('CANCELLED', 'Composer metadata verification cancelled.', 6, 'cancelled');
+}
+
+type MetadataKind = 'columns' | 'constraints' | 'constraint-columns' | 'signatures';
+/** Rows per request page and the most rows one object may contribute to a composition. */
+const METADATA_PAGE = 100;
+const METADATA_OBJECT_LIMIT = 10000;
+/** The metadata API answers at most this many scoped requests per target-verified batch. */
+const METADATA_BATCH = 8;
+
+const metadataKey = (kind: MetadataKind, name: string) => `${kind}:${name.toUpperCase()}`;
+
+/**
+ * Reads scoped dictionary metadata for several objects through the batched metadata API: duplicate
+ * requests are read once, up to eight pages share one target-verified round trip, and only
+ * requests with more rows ask for their next page. Rows keep the per-request order of
+ * the single-object reads (keys upper-cased).
+ */
+export async function readMetadataBatch(
+  oracle: OracleAdapter,
+  env: Environment,
+  connection: Connection,
+  wanted: { kind: MetadataKind; name: string }[],
+  signal?: AbortSignal,
+): Promise<Map<string, Record<string, unknown>[]>> {
+  const pending = new Map<string, { kind: MetadataKind; name: string; offset: number }>();
+  const rows = new Map<string, Record<string, unknown>[]>();
+  for (const request of wanted) {
+    const key = metadataKey(request.kind, request.name);
+    if (pending.has(key)) continue;
+    pending.set(key, { kind: request.kind, name: request.name.toUpperCase(), offset: 0 });
+    rows.set(key, []);
+  }
+  while (pending.size) {
+    checkMetadataCancellation(signal);
+    const chunk = [...pending.entries()].slice(0, METADATA_BATCH);
+    const response = (await metadataRead(
+      oracle,
+      env,
+      connection,
+      {
+        requests: chunk.map(([, request]) => ({
+          kind: request.kind,
+          name: request.name,
+          schema: env.parsingSchema,
+          offset: request.offset,
+          limit: METADATA_PAGE,
+        })),
+      },
+      false,
+      signal,
+    )) as { results?: { index: number; rows: Record<string, unknown>[]; nextOffset: number | null }[] };
+    checkMetadataCancellation(signal);
+    if (!Array.isArray(response.results) || response.results.length !== chunk.length)
+      throw new Fault('METADATA_INVALID', 'Expected one scoped metadata result per request.', 5);
+    for (const result of response.results) {
+      const [key, request] = chunk[result.index] ?? [];
+      if (!key || !request)
+        throw new Fault('METADATA_INVALID', 'Metadata result does not match a request.', 5);
+      const collected = rows.get(key)!;
+      for (const row of result.rows)
+        collected.push(
+          Object.fromEntries(Object.entries(row).map(([name, value]) => [name.toUpperCase(), value])),
+        );
+      if (result.nextOffset === null) pending.delete(key);
+      else if (collected.length >= METADATA_OBJECT_LIMIT)
+        throw new Fault('METADATA_LIMIT', 'Object metadata exceeds the composition limit.', 5);
+      else request.offset = result.nextOffset;
+    }
+  }
+  return rows;
+}
+
 async function context(
   ctx: ProjectContext,
   blueprintFile: string,
   envName: string,
   oracle: OracleAdapter,
+  signal?: AbortSignal,
 ): Promise<MetadataSnapshot> {
   const env = environment(ctx, envName),
     connection = await resolveConnection(env.readConnectionRef);
   const blueprint = await readDocument(ctx.root, blueprintFile, blueprintSchema);
   const result: MetadataSnapshot = { schema: env.parsingSchema, objects: {}, signatures: {} };
-  async function read(kind: 'columns' | 'constraints' | 'constraint-columns' | 'signatures', name: string) {
-    const rows: Record<string, unknown>[] = [];
-    let offset = 0;
-    while (rows.length < 10000) {
-      const response = await metadataRead(oracle, env, connection, {
-        kind,
-        name,
-        schema: env.parsingSchema,
-        offset,
-        limit: 100,
-      });
-      if (!('rows' in response))
-        throw new Fault('METADATA_INVALID', 'Expected one scoped metadata result.', 5);
-      rows.push(...response.rows);
-      if (response.nextOffset === null) return rows;
-      offset = response.nextOffset;
-    }
-    throw new Fault('METADATA_LIMIT', 'Object metadata exceeds the composition limit.', 5);
-  }
-  for (const entity of Object.values(blueprint.entities))
-    if (!result.objects[entity.read.object])
-      result.objects[entity.read.object] = {
-        columns: await read('columns', entity.read.object),
-        constraints: await read('constraints', entity.read.object),
-        constraintColumns: await read('constraint-columns', entity.read.object),
-      };
-  for (const command of Object.values(blueprint.commands))
-    if (!result.signatures[command.package])
-      result.signatures[command.package] = await read('signatures', command.package);
+  const objects = [...new Set(Object.values(blueprint.entities).map((entity) => entity.read.object))];
+  const packages = [...new Set(Object.values(blueprint.commands).map((command) => command.package))];
+  const read = await readMetadataBatch(
+    oracle,
+    env,
+    connection,
+    [
+      ...objects.flatMap((name) =>
+        (['columns', 'constraints', 'constraint-columns'] as const).map((kind) => ({ kind, name })),
+      ),
+      ...packages.map((name) => ({ kind: 'signatures' as const, name })),
+    ],
+    signal,
+  );
+  for (const object of objects)
+    result.objects[object] = {
+      columns: read.get(metadataKey('columns', object))!,
+      constraints: read.get(metadataKey('constraints', object))!,
+      constraintColumns: read.get(metadataKey('constraint-columns', object))!,
+    };
+  for (const name of packages) result.signatures[name] = read.get(metadataKey('signatures', name))!;
   return result;
+}
+
+/** Rebind reviewed Composer predicates to the current target after any planned database scripts. */
+export async function verifyDeploymentPredicates(
+  ctx: ProjectContext,
+  binding: { blueprintPath: string; blueprintDigest: string },
+  env: Environment,
+  connection: Connection,
+  oracle: OracleAdapter,
+  signal?: AbortSignal,
+) {
+  const blueprint = await readDocument(ctx.root, binding.blueprintPath, blueprintSchema);
+  checkMetadataCancellation(signal);
+  if (semanticDigest(blueprint) !== binding.blueprintDigest)
+    throw new Fault('COMPOSITION_DRIFT', 'The reviewed Composer blueprint changed before import.', 5);
+
+  const predicates = new Map<string, Set<string>>();
+  for (const instance of Object.values(blueprint.blocks)) {
+    if (instance.ownership === 'detached') continue;
+    const ref = instance.bindings.records;
+    const entity = ref.startsWith('entity:') ? blueprint.entities[ref.slice(7)] : undefined;
+    const contract = entity && blueprint.contracts[entity.authorization.readContract];
+    if (!entity || !contract || contract.kind !== 'authorization' || !contract.rowPredicate)
+      throw new Fault('AUTH_CONTRACT_MISSING', 'A reviewed server row-read contract is required.', 5);
+    const object = entity.read.object.toUpperCase();
+    const checks = predicates.get(object) ?? new Set<string>();
+    checks.add(contract.rowPredicate);
+    predicates.set(object, checks);
+  }
+  const actual = predicates.size
+    ? await readMetadataBatch(
+        oracle,
+        env,
+        connection,
+        [...predicates.keys()].map((name) => ({ kind: 'columns' as const, name })),
+        signal,
+      )
+    : new Map<string, Record<string, unknown>[]>();
+  for (const [object, checks] of predicates) {
+    const rows = actual.get(metadataKey('columns', object))!;
+    if (!rows.length)
+      throw new Fault('OBJECT_BINDING_MISSING', `Oracle did not verify Composer object ${object}.`, 5);
+    const columns = predicateColumnNames(rows);
+    for (const predicate of checks) expression(predicate, { qualifiers: [object], columns });
+  }
 }
 export async function composePlan(
   ctx: ProjectContext,
@@ -97,7 +211,9 @@ export async function composePlan(
       5,
     );
   const metadata =
-    request.mode === 'connected' ? await context(ctx, request.blueprint, request.env!, oracle) : undefined;
+    request.mode === 'connected'
+      ? await context(ctx, request.blueprint, request.env!, oracle, signal)
+      : undefined;
   const input =
     request.action === 'compose'
       ? await snapshot(ctx, request.blueprint, {

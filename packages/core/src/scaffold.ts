@@ -18,86 +18,24 @@ import { Fault } from './result.ts';
 import { sourceRelease } from './partial-import.ts';
 import { get, parseApexLang } from './preview/apexlang.ts';
 import { scaffoldObservationsSql } from './scaffold-observations.ts';
+import { scaffoldSchema } from './scaffold-spec.ts';
+import {
+  renderRegion,
+  renderPageBody,
+  renderProcess,
+  validateSpec,
+  pageGuards,
+} from './scaffold-renderer.ts';
+import { declarations, editSpans } from './composer/reader.ts';
 
-const text = z
-  .string()
-  .trim()
-  .min(1)
-  .max(240)
-  .regex(/^[^\x00-\x1f\x7f]+$/);
-const column = z.string().regex(/^[A-Z][A-Z0-9_$#]{0,127}$/);
-const sql = z
-  .string()
-  .trim()
-  .min(1)
-  .max(16000)
-  .refine(
-    (v) => /^(?:select|with)\b/i.test(v) && !v.includes('```') && !/[\x00\r]/.test(v),
-    'Supply a SELECT query without code-fence delimiters',
-  );
-const common = { name: text, sql };
-export const scaffoldSchema = z.strictObject({
-  applicationName: text.optional(),
-  pages: z
-    .array(
-      z.strictObject({
-        id: z.number().int().min(1).max(9998),
-        name: text,
-        regions: z
-          .array(
-            z.discriminatedUnion('type', [
-              z.strictObject({
-                ...common,
-                type: z.literal('interactiveReport'),
-                columns: z
-                  .array(
-                    z.strictObject({
-                      name: column,
-                      heading: text,
-                      dataType: z.enum(['varchar2', 'number', 'date', 'timestamp']),
-                      formatMask: text.optional(),
-                    }),
-                  )
-                  .min(1)
-                  .max(100),
-                emptyMessage: text.optional(),
-              }),
-              z.strictObject({
-                ...common,
-                type: z.literal('cards'),
-                titleColumn: column,
-                bodyColumn: column,
-              }),
-              z.strictObject({
-                ...common,
-                type: z.literal('barChart'),
-                labelColumn: column,
-                valueColumn: column,
-                xTitle: text,
-                yTitle: text,
-              }),
-            ]),
-          )
-          .min(1)
-          .max(20),
-      }),
-    )
-    .min(1)
-    .max(30),
-});
-type Region = z.infer<typeof scaffoldSchema>['pages'][number]['regions'][number];
+export { scaffoldSchema, renderRegion };
 const stateSchema = z.strictObject({
   version: z.literal(1),
   files: z.record(z.string(), z.string()),
   shells: z.record(z.string(), z.string()),
+  navigation: z.record(z.string(), z.string()).optional(),
 });
 const q = (value: string) => JSON.stringify(value);
-const reportAlias = (index: number) => {
-  let alias = '';
-  for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26))
-    alias = String.fromCharCode(65 + ((n - 1) % 26)) + alias;
-  return alias;
-};
 const slug = (value: string) =>
   value
     .toLowerCase()
@@ -108,118 +46,6 @@ const group = (name: string, body: string, level = 2) =>
 const property = (name: string, value: string, level = 3) => `${'    '.repeat(level)}${name}: ${value}`;
 const block = (head: string, body: string, level = 1) =>
   `${'    '.repeat(level)}${head} (\n${body}\n${'    '.repeat(level)})`;
-const source = (query: string, level = 2) =>
-  group(
-    'source',
-    [
-      property('location', 'localDatabase', level + 1),
-      property('type', 'sqlQuery', level + 1),
-      property(
-        'sqlQuery',
-        '\n' +
-          `${'    '.repeat(level + 2)}\x60\x60\x60sql\n` +
-          query
-            .split('\n')
-            .map((l) => '    '.repeat(level + 2) + l)
-            .join('\n') +
-          `\n${'    '.repeat(level + 2)}\x60\x60\x60`,
-        level + 1,
-      ),
-    ].join('\n'),
-    level,
-  );
-
-export function renderRegion(region: Region, index: number) {
-  const p = (key: string, value: string) => property(key, value);
-  const parts = [
-    property('name', q(region.name), 2),
-    property('type', region.type === 'barChart' ? 'chart' : region.type, 2),
-  ];
-  if (region.type !== 'barChart') parts.push(source(region.sql));
-  parts.push(group('layout', p('sequence', String((index + 1) * 10)) + '\n' + p('slot', 'body')));
-  parts.push(
-    group(
-      'appearance',
-      p(
-        'template',
-        '@/' +
-          { interactiveReport: 'interactive-report', cards: 'cards-container', barChart: 'standard' }[
-            region.type
-          ],
-      ) +
-        '\n' +
-        p('templateOptions', '#DEFAULT#'),
-    ),
-  );
-  if (region.type === 'cards') {
-    parts.push(
-      group('title', p('column', region.titleColumn)),
-      group('body', p('column', region.bodyColumn)),
-    );
-  } else if (region.type === 'barChart') {
-    parts.push(group('security', p('escapeSpecialChars', 'true')), group('chart', p('type', 'bar')));
-    for (const [axis, title] of [
-      ['x', region.xTitle],
-      ['y', region.yTitle],
-    ])
-      parts.push(
-        block(`axis ${axis}`, property('name', axis!, 3) + '\n' + property('title', q(title!), 3), 2),
-      );
-    parts.push(
-      block(
-        'series values',
-        [
-          property('name', q(region.name), 3),
-          group('execution', property('sequence', '10', 4), 3),
-          source(region.sql, 3),
-          group(
-            'columnMapping',
-            property('label', region.labelColumn, 4) + '\n' + property('value', region.valueColumn, 4),
-            3,
-          ),
-        ].join('\n'),
-        2,
-      ),
-    );
-  } else {
-    if (new Set(region.columns.map((c) => c.name)).size !== region.columns.length)
-      throw new Fault('INVALID_INPUT', 'Report column names must be unique.', 2);
-    parts.push(
-      group('pagination', p('type', 'rowRangesXToYOfZ')),
-      group(
-        'messages',
-        p('whenNoDataFound', q(region.emptyMessage ?? 'No rows found. Clear filters or add source data.')),
-      ),
-      group('link', p('linkColumn', 'exclude')),
-    );
-    for (const [i, c] of region.columns.entries()) {
-      const body = [
-        property('type', 'plainText', 3),
-        group('heading', property('heading', q(c.heading), 4), 3),
-        group('layout', property('sequence', String(i + 1), 4), 3),
-        group('source', property('dataType', c.dataType, 4), 3),
-        group('advanced', property('endUserAlias', reportAlias(i), 4), 3),
-      ];
-      if (i === 0) body.push(group('accessibility', property('valueIdentifiesRow', 'true', 4), 3));
-      if (c.formatMask) body.push(group('appearance', property('formatMask', q(c.formatMask), 4), 3));
-      parts.push(block(`column ${c.name}`, body.join('\n'), 2));
-    }
-    parts.push(
-      block(
-        'savedReport 1001',
-        [
-          property('visibility', 'primaryDefault', 3),
-          group('view', property('rowsPerPage', '25', 4), 3),
-          ...region.columns.map((c, i) =>
-            block(`displayColumn ${c.name}`, property('sequence', String(i + 1), 4), 3),
-          ),
-        ].join('\n'),
-        2,
-      ),
-    );
-  }
-  return block(`region r${index + 1}`, parts.join('\n'));
-}
 
 /** Local source generation only. Oracle compiler, plan and import remain the ship workflow. */
 export async function scaffold(ctx: ProjectContext, specFile: string, name?: string) {
@@ -234,21 +60,28 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
     throw new Fault('INVALID_INPUT', 'specFile must contain valid JSON.', 2);
   }
   const spec = parse(scaffoldSchema, input);
+  const specDigest = hash(raw);
   const target = name ? environment(ctx, name) : undefined;
-  if (new Set(spec.pages.map((p) => p.id)).size !== spec.pages.length)
-    throw new Fault('INVALID_INPUT', 'Page IDs must be unique.', 2);
+  validateSpec(spec);
   const root = await contained(ctx.root, ctx.config.application.sourceDir);
-  if ((await sourceRelease(root)) !== '26.2')
+  const release = await sourceRelease(root);
+  if (release !== '26.1' && release !== '26.2')
     throw new Fault(
       'SCAFFOLD_RELEASE_UNSUPPORTED',
-      'Scaffolding requires an Oracle-generated 26.2 application.',
+      'Scaffolding requires an Oracle-generated 26.1 or 26.2 application.',
       3,
     );
   return withLock(await contained(ctx.root, '.apexrest/scaffold.lock'), async () => {
     const stateFile = await contained(ctx.root, '.apexrest/scaffold.json');
     const state = (await exists(stateFile))
       ? parse(stateSchema, await readJson(stateFile))
-      : { version: 1 as const, files: {} as Record<string, string>, shells: {} as Record<string, string> };
+      : {
+          version: 1 as const,
+          files: {} as Record<string, string>,
+          shells: {} as Record<string, string>,
+          navigation: {} as Record<string, string>,
+        };
+    const ownedNavigation = (state.navigation ??= {});
     const before = await inventory(root),
       writes: Record<string, string> = {};
     const conflict = (name: string) =>
@@ -258,12 +91,23 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
         5,
         'conflict',
       );
-    const navFile = 'shared-components/lists/navigation-menu.apx';
+    const navFile =
+      release === '26.1' ? 'shared-components/lists.apx' : 'shared-components/lists/navigation-menu.apx';
     const navigation = await readFile(await contained(root, navFile), 'utf8');
     const nav = parseApexLang(navigation, navFile);
-    if (nav.length !== 1 || nav[0]!.type !== 'list' || nav[0]!.id !== 'navigation-menu')
-      throw conflict(navFile);
+    const menus = nav.filter((node) => node.type === 'list' && node.id === 'navigation-menu');
+    if (menus.length !== 1) throw conflict(navFile);
+    const menu = menus[0]!;
     let navText = navigation;
+    const aliases = new Map<string, number>();
+    for (const file of Object.keys(before).filter(
+      (name) => name.startsWith('pages/') && name.endsWith('.apx'),
+    )) {
+      for (const node of parseApexLang(await readFile(await contained(root, file), 'utf8'), file)) {
+        if (node.type === 'page' && typeof node.props.alias === 'string')
+          aliases.set(node.props.alias.toUpperCase(), Number(node.id));
+      }
+    }
     for (const page of spec.pages) {
       const files = Object.keys(before).filter(
         (f) =>
@@ -272,8 +116,54 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
           Number(/^p(\d+)-/.exec(path.basename(f))?.[1]) === page.id,
       );
       if (files.length > 1) throw conflict(`page ${page.id}`);
-      const name = files[0] ?? `pages/p${String(page.id).padStart(5, '0')}-${slug(page.name)}.apx`;
-      const body = page.regions.map(renderRegion).join('\n\n');
+      let alias = page.alias?.toLowerCase() ?? slug(page.name);
+      if (!page.alias) {
+        const base = alias;
+        for (
+          let attempt = 0;
+          alias === 'page' ||
+          (aliases.has(alias.toUpperCase()) && aliases.get(alias.toUpperCase()) !== page.id);
+          attempt++
+        ) {
+          alias = `${base}-${page.id}${attempt ? '-' + attempt : ''}`;
+        }
+      }
+      if (
+        page.alias &&
+        aliases.has(page.alias.toUpperCase()) &&
+        aliases.get(page.alias.toUpperCase()) !== page.id
+      )
+        throw conflict(`page alias ${page.alias}`);
+      const name = files[0] ?? `pages/p${String(page.id).padStart(5, '0')}-${alias}.apx`;
+      aliases.set(
+        (
+          page.alias ??
+          path
+            .basename(name)
+            .replace(/^p\d+-/, '')
+            .replace(/\.apx$/, '')
+        ).toUpperCase(),
+        page.id,
+      );
+      if (
+        files[0] &&
+        page.alias &&
+        !state.shells[name] &&
+        page.alias.toLowerCase() !==
+          path
+            .basename(name)
+            .replace(/^p\d+-/, '')
+            .replace(/\.apx$/, '')
+      )
+        throw conflict('Changing a page alias requires an explicit source rename.');
+      const body = renderPageBody(page, release);
+      if (
+        (state.shells[name] || (page.id === 1 && files[0] && !state.files[name])) &&
+        (page.condition || page.authorizationScheme || page.buildOption)
+      )
+        throw conflict(
+          'Preserve the existing Home page security; place guards on its regions and processes.',
+        );
       if (files[0] && !state.files[name]) {
         const old = await readFile(await contained(root, name), 'utf8');
         const [home, ...extra] = parseApexLang(old, name);
@@ -285,16 +175,27 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
           home.id !== '1' ||
           home.children.length !== 1 ||
           home.children[0]!.id !== 'app-name' ||
-          home.children[0]!.props.type !== 'staticContent' ||
-          home.props.name !== page.name
+          home.children[0]!.props.type !== 'staticContent'
         )
           throw conflict(name);
-        const at = old.lastIndexOf(')');
-        state.shells[name] = old;
-        writes[name] = old.slice(0, at) + body + '\n' + old.slice(at);
+        if (page.alias && page.alias !== home.props.alias) throw conflict('existing Home page alias');
+        state.shells[name] = old
+          .replace(/^    name: .+$/m, () => '    name: ' + q(page.name))
+          .replace(/^    title: .+$/m, () => '    title: ' + q(page.name));
+        const shell = state.shells[name]!;
+        const close = shell.lastIndexOf(')');
+        writes[name] = shell.slice(0, close) + body + '\n' + shell.slice(close);
       } else {
         if (files[0] && state.files[name] !== before[name]) throw conflict(name);
-        const shell = state.shells[name];
+        let shell = state.shells[name];
+        if (shell) {
+          if (page.alias && page.alias !== parseApexLang(shell, name)[0]?.props.alias)
+            throw conflict('existing Home page alias');
+          shell = shell
+            .replace(/^    name: .+$/m, () => '    name: ' + q(page.name))
+            .replace(/^    title: .+$/m, () => '    title: ' + q(page.name));
+          state.shells[name] = shell;
+        }
         writes[name] = shell
           ? shell.slice(0, shell.lastIndexOf(')')) + body + '\n' + shell.slice(shell.lastIndexOf(')'))
           : block(
@@ -304,11 +205,12 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
                 property(
                   'alias',
                   q(
-                    path
-                      .basename(name)
-                      .replace(/^p\d+-/, '')
-                      .replace(/\.apx$/, '')
-                      .toUpperCase(),
+                    page.alias ??
+                      path
+                        .basename(name)
+                        .replace(/^p\d+-/, '')
+                        .replace(/\.apx$/, '')
+                        .toUpperCase(),
                   ),
                   1,
                 ),
@@ -320,17 +222,71 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
                     property('templateOptions', '#DEFAULT#', 2),
                   1,
                 ),
+                pageGuards(page),
                 body,
               ].join('\n'),
               0,
             ) + '\n';
       }
-      const entry = nav[0]!.children.find(
+      const entry = menu.children.find(
         (e) => e.type === 'entry' && String(get(e.props, 'link.target.page')) === String(page.id),
       );
+      if (page.navigation === false) {
+        if (!entry) continue;
+        if (entry.id !== `scaffold-p${page.id}` || !ownedNavigation[entry.id])
+          throw conflict(`${navFile} unowned entry ${entry.id}`);
+        const nodes = declarations(navText),
+          owner = nodes.find((node) => node.kind === 'list' && node.key === 'navigation-menu');
+        const node = nodes.find(
+          (node) =>
+            node.kind === 'entry' &&
+            node.key === entry.id &&
+            owner &&
+            node.start > owner.start &&
+            node.end < owner.end,
+        );
+        if (!node || ownedNavigation[entry.id] !== node.digest)
+          throw conflict(`${navFile} entry ${entry.id}`);
+        navText = editSpans(navText, [{ ...node, expectedDigest: node.digest, content: '' }]);
+        delete ownedNavigation[entry.id];
+        continue;
+      }
+      if (entry && (entry.id === `scaffold-p${page.id}` || (page.id === 1 && state.shells[name]))) {
+        const owners = declarations(navText),
+          owner = owners.find((node) => node.kind === 'list' && node.key === 'navigation-menu');
+        const node = owners.find(
+          (node) =>
+            node.kind === 'entry' &&
+            node.key === entry.id &&
+            owner &&
+            node.start > owner.start &&
+            node.end < owner.end,
+        );
+        if (!node) throw conflict(navFile);
+        const old = navText.slice(node.start, node.end);
+        if (ownedNavigation[entry.id] && ownedNavigation[entry.id] !== hash(old))
+          throw conflict(`${navFile} entry ${entry.id}`);
+        if (
+          !ownedNavigation[entry.id] &&
+          state.files[navFile] &&
+          state.files[navFile] !== before[navFile] &&
+          entry.props.label !== page.name
+        )
+          throw conflict(`${navFile} entry ${entry.id}`);
+        if (!/^        label: .+$/m.test(old)) throw conflict(navFile);
+        const content = old.replace(/^        label: .+$/m, () => '        label: ' + q(page.name));
+        navText = editSpans(navText, [
+          {
+            ...node,
+            expectedDigest: node.digest,
+            content,
+          },
+        ]);
+        ownedNavigation[entry.id] = hash(content);
+      }
       if (!entry) {
         const id = `scaffold-p${page.id}`;
-        if (nav[0]!.children.some((e) => e.id === id)) throw conflict(navFile);
+        if (menu.children.some((e) => e.id === id)) throw conflict(navFile);
         const addition = block(
           `entry ${id}`,
           [
@@ -339,23 +295,96 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
             group('link', group('target:', property('page', String(page.id), 4), 3)),
           ].join('\n'),
         );
-        const at = navText.lastIndexOf(')');
+        const owner = declarations(navText).find(
+          (node) => node.kind === 'list' && node.key === 'navigation-menu',
+        );
+        if (!owner) throw conflict(navFile);
+        const at = navText.lastIndexOf(')', owner.end - 1);
         navText = navText.slice(0, at) + addition + '\n' + navText.slice(at);
+        const nodes = declarations(navText),
+          scope = nodes.find((node) => node.kind === 'list' && node.key === 'navigation-menu');
+        const added = nodes.find(
+          (node) =>
+            node.kind === 'entry' &&
+            node.key === id &&
+            scope &&
+            node.start > scope.start &&
+            node.end < scope.end,
+        );
+        if (!added) throw conflict(navFile);
+        ownedNavigation[id] = hash(navText.slice(added.start, added.end));
       }
     }
     if (navText !== navigation) writes[navFile] = navText;
+    if (spec.applicationProcesses !== undefined) {
+      const file = 'shared-components/app-processes.apx';
+      if (state.files[file] && state.files[file] !== before[file]) throw conflict(file);
+      const old = before[file] ? await readFile(await contained(root, file), 'utf8') : '';
+      const shell = state.shells[file] ?? old;
+      for (const source of Object.keys(before).filter((name) => name.endsWith('.apx'))) {
+        const text = source === file ? shell : await readFile(await contained(root, source), 'utf8');
+        if (!/\bappProcess\s/.test(text)) continue;
+        const nodes = parseApexLang(text, source);
+        const found = (list: typeof nodes): boolean =>
+          list.some(
+            (node) =>
+              (node.type === 'appProcess' &&
+                spec.applicationProcesses!.some((process) => process.id === node.id)) ||
+              found(node.children),
+          );
+        if (found(nodes)) throw conflict(source);
+      }
+      state.shells[file] = shell;
+      writes[file] =
+        shell +
+        (spec.applicationProcesses.length ? '\n' : '') +
+        spec.applicationProcesses
+          .map((value, i) => renderProcess({ ...value, sequence: value.sequence ?? (i + 1) * 10 }, i, true))
+          .join('\n');
+    }
     if (spec.applicationName) {
       const name = 'application.apx';
       const original = await readFile(await contained(root, name), 'utf8');
       if (!/^    name: .+$/m.test(original)) throw conflict(name);
       writes[name] = original.replace(/^    name: .+$/m, () => '    name: ' + q(spec.applicationName!));
     }
+    // Execution IDs are numeric but kept as strings when checking existing vendor IDs.
+    // The generated 15-digit range stays exact in JavaScript; no 20-digit rounding collisions.
+    const executionIds = new Map<string, string>();
+    for (const source of new Set([...Object.keys(before), ...Object.keys(writes)])) {
+      if (!source.endsWith('.apx')) continue;
+      const text = writes[source] ?? (await readFile(await contained(root, source), 'utf8'));
+      if (!text.includes('executionMappingIdentifier')) continue;
+      const nodes = parseApexLang(text, source);
+      const check = (list: typeof nodes) => {
+        for (const node of list) {
+          const mapping = get(node.props, 'advanced.executionMappingIdentifier');
+          if (mapping !== undefined) {
+            const key = String(mapping),
+              previous = executionIds.get(key);
+            if (previous && (writes[source] || writes[previous])) throw conflict(`execution ID ${key}`);
+            executionIds.set(key, source);
+          }
+          check(node.children);
+        }
+      };
+      check(nodes);
+    }
     // Every output is parsed before any source is touched. Keep a durable before/after
     // tree for inspection/recovery if the process stops between atomic file writes.
-    for (const [name, value] of Object.entries(writes)) parseApexLang(value, name);
+    for (const [name, value] of Object.entries(writes)) {
+      const nodes = parseApexLang(value, name);
+      const unique = (list: typeof nodes) => {
+        const keys = list.map((node) => `${node.type}:${node.id}`);
+        if (new Set(keys).size !== keys.length) throw conflict(`duplicate components in ${name}`);
+        list.forEach((node) => unique(node.children));
+      };
+      unique(nodes);
+    }
     const stage = await contained(ctx.root, `.apexrest/scaffolds/${randomUUID()}`);
+    await atomicWrite(path.join(stage, 'spec.json'), raw);
     const observationsFile = path.join(stage, 'observations.sql');
-    if (target)
+    if (target && release === '26.2')
       await atomicWrite(
         observationsFile,
         await scaffoldObservationsSql(
@@ -370,6 +399,12 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
     }
     if (canonical(await inventory(root)) !== canonical(before))
       throw new Fault('SOURCE_DRIFT', 'Source changed during scaffolding; staged outputs retained.', 5);
+    if (hash(await readFile(file, 'utf8')) !== specDigest)
+      throw new Fault(
+        'SOURCE_DRIFT',
+        'The scaffold specification changed before writing; the staged exact input is retained.',
+        5,
+      );
     for (const [name, value] of Object.entries(writes)) {
       const target = await contained(root, name);
       const current = (await exists(target)) ? hash(await readFile(target)) : undefined;
@@ -383,10 +418,11 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
       files: Object.keys(writes),
       pages: spec.pages.map((p) => ({ id: p.id, name: p.name })),
       sourceDigest: hash(canonical(await inventory(root))),
+      specDigest,
       compilerValidation: 'required-by-ship',
       nextAction: 'apexrest_ship mode:apply',
       stage: path.relative(ctx.root, stage),
-      ...(target
+      ...(target && release === '26.2'
         ? {
             readback: {
               sqlFile: path.relative(ctx.root, observationsFile),
@@ -395,6 +431,12 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
               purpose:
                 'Only if requested: manually execute read-only metadata/query observations after import. Not executed by scaffold or ship.',
             },
+          }
+        : {}),
+      ...(target && release === '26.1'
+        ? {
+            readbackUnavailable:
+              'The optional scaffold SQL observations are qualified for 26.2 only. Use scoped metadata reads for 26.1.',
           }
         : {}),
     };

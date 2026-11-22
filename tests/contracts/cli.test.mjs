@@ -111,6 +111,36 @@ test('explicit commands preserve JSON output and core failures', () => {
   assert.equal(JSON.parse(invalid.stdout).ok, false);
 });
 
+test('CLI decodes bounded metadata request batches before project access', async (t) => {
+  const project = await mkdtemp(path.join(tmpdir(), 'apexrest-metadata-interface-'));
+  t.after(() => rm(project, { recursive: true, force: true }));
+  const request = { kind: 'pages', schema: 'DEV' };
+  const base = ['metadata', 'read', '--project', project, '--env', 'test'];
+  const accepted = run(
+    ...base,
+    '--requests',
+    JSON.stringify([request, { ...request, kind: 'runtime-errors' }]),
+    '--json',
+  );
+  assert.equal(
+    JSON.parse(accepted.stdout).diagnostics[0].code,
+    'PROJECT_NOT_CONFIGURED',
+    'Structured requests must reach dispatch as an array, without connecting.',
+  );
+  assert.match(run('metadata', 'read', '--help').stdout, /--requests JSON/);
+  for (const value of [
+    '{',
+    '{}',
+    '[]',
+    JSON.stringify(Array.from({ length: 9 }, () => request)),
+    JSON.stringify([{ ...request, schema: 'DEV;DROP' }]),
+  ]) {
+    const result = run(...base, '--requests', value, '--json');
+    assert.equal(result.status, 2, result.stdout);
+    assert.equal(JSON.parse(result.stdout).diagnostics[0].code, 'INVALID_INPUT');
+  }
+});
+
 test('SQLcl mode CLI persists across processes and rejects unsupported modes without changing the saved value', async (t) => {
   const home = await mkdtemp(path.join(tmpdir(), 'apexrest-mode-cli-'));
   t.after(() => rm(home, { recursive: true, force: true }));

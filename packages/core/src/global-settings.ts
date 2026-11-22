@@ -31,6 +31,7 @@ export const globalSettingsSchema = z.strictObject({
     })
     .optional(),
   catalog: z.strictObject({ enabled: z.boolean().default(true) }).optional(),
+  usageLog: z.strictObject({ enabled: z.boolean() }).optional(),
 });
 export type GlobalSettings = z.infer<typeof globalSettingsSchema>;
 type DecisionSettings = NonNullable<ProjectContext['config']['decisionApi']>;
@@ -49,16 +50,18 @@ export async function configureGlobalSettings(change: {
   apiKeyEnv?: string;
   decisionTimeoutMs?: number;
   catalog?: boolean;
+  usageLog?: boolean;
 }) {
   if (
     change.decisionApi === undefined &&
     change.apiKeyEnv === undefined &&
     change.decisionTimeoutMs === undefined &&
-    change.catalog === undefined
+    change.catalog === undefined &&
+    change.usageLog === undefined
   )
     throw new Fault(
       'INVALID_INPUT',
-      'Name a setting to change: --decision-api, --api-key-env, --decision-timeout-ms or --catalog.',
+      'Name a setting to change: --decision-api, --api-key-env, --decision-timeout-ms, --catalog or --usage-log.',
       2,
     );
   return withLock(path.join(managedHome(), 'settings.lock'), async () => {
@@ -80,6 +83,7 @@ export async function configureGlobalSettings(change: {
           }
         : {}),
       ...(change.catalog !== undefined ? { catalog: { enabled: change.catalog } } : {}),
+      ...(change.usageLog !== undefined ? { usageLog: { enabled: change.usageLog } } : {}),
     });
     await writeJson(settingsFile(), next);
     return next;
@@ -110,6 +114,9 @@ export async function requireCatalog() {
 }
 
 const usageOff = () => /^(?:0|false|off)$/i.test(process.env.APEXREST_USAGE ?? '');
+export async function usageLogEnabled() {
+  return !usageOff() && (await globalSettings()).usageLog?.enabled === true;
+}
 /** Local records never create APEXREST_HOME: a machine without one stays untouched. */
 const recordable = async () => !usageOff() && (await exists(managedHome()));
 
@@ -204,6 +211,7 @@ export async function settingsStatus() {
       enabled: settings.catalog?.enabled !== false,
       ...(await catalogInfo()),
     },
+    usageLog: { enabled: !usageOff() && settings.usageLog?.enabled === true },
     recentProjects: await recentProjects(),
   };
 }

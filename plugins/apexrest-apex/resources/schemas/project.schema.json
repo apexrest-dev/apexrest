@@ -153,8 +153,7 @@
           "parsingSchema",
           "applicationId",
           "baseUrl",
-          "databaseIdentity",
-          "allowedOrigins"
+          "databaseIdentity"
         ],
         "additionalProperties": false
       }
@@ -171,9 +170,6 @@
           "type": "boolean"
         }
       },
-      "required": [
-        "allowSourceOnly"
-      ],
       "additionalProperties": false
     },
     "decisionApi": {
@@ -200,11 +196,6 @@
           "maximum": 10000
         }
       },
-      "required": [
-        "enabled",
-        "apiKeyEnv",
-        "timeoutMs"
-      ],
       "additionalProperties": false
     },
     "peerReview": {
@@ -239,11 +230,6 @@
           "maximum": 1800
         }
       },
-      "required": [
-        "mode",
-        "vendor",
-        "timeoutSeconds"
-      ],
       "additionalProperties": false
     },
     "artifacts": {

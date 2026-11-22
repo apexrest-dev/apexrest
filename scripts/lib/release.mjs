@@ -18,7 +18,7 @@ export function isGeneratedPluginFile(file) {
     (entry) => file === `${repositoryPlugin}/${entry}` || file.startsWith(`${repositoryPlugin}/${entry}/`),
   );
 }
-export async function files(root, prefix = '') {
+export async function files(root, prefix = '', excluded = []) {
   const found = [];
   for (const entry of (await readdir(path.join(root, prefix), { withFileTypes: true })).sort((a, b) =>
     a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
@@ -34,8 +34,9 @@ export async function files(root, prefix = '') {
     )
       continue;
     const file = path.posix.join(prefix, entry.name);
+    if (excluded.includes(file)) continue;
     if (entry.isSymbolicLink()) throw new Error(`Symlink in release source: ${file}`);
-    if (entry.isDirectory()) found.push(...(await files(root, file)));
+    if (entry.isDirectory()) found.push(...(await files(root, file, excluded)));
     else if (entry.isFile()) found.push(file);
     else throw new Error(`Special file: ${file}`);
   }

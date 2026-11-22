@@ -21,6 +21,14 @@
           "type": "string",
           "maxLength": 1048576
         },
+        "predicateColumns": {
+          "maxItems": 64,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+          }
+        },
         "expression": {
           "type": "string",
           "maxLength": 1048576
@@ -130,8 +138,7 @@
             },
             "required": [
               "mode",
-              "type",
-              "defaulted"
+              "type"
             ],
             "additionalProperties": false
           }

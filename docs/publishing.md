@@ -25,12 +25,12 @@ Each gate has its own command:
 
 Both commands report `npmReady`, `stableReady`, qualification status and each report's required scope. npm eligibility does not establish full Oracle/native qualification.
 
-### The retained 2.2.0 npm exception
+### The approved 2.8.0 npm exception
 
-Source version 2.8.0 does not inherit the retained 2.2.0 npm local-evidence exception.
+The maintainer approved npm publication of 2.8.0 using current local evidence.
 
-- The retained 2.2.0 setting requires both publisher opt-ins, `enabled` and `npmEnabled`.
-- Its explicit `npmReadiness` exception is bound to version `2.2.0`.
+- Both publisher opt-ins, `enabled` and `npmEnabled`, are required.
+- The `npmReadiness` exception applies only to version `2.8.0`.
 - The three current local reports (`composer-local.json`, `local-checks.json`, `oracle-local.json`) block npm when missing, failed or stale.
 - The six external Composer runtime/new-chat, native macOS/Linux/Windows and connected Oracle reports are advisory for this npm version. Their actual missing, blocked and stale states remain visible; they still block full qualification.
 - A different package version does not inherit this exception.
@@ -39,10 +39,10 @@ Source version 2.8.0 does not inherit the retained 2.2.0 npm local-evidence exce
 
 Keep:
 
-- local checks;
-- successful CI on the final source;
-- package inventory/integrity;
-- verified registry ownership;
+- Local checks.
+- Successful CI on the final source. The approved 2.8.0 npm exception uses the local CI run, with hosted CI still pending.
+- Package inventory and integrity.
+- Verified registry ownership.
 - fresh registry installation with CLI/MCP/reference checks.
 
 ### Full qualification and signed releases

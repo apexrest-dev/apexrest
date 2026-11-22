@@ -115,7 +115,7 @@ apexLocal.live = (function ($) {
   "use strict";
   var KEY = "apexLocal.live", SCROLL = "apexLocal.live.scroll", GAP = 800;
   var state = { on: true, socket: null, connected: false, wasConnected: false, retry: 0, timer: 0,
-    data: true, expired: false, page: "", regions: {}, viewers: 0, sessions: 0, users: [] };
+    data: true, expired: false, page: "", regions: {}, viewers: 0, sessions: 0, users: [], revision: -1 };
   var queue = {};
   // Requests of this tab carry its id, so its own changes are told apart from other tabs'.
   var TAB = Math.random().toString(36).slice(2, 10);
@@ -271,10 +271,44 @@ apexLocal.live = (function ($) {
     location.reload();
   }
 
+  // Source notifications carry the server's source revision: an older or repeated one is ignored,
+  // and a reload reaches only the pages it affects ("all" when the scope is uncertain).
+  function newer(message) {
+    if (typeof message.revision !== "number") return true;
+    if (message.revision <= state.revision) return false;
+    state.revision = message.revision;
+    return true;
+  }
   function sourceChanged(message) {
+    if (!newer(message)) return;
+    if (Array.isArray(message.pages) && message.pages.indexOf(String(state.page)) < 0) return;
     var dirty = apex.page && apex.page.isChanged && apex.page.isChanged();
-    if (dirty) toast("Application source changed (" + (message.file || "APEXlang") + ")", "warning", { label: "Reload", run: reload });
+    // Only allowlisted regions changed: replace them in place (their refresh lifecycle runs);
+    // any region that cannot be refreshed falls back to a full reload.
+    if (!dirty && Array.isArray(message.regions) && message.regions.length &&
+        message.regions.every(function (id) { return apex.region.isRegion && apex.region.isRegion(id); })) {
+      Promise.all(message.regions.map(function (id) { return apex.region(id).refresh(); }))
+        .then(function () { toast("Updated " + message.regions.join(", ") + " from source", "info"); }, reload);
+      return;
+    }
+    if (dirty) toast("Application source changed (" + ((message.files && message.files[0]) || message.file || "APEXlang") + ")", "warning", { label: "Reload", run: reload });
     else reload();
+  }
+  function stylesheetChanged(message) {
+    var name = String(message.file || "");
+    var links = Array.prototype.filter.call(document.querySelectorAll('link[rel="stylesheet"]'), function (link) {
+      try { return name && new URL(link.href).pathname.slice(-name.length - 1) === "/" + name; } catch (e) { return false; }
+    });
+    if (!links.length) return sourceChanged({ files: [name] });
+    links.forEach(function (link) {
+      var url = new URL(link.href);
+      url.searchParams.set("apexLocalCss", String(Date.now()));
+      var next = link.cloneNode();
+      next.href = url.href;
+      next.addEventListener("load", function () { link.remove(); });
+      next.addEventListener("error", function () { next.remove(); });
+      link.after(next);
+    });
   }
 
   function receive(event) {
@@ -282,6 +316,12 @@ apexLocal.live = (function ($) {
     try { message = JSON.parse(event.data); } catch (e) { return; }
     if (message.type === "hello") {
       state.data = !!message.data;
+      // A page rendered before a reconnect learns the server's revision now; a newer one means
+      // it missed a source change while disconnected.
+      if (typeof message.revision === "number") {
+        if (state.wasConnected && message.revision > state.revision) { state.revision = message.revision - 1; sourceChanged({ revision: message.revision, pages: "all" }); }
+        state.revision = Math.max(state.revision, message.revision);
+      }
       // Changes made while the socket was down were missed: bring every followed region up to date.
       // Only after hello, which a server that no longer knows this session never sends.
       if (state.wasConnected && state.data) Object.keys(state.regions).forEach(function (id) {
@@ -295,7 +335,8 @@ apexLocal.live = (function ($) {
       state.users = message.users || [];
     } else if (message.type === "changed") changed(message);
     else if (message.type === "reload") sourceChanged(message);
-    else if (message.type === "source-error") toast("APEXlang parse error: " + message.message, "error");
+    else if (message.type === "stylesheet") stylesheetChanged(message);
+    else if (message.type === "source-error") toast("APEXlang parse error (the page shows the last good version): " + message.message, "error");
     else if (message.type === "expired") {
       state.expired = true;
       toast("The preview server restarted; this page's session is gone", "warning", { label: "Reload", run: reload });

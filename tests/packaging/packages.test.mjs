@@ -13,7 +13,12 @@ test('Codex package declares native skills, local MCP and exclusive product rout
   const mcp = JSON.parse(await readFile(root + '/.mcp.json'));
   assert.equal(manifest.skills, './skills/');
   assert.equal(manifest.mcpServers, './.mcp.json');
-  assert.deepEqual(mcp.mcpServers.apexrest, { command: 'node', args: ['runtime/mcp.mjs'], cwd: '.' });
+  assert.deepEqual(mcp.mcpServers.apexrest, {
+    command: 'node',
+    args: ['runtime/mcp.mjs'],
+    cwd: '.',
+    env: { APEXREST_HOST: 'codex' },
+  });
   const marketplace = JSON.parse(await readFile('dist/codex-compat/.agents/plugins/marketplace.json'));
   assert.deepEqual(marketplace.plugins[0].policy.products, ['codex']);
   const claude = JSON.parse(
@@ -23,6 +28,7 @@ test('Codex package declares native skills, local MCP and exclusive product rout
   assert.equal(claude.name, 'apexrest');
   assert.equal(claude.skills, './skills/');
   assert.deepEqual(claude.mcpServers.apexrest.args, ['${CLAUDE_PLUGIN_ROOT}/runtime/mcp.mjs']);
+  assert.deepEqual(claude.mcpServers.apexrest.env, { APEXREST_HOST: 'claude' });
   assert.equal(claudeMarket.plugins[0].name, claude.name);
   assert.equal(claudeMarket.plugins[0].version, claude.version);
   assert.equal(claudeMarket.plugins[0].source, './plugins/apexrest-apex');

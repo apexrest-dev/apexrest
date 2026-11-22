@@ -160,6 +160,10 @@ const queryBuiltins = new Set(
     'VARCHAR2 VARIANCE VSIZE WHEN WHERE WIDTH_BUCKET WITH WITHIN XMLAGG XMLELEMENT XMLFOREST XMLTABLE XMLTYPE'
   ).split(' '),
 );
+const querySyntax = new Set(
+  'AS ASC CROSS DESC FETCH FULL INNER LEFT NEXT NULL NULLS OFFSET OUTER RIGHT ROW UPDATE'.split(' '),
+);
+const sqlIdentifier = /^(?:[A-Z][\w$#]*|"(?:[^"]|"")+")$/;
 export function inspectSql(sql: string, depth = 0): DatabaseOperation[] {
   const tokens = sqlTokens(sql),
     operations: DatabaseOperation[] = [];
@@ -200,9 +204,44 @@ export function inspectSql(sql: string, depth = 0): DatabaseOperation[] {
       ];
   }
   const statementStart = (i: number) => i === 0 || at(i - 1) === ';' || at(i - 1) === '/';
+  const inspectQuery = (start: number, includeBareNames = true) => {
+    for (let i = start + 1; i < tokens.length && at(i) !== ';'; i++) {
+      const name = at(i),
+        previous = at(i - 1),
+        next = at(i + 1);
+      if (!sqlIdentifier.test(name)) continue;
+      // FROM/JOIN object names and aliases after an explicit AS are syntax.
+      // A table function still follows its name with an opening parenthesis.
+      if (previous === 'FROM' || previous === 'JOIN') {
+        let end = i;
+        while (at(end + 1) === '.' && sqlIdentifier.test(at(end + 2))) end += 2;
+        if (at(end + 1) !== '(') {
+          i = end;
+          continue;
+        }
+      } else if (previous === 'AS' || (tokens[i - 1]?.literal && ['FROM', ','].includes(next))) continue;
+      const qualified = previous === '.';
+      if (!qualified && next !== '.' && (queryBuiltins.has(name) || querySyntax.has(name))) continue;
+      // A bare name can be a column or a parameterless Oracle routine. The
+      // lexical scanner has no schema bindings with which to prove the former.
+      const call = next === '(' || qualified || next === '.';
+      if (!call && !includeBareNames) continue;
+      add(
+        call ? 'query-routine-call' : 'query-unresolved-reference',
+        qualified ? at(i - 2) + '.' + name : next === '.' ? name + '.' + at(i + 2) : name,
+        true,
+        call
+          ? 'Queries a possible user-defined routine or sequence; evaluation can change data or schema state.'
+          : 'A bare query name could be a parameterless routine; resolve it before approving remote execution.',
+      );
+      return;
+    }
+  };
   let anonymousBlock = false;
+  let inspectedQuery = false;
   for (let i = 0; i < tokens.length; i++) {
     const word = at(i);
+    if (word === ';') inspectedQuery = false;
     if (word === 'EXECUTE' && at(i + 1) === 'IMMEDIATE') {
       const literal = tokens[i + 2];
       if (literal?.literal && at(i + 3) !== '|' && depth < 4)
@@ -316,7 +355,7 @@ export function inspectSql(sql: string, depth = 0): DatabaseOperation[] {
           true,
           'Creates or replaces executable database code; callers and triggers can change behavior.',
         );
-      else if (plainCreateKinds.has(found.kind))
+      else if (plainCreateKinds.has(found.kind)) {
         add(
           'create-' + kind,
           objectAt(found.cursor),
@@ -325,29 +364,25 @@ export function inspectSql(sql: string, depth = 0): DatabaseOperation[] {
             ? 'Replaces an existing database object; dependent queries and code can change behavior.'
             : 'Creates a database object in the reviewed application schema.',
         );
-      else
+        if (found.kind === 'INDEX') {
+          // An index build evaluates function-based keys against existing rows.
+          let cursor = found.cursor;
+          while (at(cursor) && ![';', 'ON'].includes(at(cursor))) cursor++;
+          if (at(cursor) === 'ON') {
+            cursor += at(cursor + 2) === '.' ? 4 : 2;
+            if (at(cursor) === '(') inspectQuery(cursor, false);
+          }
+        }
+      } else
         add(
           'create-' + kind,
           objectAt(found.cursor),
           true,
           'Creates a privileged or executable database object (users, roles, links, jobs, directories, contexts); review its scope.',
         );
-    } else if ((word === 'SELECT' || word === 'WITH') && statementStart(i)) {
-      // A query can invoke user-defined functions with side effects.
-      let j = i;
-      for (; j < tokens.length && at(j) !== ';'; j++) {
-        if (tokens[j]!.literal || at(j + 1) !== '(' || !/^[A-Z][\w$#]*$/.test(at(j))) continue;
-        const qualified = at(j - 1) === '.';
-        if (qualified || !queryBuiltins.has(at(j))) {
-          add(
-            'query-routine-call',
-            qualified ? at(j - 2) + '.' + at(j) : at(j),
-            true,
-            'Queries a user-defined routine; functions can perform autonomous data or schema changes.',
-          );
-          break;
-        }
-      }
+    } else if (word === 'SELECT' && !inspectedQuery) {
+      inspectQuery(i);
+      inspectedQuery = true;
     }
   }
   const controlWords = new Set([

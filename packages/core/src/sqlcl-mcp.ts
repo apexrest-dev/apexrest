@@ -34,12 +34,16 @@ export class SqlclStdioTransport implements Transport {
   private child: ChildProcess | undefined;
   private buffer = new ReadBuffer();
   private exited = false;
+  private overflowed = false;
   constructor(private request: Pick<ProcessRequest, 'executable' | 'args' | 'cwd' | 'env'>) {}
   get pid() {
     return this.exited ? undefined : this.child?.pid;
   }
   get alive() {
-    return !!this.child && !this.exited;
+    return !!this.child && !this.exited && !this.overflowed;
+  }
+  get outputLimitExceeded() {
+    return this.overflowed;
   }
   async start() {
     if (this.child) throw new Error('SQLcl transport already started.');
@@ -54,7 +58,16 @@ export class SqlclStdioTransport implements Transport {
     child.stdin!.on('error', () => {});
     child.stderr!.on('data', () => {});
     child.stdout!.on('data', (chunk: Buffer) => {
-      this.buffer.append(chunk);
+      if (this.exited || this.overflowed) return;
+      try {
+        this.buffer.append(chunk);
+      } catch {
+        // The SDK bounds incomplete frames. Stop this session so pending RPCs
+        // settle through the usual close path and no later frame is trusted.
+        this.overflowed = true;
+        this.kill();
+        return;
+      }
       for (;;) {
         let message: JSONRPCMessage | null;
         try {
@@ -82,7 +95,7 @@ export class SqlclStdioTransport implements Transport {
     });
   }
   async send(message: JSONRPCMessage) {
-    if (!this.child || this.exited) throw new Error('SQLcl transport is closed.');
+    if (!this.alive) throw new Error('SQLcl transport is closed.');
     await new Promise<void>((resolve, reject) =>
       this.child!.stdin!.write(serializeMessage(message), (error) => (error ? reject(error) : resolve())),
     );
@@ -111,6 +124,15 @@ export class SqlclStdioTransport implements Transport {
         else handle.unref();
       }
   }
+}
+
+function outputLimit(uncertain: boolean) {
+  return new Fault(
+    'OUTPUT_LIMIT',
+    'SQLcl MCP output exceeded the session limit.',
+    6,
+    uncertain ? 'outcome_unknown' : 'failed',
+  );
 }
 
 // One official SQLcl MCP server. Commands and polling honour the caller's
@@ -157,13 +179,7 @@ export class SqlclMcpClient {
       .filter((block) => block.type === 'text')
       .map((block) => block.text)
       .join('\n');
-    if (Buffer.byteLength(output) > (this.request.maxBytes ?? 1024 * 1024))
-      throw new Fault(
-        'OUTPUT_LIMIT',
-        'SQLcl MCP output exceeded the session limit.',
-        6,
-        uncertain ? 'outcome_unknown' : 'failed',
-      );
+    if (Buffer.byteLength(output) > (this.request.maxBytes ?? 1024 * 1024)) throw outputLimit(uncertain);
     return output;
   }
   private async call(
@@ -256,9 +272,10 @@ export function mcpCallOptions(request: Pick<ProcessRequest, 'timeoutMs' | 'sign
     return { timeout, ...(request.signal ? { signal: request.signal } : {}) };
   };
 }
-export function mcpFailure(error: unknown, request: SqlclMcpRequest, submitted: boolean) {
-  if (error instanceof Fault) return error;
+export function mcpFailure(error: unknown, request: SqlclMcpRequest, submitted: boolean, overflowed = false) {
   const uncertain = submitted && request.mutation;
+  if (overflowed) return outputLimit(uncertain);
+  if (error instanceof Fault) return error;
   return new Fault(
     uncertain ? 'SQLCL_MCP_OUTCOME_UNKNOWN' : request.signal?.aborted ? 'CANCELLED' : 'SQLCL_MCP_FAILED',
     uncertain
@@ -308,7 +325,7 @@ export async function runSqlclMcp(request: SqlclMcpRequest): Promise<ProcessResu
     timing.executeMs = performance.now() - executeStarted;
     return mcpResult(result, session.text(result, request.mutation));
   } catch (error) {
-    throw mcpFailure(error, request, submitted);
+    throw mcpFailure(error, request, submitted, session.transport.outputLimitExceeded);
   } finally {
     if (executeStarted !== undefined) timing.executeMs = performance.now() - executeStarted;
     await session.close();

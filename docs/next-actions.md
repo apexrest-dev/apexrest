@@ -1,15 +1,35 @@
 # Next actions and verification limits
 
-## Local test environment after cleanup
+## Fast development and review comments (2026-11-22)
 
-- The latest requested cleanup deleted Home Finance app 16250, workspace `DEV`, its developer account and schema `DEV_APP`, including transaction/currency data. SQL readback confirmed zero user apps, application schemas and user workspaces. Oracle/APEX internals, ORDS and administrator accounts remain.
-- Recreate the development schema, workspace and developer credentials before redeploying the retained Home Finance source. Inspect the new target and reconcile deployment history against its actual state; saved connections and past migrations do not establish a valid current baseline.
-- `docs/evidence/` has zero subfolders. Re-run required qualification to produce fresh evidence before release claims; deleted evidence paths below are historical references. Browser transaction/currency behavior was not verified before deletion.
+- **Decide on the held local run.** Run `08e6e532` on the local `APEXREST_262_TEST` schema is held as `DATABASE_RECOVERY_REQUIRED`.
+  - Its database state was inspected: no table, and a partial package that has been dropped. Its ownership was not released.
+  - The product has no supported command to confirm a database reconciliation and release a run. Release it manually, or implement that confirmation flow ([APE-403](https://linear.app/apexrest/issue/APE-403)). It must be bound to the exact run and confirmed by a human.
+  - Verification continued on the separate local schema `APEXREST_262_E2E`.
+- **Remaining fast-development tickets.** Slices A, B and C are implemented locally. Slices D to H remain. The compound P2 edits (columns with projection, SQL replacement, recipe insertion, filters) belong to slice F.
+- **Largest measured native cost.** On the local target a small page ship spends about 4.8 s planning (export and compile) and 6.6 s importing, out of a 14.2 s median. P4 (warm worker) and P6 (export path) work should be measured against that split.
+- **Preview revision state.** The preview counts its own revisions but does not record the project `sourceDigest` it rendered in `revisions.json`; add it when the preview runs inside a project.
+- **Not yet covered by review mode.** Comments on interactive grid columns and on items inside dialogs are not covered. Screenshots of the selection are not stored.
+
+## Production qualification
+
+- Complete the source-bound external matrix in [APE-342](https://linear.app/apexrest/issue/APE-342/complete-source-bound-external-production-qualification). The fresh Composer chat gate passed on candidate `2e26960f` through the installed Codex plugin and real offline compiler. Repeat the source-bound gate on the current candidate. The connected runtime gate still requires authenticated command and form observations. The user directed this run to continue without browser.
+- Obtain authorized Linux x64 and Windows x64 execution routes and a separate DEV/TEST APEX 26.2 target for their native release-specific cases. The available ATP is 26.1.6. Prior hosted repository self-tests are not current native-host evidence.
+- Finish the native macOS cases marked partial or blocked, including the full golden workflows, browser handoffs and native apply permission comparisons. Candidate `c6662d27` passed the bounded Codex job wait retest (HCX-008) and all six offline reference tool budgets (AGT-007). The earlier no-browser follow-up completed the persisted Codex toggle, Claude version upgrade and Claude polling cases on `2e26960f`. Claude uses its normal model under the user's qualification exception. Codex application generation and repair use Sol 6.1 Medium.
+- Use isolated disposable TEST projects and a dedicated managed history for fixture migrations, with an externally serialized write window. Preserve the normal managed-home migration/package history. Remote fixture DDL/DML requires the reviewed exact plan and its actual human confirmation.
+- Retain the completed Oracle integration report for candidate `2e26960f` and repeat the gate on the current candidate. The previous report covers same-run recovery after controlled loss of confirmation, shared-home contention, and the full verified backup restore on TEST application 97231. Independent homes and interruption during active execution require separate evidence.
+
+## Home Finance qualification
+
+- Extend the completed optimized cohort with additional workloads and a new matched control before a general speed claim. Its ten fresh Sol 6.1 Medium runs averaged 313.511 seconds including all seven repairs, versus historical skills at 659.704 seconds (52.477% less). All ten exact TEST ATP updates passed. Preserve the frozen measured payload, pilot, failures, all costs and post-measurement hardening separately. Work is tracked in [Optimize native APEX generation](https://linear.app/apexrest/issue/APE-341/optimize-native-apex-generation-and-qualify-ten-new-home-finance-runs).
+- Extend the completed ten-per-arm Home Finance comparison using a uniform source checker and additional workloads before stating a general speed benefit. All twenty exact TEST ATP imports, original failures, thirty native repair turns and measured counters are retained. The completed experiment is tracked in [Qualify Home Finance generation](https://linear.app/apexrest/issue/APE-340/qualify-12-page-home-finance-generation-with-10-skills-and-10-apexrest).
+- Keep future browser-requested checks of calendar customization, Session State Protection and business scenarios separate from the completed compiler, server parse, import and local SQLite evidence. The current experiment has fourteen imported pages per app and thirteen locally rendered pages per app, including Login.
+- Extend private usage-journal qualification across supported native hosts. Fifty-three historical and nineteen optimized-series Codex phases were imported and reconciled. Local tests cover backend time, native counter import, invalid and incomplete captures, concurrent writes and byte retention. Keep any separately requested local Oracle qualification distinct from the current ATP results.
 
 ## Machine-wide settings and Omarchy panel
 
 - Click through every Omarchy panel control in a running shell (both switches, SQLcl choices, connection test, preview start/stop, validate, agent, terminal, recent-project switch) and record observations; only rendering and helper-level calls were checked.
-- Installed Claude Code and Codex plugins keep their older runtime until updated; the panel then shows "no machine-wide settings". Release and update the plugin, or point `apexrestCommand` at a newer runtime.
+- Verify the final updated runtime through the Omarchy panel on its supported host. The review machine's Codex and project-local Claude installations now use the verified managed bundle and shared settings home.
 - Decide whether the global Decisions default should support a private ENV file (today only the environment variable) and whether `settings` needs an MCP tool for agents.
 - Preview operations return before current-project recording; decide whether preview start should make a project current.
 - Decide whether to publish the Omarchy plugin as its own Git repository so `omarchy plugin add <git-url>` and `omarchy plugin update` work.
@@ -17,28 +37,17 @@
 
 ## Creation/update optimization qualification
 
-- Qualify the routine 26.2 scaffold beyond interactive reports, KPI cards and bar charts on a Universal Theme starter. Existing generated pages support regeneration with edit-conflict checks; measure actual update/import workflows separately. Forms, grids, custom components and a full Box application need their own cases before extending the creation speed claim.
+- Extend the expanded scaffold beyond the completed 26.1 Home Finance cohort and heterogeneous compiler examples. Keep native 26.2 rich-component runtime behavior, editable grids, custom components and a full Box application as separate qualification before extending a creation speed claim. Preserve the completed update/import evidence and source edit protections.
 - Repeat the interleaved Box creation comparison on more tasks and hosts, including cold caches, Claude, native marketplace loading, remote targets and Windows. The current three samples per arm are descriptive local Codex CLI measurements with explicitly configured MCP/skills. Preserve the initial near-parity pilot and the intermediate 37.3% improvement in private `docs/evidence/box-ab-20261115/` and `docs/evidence/box-optimization-20261115/`.
 - Qualify CLI-owned `CONNECT -name` sessions on other supported SQLcl releases and transports. Local SQLcl 26.3 probes and guarded imports cover a saved connection with no `autoCommit` property; explicit MCP transport retains the advertised connect tool and its prerequisites. Keep the rollback probe and fresh identity checks; do not change saved connection properties.
 - Extend optional, manually invoked scaffold observations to queries with binds or required APEX session context when a task needs them. The current target-bound file returns bounded metadata/query observations, not a test verdict, and is never executed by scaffold or ship. Keep compiler/import and requested browser outcomes separate.
 - Measure the local preparation changes against authorized Oracle new-app, full-update, selected-page and database-only workflows. The file benchmark is synthetic; identity query counts, auto database-only planning and staged validation integrity have repository coverage only. Keep compiler/import evidence separate from native-host authoring and requested browser observations.
 - Qualify drain-expiry unknown outcomes with an actual SQLcl/JVM interruption and on Windows. The local POSIX regression covers a surviving descendant and cancellation of the timer after normal close.
-- Linear tracking is blocked: the APEXREST workspace rejected creation of "Optimize local APEX creation and update preflight" because its free issue limit is reached. Create the work item when workspace capacity is available; no existing issue was repurposed.
-
-## Built web applications
-
-`apexrest build webapp` ([guide](webapp.md)) is a first working version. Before calling a built application deployable:
-
-- **Security.** Implement session state protection (URL checksums, item restrictions) and review every renderer path that puts application or database text into HTML or SQL; write a threat model; run a security review. Verify `plsql` and `database` sign-in against real accounts.
-- **Concurrency and state.** One process serves one request at a time and keeps sessions, collections and uploaded files in memory. Add a render worker pool or several processes with a shared session store; per-session state in the renderer is keyed by the session object and must move to that store first. Load-test with concurrent users and check that no session reads another's values.
-- **Fidelity.** Compare pages rendered by real APEX and by a built application on the local Docker database (normalized DOM diff), starting with one sample application, and have a person check a built application in a browser (a scripted headless session passed on the Trade application).
-- **Database.** Serve BLOB columns from Oracle, move uploads and collections out of memory, and test the APEX session path with an imported application. Decide on an optional compatibility package (`v`, `nv`, common `apex_util` calls) for databases without APEX; it is database DDL and needs explicit authorization.
-- **Session cookie.** Name the session cookie per application (or scope its path) so two built applications under one host name do not overwrite each other's session.
-- **Identity.** Make the signed-in user visible to database code without an APEX session (for example as the session's client identifier) and document how application code reads it; decide whether a denied page should answer 403.
-- **Breadth.** Dynamic action and process plug-ins, REST data sources against real endpoints, and a support matrix generated from the 26.2 component inventory that the build checks.
-- **Oracle browser files.** Whether built applications may use or ship them depends on the user's Oracle license; keep the build's default (not included) and the notice in the generated README.
+- Track the current native generation optimization and its measured cohort in [APE-341](https://linear.app/apexrest/issue/APE-341/optimize-native-apex-generation-and-qualify-ten-new-home-finance-runs). Keep the older local update/preflight measurements separate from this experiment.
 
 ## Local preview as an alternative APEX runtime
+
+Repeat connected `preview check` for Stock Control given an applicable test scope for its page code. Connected preview already rendered both pages of the dedicated ATP test application through direct SQLcl.
 
 The goal is that a page renders and behaves locally as it would on APEX with the application's database. Measure each step with `npm run preview:corpus` (33 public Oracle 26.2 applications); the 2026-11-15 scorecard is in [implementation status](implementation-status.md). Remaining work, in order of how much of the corpus it affects:
 
@@ -55,13 +64,14 @@ The goal is that a page renders and behaves locally as it would on APEX with the
 - The 2026-11-05 check found no newer APEXlang skill content: all 13 APEX entrypoints, 389 bundled 26.2 definitions and 659 bundled 26.1 source files match the reviewed sources. Keep the existing upstream pins; review future skill/router changes separately from inventory changes using the maintainer skill map.
 - For a separately requested application release upgrade, follow `oracle:26.2:guide/upgrade-audit` on the identified DEV/QA/TEST target. The current skill/guide refresh performs no application import, toolchain upgrade or browser qualification. Verify fresh native Codex/Claude loading separately from local packaging checks.
 
-## Current review defects
+## Release verification after review fixes
 
-- Fix the P1 remote SQL risk gap for parameterless function calls and calls within CTAS. Reproduce the exact remote planner/confirmation path; the 2026-10-31 review reconfirmed the existing defect without executing SQL on Oracle (SAFETY-01, A22).
-- Resolve password-file parents against canonical allowed roots and reject directory-symlink escapes while retaining no-follow/inode checks on the file (A21).
-- Bind Composer predicate identifiers to verified columns/SQL words and reject unresolved bare parameterless routines in both row predicates and write authorization (CMP013, CMP014, CMP037).
-- Make full APEXlang restore use the reviewed backup alias consistently during import and post-import verification; cover a backup alias different from the current configured alias (A13).
-- Upgrade the vulnerable locked dependencies, starting with direct Zod 4.6.2 and the relevant MCP SDK fixes. The authorized runtime and complete dependency audits report the same nine affected packages, with no additional packages from dev dependencies; assess reachability individually, preserving the distinction between current stdio execution and HTTP/OAuth advisories. Verify oversized-input handling and the existing CLI/MCP/packaging contracts. No dependency or runtime fix was applied by this review.
+- Qualify remote SQL confirmation, saved-plan environment matching, service binding and interrupted recovery on an authorized disposable Oracle target. Fixture coverage verifies confirmation, refusal and preservation of old local records. Where an older managed home has unregistered journals, run a full read-only plan through each original verified service to register the preserved history.
+- Qualify full Oracle APEXlang restore with a differing backup alias and the legacy standalone SQL restore path on disposable targets. Local coverage exercises the alias, the exact-plan safety gate and checksummed SQL input. Split SQL exports use an APEXlang backup or a separately reviewed manual recovery procedure.
+- Verify live Composer row predicates and dictionary drift through the deploy-before-import check on a controlled application. Keep source-only fixtures and compiler results separate from connected runtime behavior.
+- Qualify native cross-platform installer upgrades and Oracle/JVM resource behavior. Local tests verify the candidate tool catalog before activation, SQLcl startup reservations and bounded transport faults. The review machine's actual Codex update now passes scoped discovery despite a broken unrelated marketplace, with independent foreign configuration checks. Fresh-profile setup and same-version Claude cache refresh were also verified.
+- Verify preview navigation and transaction behavior in the supported browser and authorized connected modes. Loopback tests cover the foreign-navigation refusal, direct navigation and a working same-origin submit.
+- Use the [production qualification matrix](#production-qualification) for the current candidate. Local repository, offline Oracle compiler and Composer checks pass. Full readiness also depends on the external scenarios recorded there. The lockfile audit reported zero known advisories.
 
 ## Findings from the 2026-11-04 local 26.2 run
 
@@ -170,7 +180,7 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 
 ## Runtime and Composer
 
-- Complete Composer shared-resource ownership, typed route/consumer handling, property/fault coverage and authenticated Oracle/browser qualification. See [Composer](composer.md).
+- Extend Composer ownership beyond the verified static enum LOV scope. Complete typed route/consumer handling, property/fault coverage and authenticated Oracle/browser qualification. See [Composer](composer.md).
 - Verify the generated save dialog over HTTP/HTTPS and the create-as-edit retry path. Materialization and compiler success do not establish runtime DML or authorization.
 - Add recovery for `LOCK_CORRUPT`, clarify first-use integrity records and verify Windows launchers/rename retries.
 - Qualify process-group termination of SQLcl on native Windows (`taskkill /T`) and confirm the exit-drain fallback against a real stalled `apex import`; the POSIX behavior is covered by local shell fixtures only.
@@ -178,10 +188,10 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 
 ## Release and repository policy
 
-Run relevant local checks before integrating changes; CI runs only on `main`. Repository release/integration workflows remain disabled. The retained 2.2.0 npm exception does not apply to source version 2.8.0. Current-version npm eligibility and full qualification require all nine source-bound reports under the existing configuration. Do not treat absent reports as passed gates.
+Hosted CI runs only on `main`. Repository release and integration workflows remain disabled. The approved 2.8.0 npm exception requires three current local reports. Full qualification requires all nine source-bound reports.
 
-- A requested publication of the current version needs its own applicable readiness decision, current required reports, green final-source CI on all four jobs, matching public archive integrity and a fresh registry installation with CLI/MCP/reference probes. Version update and main integration do not establish registry publication.
-- Obtain full Composer runtime/new-chat, native macOS/Linux/Windows and Oracle integration qualification during a separately requested qualification run. The retained version-bound npm exception does not mark those reports passed. Keep original 26.1 records separate from the new block compiler proofs.
+- Complete final-source hosted CI on all four jobs when main integration is authorized. For the approved 2.8.0 npm publication, verify the exact source with the local CI run, then check public archive integrity and a fresh registry installation with CLI, MCP and reference probes.
+- Use the current production qualification records for Composer runtime and new chat, native macOS, Linux and Windows, and Oracle integration. Keep original 26.1 records separate from the newer block compiler proofs.
 - Preserve the passing Windows cleanup regression, `.github/workflows/ci.yml`, all three local npm gates and the default full-qualification gate. Hosted CI is separate from native model-host qualification.
 - Future native qualification needs supported config profiles with the exact current plugin and accessible dedicated Linux x64 and Windows x64 hosts. Do not copy authentication tokens or treat the existing ARM64 Podman VM as Linux x64 qualification.
 

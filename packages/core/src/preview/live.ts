@@ -42,13 +42,32 @@ export class LiveHub {
   readonly data: boolean;
   #watcher?: fs.FSWatcher | undefined;
   #timer?: NodeJS.Timeout | undefined;
-  #onSource: () => string | undefined;
+  #onSource: (file: string) => Record<string, unknown> | undefined;
+  #onDirty: () => void;
+  #revision: () => number;
 
-  /** `onSource` re-reads the application after a source change and returns a parse error, if any. */
-  constructor(options: { sourceDir: string; data: boolean; onSource: () => string | undefined }) {
+  /**
+   * `onDirty` runs on every relevant file event, before the debounce, so a request in between
+   * re-reads the sources. `onSource` re-reads them after the burst and returns the message to send
+   * (reload with affected pages, stylesheet, source error), or nothing when nothing changed.
+   */
+  constructor(options: {
+    sourceDir: string;
+    data: boolean;
+    onSource: (file: string) => Record<string, unknown> | undefined;
+    onDirty?: () => void;
+    revision?: () => number;
+  }) {
     this.#sourceDir = options.sourceDir;
     this.data = options.data;
     this.#onSource = options.onSource;
+    this.#onDirty = options.onDirty ?? (() => undefined);
+    this.#revision = options.revision ?? (() => 0);
+  }
+
+  /** Whether file events are being received; without them requests rescan the sources. */
+  get watching(): boolean {
+    return Boolean(this.#watcher);
   }
 
   get size(): number {
@@ -83,7 +102,7 @@ export class LiveHub {
     client = { connection, session, page, tab };
     this.#clients.add(client);
     this.#watch();
-    connection.send({ type: 'hello', data: this.data });
+    connection.send({ type: 'hello', data: this.data, revision: this.#revision() });
     this.#presence();
   }
 
@@ -130,6 +149,7 @@ export class LiveHub {
         // Some platforms report no file name; reload to be safe.
         const relevant = !name || name.endsWith('.apx') || parts.includes('static-files');
         if (!relevant || parts.some((part) => part.startsWith('.'))) return;
+        this.#onDirty();
         clearTimeout(this.#timer);
         // Editors write in several steps; wait for the burst to end.
         this.#timer = setTimeout(() => this.#sourceChanged(name), 150);
@@ -142,9 +162,8 @@ export class LiveHub {
   }
 
   #sourceChanged(file: string): void {
-    const error = this.#onSource();
-    if (error) this.broadcast({ type: 'source-error', message: error });
-    else this.broadcast({ type: 'reload', file: file.split(path.sep).join('/') });
+    const message = this.#onSource(file);
+    if (message) this.broadcast({ file: file.split(path.sep).join('/'), ...message });
   }
 
   #unwatch(): void {

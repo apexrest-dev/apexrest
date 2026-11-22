@@ -2,17 +2,189 @@
 
 The current source and bundled plugin version is **2.8.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
-## Local test environment cleanup (2026-11-15)
+## Incremental preview, Slice C (2026-11-22, local, uncommitted)
 
-The latest user-requested cleanup removed Home Finance app 16250, its `DEV` workspace and developer account, and the `DEV_APP` schema including transactions and currency data. Direct SQL readback confirmed zero user applications, zero application schemas and zero user workspaces in local `FREE/FREEPDB1` (container `oracle-free`). The 21 Oracle/APEX internal and theme applications remain, along with ORDS infrastructure and `PDBADMIN`. The `INTERNAL/ADMIN` account and its previously requested password reset are retained.
+**Source index ([APE-351](https://linear.app/apexrest/issue/APE-351)).** `loadApplication` takes a per-file parse cache keyed by size, modification time and substitutions, so unchanged files keep their parsed components. `preview/source-index.ts` lists the changed files and the affected pages:
 
-Filesystem inspection confirmed zero subfolders under `docs/evidence/`; no new evidence subfolders required deletion. Historical measurements below describe prior runs whose deleted local evidence is no longer retained. Missing required evidence remains a release blocker. Application source and local durable deployment history are retained; the example is no longer deployed and its database target must be recreated before reuse.
+- a page file affects that page;
+- a shared component affects the pages that reference it;
+- the application, the global page, a theme or an unknown file affects every page.
+
+**Watcher and stale state ([APE-353](https://linear.app/apexrest/issue/APE-353), [APE-359](https://linear.app/apexrest/issue/APE-359)).** Watcher events mark the sources dirty before the debounce. Requests rescan only when the sources are dirty, when no watcher is running, or every two seconds. A failed load keeps the last good renderer with a "Stale preview" banner and the error. Previously every page returned HTTP 500.
+
+**Targeted reload ([APE-358](https://linear.app/apexrest/issue/APE-358), [APE-366](https://linear.app/apexrest/issue/APE-366)).** Reload messages carry the source revision, the files and the affected pages; `hello` carries the revision, and older or repeated notifications are ignored. CSS static files are replaced in place.
+
+**Region replacement ([APE-374](https://linear.app/apexrest/issue/APE-374), [APE-368](https://linear.app/apexrest/issue/APE-368)).** An in-place edit that changes only static content, classic report, interactive report or cards regions is replaced through the regions' existing refresh lifecycle. Everything else reloads the page.
+
+Text edits in those regions are covered by the region replacement. Item and button labels reload the page; there is no separate text patching.
+
+Verified:
+
+- Unit tests cover equivalence of cached and clean loads, scope, renames, stale state, region eligibility and the live message.
+- In the built-in browser with two tabs, patching the region title on page 10 replaced that region in place: the tab was not reloaded and the new text appeared. The page 1 tab was not touched.
+
+## Semantic page edits, Slice B (2026-11-22, local, uncommitted)
+
+**Lossless editor ([APE-350](https://linear.app/apexrest/issue/APE-350)).** `edit/apexlang-edit.ts` scans one `.apx` file into components, groups and property lines with exact offsets. ``` literals, object and array values, and `//` and `/* */` comments stay opaque. An edit replaces only a property's value bytes. A missing property or group is inserted with the file's indentation and line ending. Values that would read as references, booleans or quoted text are written as JSON-quoted text. The preview parser only validates the result.
+
+Results:
+
+- Over the repository corpus, the scanner accepts all 1,353 `.apx` files.
+- Setting 68,243 scalar properties to their current value changed 0 bytes.
+
+**Committed source revision ([APE-356](https://linear.app/apexrest/issue/APE-356)).** `edit/patch.ts` binds an edit to the digest of the page file the caller read. It checks the digest again under `.apexrest/source-edit.lock` right before an atomic replace, and returns the before and after digests and the `SourceChange` (files and affected pages). Without the digest, or with `dryRun`, it returns `currentDigest` and writes nothing. Stale, repeated, ambiguous, unsupported and overlapping requests fail before any write. A patch only edits one page file, so there is no multi-file staging.
+
+**Operations ([APE-364](https://linear.app/apexrest/issue/APE-364), [APE-362](https://linear.app/apexrest/issue/APE-362), [APE-363](https://linear.app/apexrest/issue/APE-363)):**
+
+- page `title`;
+- region `title` (`name`) and `sequence`;
+- item `label` (`label.label`) and `sequence`;
+- button `label` and `sequence`;
+- column `heading` (`heading.heading`), `format` (`appearance.formatMask`) and `sequence`.
+
+**Route ([APE-360](https://linear.app/apexrest/issue/APE-360)).** The CLI command `apexrest project patch` and MCP `apexrest_project action:patch` share one path. The composite MCP schema is loose; the granular operation validates strictly. The MCP catalog budget was raised to 15,500 bytes for this action. The skill reference (`references/patch.md`) and `docs/apex-26.2.md` document it.
+
+**Verified:**
+
+- Unit tests cover CRLF, non-ASCII text, quotes, fences, comments, insertion, conflicts, ambiguity, a stale digest, the MCP route and the CLI route.
+- On the local APEX 26.2.0 (application 26220), one patch changed a region title, a column heading and a column format mask. The diff was 5 lines added and 2 removed, then `ship` imported it. The APEX dictionary shows `Customer list`, `Email` and `UPPER`.
+
+## Fast-development Slice A (2026-11-22, local, uncommitted)
+
+**Source revisions ([APE-345](https://linear.app/apexrest/issue/APE-345), [APE-400](https://linear.app/apexrest/issue/APE-400), [APE-401](https://linear.app/apexrest/issue/APE-401)).** `revision.ts` identifies a revision by the existing plan `sourceDigest`. These outcomes are recorded for their own revision only:
+
+- the project `apex validate`, and the full-plan compiler run;
+- apply: importing, deployed and failed (an unknown outcome records nothing);
+- `sourceChange()`: the exact files and affected pages, or `unknown` scope.
+
+A late result never replaces later-started work. `status` reports the latest local, validated, importing, deployed and failed revisions, each marked `current` or not.
+
+On the local APEX 26.2 target the report showed:
+
+- after an edit, `validated` and `deployed.local` were `stale`;
+- after the next ship, both were `current` and equal to the local revision.
+
+Apply already refused a plan for an older revision (`SOURCE_DRIFT`).
+
+**Preview rename detection.** The preview reloaded only when the newest `.apx` modification time grew, so a rename or restore that kept an older modification time was missed (measured: 0 of 5 detected). It now compares a signature of every file's path, size and modification time (5 of 5 detected, median 7.5 ms). A regression test covers it.
+
+**Baseline ([APE-347](https://linear.app/apexrest/issue/APE-347), [APE-354](https://linear.app/apexrest/issue/APE-354), [APE-355](https://linear.app/apexrest/issue/APE-355)).** Measured with `scripts/benchmark-fast-dev.mjs` on the CRM template application (26 files, 6 pages), on a 10-CPU macOS arm64 host with Node 25.9. Rows not covered are `not_run`. The evidence is in ignored `docs/evidence/fast-dev/`.
+
+| Clock                                                           | Cold / warm | Samples | Median  | p95    |
+| --------------------------------------------------------------- | ----------- | ------- | ------- | ------ |
+| Source revision digest                                          | warm        | 20      | 1.3 ms  | 1.4 ms |
+| Preview: page title edit → server HTML                          | warm        | 20      | 7.8 ms  | 9.7 ms |
+| Preview: burst save of 3 files → server HTML                    | warm        | 20      | 7.9 ms  | 9.0 ms |
+| Preview: first render                                           | cold        | 1       | 20.7 ms | —      |
+| Offline compiler (SQLcl 26.3)                                   | cold        | 1       | 2.44 s  | —      |
+| Offline compiler (SQLcl 26.3)                                   | warm        | 5       | 77 ms   | 98 ms  |
+| Native selected-page ship (CLI, local APEX 26.2.0, `local` env) | cold        | 3       | 14.2 s  | 14.2 s |
+
+The native ship median phases were: planning 4.75 s, backup 2.13 s, database scripts 0.03 s, import 6.59 s, verify 0.20 s. Each run started a new CLI process. Browser paint was not observed. The semantic-edit, recipe, filter and shared-LOV clocks are `not_run` until P2 and P5 exist.
+
+**Composer metadata snapshot ([APE-352](https://linear.app/apexrest/issue/APE-352)).** Decided against a cache across plans. A plan reads its metadata once (APE-348). A cross-plan cache would need a target DDL-state signal, which costs its own query, and it must never be evidence of fresh target state.
+
+## Preview review comments and fast-development slice (2026-11-22, local, uncommitted)
+
+**Review mode in the local preview ([APE-402](https://linear.app/apexrest/issue/APE-402)).** The toolbar has a **Review** button; **Alt+Shift+C** selects components. Hovering highlights the most specific component under the pointer. A click opens a form that offers every target, from the exact element up to the page, including columns of a report that has no rows. Each comment is stored with its APEXlang component, source folder, file and line in `<project>/.apexrest/review/comments.json`. Numbered pins mark commented components, and the comment list refreshes when an agent resolves comments elsewhere.
+
+Agents use `apexrest preview comments` / `resolve` or MCP `apexrest_preview action:comments` / `action:resolve`, without a running preview. Writes are same-origin only, and the preview never edits source or data for a comment.
+
+Verified:
+
+- Unit tests cover the store, the route, the component map and the dispatch.
+- In the built-in browser, comments were created on a report column, a button, a region and the page, and pins were checked after reload.
+- An agent applied a column-rename comment through the normal guarded `ship` path into a fresh local APEX 26.2.0 (application 26220). The APEX dictionary shows the new heading.
+
+The MCP catalog budget was raised by 150 bytes (to 15,150; the Codex catalog is 15,1xx bytes) for the two actions.
+
+**Local preview no longer waits for the compiler preload ([APE-349](https://linear.app/apexrest/issue/APE-349)).** Only `apex.validate`, `ship` and a connected preview start or check (`env`) wait for it.
+
+**Composer metadata batching ([APE-348](https://linear.app/apexrest/issue/APE-348)).** Duplicate reads are removed. Up to eight scoped requests share one target-verified round trip, and only incomplete requests read their next page. The unit tests cover the batch bounds, pagination, kinds, a target mismatch and the per-object limit. Connected Oracle measurement is not run.
+
+**A recreated schema no longer inherits local migration history.** On the rebuilt local database, a plan skipped `0001__customers.sql`. The managed history still held that migration from an earlier database with the same name, service and schema. The run became `OUTCOME_UNKNOWN`, with a partial package and no table.
+
+The target identity query now also reads the parsing schema's creation time. History written before the schema existed, or recorded for another creation time, is moved to an `archived-schema-*` folder and nothing is deleted. A run that began before the new schema must be reconciled first.
+
+The interrupted run `08e6e532` on schema `APEXREST_262_TEST` stays held. Its partial package was dropped, and its ownership was not released (see next actions).
+
+## npm 2.8.0 qualification (2026-11-18)
+
+The maintainer approved a version-bound npm exception. Candidate `b6747ac1` passed all three current local gates. The macOS CI run passed 1,072 tests, with two optional skips. Oracle offline compiler checks passed with SQLcl 26.1.2 and 26.3, and the offline Composer verification passed. The version-bound publisher setting is the only change to source-digest inputs since `c6662d27`. The npm tarball is byte-identical to the package verified through a clean local install. Hosted CI and full platform, Oracle and Composer qualification remain open.
+
+## Codex waits and offline references (2026-11-18)
+
+Candidate `c6662d27` advertises and enforces a 30-second `waitSeconds` limit on Codex ship and job status requests. Both host manifests carry an explicit host hint for clients with unfamiliar protocol names. The shared job description refers to the active tool schema. The complete catalogs for Codex and Claude both fit the 15,000-byte budget. CLI job status and Claude retain their 120-second limit. The wait caps job observation. Compilation, preflight and Oracle work retain their own lifecycles.
+
+Contextual property questions rank the defining grammar production and link the real owning group. A bounded walk verifies the ownership relationship. Ambiguous single-word queries preserve template ranking and standalone identifiers preserve their established retrieval order. The unchanged 48-query generation matrix passed at both rank one and rank three.
+
+On macOS the installed Codex candidate read the same completed job with the default wait and with 30 seconds. The server refused 61 and 120 seconds for both ship and job status. An earlier build with the same wait behavior completed one read-only TEST ATP sync through the default wait. The final retest used its existing terminal job. The six fresh 26.1 offline reference sessions used 4, 4 and 3 tool calls in Codex and 4, 4 and 4 in Claude Code. Each used one search and at most two reference reads. These two cases cover the job wait boundary and the offline reference question. Full native platform qualification is tracked separately.
+
+The macOS CI run passed **1,072 tests**, with two optional cases skipped. The offline Oracle checks on SQLcl 26.1.2 and 26.3 and the offline Composer verification passed on this candidate. Release packaging passed its dry run. The external matrix remains open for this candidate.
+
+## Production qualification (2026-11-18)
+
+The production qualification baseline, `2e26960f`, passed **1,066 tests** on macOS with Node 24.21.0. The total includes 831 unit, 147 contract, 58 installer and 30 packaging tests, with two optional unit cases skipped. Clean dependency installation, lint, typecheck, schema and bundle checks, site build and release packaging passed. The bundled templates passed the offline Oracle checks using SQLcl 26.1.2 and 26.3, and both Composer blueprints passed the offline compiler workflow. That candidate was installed in the machine's Codex profile and this project's Claude Code profile with their unrelated settings and files preserved.
+
+Qualification now checks the provenance and proof-file hashes of all six external reports. It also verifies the saved-plan review, outcome and complete export inventory in the Oracle integration harness. The CLI accepts a JSON array for scoped metadata reads. The private usage journal reconciles compatible cumulative Codex captures into one session record and treats a provider-less Claude authentication failure as unavailable usage.
+
+Composer passed the fresh native chat gate. Codex 0.160.0 with GPT-6.1 Sol Medium discovered the installed plugin, planned and materialized the application through the Oracle 26.2 offline compiler workflow, and repeated the plan without changes. The live TEST ATP Composer application 97232 separately returned twelve pages, one generated static LOV used by two forms, and the preserved unmanaged LOV. A connected plan verified its table and command metadata and refused an absent predicate column. The browser and authenticated command behavior remain unobserved.
+
+For TEST ATP application 97231, normal deployment verified the exact workspace identity, saved plan and backup. A repeated full import preserved all 22 exported files byte for byte. An authorized page-marker update caused the older plan to be refused for actual server drift. Restore with the original verified backup and alias returned the complete export to the baseline, including the existing page, shared LOV, icons and hidden Oracle metadata. The dedicated qualification history and regular deployment history remained unchanged.
+
+The explicitly authorized acknowledgement-loss trial used one successful native TEST ATP import with a temporary page title. The launcher withheld confirmation after SQLcl completed. The normal deployment command confirmed the original run through server readback without replaying the import. The trial covers lost confirmation after completion. Interruption while Oracle is still executing remains separate qualification.
+
+During the trial a second normal deployment runner in the same managed home was refused with `TARGET_LOCKED` before submitting an import. A clean native restore returned all 22 files in the pre-trial export byte for byte, including Oracle metadata and application assets. The original title, both source trees and deployment histories were verified, and both runners released ownership. The source-bound Oracle integration report passed all thirteen scenarios.
+
+The macOS native report records eleven passed cases, five partial cases and four blocked cases. The no-browser follow-up verified the persisted Codex toggle through the official configuration API, an actual Claude plugin upgrade from 2.1.0 to 2.8.0, and Claude read-only job polling. The lifecycle checks used physically separate disposable profiles. The previous same-version Claude refresh still requires the observed uninstall/install route.
+
+The native 26.1 subset ran 48 fresh sessions. Twelve runs are retained from two corrected fixture setups. The other runs checked live pages and foreign keys, production refusal, ambiguous targets, offline references and compiler repair. All twelve metadata answers matched Oracle, with eight within the full tool budget. The six corrected reference answers cited valid bundled material but took six calls each against a limit of four. All six compiler repairs passed the source and compiler checks. Two preserved results failed a profile byte guard because the Claude marketplace registry changed during overlapping native sessions. Its cause was unobserved. The full golden task sets, browser checks and a connected 26.2 target remain open. Codex job polling passed within the default wait, while accepted 61–120 second waits can exceed the documented 60 second host timeout. Linux x64 and Windows x64 lack available native execution hosts.
+
+All three local gates and two of six external gates passed on this candidate. Composer runtime and the three native platform gates remain open. The package and source-bound readiness records are available locally. Exact-candidate hosted CI remains pending.
+
+## Local verification (2026-11-17)
+
+The final post-measurement macOS build passed 802 unit tests with two optional skips, 115 CLI/MCP contracts, 58 installer tests and 30 packaging tests: **1,005 successful checks**. Clean dependency installation, typecheck, lint, bundle parity, site build and release dry-run passed. Fresh offline Oracle template and Composer checks match the same final source digest, beginning `c7856914`. The lockfile audit reported zero known findings. These are local repository/compiler checks, with their scopes distinct from the connected results below.
+
+The final bundle is installed and enabled in the machine's Codex user profile and this project's Claude Code profile. Both 3,550-file caches match the managed payload. Independent fresh clients discovered the current twelve tools, inspected the project and completed target-verified read-only ATP checks for TEST-APP (application 102), observing APEX 26.1.6 and Oracle Database 23.26.4.1.0 with no diagnostics. Unrelated registrations/settings and current foreign/private file baselines were preserved. Existing host chats need to reload their tools.
+
+All ten new Home Finance sources completed their exact TEST ATP updates, separately described below. One additional frozen-payload connected rollback preview rendered thirteen P05 pages through direct SQLcl without ORDS, with zero errors and explicit simulation limits. Native browser actions remain unobserved.
+
+The recorded pushed GitHub quality gate for commit `7222c36` passed all four Linux, macOS and Windows jobs after path-separator and Linux-only fixture fixes. The review and optimization source changes remain local. See [production qualification](next-actions.md#production-qualification) for the current candidate's external checks.
+
+## Release review remediation (2026-11-17)
+
+- Remote plans now classify ambiguous SQL conservatively. Saved plans and recovery runs must match the requested environment. A managed database/schema binds to one verified Oracle service. The upgrade checks retain old ownership, migration and package journals and require registration of unresolved legacy histories through the original service.
+- Full APEXlang restoration uses the saved backup alias. Legacy SQL restoration uses a validated standalone, checksum-bound export and requires exact confirmation on a remote target. Unsupported split or external-script exports stop before SQLcl execution.
+- Password files must resolve physically beneath an allowed root. Environment and connection lookup use configured names only. Composer binds predicate names to the target's dictionary before application import and preserves an offline drafting path.
+- Foreign navigation stops before preview page code executes. The installer verifies candidate MCP startup and discovery before activation. SQLcl reserves startup capacity and bounds responses without losing the unknown outcome of a submitted write.
+- The full lockfile audit reported zero known findings after updating nine packages, including MCP SDK 1.32.2 and Zod 4.6.7. See [remaining release verification](next-actions.md#release-verification-after-review-fixes) for evidence still needed.
+- The initial review checkpoint on macOS with Node 24.21.0 passed 776 unit tests with two optional skips, 115 contracts, 58 installer tests and 30 packaging tests. A clean lockfile install, typecheck, lint, checked-in bundle parity and the release dry-run also passed. The real Codex CLI registered the package and discovered its MCP server in isolated profiles. The installer now supports a positively verified APEXREST-only update when an unrelated marketplace is broken and preserves independent foreign configuration checks. Fresh-profile discovery uses a stable working directory and queries the actual CLI registry.
+- All 21 executed ATP read-only cases passed, including the compiler and full-import plan. A connected Composer draft also used a non-projected column verified against live ATP metadata. SQLcl 26.1.2 was installed separately during production qualification for the 26.1 Composer profile. The offline 26.2 Composer compiler checks passed separately. These review results cover read-only operations and are under ignored `docs/evidence/release-review-20261117/remediation/`.
+
+## Home Finance qualification (2026-11-17)
+
+The fixed twelve-page task has a completed historical cohort of ten skills-only and ten APEXREST generations, plus ten fresh optimized APEXREST generations. Every application generation and repair used GPT-6.1 Sol Medium with exact native model provenance. The new cohort froze its runtime, resources, skills, task, fixture, operator checks and measurement policy before the first primary run. Generators received a blank starter and never copied a completed application.
+
+All ten new sources passed their fixed source, Oracle compiler, parse-only SQL/PLSQL, local-render and independent bounded source reviews. Their exact normal saved plans updated the explicitly confirmed TEST applications 96211–96220 in APEXREST_DEMO, workspace APEX-APP and schema WKSP_APEXAPP. Fresh target identity, export backups, drift, coordination and unknown-outcome safeguards remained active. All ten imports returned fourteen expected pages each, with zero activity-error rows. Local SQLite checks rendered thirteen pages per app, including Login, with positive output sizes and zero errors. Native browser actions remain unobserved.
+
+Mean native authoring including every repair was **659.704 seconds for historical skills**, **648.849 seconds for historical APEXREST**, and **313.511 seconds for optimized APEXREST**. The observed reduction against skills is **52.477%**, meeting the prospective descriptive half-time target. The new ten contain seventeen native phases: ten initial generations and seven repairs. Mean initial authoring alone was 270.266 seconds. Operator checks, source reviews, planning and import/update time are recorded separately; none is added twice to its containing native interval.
+
+Optimized native uncached input averaged 65,964.6 tokens and output averaged 10,773.6, against historical skills averages of 178,394.8 and 22,699.3. Decisions ran successfully for every new generation using its internal default `gpt-6-luna`; its separate input averaged 22,305.4 tokens. Cached input is a subset of reported input. All nineteen new native phases, including the separate two-phase pilot, were reconciled and imported through the built-in usage CLI. Repeating the import left journal bytes and totals unchanged. No prompts, source text or keys are stored in these usage entries.
+
+The pilot's 421.607 seconds and all historical failures remain retained outside the new ten-sample population. The new cohort also retains conservative standalone process-block and initializer-shape corrections; those are not proof of native APEX runtime failure. Historical validator amendments, different cache/provider/load conditions and update-versus-new-import work limit causal interpretation. This fixed-task observation establishes no general speed SLA. Ignored evidence is under `docs/evidence/home-finance-optimization-v3/`; the frozen measured product digest begins `27bc4182`.
+
+An additional source-bound P05 preview used the real ATP through direct SQLcl in rollback mode, with thirteen positive-size renders and zero errors. This local renderer check used no ORDS or browser and exercised no form submit/reset sequence. Its two warnings and nine informational diagnostics remain recorded; six row-header advisories led to a generic accessibility improvement for future scaffold output.
+
+After the measured cohort, target identity handling was hardened to preserve Oracle workspace identifiers as exact decimal text. An actual read-only ATP query confirmed the exact value; local tests retain old records and held-run protections. The first Classic Report column now receives the row-header metadata already emitted for Interactive Reports, with offline compiler proof on both supported profiles. These later improvements and authoring guidance have a separate final build digest and no new generation-speed claim. Full release readiness still requires six external qualification reports. Installed-host discovery, local rendering, Oracle import and native browser behavior remain separate verification scopes.
 
 ## Implemented
 
+- Native page generation optimization (2026-11-17): the existing JSON scaffold now supports APEX 26.1 and 26.2 reports, cards, charts, calendars, query forms, native items, buttons, guarded processes, validations, branches and refresh actions. The host supplies business SQL and PL/SQL. Regeneration preserves authentication, theme and unowned navigation, and rejects edits to owned pages or navigation entries. Twenty-four focused tests, a heterogeneous offline Oracle 26.1 example, the native TIMESTAMP contract and two-profile report accessibility compiler checks passed. The completed ten-run Home Finance cohort above records observed authoring and all repair costs separately from the synthetic specification-size proof. See [the specification guide](../plugins/apexrest-apex/skills/apexrest-work/references/scaffold.md).
+
 - Machine-wide settings and the Omarchy control panel (2026-11-16):
   - **Settings:** `apexrest settings status|configure` (CLI only; no MCP tool added) stores `APEXREST_HOME/settings.json`. `decisionApi` is a default for projects without their own `decisionApi` (project wins; the global default reads its key only from the environment) and Decisions selection reports `settingsSource`. `catalog.enabled: false` makes reference search, read and select (including the MCP `apexrest_reference` routes) return `CATALOG_DISABLED`, whose message tells the agent to continue without lookups (the work skill is at its byte budget and unchanged). See [configuration](configuration.md#machine-wide-settings).
-  - **Local records:** successful operations with `--project` record `recent-projects.json`, while status reads do not. Best effort, local only, never creates APEXREST_HOME, and off with `APEXREST_USAGE=0`. Catalog usage counts, Decisions token totals and operation timing were added and then removed at the user's request (2026-11-16); APEXREST keeps no usage statistics and no longer writes `catalog-usage.json` or `operation-timings.json` (existing files are ignored).
+  - Successful operations with `--project` record `recent-projects.json`. Recording is best effort and requires an existing APEXREST_HOME. Opt-in usage logging records backend elapsed time and validated Decisions counters in a private journal bounded to 1,000 entries and 2 MiB. Explicit native Codex and Claude imports retain reported host counters separately. Impossible counters and incomplete Codex turns are rejected. Twelve focused tests cover these contracts. See [usage logging](configuration.md#local-token-and-time-logging). `APEXREST_USAGE=0` disables both local recording features.
   - **Omarchy:** [integrations/omarchy/apexrest](../integrations/omarchy/apexrest/README.md) is an Omarchy `bar-widget` (id `apexrest`) with a Status page (runtime, current or pinned project with environments, connection tests, preview, validation, agent/terminal handoff, every running preview; no Git change count, because Git status covers the enclosing repository rather than the project) and a Settings page (Decisions API and catalog switches, catalog size, SQLcl backend and transport, connection references and saved SQLcl connections). It changes settings only through `apexrest settings configure` and `apexrest sqlcl configure`, never imports or deploys, and hands shipping to the agent. English only. `integrations/omarchy/install.sh` copies, enables and configures it.
   - **Verification:** `tests/unit/global-settings.test.ts` (6 tests) covers defaults, strict writes, project-over-global precedence, the catalog switch through granular and MCP routes, current-project recording, and that no statistics files are written; the unit runner, contract and packaging suites set `APEXREST_USAGE=0` so tests never write recent projects into the real home; `tests/unit/omarchy-plugin.test.ts` (8 tests) covers the panel model (including ignoring statistics from older runtimes) and the helper's CLI mapping and refusals against a stub CLI. CLI runs in a temporary `APEXREST_HOME` confirmed `settingsSource: global` and `CATALOG_DISABLED`. On local Omarchy (Linux) both pages rendered from the repository's bundled runtime without QML errors before the statistics removal (screenshots inspected, not retained); the panel after the removal was not re-inspected on screen. Helper toggles for Decisions, catalog, SQLcl mode and transport were exercised in a temporary home. Toggles, connection test, preview, validate, agent and terminal buttons were not clicked in the shell. Not release qualification.
 
@@ -22,7 +194,7 @@ Filesystem inspection confirmed zero subfolders under `docs/evidence/`; no new e
   - **Connection and call fixes:** CLI-owned SQLcl servers use `CONNECT -name`, retaining normal transactions when a saved connection omits `autoCommit`; SQLcl 26.3's MCP connect tool enabled JDBC auto-commit in that case. The rollback guard remains, saved properties are unchanged and explicit MCP transport retains its advertised connect tool. Bar selection retains distinct chart variants and recognizes Oracle's default bar type. Reference output remains bounded at 8,192 characters; literal ship requests accept 1–16,000 nonblank characters. The initial near-parity pilot had 41–51 plugin calls and eight failing MCP calls per run; raw evidence remains in private `docs/evidence/box-ab-20261115/`.
   - **Requested observations:** supplying an environment to scaffold also generates a private target-bound SQL file. The caller may invoke it manually after ship when the task requests metadata/query observations. It reads imported metadata, row counts and bounded samples in a read-only transaction, with no expected business values or test verdict. Scaffold and ship never execute it or add a deployment gate.
   - **Measured verification:** three optimized and three classic native Codex CLI trials, GPT-6.1 Sol/high, alternated on identical starters, task text, Box context and snapshots (10 products, 2 warehouses, 8 counterparties). Median time was **335.44 → 99.39 s (70.4% less)**; mean **326.71 → 97.21 s (70.2% less)**. Median aggregate reported tokens were **1,770,625 → 274,796 (84.5% less)**; uncached input **82,939 → 31,440**, output **12,620 → 3,116**, and calls **30 → 13**. Cached input is included once, not added again; this is not a monetary billing measurement. All six passed the same independent read-only Oracle metadata/query audit and retained byte-identical metadata, authentication, authorization, global and login files. All three optimized runs used integrated guarded shipping, with no failing MCP calls or manual deployment fallback. Final test apps are 16114–16119; Box app 100, its repository and business tables were preserved.
-  - **Repository verification:** the 2.8.0 integration check passed 697 unit tests with eight optional skips, all 115 CLI/MCP contracts, 46 installer checks and 30 packaging checks. The scenario catalogs map the scaffold criterion to 26.1 release refusal and separate 26.2 creation/regeneration definitions; these definitions are coverage intent, not execution results. Typecheck, lint, documentation links and bundled-plugin source/integrity/fresh-build parity passed. Development checks remain separate from the connected compiler/import/audit evidence above. Logs are in ignored `docs/evidence/main-integration-20261115/`; pre-version benchmark checks remain under `docs/evidence/box-optimization-20261115/verification/`.
+  - **Repository verification:** the 2.8.0 integration check passed 697 unit tests with eight optional skips, all 115 CLI/MCP contracts, 46 installer checks and 30 packaging checks. Current scenario definitions cover supported 26.1 and 26.2 scaffolding; scenario definitions remain coverage intent, with actual evidence scoped above. Typecheck, lint, documentation links and bundled-plugin source/integrity/fresh-build parity passed. Development checks remain separate from the connected compiler/import/audit evidence above. Logs are in ignored `docs/evidence/main-integration-20261115/`; pre-version benchmark checks remain under `docs/evidence/box-optimization-20261115/verification/`.
   - **Limits:** this establishes the 50% reduction target for this four-page report/card/bar workload on local Linux, APEX 26.2 and SQLcl 26.3. Three samples per arm, shared host, unflushed caches and explicit MCP/skill configuration do not establish a general speed SLA or marketplace discovery. No browser, forms/CRUD, real update-performance or full 119-page Box experiment was run. Claude remains quota-blocked. The intermediate scaffold-only round reached 37.3% and missed the target; it and all controls/failures remain in ignored evidence. Final protocol, raw events, metrics and common audits are in `docs/evidence/box-optimization-20261115/with-readback/RESULTS.md` and `report.json`.
   - **Version binding:** the timed Oracle experiment used the optimized 2.7.0 development bundle before the 2.8.0 version increment. Raw evidence retains that manifest. The 2.8.0 package contains the same functional implementation; version/build checks are separate from those measurements. Registry publication and full qualification remain separate outcomes.
 
@@ -33,12 +205,6 @@ Filesystem inspection confirmed zero subfolders under `docs/evidence/`; no new e
   - Validation compares the staged tree with the source inventory before invoking the compiler and returns the metadata bytes actually staged. Borrowed metadata changes during compilation raise `SOURCE_DRIFT`.
   - Process drain expiry now reports a timeout/unknown write outcome when a descendant outlives a successful launcher. Normal close cancels the drain timer so it cannot later signal a reused process-group ID. Local POSIX process tests exercise both paths; Oracle/JVM and Windows qualification remain separate.
   - **Verification:** 686 unit tests passed, 8 optional tests skipped; all 115 CLI/MCP contracts passed. Typecheck, lint, documentation links, build, packaging and checked-in plugin parity passed. Logs and the benchmark are in ignored `docs/evidence/creation-update-optimization/`. Sandbox child-process failures were resolved by running the affected repository checks outside the sandbox. No Oracle application was imported or browser session exercised in this pass.
-
-- `apexrest build webapp` (2026-11-15): writes a standalone Node.js application for an APEXlang application: the sources, the preview's renderer in application mode and a `node-oracledb` driver. Application mode adds real sign-in (accounts file, PL/SQL function or database accounts), login-required pages, enforced authorization, unguessable session ids, a host allowlist and no developer surface. See [build a web application](webapp.md).
-  - **Checked on local Docker.** A built application started from a clean environment; `tests/webapp/e2e.mjs` passed nine steps including a committed form insert read back on a separate connection. Sample Dynamic Actions (27 pages) and Sample Charts (49 pages) rendered against Oracle without a failure; Customers rendered 126 pages without a page error and 37 failing statements after a partly failed install-script run. A 119-page trading application (Trade) passed a 23-step scripted session in headless Chromium, including a posted and unposted document read back on a separate connection, and answered all 118 pages for five accounts with role denials enforced; the script and its results are in `docs/evidence/webapp-build/trade-demo-run/`.
-  - **Recipe catalogs on local Docker (2026-11-15).** One application assembled from the 338 ready component and pattern recipes (376 demo pages) was built and every page requested once after sign-in: no HTTP error, Oracle error, error alert or placeholder remained once the recipes' example tables were installed. Page loads only; no submit, dynamic action or browser check, and no import into APEX. It found the SDO_GEOMETRY map layer and the `RESOURCE` alias fixed in this change.
-  - **Unit tests** cover the build output and refusals, password hashing and application mode without a database.
-  - **Not checked.** A browser session, concurrent users, a remote database, HTTPS behind a proxy, `plsql`/`database` sign-in against real accounts, an APEX session with an imported application. Session state protection is not implemented, one process serves one request at a time, and sessions are in memory.
 
 - Authoring and deployment round trip (2026-11-15). Unit tests and offline checks only: none of this was run against Oracle, imported, or measured in an agent run.
   - **Deployment.**
@@ -177,11 +343,11 @@ The 2026-11-02 script-completion fix makes migration and package runs require a 
 
 The 2026-11-01 chart AJAX repair passed 12 focused chart/runtime repository tests, typecheck and lint. The real-assets crypto demo was checked in the built-in browser: Solana, Avalanche and Bitcoin selections updated both SVG series and the report while the document submission ID stayed unchanged; changing the chart width from 761 to 521 pixels retained Avalanche/Bitcoin. These are local preview observations, not Oracle runtime evidence. The synthetic-theme regressions cover multiple series, submitted-item normalization/deduplication, undeclared-item rejection, unfiltered chart registration and subsequent width redraws. Detailed output is in ignored `docs/evidence/crypto-atlas-ajax-20261101/`.
 
-Four confirmed implementation defects remain from the repository review: missing remote mutation confirmation for parameterless query calls and calls inside CTAS (P1); password-file parent-directory symlink escapes; unqualified parameterless routines accepted in Composer read/write authorization expressions; and full APEXlang restore importing the configured alias while verifying the backed-up alias. The two process-drain defects are fixed with local POSIX regression coverage in the creation/update preparation change above; actual Oracle/JVM and Windows qualification remains open. Detailed original reproductions are private under ignored `docs/evidence/code-review-20261031/`.
+The October review reproduced incomplete SQL risk classification, password-file parent symlink handling, bare Composer routine binding and different aliases in full APEXlang restore and readback. The remediation above covers each issue. The earlier process-drain defects have local POSIX regression coverage. Actual Oracle/JVM and Windows qualification remains open.
 
 The review's local checks cover 436 passing unit cases with one optional skip, 115 contracts, 46 installer cases and 29 packaging cases, plus build, typecheck, lint, documentation/site checks, Composer catalog consistency, repository-plugin parity and CLI/stdio smoke. The initial restricted run could not bind the ORDS/proxy fixture ports or write the default npm cache; targeted loopback retries and a separate packaging run with a temporary cache passed, and the original failures are retained. These counts combine the original run with those targeted retries. Real Oracle/JVM interruption, connected deployment/restore, Windows, browser behavior and fresh native model-host qualification were not rerun.
 
-The separately authorized runtime and complete dependency audits flagged the same nine packages (one critical, three high, five moderate); including dev dependencies added no affected packages. The direct Zod 4.6.2 dependency retains the oversized-collection validation defect: a bounded local probe produced 101 issues for 100 invalid elements despite a maximum length of two. Update the locked dependencies and verify relevant contracts/packaging; do not treat all advisory counts as reachable exploits. Current MCP source uses stdio rather than HTTP/OAuth, and the SDK OAuth advisory explicitly excludes stdio clients. Audit output and the bounded Zod probe are private in the same review directory. No dependencies were changed. Release readiness remains false: three required reports are stale and six are missing for 2.3.0.
+The October dependency audit flagged nine packages. The locked updates and fresh audit are recorded in the November remediation above. Full release readiness requires current local, native and Oracle reports.
 
 Decisions selection repository checks passed: 430 unit checks (one real SQLcl pooling check skipped), 115 contracts, and 29 packaging checks after repeating the npm inventory case with a temporary cache. Typecheck, lint, documentation/site checks, bundled-plugin parity and repository-plugin CLI/stdio smoke passed. The private summary is `docs/evidence/decisions/local.json`. These are local repository/transport checks. At that checkpoint the live API had not been exercised; the subsequent live run below is a separate evidence scope. Fresh native-host execution remains unqualified.
 

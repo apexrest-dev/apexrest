@@ -16,6 +16,7 @@ APEXREST is one policy-aware core behind three surfaces: a stdio MCP server for 
 | [Persistent SQLcl engine](#persistent-sqlcl-engine) | How SQLcl sessions are kept, shared, isolated and closed             |
 | [Oracle boundary](#oracle-boundary)                 | What real Oracle tooling does and what local data does               |
 | [Deployment boundary](#deployment-boundary)         | Plans, import modes, partial imports, apply, backups and recovery    |
+| [Source revisions](#source-revisions)               | One source identity for edit, preview, compiler and deployment       |
 | [Trust and data handling](#trust-and-data-handling) | What counts as executable input, what counts as data, and the limits |
 
 ## Surfaces and transports
@@ -37,16 +38,15 @@ APEXREST is one policy-aware core behind three surfaces: a stdio MCP server for 
 
 ## Components
 
-| Component                                 | Responsibility                                                                                                                                          |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plugins/apexrest-apex/skills/`           | `apexrest-work` (the end-to-end cycle), `apexrest-apexlang`, `apexrest-safety`, `apexrest-setup`, `apexrest-pattern-catalog`, `apexrest-oracle-sync`    |
-| `packages/mcp/`                           | Stdio MCP catalog, structured output, in-process and detached job dispatch                                                                              |
-| `packages/cli/`                           | CLI parsing and JSON output, backed by the same operation schemas                                                                                       |
-| `packages/core/`                          | Configuration, connections, references, SQLcl sessions, deployment policy, browser handoff, jobs, artifacts and the status snapshot                     |
-| `packages/core/src/preview/`              | Database-free [local preview](local-preview.md): APEXlang parser, theme export evaluation, renderer, SQLite shims, HTTP server and feature modules      |
-| `packages/core/src/webapp/`               | [Built web applications](webapp.md): the build command, the application server (sign-in, sessions, configuration) and the `node-oracledb` driver worker |
-| `packages/installer/`                     | Reviewed downloads, safe extraction, managed runtimes and Codex registration                                                                            |
-| `resources/`, `templates/`, `toolchains/` | Pinned references, component and pattern catalogs, project starters and toolchain definitions                                                           |
+| Component                                 | Responsibility                                                                                                                                       |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plugins/apexrest-apex/skills/`           | `apexrest-work` (the end-to-end cycle), `apexrest-apexlang`, `apexrest-safety`, `apexrest-setup`, `apexrest-pattern-catalog`, `apexrest-oracle-sync` |
+| `packages/mcp/`                           | Stdio MCP catalog, structured output, in-process and detached job dispatch                                                                           |
+| `packages/cli/`                           | CLI parsing and JSON output, backed by the same operation schemas                                                                                    |
+| `packages/core/`                          | Configuration, connections, references, SQLcl sessions, deployment policy, browser handoff, jobs, artifacts and the status snapshot                  |
+| `packages/core/src/preview/`              | Database-free [local preview](local-preview.md): APEXlang parser, theme export evaluation, renderer, SQLite shims, HTTP server and feature modules   |
+| `packages/installer/`                     | Reviewed downloads, safe extraction, managed runtimes and Codex registration                                                                         |
+| `resources/`, `templates/`, `toolchains/` | Pinned references, component and pattern catalogs, project starters and toolchain definitions                                                        |
 
 ### How the plugin bundle is built
 
@@ -215,6 +215,38 @@ A separate full import observes the full server inventory and refuses to overwri
 - Exact-plan grants, identity, compiler, backup integrity and production refusal remain mandatory.
 
 See [partial-import safeguards](deployment-safety.md#apex-262-partial-imports).
+
+## Source revisions
+
+A **source revision** is the digest of the canonical source inventory: the application folder, migrations, package scripts and the package manifests. It is the same value as a deployment plan's `sourceDigest`. A compiler result, a plan and a deployment therefore name the same thing, and apply refuses a plan whose revision no longer matches the sources (`SOURCE_DRIFT`). The configuration digest is bound beside it, as plans already do.
+
+`revision.ts` records outcomes in `<project>/.apexrest/revisions.json`, each with the revision it was produced for:
+
+| State               | Written when                                                                                                      |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| validated           | `apex validate` on the project application, and the full-plan compiler run, succeed.                              |
+| importing (per env) | An apply starts its first database write.                                                                         |
+| deployed (per env)  | An apply succeeds: import and readback are confirmed.                                                             |
+| failed (per env)    | An apply fails. An unknown outcome writes nothing, so the import stays visible and the last deployment unchanged. |
+
+An outcome replaces the recorded one only when its work started at or after the recorded work, so a late result is kept with its own revision and never marks a newer one. `status` reports the latest local revision and each state separately, marking a state `current` only when it is for the latest local revision.
+
+`sourceChange()` compares two inventories. It lists the exact changed, added and removed files and the affected page ids; the scope is `unknown` when the global page, a shared component, the application or a database script changed. The compiler stages its own copy of the application and refuses a change while staging, so a validation result always belongs to the revision observed before staging.
+
+A connected Composer plan reads dictionary metadata once per plan. Duplicate requests are removed, and up to eight requests share one target-verified round trip. Metadata is not cached across plans. The plan has no cheap signal of target DDL changes, and a cached snapshot is never evidence of fresh target state.
+
+### Edit-to-deploy paths and clocks
+
+| Path                    | Entry point                                                                             | Clock (start → end)                                    |
+| ----------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Scaffold / Composer     | `project action:scaffold`, `compose.plan`/`materialize`                                 | spec accepted → source written                         |
+| Source edits            | the agent edits `.apx` files (no semantic edit service yet)                             | edit accepted → revision changed                       |
+| Preview refresh         | `preview/server.ts` signature check per request and `live.ts` watcher (150 ms debounce) | file written → server returns the new HTML (not paint) |
+| Compiler validation     | `apex validate`, the full-plan compile in `deploy.ts`                                   | staged snapshot → compiler result for that revision    |
+| Plan / apply / readback | `ship` → `deploy.ts` plan and apply journal (`approved` … `succeeded`)                  | apply started → import and readback confirmed          |
+| Browser verification    | only on request                                                                         | requested check → behavior observed                    |
+
+`scripts/benchmark-fast-dev.mjs` measures these clocks on a temporary copy of a project; see [testing](testing.md#fast-development-clocks). The engineering targets are: a supported semantic property edit at p95 ≤ 250 ms; a warm local preview update at a median ≤ 1 s and p95 ≤ 2 s; a ready recipe to preview in about 1–3 s; a small native selected-page update investigated against a 2–5 s median stretch target. They are targets, not results.
 
 ## Trust and data handling
 
