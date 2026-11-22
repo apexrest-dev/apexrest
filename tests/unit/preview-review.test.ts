@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PreviewServer } from '../../packages/core/src/preview/server.ts';
@@ -17,6 +18,7 @@ import {
 } from '../../packages/core/src/preview/review.ts';
 import { previewDispatch } from '../../packages/core/src/preview/service.ts';
 import { workspace } from '../fixtures/preview.ts';
+import { parse, projectSchema } from '../../packages/core/src/config.ts';
 
 const join = (...lines: string[]) =>
   `wwv_flow_string.join(wwv_flow_t_varchar2(${lines.map((line) => `'${line.replaceAll("'", "''")}'`).join(',\n')}))`;
@@ -271,7 +273,7 @@ test('review mode maps page components and stores comments from the browser', as
   const text = await (await call('/r/demo/__apex/x/review?status=open&format=text')).text();
   assert.match(
     text,
-    /column TITLE of region orders "Title" \([^)]*pages\/p00003-orders\.apx:30\) — move: Move before Number/u,
+    /column TITLE of region orders "Title" \([^)]*pages\/p00003-orders\.apx:\d+\) \[patch column:orders\.TITLE on page 3\] — move: Move before Number/u,
   );
 
   // The next page render shows the open count on the toolbar button.
@@ -325,4 +327,141 @@ test('preview comments and resolve read the project review file without a runnin
   assert.deepEqual(resolved.changed, [comment.id]);
   assert.equal(((await previewDispatch('preview.comments', {}, root)) as { count: number }).count, 0);
   await assert.rejects(previewDispatch('preview.resolve', { ids: [] }, root), /ids/u);
+});
+
+/** A project whose APEXlang source is the preview workspace, with its review file. */
+async function project(t: import('node:test').TestContext) {
+  const { app, assets } = await workspace(t, { 'pages/p00003-orders.apx': PAGE }, DEV_TEMPLATE);
+  const root = path.dirname(app);
+  const config = parse(projectSchema, {
+    schemaVersion: 1,
+    projectId: 'review-edit',
+    application: { sourceDir: path.basename(app), alias: 'demo' },
+    database: { migrationsDir: 'db/migrations', packagesDir: 'db/packages' },
+    toolchain: { lockFile: 'toolchain.json' },
+    environments: {},
+    artifacts: { directory: '.apexrest/artifacts', retentionDays: 7 },
+  });
+  await writeFile(path.join(root, 'apexrest.json'), JSON.stringify(config, null, 2));
+  const reviewFile = reviewFilePath(root);
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:', reviewFile });
+  await server.start();
+  t.after(() => server.stop());
+  const call = (pathname: string, init: RequestInit = {}) => fetch(`${server.url}${pathname}`, init);
+  const post = (body: unknown) =>
+    call('/r/demo/__apex/x/review', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  const pageFile = path.join(app, 'pages', 'p00003-orders.apx');
+  return { root, call, post, pageFile, reviewFile };
+}
+
+const sha = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
+const configOf = (html: string) =>
+  JSON.parse(/<script type="application\/json" id="apexLocalReviewConfig">(.*?)<\/script>/su.exec(html)![1]!);
+
+test('a preview selection binds to its patch target and page-file revision', async (t) => {
+  const { root, call, post, pageFile } = await project(t);
+  const config = configOf(await (await call('/r/demo/orders')).text());
+  const source = await readFile(pageFile, 'utf8');
+  assert.equal(config.digests['pages/p00003-orders.apx'], sha(source));
+  const title = config.map.find(
+    (entry: { kind: string; id: string }) => entry.kind === 'column' && entry.id === 'TITLE',
+  );
+  assert.equal(title.patch, 'column:orders.TITLE');
+  assert.equal(title.values.heading, 'Title');
+  assert.deepEqual(config.editable.column, ['heading', 'format', 'sequence']);
+  assert.equal(config.pageValues.title, '');
+
+  // The server binds the selection itself; a forged digest or patch target from the browser is ignored.
+  const added = await (
+    await post({
+      op: 'add',
+      page: '3',
+      target: { kind: 'region', id: 'orders', patch: 'item:P3_SEARCH', digest: 'f'.repeat(64) },
+      text: 'Show 25 rows',
+    })
+  ).json();
+  assert.equal(added.comment.target.patch, 'region:orders');
+  assert.equal(added.comment.target.sourcePage, '3');
+  assert.equal(added.comment.target.digest, sha(source));
+  assert.equal(added.comment.target.file, 'pages/p00003-orders.apx');
+
+  const context = async () =>
+    (
+      (await previewDispatch('preview.comments', {}, root)) as {
+        comments: { context?: Record<string, unknown> }[];
+      }
+    ).comments[0]!.context!;
+  const first = await context();
+  assert.equal(first.target, 'region:orders');
+  assert.equal(first.digest, sha(source));
+  assert.equal(first.changedSinceSelection, false);
+  assert.equal((first.component as { title: string }).title, 'Orders');
+  assert.match(String((first.component as { query: string }).query), /select task_id, title from tasks/u);
+  await writeFile(pageFile, source.replace('heading: Number', 'heading: No.'));
+  const moved = await context();
+  assert.equal(moved.changedSinceSelection, true);
+  assert.notEqual(moved.digest, sha(source));
+});
+
+test('preview edits change one property through the digest-bound patch service', async (t) => {
+  const { post, pageFile } = await project(t);
+  const before = await readFile(pageFile, 'utf8');
+  const applied = await post({
+    op: 'patch',
+    page: '3',
+    target: 'column:orders.TITLE',
+    property: 'heading',
+    value: 'Task title',
+    digest: sha(before),
+  });
+  assert.equal(applied.status, 200);
+  const result = (await applied.json()).result;
+  assert.equal(result.written, true);
+  const after = await readFile(pageFile, 'utf8');
+  assert.equal(result.afterDigest, sha(after));
+  // A minimal source change: only the heading line differs.
+  assert.equal(after, before.replace('heading: Title', 'heading: Task title'));
+
+  // A stale digest never overwrites the newer file.
+  const stale = await post({
+    op: 'patch',
+    page: '3',
+    target: 'region:orders',
+    property: 'title',
+    value: 'Old',
+    digest: sha(before),
+  });
+  assert.equal(stale.status, 409);
+  const conflict = await stale.json();
+  assert.equal(conflict.code, 'TRANSFORM_CONFLICT');
+  assert.equal(conflict.currentDigest, sha(after));
+  assert.equal(await readFile(pageFile, 'utf8'), after);
+
+  for (const body of [
+    { property: 'query', value: 'select 1 from dual' },
+    { property: 'heading', value: 'x', digest: 'nope' },
+  ]) {
+    const refused = await post({
+      op: 'patch',
+      page: '3',
+      target: 'column:orders.TITLE',
+      digest: sha(after),
+      ...body,
+    });
+    assert.equal(refused.status, 400);
+  }
+  const unsupported = await post({
+    op: 'patch',
+    page: '3',
+    target: 'button:refresh',
+    property: 'heading',
+    value: 'x',
+    digest: sha(after),
+  });
+  assert.equal(unsupported.status, 400);
+  assert.equal(await readFile(pageFile, 'utf8'), after);
 });

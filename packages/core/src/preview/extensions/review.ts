@@ -1,3 +1,9 @@
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { loadProject } from '../../config.ts';
+import { patchPage, PATCH_PROPERTIES, type PatchProperty } from '../../edit/patch.ts';
+import { Fault } from '../../result.ts';
 import { str, type ApxComponent } from '../apexlang.ts';
 import { registerExtension, type RouteRequest, type RouteResponse } from '../extensions.ts';
 import type { ApexRenderer, Session } from '../render.ts';
@@ -20,7 +26,13 @@ import { REVIEW_CSS, REVIEW_JS } from './review/client.ts';
  * point at a region, item, button, report column, the page or any element, and leave a comment
  * ("rename this column", "move this region below the chart"). Comments are stored in the
  * project's `.apexrest/review/comments.json` (see review.ts) with the APEXlang component, its
- * source file and line, so an agent can apply them later. The preview never edits source here.
+ * source file and line, so an agent can apply them later.
+ *
+ * Each selection is bound to its source revision: the component's `project patch` target, the
+ * page that declares it and the SHA-256 of that page file at selection time. "Edit" applies a
+ * title, label, heading, format or sequence change through the same digest-bound `patchPage`
+ * service as the CLI and MCP; a newer file is never overwritten (409 with its digest). The preview
+ * never writes APEX metadata; the edit is an ordinary source change for Git, validate and ship.
  */
 
 interface MapEntry {
@@ -36,7 +48,43 @@ interface MapEntry {
   regionDom?: string;
   /** Page that declares the component (0 for the global page). */
   page: string;
+  /** `project patch` target. */
+  patch: string;
+  /** Current values of the properties the visual editor may change. */
+  values: Partial<Record<PatchProperty, string>>;
 }
+
+/** Editable properties per map kind; the patch service is the authority and refuses the rest. */
+const EDITABLE: Record<MapEntry['kind'] | 'page', PatchProperty[]> = {
+  page: ['title'],
+  region: ['title', 'sequence'],
+  item: ['label', 'sequence'],
+  button: ['label', 'sequence'],
+  column: ['heading', 'format', 'sequence'],
+};
+const VALUE_PATHS: Record<string, Partial<Record<PatchProperty, string>>> = {
+  page: { title: 'title' },
+  region: { title: 'name', sequence: 'layout.sequence' },
+  item: { label: 'label.label', sequence: 'layout.sequence' },
+  button: { label: 'label', sequence: 'layout.sequence' },
+  column: { heading: 'heading.heading', format: 'appearance.formatMask', sequence: 'layout.sequence' },
+};
+function values(kind: keyof typeof VALUE_PATHS, component: ApxComponent) {
+  return Object.fromEntries(
+    Object.entries(VALUE_PATHS[kind] ?? {}).map(([property, dotted]) => [
+      property,
+      str(component.props, dotted, ''),
+    ]),
+  ) as Partial<Record<PatchProperty, string>>;
+}
+
+const sha256 = (file: string): string | undefined => {
+  try {
+    return createHash('sha256').update(fs.readFileSync(file, 'utf8'), 'utf8').digest('hex');
+  } catch {
+    return undefined;
+  }
+};
 
 const json = (body: unknown, status = 200): RouteResponse => ({
   status,
@@ -60,7 +108,14 @@ export function reviewMap(renderer: ApexRenderer, page: ApxComponent): MapEntry[
       const base = { id: child.id, file: child.file, line: child.line, page: owner.id };
       if (child.type === 'region') {
         const dom = renderer.regionDomId(child);
-        entries.push({ ...base, kind: 'region', label: str(child.props, 'name', child.id), keys: [dom] });
+        entries.push({
+          ...base,
+          kind: 'region',
+          label: str(child.props, 'name', child.id),
+          keys: [dom],
+          patch: `region:${child.id}`,
+          values: values('region', child),
+        });
         for (const column of child.children.filter((entry) => entry.type === 'column')) {
           const upper = column.id.toUpperCase();
           entries.push({
@@ -73,6 +128,8 @@ export function reviewMap(renderer: ApexRenderer, page: ApxComponent): MapEntry[
             region: child.id,
             regionDom: dom,
             keys: [...new Set([`${dom}_${column.id}`, `${dom}_${upper}`, upper, column.id])],
+            patch: `column:${child.id}.${column.id}`,
+            values: values('column', column),
           });
         }
       } else if (child.type === 'pageItem') {
@@ -82,6 +139,8 @@ export function reviewMap(renderer: ApexRenderer, page: ApxComponent): MapEntry[
           kind: 'item',
           label: renderer.label(child),
           keys: [`${name}_CONTAINER`, name, `${name}_LABEL`, `${name}_DISPLAY`],
+          patch: `item:${child.id}`,
+          values: values('item', child),
         });
       } else if (child.type === 'button') {
         entries.push({
@@ -89,6 +148,8 @@ export function reviewMap(renderer: ApexRenderer, page: ApxComponent): MapEntry[
           kind: 'button',
           label: str(child.props, 'label', str(child.props, 'name', child.id)),
           keys: [renderer.buttonDomId(child)],
+          patch: `button:${child.id}`,
+          values: values('button', child),
         });
       }
     }
@@ -112,11 +173,73 @@ const ids = (value: unknown): string[] =>
     .filter(Boolean)
     .slice(0, 500);
 
+/** Binds a selection to the mapped component's patch target, declaring page and file revision. */
+function bindTarget(renderer: ApexRenderer, page: ApxComponent, input: unknown): unknown {
+  const target = { ...((input ?? {}) as Record<string, unknown>) };
+  delete target.patch;
+  delete target.sourcePage;
+  delete target.digest;
+  const kind = String(target.kind ?? '');
+  const entry =
+    kind === 'page'
+      ? { patch: 'page', page: page.id, file: page.file, line: page.line }
+      : reviewMap(renderer, page).find(
+          (candidate) =>
+            candidate.kind === kind &&
+            candidate.id === target.id &&
+            (kind !== 'column' || candidate.region === target.region),
+        );
+  if (!entry) return target;
+  const digest = sha256(path.join(renderer.app.root, entry.file));
+  return {
+    ...target,
+    file: entry.file,
+    line: entry.line,
+    patch: entry.patch,
+    sourcePage: entry.page,
+    ...(digest ? { digest } : {}),
+  };
+}
+
+/** Applies one visual property edit through the shared, digest-bound patch service. */
+async function patchRoute(file: string, input: Record<string, unknown>): Promise<RouteResponse> {
+  const property = String(input.property ?? '') as PatchProperty;
+  if (!PATCH_PROPERTIES.includes(property) || property === 'query')
+    return json({ error: 'property must be title, label, heading, format or sequence' }, 400);
+  const page = String(input.page ?? '');
+  const target = String(input.target ?? '');
+  const digest = String(input.digest ?? '');
+  if (!/^\d{1,5}$/u.test(page) || !target || !/^[0-9a-f]{64}$/u.test(digest))
+    return json({ error: 'patch needs page, target, property, value and the file digest' }, 400);
+  const value = typeof input.value === 'string' ? input.value : '';
+  if (value.length > 4000) return json({ error: 'value is longer than 4000 characters' }, 400);
+  try {
+    const ctx = await loadProject(path.resolve(path.dirname(file), '..', '..'));
+    const result = await patchPage(ctx, {
+      page,
+      operations: [{ target, property, value }],
+      expectedDigest: digest,
+    });
+    return json({ ok: true, result });
+  } catch (error) {
+    if (error instanceof Fault) {
+      const status = error.code === 'TRANSFORM_CONFLICT' ? 409 : error.exitCode === 2 ? 400 : 422;
+      return json({ error: error.message, code: error.code, ...(error.details ?? {}) }, status);
+    }
+    return json({ error: (error as Error).message }, 500);
+  }
+}
+
 /**
  * `GET ?page=<id>[&status=open|resolved|all][&format=text]` lists comments.
- * `POST { op: add | edit | resolve | reopen | delete, ... }` changes them.
+ * `POST { op: add | edit | resolve | reopen | delete, ... }` changes them;
+ * `POST { op: patch, page, target, property, value, digest }` edits the source (see patchRoute).
  */
-function reviewRoute(renderer: ApexRenderer, _session: Session, request: RouteRequest): RouteResponse {
+function reviewRoute(
+  renderer: ApexRenderer,
+  _session: Session,
+  request: RouteRequest,
+): RouteResponse | Promise<RouteResponse> {
   const file = renderer.reviewFile;
   if (!file)
     return json({ error: 'Review comments need a project folder; start the preview from a project.' }, 409);
@@ -145,7 +268,7 @@ function reviewRoute(renderer: ApexRenderer, _session: Session, request: RouteRe
         const comment = addReviewComment(file, {
           page: { id: page.id, name: str(page.props, 'name') },
           sourceDir: reviewSourceDir(file, renderer.app.root),
-          target: input.target,
+          target: bindTarget(renderer, page, input.target),
           intent: input.intent,
           text: input.text,
         });
@@ -172,8 +295,10 @@ function reviewRoute(renderer: ApexRenderer, _session: Session, request: RouteRe
         });
       case 'delete':
         return json({ ok: true, ...deleteReviewComments(file, ids(input.ids ?? input.id)) });
+      case 'patch':
+        return patchRoute(file, input);
       default:
-        return json({ error: 'op must be add, edit, resolve, reopen or delete' }, 400);
+        return json({ error: 'op must be add, edit, resolve, reopen, delete or patch' }, 400);
     }
   } catch (error) {
     if (error instanceof ReviewError) return json({ error: error.message }, error.status);
@@ -195,6 +320,9 @@ registerExtension({
       pageLine: ctx.page.line,
       intents: REVIEW_INTENTS,
       map: reviewMap(renderer, ctx.page),
+      pageValues: values('page', ctx.page),
+      editable: EDITABLE,
+      digests: digestsFor(renderer, ctx.page),
     };
     const badge = open
       ? `<span class="apex-local-badge is-review" data-apex-local-review-count>${open}</span>`
@@ -213,6 +341,19 @@ registerExtension({
   },
   routes: { review: reviewRoute },
 });
+
+/** Page file revisions the visual editor binds to: the page and, when used, the global page. */
+function digestsFor(renderer: ApexRenderer, page: ApxComponent): Record<string, string> {
+  const files = [page.file, ...(page.id !== '0' ? [renderer.app.pages.get('0')?.file] : [])].filter(
+    (file): file is string => !!file,
+  );
+  return Object.fromEntries(
+    files.flatMap((file) => {
+      const digest = sha256(path.join(renderer.app.root, file));
+      return digest ? [[file, digest]] : [];
+    }),
+  );
+}
 
 function listSafe(renderer: ApexRenderer, page: string): number {
   try {

@@ -129,12 +129,57 @@ apexrest preview stop --port 8765           # or select by --source-dir, --port;
 <li>Click it. The form offers every target from the exact element up to the page, an optional kind of change (<code>change</code>, <code>rename</code>, <code>move</code>, <code>remove</code>, <code>add</code>, <code>style</code>, <code>bug</code>, <code>question</code>) and the comment text. <strong>Ctrl/Cmd+Enter</strong> saves; <strong>Esc</strong> closes the form, a second <strong>Esc</strong> stops selecting.</li>
 <li>Numbered pins mark commented components. The panel lists the comments of the page (or of all pages); you can edit, resolve, reopen or delete them, and <strong>Copy</strong> puts the open ones on the clipboard as text.</li>
 </ol>
-<p>Comments are stored in <code>&lt;project&gt;/.apexrest/review/comments.json</code>, Git-ignored local state. Each comment names the page, the APEXlang component, the source folder, file and line, the selected element and your text. The preview never edits source or data for a comment.</p>
+<p>Comments are stored in <code>&lt;project&gt;/.apexrest/review/comments.json</code>, Git-ignored local state. Each comment names the page, the APEXlang component, the source folder, file and line, the selected element and your text.</p>
+<p>The preview binds each selection to its source revision. It records the component&#39;s <code>project patch</code> target (for example <code>region:orders</code> or <code>column:orders.TITLE</code>), the page whose file declares it (0 for the global page) and the SHA-256 of that file at selection time. The preview never edits source or data for a comment.</p>
+<p><strong>Edit</strong> in the same form changes one property in the source instead of leaving a comment:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Properties</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Page</td>
+<td>title</td>
+</tr>
+<tr>
+<td>Region</td>
+<td>title, sequence</td>
+</tr>
+<tr>
+<td>Item</td>
+<td>label, sequence</td>
+</tr>
+<tr>
+<td>Button</td>
+<td>label, sequence</td>
+</tr>
+<tr>
+<td>Report column</td>
+<td>heading, format, sequence</td>
+</tr>
+</tbody></table>
+</div>
+<p>The edit goes through the same digest-bound patch service as <code>project patch</code> and <code>apexrest_project action:patch</code>:</p>
+<ul>
+<li>It changes only that value in the page file, and the preview reloads with it.</li>
+<li>If the file changed after the page loaded, nothing is written and the form asks you to reload.</li>
+<li>While the form is open, a source change from elsewhere shows a <strong>Reload</strong> notice instead of discarding your draft.</li>
+</ul>
+<p>The preview never writes APEX metadata: an edit is an ordinary source change for Git, validation and ship. Edits are available only in the developer preview with a project.</p>
 <p>Agents read and close them without a running preview:</p>
 <pre><code class="language-bash">apexrest preview comments --json
 apexrest preview resolve --ids rc-... --note &quot;Renamed the column heading&quot;
 </code></pre>
 <p>The MCP equivalents are <code>apexrest_preview action:comments</code> and <code>action:resolve</code>. Ask the agent to &quot;apply the preview review comments&quot;.</p>
+<p><code>comments</code> adds a <code>context</code> to each comment whose selection maps to a source component:</p>
+<ul>
+<li><code>target</code> and <code>digest</code>: the patch target and the page file&#39;s current digest, which is the <code>expectedDigest</code> for <code>project patch</code>;</li>
+<li><code>changedSinceSelection</code>: whether that file changed after the comment was left;</li>
+<li><code>component</code>: the component&#39;s current editable values, as <code>project context</code> returns them.</li>
+</ul>
+<p>Other comments keep <code>file:line</code> only.</p>
 <p>&quot;View as&quot; is off by default, so every authorization scheme allows access. When you choose a set of ACL roles, role checks and authorization schemes are enforced, denied pages show an access error and denied components are hidden.</p>
 <p><code>GET /__apex/diagnostics</code> returns all diagnostics as JSON. Legacy <code>f?p=APP:PAGE:SESSION:REQUEST:DEBUG:CLEAR:ITEMS:VALUES</code> links redirect to the friendly page URLs.</p>
 <h2 id="how-it-works">How it works</h2>

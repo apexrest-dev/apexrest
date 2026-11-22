@@ -2,6 +2,48 @@
 
 The current source and bundled plugin version is **2.8.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
+## Visual editing in the developer preview, Slice H (2026-11-22, local)
+
+**Selections bound to source revisions ([APE-377](https://linear.app/apexrest/issue/APE-377)).** The review picker's component map now carries, for each region, item, button, report column and the page:
+
+- its `project patch` target;
+- its current editable values;
+- the page that declares it.
+
+The toolbar config holds the SHA-256 of the page file and the global page file. When a comment is saved, the server itself binds the target to the mapped component and computes the file digest; values sent by the browser are ignored. The picker exists only in the developer toolbar of a project preview.
+
+**Visual property edits ([APE-394](https://linear.app/apexrest/issue/APE-394)).** The review form has an **Edit** mode for these properties:
+
+- page title;
+- region title;
+- item and button labels;
+- column headings and formats;
+- sequences.
+
+It posts to the review route, which calls the same digest-bound `patchPage` as `project patch` and `action:patch`. A stale digest returns 409 with the current digest and writes nothing. The preview writes no APEX metadata.
+
+While the form is open, the live client turns a source-change reload into a **Reload** notice, so a draft is not lost. Extension routes may now answer asynchronously; transactional data routes stay synchronous.
+
+Template options were not added to the patch service.
+
+**Agent context ([APE-392](https://linear.app/apexrest/issue/APE-392)).** `preview comments` / `action:comments` adds a `context` to each bound comment:
+
+- the patch target and the page file's current digest (the `expectedDigest`);
+- `changedSinceSelection`;
+- the component's current values from `project context`.
+
+The work skill points agents to it.
+
+**Verified in the built-in browser on the local review-e2e preview (page 10):**
+
+- The "Filters" region title was changed to "Customer filters" from the preview. The diff was one line, and the preview reloaded with it.
+- After the file was changed outside the preview, the open draft survived (Reload notice). Saving was refused, and the newer file was kept.
+- A browser comment's `context` gave `region:customer-filters` and the digest. `project patch` applied it with that digest, and `changedSinceSelection` then became true.
+
+The test project was restored afterwards. The edited source was not shipped in this slice; patch output was shipped in slices B and F.
+
+Tests: `preview-review.test.ts` covers the binding, forged-target rejection, a minimal edit, conflicts and refusals.
+
 ## Measured Oracle optimizations, Slice G (2026-11-22, local)
 
 All measurements are on the local APEX 26.2.0 / Oracle 23.26.4 target with SQLcl 26.3, application 26220. The evidence is in ignored `docs/evidence/fast-dev/export-direct-2026-11-22.json` and `preview-oracle-2026-11-22.json`. No optimization in this slice was adopted; each decision keeps the existing path.

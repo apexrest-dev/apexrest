@@ -157,8 +157,15 @@ export interface RouteResponse {
   headers?: Record<string, string>;
 }
 
-/** Served at `/r/<alias>/__apex/x/<name>` with the caller's session. */
-export type RouteHandler = (renderer: ApexRenderer, session: Session, request: RouteRequest) => RouteResponse;
+/**
+ * Served at `/r/<alias>/__apex/x/<name>` with the caller's session. Transactional routes (data
+ * changes) answer synchronously; other routes may answer with a promise.
+ */
+export type RouteHandler = (
+  renderer: ApexRenderer,
+  session: Session,
+  request: RouteRequest,
+) => RouteResponse | Promise<RouteResponse>;
 
 /**
  * Application lifecycle points: `beforeHeader` (before page computations), `afterHeader`

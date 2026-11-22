@@ -103,7 +103,27 @@ The developer toolbar at the bottom of every page follows APEX's runtime develop
 2. Click it. The form offers every target from the exact element up to the page, an optional kind of change (`change`, `rename`, `move`, `remove`, `add`, `style`, `bug`, `question`) and the comment text. **Ctrl/Cmd+Enter** saves; **Esc** closes the form, a second **Esc** stops selecting.
 3. Numbered pins mark commented components. The panel lists the comments of the page (or of all pages); you can edit, resolve, reopen or delete them, and **Copy** puts the open ones on the clipboard as text.
 
-Comments are stored in `<project>/.apexrest/review/comments.json`, Git-ignored local state. Each comment names the page, the APEXlang component, the source folder, file and line, the selected element and your text. The preview never edits source or data for a comment.
+Comments are stored in `<project>/.apexrest/review/comments.json`, Git-ignored local state. Each comment names the page, the APEXlang component, the source folder, file and line, the selected element and your text.
+
+The preview binds each selection to its source revision. It records the component's `project patch` target (for example `region:orders` or `column:orders.TITLE`), the page whose file declares it (0 for the global page) and the SHA-256 of that file at selection time. The preview never edits source or data for a comment.
+
+**Edit** in the same form changes one property in the source instead of leaving a comment:
+
+| Component     | Properties                |
+| ------------- | ------------------------- |
+| Page          | title                     |
+| Region        | title, sequence           |
+| Item          | label, sequence           |
+| Button        | label, sequence           |
+| Report column | heading, format, sequence |
+
+The edit goes through the same digest-bound patch service as `project patch` and `apexrest_project action:patch`:
+
+- It changes only that value in the page file, and the preview reloads with it.
+- If the file changed after the page loaded, nothing is written and the form asks you to reload.
+- While the form is open, a source change from elsewhere shows a **Reload** notice instead of discarding your draft.
+
+The preview never writes APEX metadata: an edit is an ordinary source change for Git, validation and ship. Edits are available only in the developer preview with a project.
 
 Agents read and close them without a running preview:
 
@@ -113,6 +133,14 @@ apexrest preview resolve --ids rc-... --note "Renamed the column heading"
 ```
 
 The MCP equivalents are `apexrest_preview action:comments` and `action:resolve`. Ask the agent to "apply the preview review comments".
+
+`comments` adds a `context` to each comment whose selection maps to a source component:
+
+- `target` and `digest`: the patch target and the page file's current digest, which is the `expectedDigest` for `project patch`;
+- `changedSinceSelection`: whether that file changed after the comment was left;
+- `component`: the component's current editable values, as `project context` returns them.
+
+Other comments keep `file:line` only.
 
 "View as" is off by default, so every authorization scheme allows access. When you choose a set of ACL roles, role checks and authorization schemes are enforced, denied pages show an access error and denied components are hidden.
 

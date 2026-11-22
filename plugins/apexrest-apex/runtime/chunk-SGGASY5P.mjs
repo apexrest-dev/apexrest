@@ -2,28 +2,14 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   declarations,
   inventorySymbols,
+  parseApexLang,
   threeWay
-} from "./chunk-TDM3E2NK.mjs";
-import {
-  browserModeSchema
-} from "./chunk-DJPW35KJ.mjs";
-import {
-  JOB_WAIT_MAX_SECONDS
-} from "./chunk-LQZZL2TR.mjs";
-import {
-  parseApexLang
-} from "./chunk-MJESXBPA.mjs";
+} from "./chunk-NGNFSMKO.mjs";
 import {
   APEX_262_PROFILE,
   OracleAdapter,
-  databaseTransport,
-  ordsUrl,
-  ordsUsername,
   resolveConnection,
   resourceRoot,
-  savedConnectionName,
-  sqlclMode,
-  sqlclRestriction,
   targetIdentitySql
 } from "./chunk-52OVPJZH.mjs";
 import {
@@ -3229,7 +3215,7 @@ var require_tags = __commonJS({
     var schema$2 = require_schema3();
     var set = require_set();
     var timestamp = require_timestamp();
-    var schemas2 = /* @__PURE__ */ new Map([
+    var schemas = /* @__PURE__ */ new Map([
       ["core", schema.schema],
       ["failsafe", [map.map, seq.seq, string.string]],
       ["json", schema$1.schema],
@@ -3265,7 +3251,7 @@ var require_tags = __commonJS({
       "tag:yaml.org,2002:timestamp": timestamp.timestamp
     };
     function getTags(customTags, schemaName, addMergeTag) {
-      const schemaTags = schemas2.get(schemaName);
+      const schemaTags = schemas.get(schemaName);
       if (schemaTags && !customTags) {
         return addMergeTag && !schemaTags.includes(merge.merge) ? schemaTags.concat(merge.merge) : schemaTags.slice();
       }
@@ -3274,7 +3260,7 @@ var require_tags = __commonJS({
         if (Array.isArray(customTags))
           tags = [];
         else {
-          const keys = Array.from(schemas2.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
+          const keys = Array.from(schemas.keys()).filter((key) => key !== "yaml11").map((key) => JSON.stringify(key)).join(", ");
           throw new Error(`Unknown schema "${schemaName}"; use one of ${keys} or define customTags array`);
         }
       }
@@ -7385,9 +7371,6 @@ var require_dist = __commonJS({
   }
 });
 
-// packages/core/src/composer/service.ts
-import { readFile as readFile6 } from "node:fs/promises";
-
 // packages/core/src/apex-capabilities.ts
 var apexCapabilitiesQuery = `with
   configured_application as (
@@ -7505,12 +7488,12 @@ var queries = {
   applications: "select application_id,application_name,alias from apex_applications where owner=:p_owner and application_id=:p_app_id order by application_id",
   pages: "select application_id,page_id,page_name,page_alias from apex_application_pages where application_id=:p_app_id and workspace=:p_workspace order by page_id"
 };
-async function metadataRead(adapter, env2, connection, value, debugTimings = false, signal) {
+async function metadataRead(adapter, env, connection, value, debugTimings = false, signal) {
   const input = parse(external_exports.union([metadataRequest, metadataBatchRequest]), value);
   const batch = "requests" in input;
   const requests = batch ? input.requests : [input];
   for (const r of requests) {
-    if (r.schema !== env2.parsingSchema)
+    if (r.schema !== env.parsingSchema)
       throw new Fault("SCHEMA_DENIED", "Metadata is restricted to the configured parsing schema.", 4);
     if (["columns", "constraints", "constraint-columns", "signatures"].includes(r.kind) && !r.name)
       throw new Fault("OBJECT_REQUIRED", "Select a specific object first.", 2);
@@ -7520,8 +7503,8 @@ async function metadataRead(adapter, env2, connection, value, debugTimings = fal
     bindings: {
       p_owner: r.schema,
       p_name: r.name ?? "",
-      p_app_id: env2.applicationId,
-      p_workspace: env2.workspace,
+      p_app_id: env.applicationId,
+      p_workspace: env.workspace,
       p_offset: r.offset,
       p_limit: r.limit
     }
@@ -7534,7 +7517,7 @@ async function metadataRead(adapter, env2, connection, value, debugTimings = fal
   });
   const rows = await adapter.jsonQueryBatch(
     [
-      { sql: targetIdentitySql, bindings: { p_workspace: env2.workspace, p_app_id: env2.applicationId } },
+      { sql: targetIdentitySql, bindings: { p_workspace: env.workspace, p_app_id: env.applicationId } },
       ...requests.map(query)
     ],
     connection,
@@ -7544,7 +7527,7 @@ async function metadataRead(adapter, env2, connection, value, debugTimings = fal
   );
   if (rows.length !== requests.length + 1)
     throw new Fault("EMPTY_QUERY_RESULT", "SQLcl did not answer every metadata request.", 1);
-  await adapter.verifyTarget(env2, connection, rows[0]);
+  await adapter.verifyTarget(env, connection, rows[0]);
   if (!batch) return page2(input, rows[1]);
   const results = requests.map((r, index) => ({
     index,
@@ -7646,6 +7629,9 @@ var ArtifactService = class {
     return { removed };
   }
 };
+
+// packages/core/src/composer/service.ts
+import { readFile as readFile6 } from "node:fs/promises";
 
 // packages/core/src/composer/schemas.ts
 var digest = external_exports.string().regex(/^[a-f0-9]{64}$/);
@@ -8049,7 +8035,7 @@ function planDigest(plan) {
 // packages/core/src/composer/catalog.ts
 import path3 from "node:path";
 import { readFile as readFile3, readdir as readdir2, cp, mkdir as mkdir2 } from "node:fs/promises";
-async function loadCatalog(project2, cachePayloads = true) {
+async function loadCatalog(project, cachePayloads = true) {
   const root = path3.join(resourceRoot(), "blocks");
   const index = JSON.parse(await readFile3(await safePath(root, "manifest.json"), "utf8"));
   if (index.schemaVersion !== 1 || !Array.isArray(index.packages) || index.packages.length > 1e3)
@@ -8058,12 +8044,12 @@ async function loadCatalog(project2, cachePayloads = true) {
   const revocations = JSON.parse(await readFile3(await safePath(root, "revocations.json"), "utf8"));
   if (!Array.isArray(revocations)) throw new Fault("CATALOG_INVALID", "Invalid revocation registry.", 5);
   const packages = /* @__PURE__ */ new Map();
-  async function add(base2, relative, expected) {
-    const directory = await safePath(base2, relative), files = await inventory(directory), digest2 = semanticDigest(files);
+  async function add(base, relative, expected) {
+    const directory = await safePath(base, relative), files = await inventory(directory), digest2 = semanticDigest(files);
     if (expected && expected !== digest2)
       throw new Fault("PACKAGE_CORRUPT", "Block package integrity check failed.", 5);
-    if (project2 && cachePayloads) {
-      const cache = await safePath(project2, `.apexrest/composer/cache/${digest2}`);
+    if (project && cachePayloads) {
+      const cache = await safePath(project, `.apexrest/composer/cache/${digest2}`);
       if (!await exists(cache)) {
         await mkdir2(path3.dirname(cache), { recursive: true, mode: 448 });
         await cp(directory, cache, { recursive: true, errorOnExist: true, force: false });
@@ -8074,8 +8060,8 @@ async function loadCatalog(project2, cachePayloads = true) {
     const manifest = await readDocument(directory, "block.yaml", blockSchema), key = manifest.id + "@" + manifest.version;
     if (expected && manifest.origin !== "apexrest-dev/apexrest")
       throw new Fault("ORIGIN_DENIED", "Bundled block origin is outside registry policy.", 5);
-    if (!expected && project2) {
-      const policyFile = await safePath(project2, ".apexrest-composer/registry-policy.json");
+    if (!expected && project) {
+      const policyFile = await safePath(project, ".apexrest-composer/registry-policy.json");
       const policy = await exists(policyFile) ? JSON.parse(await readFile3(policyFile, "utf8")) : { reviewedPackages: {} };
       if (policy.reviewedPackages?.[key] !== digest2) manifest.status = "draft";
       else if (manifest.status === "draft") manifest.status = "experimental";
@@ -8108,8 +8094,8 @@ async function loadCatalog(project2, cachePayloads = true) {
   }
   for (const entry2 of [...index.packages].sort((a, b) => a.path < b.path ? -1 : 1))
     await add(root, entry2.path, entry2.digest);
-  if (project2 && await exists(await safePath(project2, ".apexrest-composer/blocks"))) {
-    const local = await safePath(project2, ".apexrest-composer/blocks");
+  if (project && await exists(await safePath(project, ".apexrest-composer/blocks"))) {
+    const local = await safePath(project, ".apexrest-composer/blocks");
     for (const entry2 of (await readdir2(local, { withFileTypes: true })).sort(
       (a, b) => a.name < b.name ? -1 : 1
     )) {
@@ -8210,7 +8196,7 @@ async function bundledBlueprintProfiles() {
     }
   return byProfile;
 }
-async function catalogRead(id, offset = 0, limit2 = 4096, project2) {
+async function catalogRead(id, offset = 0, limit2 = 4096, project) {
   let content;
   if (id.startsWith("blueprint:")) {
     const root = path3.join(resourceRoot(), "blueprints"), index = JSON.parse(await readFile3(path3.join(root, "index.json"), "utf8"));
@@ -8219,7 +8205,7 @@ async function catalogRead(id, offset = 0, limit2 = 4096, project2) {
     content = await readFile3(await safePath(root, entry2.path), "utf8");
   } else {
     const [selector, sourcePath] = id.split("/source/");
-    const pkg = (await loadCatalog(project2, false)).packages.get(selector);
+    const pkg = (await loadCatalog(project, false)).packages.get(selector);
     if (!pkg) throw new Fault("REFERENCE_NOT_FOUND", "Unknown exact block version.", 2);
     if (sourcePath) {
       if (!pkg.manifest.source.files.includes(sourcePath))
@@ -9709,10 +9695,10 @@ function planComposition(input) {
       if (local !== void 0 && !old)
         throw new Fault("UNMANAGED_COLLISION", "A generated path already contains unmanaged source.", 5);
       if (local !== void 0 && old) {
-        const base2 = input.bases[old.bases[file]];
-        if (base2 === void 0)
+        const base = input.bases[old.bases[file]];
+        if (base === void 0)
           throw new Fault("GENERATION_BASE_MISSING", "Generated base is unavailable.", 5);
-        content = threeWay(base2, local, next);
+        content = threeWay(base, local, next);
       }
       effectiveSources[file] = content;
       const owner = Object.values(owners).find((o) => file in o.files);
@@ -9904,8 +9890,8 @@ function receiptFor(plan) {
   };
 }
 function requireWriteScope(ctx, write, metadata = false) {
-  const sourceDir = ctx.config.application.sourceDir, base2 = write.path.match(/^\.apexrest-composer\/bases\/([a-f0-9]{64})\.apx$/);
-  if (!(write.path.startsWith(sourceDir + "/") || base2 && (write.after === null || write.after === base2[1]) || metadata && [".apexrest-composer/state.json", ".apexrest-composer/lock.json"].includes(write.path)))
+  const sourceDir = ctx.config.application.sourceDir, base = write.path.match(/^\.apexrest-composer\/bases\/([a-f0-9]{64})\.apx$/);
+  if (!(write.path.startsWith(sourceDir + "/") || base && (write.after === null || write.after === base[1]) || metadata && [".apexrest-composer/state.json", ".apexrest-composer/lock.json"].includes(write.path)))
     throw new Fault("COMPOSITION_SCOPE_DENIED", "Plan writes outside Composer ownership.", 5);
   if (write.path.split("/").includes(".apex"))
     throw new Fault("COMPOSITION_SCOPE_DENIED", "Oracle metadata cannot be overwritten.", 5);
@@ -10019,9 +10005,9 @@ async function checkPreconditions(ctx, plan) {
   }
 }
 async function stagePlan(ctx, plan) {
-  const relative = `.apexrest/composer/staging/${plan.digest}`, base2 = await safePath(ctx.root, relative);
-  await mkdir3(base2, { recursive: true, mode: 448 });
-  const application = path4.join(base2, "application");
+  const relative = `.apexrest/composer/staging/${plan.digest}`, base = await safePath(ctx.root, relative);
+  await mkdir3(base, { recursive: true, mode: 448 });
+  const application = path4.join(base, "application");
   await rm2(application, { recursive: true, force: true });
   await cp2(await safePath(ctx.root, ctx.config.application.sourceDir), application, { recursive: true });
   for (const op of plan.operations.filter(
@@ -10395,7 +10381,7 @@ var METADATA_PAGE = 100;
 var METADATA_OBJECT_LIMIT = 1e4;
 var METADATA_BATCH = 8;
 var metadataKey = (kind, name2) => `${kind}:${name2.toUpperCase()}`;
-async function readMetadataBatch(oracle, env2, connection, wanted, signal) {
+async function readMetadataBatch(oracle, env, connection, wanted, signal) {
   const pending = /* @__PURE__ */ new Map();
   const rows = /* @__PURE__ */ new Map();
   for (const request of wanted) {
@@ -10409,13 +10395,13 @@ async function readMetadataBatch(oracle, env2, connection, wanted, signal) {
     const chunk = [...pending.entries()].slice(0, METADATA_BATCH);
     const response = await metadataRead(
       oracle,
-      env2,
+      env,
       connection,
       {
         requests: chunk.map(([, request]) => ({
           kind: request.kind,
           name: request.name,
-          schema: env2.parsingSchema,
+          schema: env.parsingSchema,
           offset: request.offset,
           limit: METADATA_PAGE
         }))
@@ -10444,14 +10430,14 @@ async function readMetadataBatch(oracle, env2, connection, wanted, signal) {
   return rows;
 }
 async function context(ctx, blueprintFile, envName, oracle, signal) {
-  const env2 = environment(ctx, envName), connection = await resolveConnection(env2.readConnectionRef);
+  const env = environment(ctx, envName), connection = await resolveConnection(env.readConnectionRef);
   const blueprint = await readDocument(ctx.root, blueprintFile, blueprintSchema);
-  const result = { schema: env2.parsingSchema, objects: {}, signatures: {} };
+  const result = { schema: env.parsingSchema, objects: {}, signatures: {} };
   const objects = [...new Set(Object.values(blueprint.entities).map((entity) => entity.read.object))];
   const packages = [...new Set(Object.values(blueprint.commands).map((command) => command.package))];
   const read = await readMetadataBatch(
     oracle,
-    env2,
+    env,
     connection,
     [
       ...objects.flatMap(
@@ -10470,7 +10456,7 @@ async function context(ctx, blueprintFile, envName, oracle, signal) {
   for (const name2 of packages) result.signatures[name2] = read.get(metadataKey("signatures", name2));
   return result;
 }
-async function verifyDeploymentPredicates(ctx, binding, env2, connection, oracle, signal) {
+async function verifyDeploymentPredicates(ctx, binding, env, connection, oracle, signal) {
   const blueprint = await readDocument(ctx.root, binding.blueprintPath, blueprintSchema);
   checkMetadataCancellation(signal);
   if (semanticDigest(blueprint) !== binding.blueprintDigest)
@@ -10490,7 +10476,7 @@ async function verifyDeploymentPredicates(ctx, binding, env2, connection, oracle
   }
   const actual = predicates.size ? await readMetadataBatch(
     oracle,
-    env2,
+    env,
     connection,
     [...predicates.keys()].map((name2) => ({ kind: "columns", name: name2 })),
     signal
@@ -10592,541 +10578,16 @@ async function composeMaterialize(ctx, request, signal) {
   return materialize(ctx, await readPlan(ctx, file, request.expectedDigest), signal ? { signal } : {});
 }
 
-// packages/core/src/operations.ts
-var project = external_exports.string().min(1).max(4096).optional();
-var env = refName;
-var base = { project };
-var selectedImportPath = relativePath.refine(
-  (file) => !/[\\*?\[\]]/.test(file) && !/^[A-Za-z]:/.test(file) && !file.startsWith("-") && file.split("/").every((part) => part !== "" && part !== "."),
-  "Use normalized application-relative paths without globs or command flags"
-);
-var importOptions = {
-  importMode: external_exports.enum(["auto", "full", "files", "none"]).default("auto"),
-  files: external_exports.array(selectedImportPath).min(1).max(1e3).optional().describe("files mode: explicit file paths relative to the application source directory")
-};
-function checkImportOptions(value, ctx) {
-  if (value.importMode === "files" !== (value.files !== void 0))
-    ctx.addIssue({
-      code: "custom",
-      path: ["files"],
-      message: "Supply files only with importMode files; files mode requires a nonempty list."
-    });
-  if (value.files && new Set(value.files.map((file) => file.replaceAll("\\", "/").replace(/^\.\//, ""))).size !== value.files.length)
-    ctx.addIssue({ code: "custom", path: ["files"], message: "Selected file paths must be unique." });
-}
-var dependencies = {
-  home: external_exports.string().optional(),
-  yes: external_exports.boolean().default(false),
-  nonInteractive: external_exports.boolean().default(false),
-  offline: external_exports.boolean().default(false),
-  cacheDir: external_exports.string().optional(),
-  dryRun: external_exports.boolean().default(false),
-  acceptOracleLicense: external_exports.boolean().default(false)
-};
-var previewSource = {
-  ...base,
-  sourceDir: external_exports.string().min(1).max(4096).optional().describe("APEXlang folder with application.apx; defaults to apexrest.json application.sourceDir")
-};
-var previewSelect = {
-  ...previewSource,
-  port: external_exports.number().int().min(1).max(65535).optional().describe("Port of a running preview")
-};
-var previewRun = {
-  assetsDir: external_exports.string().min(1).max(4096).optional(),
-  env: env.optional().describe(
-    "DEV/QA/TEST environment of apexrest.json: application data and PL/SQL run in its Oracle database through the SQLcl saved connection; every request is rolled back"
-  ),
-  sampleRows: external_exports.number().int().min(0).max(200).optional().describe("Sample rows for auto-created missing tables")
-};
-var setup = {
-  ...base,
-  ...dependencies,
-  from: external_exports.string().optional(),
-  codexHome: external_exports.string().optional(),
-  codex: external_exports.string().min(1).optional(),
-  scope: external_exports.enum(["user", "project"]).default("user"),
-  version: external_exports.string().optional(),
-  nativeOnly: external_exports.boolean().default(false)
-};
-var schemas = {
-  version: external_exports.strictObject({}),
-  doctor: external_exports.strictObject(base),
-  "sqlcl.status": external_exports.strictObject({}),
-  "sqlcl.configure": external_exports.strictObject({
-    mode: sqlclMode,
-    mcpRestrictLevel: sqlclRestriction.optional(),
-    databaseTransport: databaseTransport.optional()
-  }),
-  "panel.status": external_exports.strictObject(base),
-  "settings.status": external_exports.strictObject({}),
-  "settings.configure": external_exports.strictObject({
-    decisionApi: external_exports.enum(["on", "off"]).optional().describe("Default OpenAI Decisions selection for projects without decisionApi"),
-    apiKeyEnv: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional().describe("Environment variable with the OpenAI key (default OPENAI_API_KEY)"),
-    decisionTimeoutMs: external_exports.number().int().min(250).max(1e4).optional(),
-    catalog: external_exports.enum(["on", "off"]).optional().describe("Reference catalog tools (search, read, select)"),
-    usageLog: external_exports.enum(["on", "off"]).optional().describe("Opt-in local token counters and operation duration log")
-  }),
-  "usage.status": external_exports.strictObject({ limit: external_exports.number().int().min(1).max(1e3).default(20) }),
-  "usage.import": external_exports.strictObject({
-    host: external_exports.enum(["codex", "claude"]),
-    file: external_exports.string().min(1).max(4096).describe("Native CLI JSON/JSON-lines output from one run"),
-    counterMode: external_exports.enum(["cumulative-session"]).optional().describe("Explicitly identify complete Codex cumulative session captures, including resumed turns"),
-    elapsedMs: external_exports.number().finite().min(0).max(7 * 864e5).optional().describe("Caller-measured elapsed time for that run")
-  }),
-  setup: external_exports.strictObject(setup),
-  "dependencies.install": external_exports.strictObject(dependencies),
-  "dependencies.uninstall": external_exports.strictObject({
-    home: external_exports.string().optional(),
-    dryRun: external_exports.boolean().default(false),
-    yes: external_exports.boolean().default(false)
-  }),
-  "plugin.validate": external_exports.strictObject({ ...base, from: external_exports.string().optional() }),
-  "plugin.install": external_exports.strictObject(setup),
-  "plugin.update": external_exports.strictObject({ ...setup, version: external_exports.string().min(1) }),
-  "plugin.uninstall": external_exports.strictObject({
-    ...base,
-    home: external_exports.string().optional(),
-    codex: external_exports.string().min(1).optional(),
-    keepRuntime: external_exports.boolean().default(false)
-  }),
-  "project.init": external_exports.strictObject({
-    ...base,
-    directory: external_exports.string().min(1),
-    template: external_exports.enum(["blank-app", "customer-crm", "existing-app"]).default("blank-app"),
-    alias: refName.optional()
-  }),
-  "project.adopt": external_exports.strictObject({
-    ...base,
-    env,
-    appId: external_exports.number().int().positive(),
-    workingCopy: external_exports.boolean().default(false)
-  }),
-  "project.inspect": external_exports.strictObject({ ...base, detail: external_exports.enum(["full", "summary"]).default("full") }),
-  "dev.start": external_exports.strictObject({ ...base }),
-  "dev.status": external_exports.strictObject({ ...base }),
-  "dev.stop": external_exports.strictObject({
-    ...base,
-    waitSeconds: external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(30)
-  }),
-  "project.context": external_exports.strictObject({
-    ...base,
-    page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number")
-  }),
-  "project.insert": external_exports.strictObject({
-    ...base,
-    page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number"),
-    components: external_exports.record(external_exports.string(), external_exports.unknown()).describe("JSON scaffold fragment: {regions, items?, refreshes?}; see the scaffold guide"),
-    expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional(),
-    dryRun: external_exports.boolean().default(false)
-  }),
-  "project.patch": external_exports.strictObject({
-    ...base,
-    page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number"),
-    operations: external_exports.array(
-      external_exports.strictObject({
-        target: external_exports.string().min(1).max(300),
-        property: external_exports.enum(["title", "label", "heading", "format", "sequence", "query"]),
-        value: external_exports.string().max(1e5),
-        columns: external_exports.array(
-          external_exports.strictObject({
-            name: external_exports.string().min(1).max(128),
-            heading: external_exports.string().max(4e3).optional(),
-            dataType: external_exports.enum(["varchar2", "number", "date", "timestamp"]).optional()
-          })
-        ).max(200).optional()
-      })
-    ).min(1).max(50).describe("JSON: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property, value}]"),
-    expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional().describe("Page file digest you read; required to write"),
-    dryRun: external_exports.boolean().default(false)
-  }),
-  "project.scaffold": external_exports.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
-  "connection.add": external_exports.strictObject({
-    ...base,
-    name: refName,
-    sqlclName: savedConnectionName.optional(),
-    ordsUrl: ordsUrl.optional(),
-    ordsUsername: ordsUsername.optional(),
-    passwordFile: external_exports.string().min(1).max(4096).optional(),
-    envFile: external_exports.string().min(1).max(4096).optional(),
-    usernameKey: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional(),
-    passwordKey: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional(),
-    urlKey: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional()
-  }).refine(
-    (value) => !!value.sqlclName || !!value.envFile || !!(value.ordsUrl && value.ordsUsername),
-    "Supply a direct SQLcl name or ORDS URL and username."
-  ),
-  "connection.list": external_exports.strictObject({ ...base, saved: external_exports.boolean().default(false) }),
-  "connection.test": external_exports.strictObject({
-    ...base,
-    name: savedConnectionName,
-    saved: external_exports.boolean().default(false)
-  }),
-  "connection.remove": external_exports.strictObject({ ...base, name: refName }),
-  "compose.plan": composePlanInput,
-  "compose.materialize": composeMaterializeInput,
-  "docs.search": external_exports.strictObject({
-    ...base,
-    query: external_exports.string().min(1).max(256),
-    corpus: external_exports.enum(["apexlang", "components", "patterns", "blocks", "blueprints"]).default("apexlang"),
-    version: external_exports.string().optional(),
-    kind: external_exports.enum(["grammar", "template", "contract", "guide"]).optional(),
-    family: external_exports.string().min(1).max(200).optional(),
-    profile: external_exports.string().max(200).optional(),
-    status: external_exports.enum(["draft", "experimental", "verified", "deprecated", "revoked"]).optional(),
-    locale: external_exports.enum(["en", "uk"]).optional(),
-    include: external_exports.enum(["code", "metadata"]).optional().describe("search: code on all hits or none"),
-    includeUnresolved: external_exports.boolean().default(false),
-    cursor: external_exports.string().regex(/^[a-f0-9]{64}$/).optional(),
-    offset: external_exports.number().int().min(0).max(1e4).default(0),
-    limit: external_exports.number().int().min(1).max(8).default(3)
-  }),
-  "docs.select": external_exports.strictObject({
-    ...base,
-    request: external_exports.string().trim().min(1).max(4e3),
-    version: external_exports.string().regex(/^26\.[12](?:@[A-Za-z0-9_.-]+)?$/).optional(),
-    limit: external_exports.number().int().min(1).max(16).default(16)
-  }),
-  "docs.read": external_exports.strictObject({
-    ...base,
-    id: external_exports.string().max(200),
-    version: external_exports.string().optional(),
-    offset: external_exports.number().int().min(0).default(0),
-    limit: external_exports.number().int().min(1).max(8192).default(4096)
-  }),
-  "docs.sync": external_exports.strictObject({ version: external_exports.string().min(1), dryRun: external_exports.boolean().default(false) }),
-  "metadata.read": metadataInputSchema.extend({ ...base, env }).strict(),
-  "apex.generate": external_exports.strictObject({
-    ...base,
-    name: external_exports.string().min(1).max(120),
-    output: relativePath,
-    alias: refName.optional()
-  }),
-  "apex.sync": external_exports.strictObject({
-    ...base,
-    debugTimings: external_exports.boolean().optional(),
-    env,
-    action: external_exports.enum(["init", "status", "changes", "refresh", "invalidate"])
-  }),
-  "apex.export": external_exports.strictObject({ ...base, env, output: relativePath }),
-  "apex.validate": external_exports.strictObject({
-    ...base,
-    sourceDir: external_exports.string().min(1).max(4096).optional().describe(
-      "APEXlang folder with application.apx to validate instead of apexrest.json application.sourceDir; works without a project"
-    ),
-    debugTimings: external_exports.boolean().optional(),
-    env: env.optional()
-  }),
-  "apex.diff": external_exports.strictObject({ ...base, env, comparison: external_exports.enum(["auto", "live"]).default("auto") }),
-  "db.plan": external_exports.strictObject({ ...base, env }),
-  "deploy.plan": external_exports.strictObject({ ...base, env, out: relativePath, ...importOptions }).superRefine(checkImportOptions),
-  "deploy.apply": external_exports.strictObject({ ...base, plan: relativePath }),
-  "deploy.status": external_exports.strictObject({ ...base, run: external_exports.uuid() }),
-  "deploy.reconcile": external_exports.strictObject({
-    ...base,
-    env,
-    run: external_exports.uuid(),
-    statements: external_exports.array(external_exports.strictObject({ file: relativePath, outcome: external_exports.enum(["applied", "not_applied"]) })).max(1e3).describe("JSON: [{file, outcome: applied|not_applied}] for every script of the run"),
-    confirm: external_exports.string().max(200).optional().describe("<run id>:<plan digest prefix>, typed by the person"),
-    userRequest: external_exports.string().min(1).max(4e3).describe("Literal instruction of the person who inspected the database")
-  }),
-  "deploy.restore-plan": external_exports.strictObject({ ...base, backup: external_exports.uuid(), out: relativePath }),
-  "browser.open": external_exports.strictObject({
-    ...base,
-    env,
-    browserMode: browserModeSchema.optional()
-  }),
-  "jobs.status": external_exports.strictObject({
-    ...base,
-    id: external_exports.uuid(),
-    waitSeconds: external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(0)
-  }),
-  "jobs.cancel": external_exports.strictObject({ ...base, id: external_exports.uuid() }),
-  "artifacts.read": external_exports.strictObject({
-    ...base,
-    id: external_exports.uuid(),
-    offset: external_exports.number().int().min(0).default(0),
-    limit: external_exports.number().int().min(1).max(16384).default(4096)
-  }),
-  "preview.setup": external_exports.strictObject({
-    zip: external_exports.string().min(1).max(4096).optional().describe("Local apex_26.2 zip; otherwise it is downloaded once"),
-    assetsDir: external_exports.string().min(1).max(4096).optional(),
-    sha256: external_exports.string().regex(/^[a-fA-F0-9]{64}$/).optional()
-  }),
-  "preview.start": external_exports.strictObject({
-    ...previewSource,
-    ...previewRun,
-    commit: external_exports.boolean().default(false).describe(
-      "With env, on a database on this computer only: commit each successful request instead of rolling it back (working mode)"
-    ),
-    port: external_exports.number().int().min(0).max(65535).optional(),
-    reset: external_exports.boolean().default(false),
-    user: external_exports.string().min(1).max(128).optional(),
-    toolbar: external_exports.boolean().optional()
-  }),
-  "preview.check": external_exports.strictObject({
-    ...previewSource,
-    ...previewRun,
-    pages: external_exports.array(external_exports.string().min(1).max(255)).min(1).max(500).optional()
-  }),
-  "preview.stop": external_exports.strictObject({ ...previewSelect, all: external_exports.boolean().default(false) }),
-  "preview.comments": external_exports.strictObject({
-    ...base,
-    status: external_exports.enum(["open", "resolved", "all"]).default("open"),
-    page: external_exports.string().min(1).max(64).optional().describe("Only comments of this page id")
-  }),
-  "preview.resolve": external_exports.strictObject({
-    ...base,
-    ids: external_exports.array(external_exports.string().min(1).max(64)).min(1).max(500).describe("Review comment ids (rc-...)"),
-    note: external_exports.string().min(1).max(2e3).optional().describe("What was changed, shown next to the resolved comment"),
-    reopen: external_exports.boolean().default(false)
-  }),
-  "preview.status": external_exports.strictObject(previewSelect),
-  // Composite MCP operations. Each routes to the operations above so the CLI
-  // keeps its granular commands while the agent sees one tool per concern.
-  project: external_exports.strictObject({
-    debugTimings: external_exports.boolean().optional(),
-    ...base,
-    action: external_exports.enum([
-      "init",
-      "adopt",
-      "inspect",
-      "scaffold",
-      "patch",
-      "context",
-      "insert",
-      "connection_add",
-      "connection_list",
-      "connection_test"
-    ]),
-    specFile: relativePath.optional().describe("scaffold: JSON spec; see work skill scaffold guide"),
-    page: external_exports.string().optional(),
-    operations: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())).optional().describe("patch, insert, context: see the work skill patch guide"),
-    components: external_exports.record(external_exports.string(), external_exports.unknown()).optional(),
-    expectedDigest: external_exports.string().optional(),
-    directory: external_exports.string().min(1).optional().describe("init: new or empty directory for the project"),
-    template: external_exports.enum(["blank-app", "customer-crm", "existing-app"]).optional(),
-    alias: refName.optional(),
-    env: env.optional(),
-    appId: external_exports.number().int().positive().optional(),
-    workingCopy: external_exports.boolean().optional(),
-    detail: external_exports.enum(["full", "summary"]).default("summary"),
-    name: refName.optional().describe("connection reference name"),
-    sqlclName: savedConnectionName.optional(),
-    ordsUrl: ordsUrl.optional(),
-    ordsUsername: ordsUsername.optional(),
-    passwordFile: external_exports.string().min(1).max(4096).optional(),
-    envFile: external_exports.string().min(1).max(4096).optional(),
-    usernameKey: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional(),
-    passwordKey: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional(),
-    urlKey: external_exports.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional(),
-    saved: external_exports.boolean().default(false)
-  }),
-  reference: external_exports.strictObject({
-    ...base,
-    mode: external_exports.enum(["search", "read", "select"]),
-    request: external_exports.string().trim().min(1).max(4e3).optional().describe("select: public UI needs"),
-    query: external_exports.string().min(1).max(256).optional(),
-    id: external_exports.string().max(200).optional().describe("read: reference ID"),
-    corpus: external_exports.enum(["apexlang", "components", "patterns", "blocks", "blueprints"]).default("apexlang"),
-    version: external_exports.string().optional(),
-    kind: external_exports.enum(["grammar", "template", "contract", "guide"]).optional(),
-    family: external_exports.string().min(1).max(200).optional(),
-    profile: external_exports.string().max(200).optional(),
-    status: external_exports.enum(["draft", "experimental", "verified", "deprecated", "revoked"]).optional(),
-    locale: external_exports.enum(["en", "uk"]).optional(),
-    include: external_exports.enum(["code", "metadata"]).optional().describe("search: code on all hits or none"),
-    includeUnresolved: external_exports.boolean().default(false),
-    cursor: external_exports.string().regex(/^[a-f0-9]{64}$/).optional(),
-    offset: external_exports.number().int().min(0).max(1e7).default(0),
-    limit: external_exports.number().int().min(1).max(32768).optional().describe("search/select: 1-8; read: capped to 8192 chars, follow nextOffset")
-  }),
-  ship: external_exports.strictObject({
-    ...base,
-    debugTimings: external_exports.boolean().optional(),
-    env,
-    mode: external_exports.enum(["plan", "apply", "recover"]).default("plan"),
-    plan: relativePath.optional(),
-    run: external_exports.uuid().optional(),
-    confirmation: external_exports.strictObject({
-      planDigest: external_exports.string().regex(/^[a-f0-9]{64}$/),
-      userRequest: external_exports.string().min(1).max(2e3)
-    }).optional(),
-    ...importOptions,
-    userRequest: external_exports.string().trim().min(1).max(16e3).describe("Literal human instruction authorizing this change")
-  }).superRefine(checkImportOptions).superRefine((value, ctx) => {
-    if (value.mode === "recover" && !value.run)
-      ctx.addIssue({
-        code: "custom",
-        path: ["run"],
-        message: "mode recover requires the interrupted run UUID."
-      });
-    if (value.mode !== "recover" && value.run)
-      ctx.addIssue({ code: "custom", path: ["run"], message: "run applies to mode recover only." });
-    if (value.mode !== "apply" && (value.plan || value.confirmation))
-      ctx.addIssue({
-        code: "custom",
-        path: [value.plan ? "plan" : "confirmation"],
-        message: "plan and confirmation apply to mode apply only."
-      });
-  }),
-  // Internal: the detached worker's apply phase for apexrest_ship.
-  "ship.apply": external_exports.strictObject({
-    ...base,
-    env,
-    plan: relativePath,
-    confirmation: external_exports.strictObject({
-      planDigest: external_exports.string().regex(/^[a-f0-9]{64}$/),
-      userRequest: external_exports.string().min(1).max(2e3)
-    }).optional(),
-    userRequest: external_exports.string().trim().min(1).max(16e3)
-  }),
-  "peer.status": external_exports.strictObject(base),
-  "peer.review": external_exports.strictObject({
-    ...base,
-    plan: relativePath.optional().describe("Saved plan path from apexrest_ship mode:plan"),
-    vendor: external_exports.enum(["codex", "claude"]).optional(),
-    focus: external_exports.string().min(1).max(2e3).optional()
-  }),
-  peer: external_exports.strictObject({
-    ...base,
-    action: external_exports.enum(["status", "review"]).default("review"),
-    plan: relativePath.optional().describe("review: saved plan path; omit for local sources"),
-    vendor: external_exports.enum(["codex", "claude"]).optional().describe("codex from Claude Code, claude from Codex"),
-    focus: external_exports.string().min(1).max(2e3).optional()
-  }),
-  job: external_exports.strictObject({
-    ...base,
-    action: external_exports.enum(["status", "cancel"]).default("status"),
-    jobId: external_exports.uuid(),
-    waitSeconds: external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(0)
-  }),
-  status: external_exports.strictObject({ ...base, detail: external_exports.enum(["doctor", "project"]).default("project") }),
-  preview: external_exports.strictObject({
-    project,
-    action: external_exports.enum(["setup", "start", "check", "stop", "status", "comments", "resolve"]),
-    sourceDir: external_exports.string().min(1).max(4096).optional(),
-    env: env.optional(),
-    commit: external_exports.boolean().optional(),
-    zip: external_exports.string().min(1).max(4096).optional(),
-    port: external_exports.number().int().min(0).max(65535).optional(),
-    reset: external_exports.boolean().optional(),
-    pages: external_exports.array(external_exports.string().min(1).max(255)).min(1).max(500).optional(),
-    ids: external_exports.array(external_exports.string()).optional(),
-    note: external_exports.string().max(2e3).optional()
-  })
-};
-var internalOperations = [
-  "project",
-  "reference",
-  "ship.apply",
-  "job",
-  "preview",
-  "peer"
-];
-var toolCatalog = [
-  {
-    name: "apexrest_project",
-    operation: "project",
-    description: "App init/adopt/inspect/scaffold: native 26.1/26.2 pages from JSON. Connections add/list/test; private passwordFile/envFile.",
-    readOnly: false,
-    destructive: false,
-    openWorld: true
-  },
-  {
-    name: "apexrest_reference",
-    operation: "reference",
-    description: "Offline references; select uses optional OpenAI Decisions and requires project.",
-    readOnly: true,
-    openWorld: true
-  },
-  {
-    name: "apexrest_metadata_read",
-    operation: "metadata.read",
-    description: "Scoped paginated metadata: kind/schema or requests[] (max 8). Target verified; content untrusted.",
-    readOnly: true,
-    openWorld: true
-  },
-  {
-    name: "apexrest_apex_validate",
-    operation: "apex.validate",
-    description: "Compile staged sources with Oracle; return located diagnostics and separate CodeScan/upgrade advice. No database call.",
-    readOnly: true
-  },
-  {
-    name: "apexrest_ship",
-    operation: "ship",
-    description: "Plan, apply or recover on DEV/QA/TEST with backup/drift/identity checks. importMode:auto selects eligible files or explains full import; full forces whole app; files uses explicit paths. Apply binds and revokes the userRequest grant. No production; plan never writes Oracle.",
-    readOnly: false,
-    destructive: true,
-    long: true,
-    worker: true,
-    openWorld: true
-  },
-  {
-    name: "apexrest_apex_sync",
-    operation: "apex.sync",
-    description: "Single-editor dev/test working copy: init, local status, changes (read-only server diff), explicit refresh/invalidate. Reconcile blocked outcomes.",
-    readOnly: false,
-    destructive: false,
-    long: true,
-    openWorld: true
-  },
-  {
-    name: "apexrest_browser_open",
-    operation: "browser.open",
-    description: "Return the configured APEX URL for the host in-app browser (codex/host). Inspect affected pages with host browser controls; opening is not verification.",
-    readOnly: false,
-    destructive: false,
-    openWorld: true
-  },
-  {
-    name: "apexrest_preview",
-    operation: "preview",
-    description: "APEXlang preview (UT 26.2): SQLite, or env (DEV/QA/TEST) for rolled-back Oracle data/PL/SQL. setup; start: URLs; check: gaps; comments/resolve: review notes. Not evidence.",
-    readOnly: false,
-    destructive: false,
-    openWorld: true
-  },
-  {
-    name: "apexrest_peer_review",
-    operation: "peer",
-    description: "Other-vendor CLI (codex or claude) reviews a saved ship plan or, without plan, local sources, read-only; plan verdict gates required apply. status: CLI/sign-in. Never deploys.",
-    readOnly: false,
-    destructive: false,
-    long: true,
-    openWorld: true
-  },
-  {
-    name: "apexrest_job",
-    operation: "job",
-    description: "Read status and phase by jobId. See the tool schema for waits. Action cancel requests cancellation. The database outcome can remain unknown.",
-    readOnly: false,
-    destructive: true
-  },
-  {
-    name: "apexrest_artifact_read",
-    operation: "artifacts.read",
-    description: "Read registered sanitized text by opaque ID and bounded range.",
-    readOnly: true
-  },
-  {
-    name: "apexrest_status",
-    operation: "status",
-    description: "doctor inspects tools without downloads; project reads settings, connections, sync, jobs, deployments and grants. No database call.",
-    readOnly: true
-  }
-];
-
 export {
+  metadataInputSchema,
   metadataRead,
   ArtifactService,
   catalogSearch,
   catalogRead,
   deploymentBinding,
+  composePlanInput,
+  composeMaterializeInput,
   verifyDeploymentPredicates,
   composePlan,
-  composeMaterialize,
-  schemas,
-  internalOperations,
-  toolCatalog
+  composeMaterialize
 };

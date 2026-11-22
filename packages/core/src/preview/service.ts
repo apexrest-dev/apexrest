@@ -5,7 +5,14 @@ import { Fault } from '../result.ts';
 import { APEX_DOWNLOAD_URL, APEX_FULL_VERSION, defaultAssetsDir, loadAssets, setupAssets } from './assets.ts';
 import { loadApplication } from './apexlang.ts';
 import { localGaps } from './gaps.ts';
-import { describeReviewComment, listReviewComments, reviewFilePath, setReviewStatus } from './review.ts';
+import { pageContext } from '../edit/patch.ts';
+import {
+  describeReviewComment,
+  listReviewComments,
+  reviewFilePath,
+  setReviewStatus,
+  type ReviewComment,
+} from './review.ts';
 import type { Diagnostic } from './render.ts';
 import { connectOracle } from './oracle/connect.ts';
 import { checkApplication, PreviewServer } from './server.ts';
@@ -439,18 +446,65 @@ async function previewComments(
     status: input.status ?? 'open',
     ...(input.page ? { page: input.page } : {}),
   });
+  const contexts = await reviewContexts(root, comments);
   return {
     file,
     status: input.status ?? 'open',
     count: comments.length,
-    comments,
+    comments: comments.map((comment) => {
+      const context = contexts.get(comment.id);
+      return context ? { ...comment, context } : comment;
+    }),
     summary: comments.map(describeReviewComment),
     ...(comments.length
       ? {
-          next: 'Apply each comment to the APEXlang source (file:line), validate, then call preview resolve with the ids and a short note.',
+          next: 'Apply each comment: for one with context, use project patch with context.target and context.digest (changedSinceSelection says the file moved on since the comment); otherwise edit the APEXlang source at file:line. Validate, then call preview resolve with the ids and a short note.',
         }
       : {}),
   };
+}
+
+/**
+ * Revision-bound context of each comment's selected component: its patch target, the current
+ * page-file digest (the `expectedDigest` for `project patch`), whether the file changed since
+ * the selection, and the component's current editable values from `project context`.
+ */
+async function reviewContexts(root: string, comments: ReviewComment[]) {
+  const out = new Map<string, Record<string, unknown>>();
+  const wanted = comments.filter((comment) => comment.target.patch && comment.target.sourcePage);
+  if (!wanted.length) return out;
+  let ctx;
+  try {
+    ctx = await loadProject(root);
+  } catch {
+    return out;
+  }
+  const pages = new Map<string, Awaited<ReturnType<typeof pageContext>> | undefined>();
+  for (const comment of wanted) {
+    const page = comment.target.sourcePage!;
+    if (!pages.has(page)) pages.set(page, await pageContext(ctx, page).catch(() => undefined));
+    const context = pages.get(page);
+    if (!context) continue;
+    const target = comment.target.patch!;
+    const same = (value: unknown) => String(value).toUpperCase() === target.toUpperCase();
+    const component =
+      target === 'page'
+        ? context.page
+        : target.startsWith('column:')
+          ? context.regions.flatMap((region) => region.columns).find((column) => same(column.target))
+          : [...context.regions, ...context.items, ...context.buttons].find((entry) => same(entry.target));
+    out.set(comment.id, {
+      page: page,
+      file: context.file,
+      target,
+      digest: context.digest,
+      ...(comment.target.digest ? { changedSinceSelection: comment.target.digest !== context.digest } : {}),
+      ...(component
+        ? { component: target.startsWith('region:') ? { ...component, columns: undefined } : component }
+        : { missing: true }),
+    });
+  }
+  return out;
 }
 
 async function previewResolve(

@@ -282,7 +282,9 @@ apexLocal.live = (function ($) {
   function sourceChanged(message) {
     if (!newer(message)) return;
     if (Array.isArray(message.pages) && message.pages.indexOf(String(state.page)) < 0) return;
-    var dirty = apex.page && apex.page.isChanged && apex.page.isChanged();
+    // Unsaved form changes or an open review composer (a draft comment or property edit) are kept.
+    var dirty = (apex.page && apex.page.isChanged && apex.page.isChanged()) ||
+      (window.apexLocalReview && window.apexLocalReview.busy && window.apexLocalReview.busy());
     // Only allowlisted regions changed: replace them in place (their refresh lifecycle runs);
     // any region that cannot be refreshed falls back to a full reload.
     if (!dirty && Array.isArray(message.regions) && message.regions.length &&

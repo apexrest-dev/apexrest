@@ -42,6 +42,12 @@ export interface ReviewTarget {
   selector?: string;
   /** Visible text of the selected element (trimmed), so a stale selector can still be identified. */
   text?: string;
+  /** `project patch` target of a mapped component: page, region:ID, item:NAME, button:ID, column:REGION.COLUMN. */
+  patch?: string;
+  /** Page whose file declares the component (0 for the global page). */
+  sourcePage?: string;
+  /** SHA-256 of that file when the component was selected (the revision the comment refers to). */
+  digest?: string;
 }
 
 export interface ReviewComment {
@@ -187,10 +193,18 @@ function target(value: unknown): ReviewTarget {
   if (Number.isInteger(line) && line > 0) result.line = line;
   if (selector) result.selector = selector;
   if (text) result.text = text;
+  const patch = clip(input.patch, REVIEW_LIMITS.label);
+  if (patch && PATCH_TARGET.test(patch)) result.patch = patch;
+  const sourcePage = clip(input.sourcePage, 8);
+  if (sourcePage && /^\d{1,5}$/u.test(sourcePage)) result.sourcePage = sourcePage;
+  const digest = clip(input.digest, 64);
+  if (digest && /^[0-9a-f]{64}$/u.test(digest)) result.digest = digest;
   if (kind !== 'element' && kind !== 'page' && !result.id)
     throw new ReviewError(`target.id is required for ${kind}`);
   return result;
 }
+
+const PATCH_TARGET = /^(?:page|(?:region|item|button):[^\s:]+|column:[^\s:.]+\.[^\s:.]+)$/u;
 
 function intent(value: unknown): ReviewIntent | undefined {
   if (value === undefined || value === null || value === '') return undefined;
@@ -331,5 +345,6 @@ export function describeReviewComment(comment: ReviewComment): string {
       ? `${comment.sourceDir}/${where.file}`
       : where.file;
   const source = file ? ` (${file}${where.line ? `:${where.line}` : ''})` : '';
-  return `[${comment.id}] page ${comment.page.id}: ${component}${label}${source}${comment.intent ? ` — ${comment.intent}` : ''}: ${comment.text}`;
+  const patch = where.patch ? ` [patch ${where.patch} on page ${where.sourcePage ?? comment.page.id}]` : '';
+  return `[${comment.id}] page ${comment.page.id}: ${component}${label}${source}${patch}${comment.intent ? ` — ${comment.intent}` : ''}: ${comment.text}`;
 }

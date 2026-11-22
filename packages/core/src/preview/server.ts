@@ -718,10 +718,19 @@ export class PreviewServer {
           files: posted.files,
         });
       // Ajax requests that change data run in a transaction like a page submit.
+      // A transaction cannot span an await, so data-changing routes must answer synchronously.
       const result = TRANSACTIONAL_ROUTES.has(routeName)
-        ? transaction(renderer.db.db, call, this.#failure(response, failedResponse))
+        ? transaction(
+            renderer.db.db,
+            () => {
+              const answer = call();
+              if (answer instanceof Promise) throw new Error(`Route ${routeName} must answer synchronously`);
+              return answer;
+            },
+            this.#failure(response, failedResponse),
+          )
         : call();
-      return this.#respond(response, result);
+      return this.#respond(response, await result);
     }
     if (rest === '__logout') {
       session.items = {};

@@ -9,12 +9,10 @@ import {
 } from "./chunk-UHP3URNB.mjs";
 import {
   declarations,
-  editSpans
-} from "./chunk-TDM3E2NK.mjs";
-import {
+  editSpans,
   get,
   parseApexLang
-} from "./chunk-MJESXBPA.mjs";
+} from "./chunk-NGNFSMKO.mjs";
 import {
   resourceRoot,
   sourceRelease

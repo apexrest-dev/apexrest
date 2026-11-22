@@ -1,4 +1,7 @@
-/** Browser half of review mode: pick a component, write a comment, numbered pins, comment list. */
+/**
+ * Browser half of review mode: pick a component, write a comment or edit a property, numbered
+ * pins, comment list. Property edits go to the shared digest-bound patch service (op: patch).
+ */
 
 export const REVIEW_CSS = `
 .apex-local-badge.is-review{background:#7c4dff;color:#fff}
@@ -29,6 +32,12 @@ html.apex-local-review-picking,html.apex-local-review-picking *{cursor:crosshair
 .apex-local-review-composer .apex-local-review-row{display:flex;gap:8px;justify-content:flex-end;align-items:center}
 .apex-local-review-composer .apex-local-review-row span{flex:1;font-size:11px;opacity:.6}
 .apex-local-review-composer .apex-local-review-error{margin:0 0 8px;color:#ff9b9b;font-size:12px}
+.apex-local-review-modes{display:flex;gap:4px;margin:0 0 8px}
+.apex-local-review-modes button{flex:1;padding:3px 6px;border:1px solid rgba(255,255,255,.22);border-radius:4px;background:transparent;color:inherit;font:inherit;font-size:12px;cursor:pointer}
+.apex-local-review-modes button.is-on{background:#7c4dff;border-color:#7c4dff}
+.apex-local-review-composer input[name="value"]{box-sizing:border-box;width:100%;margin:0 0 8px;padding:5px 7px;border:1px solid rgba(255,255,255,.22);border-radius:4px;background:rgba(0,0,0,.35);color:#fff;font:inherit}
+.apex-local-review-composer [data-mode-pane][hidden]{display:none}
+.apex-local-review-composer .apex-local-review-ok{margin:0 0 8px;color:#9be7a8;font-size:12px}
 .apex-local-review-banner{position:fixed;z-index:2147483000;top:8px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:16px;background:#7c4dff;color:#fff;font:600 12px/16px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none}
 `;
 
@@ -51,6 +60,7 @@ export const REVIEW_JS = String.raw`
       entry.keys.forEach(function (key) { if (!byKey[key]) byKey[key] = entry; });
     }
   });
+  var saving = false;
   var comments = [], picking = false, box = null, banner = null, composer = null, pins = [], hovered = null;
   var panel = toolbar.querySelector('.apex-local-panel[data-panel="review"]');
   var list = panel && panel.querySelector("[data-apex-local-review-list]");
@@ -145,6 +155,15 @@ export const REVIEW_JS = String.raw`
     return result;
   }
 
+  /** The mapped source component behind a candidate, with its patch target and current values. */
+  function editableOf(candidate) {
+    if (!candidate) return null;
+    if (candidate.kind === "page") return { kind: "page", patch: "page", page: config.page, file: config.pageFile, values: config.pageValues || {} };
+    var entry = candidate.entry;
+    return entry && entry.patch ? { kind: entry.kind, patch: entry.patch, page: entry.page, file: entry.file, values: entry.values || {} } : null;
+  }
+  function editProperties(editable) { return editable ? (config.editable || {})[editable.kind] || [] : []; }
+
   // ------------------------------------------------------------- highlight
   function ensureBox() {
     if (!box) { box = document.createElement("div"); box.className = "apex-local-review-box"; box.appendChild(document.createElement("span")); document.body.appendChild(box); }
@@ -201,7 +220,7 @@ export const REVIEW_JS = String.raw`
   }, true);
 
   // ------------------------------------------------------------- composer
-  function closeComposer() { if (composer) composer.remove(); composer = null; if (!picking) highlight(null); }
+  function closeComposer() { if (composer) composer.remove(); composer = null; saving = false; if (!picking) highlight(null); }
 
   function openComposer(found, existing) {
     closeComposer();
@@ -212,14 +231,16 @@ export const REVIEW_JS = String.raw`
     var intents = ['<option value="">Kind of change (optional)</option>'].concat((config.intents || []).map(function (intent) {
       return '<option value="' + esc(intent) + '"' + (existing && existing.intent === intent ? " selected" : "") + ">" + esc(intent) + "</option>";
     })).join("");
-    composer.innerHTML = '<h4>' + (existing ? "Edit comment" : "New review comment") + "</h4>" +
+    composer.innerHTML = '<h4>' + (existing ? "Edit comment" : "Review") + "</h4>" +
       (existing ? '<p class="apex-local-review-where">' + esc(where(existing)) + "</p>" :
         '<select name="target" aria-label="Comment target">' + options.map(function (candidate, index) {
           return '<option value="' + index + '"' + (index === selected ? " selected" : "") + ">" + esc(describe(candidate)) + "</option>";
         }).join("") + "</select>") +
-      '<select name="intent" aria-label="Kind of change">' + intents + "</select>" +
-      '<textarea name="text" required maxlength="4000" placeholder="What should change? e.g. Rename this column to “Amount, EUR” and move it after Status">' + esc(existing ? existing.text : "") + "</textarea>" +
-      '<p class="apex-local-review-error" hidden></p>' +
+      (existing ? "" : '<div class="apex-local-review-modes"><button type="button" class="is-on" data-mode="comment">Comment</button><button type="button" data-mode="edit" title="Change a property in the source file">Edit</button></div>') +
+      '<div data-mode-pane="comment"><select name="intent" aria-label="Kind of change">' + intents + "</select>" +
+      '<textarea name="text" maxlength="4000" placeholder="What should change? e.g. Rename this column to “Amount, EUR” and move it after Status">' + esc(existing ? existing.text : "") + "</textarea></div>" +
+      '<div data-mode-pane="edit" hidden><select name="property" aria-label="Property"></select><input name="value" aria-label="New value" maxlength="4000"><p class="apex-local-review-where" data-edit-where></p></div>' +
+      '<p class="apex-local-review-error" hidden></p><p class="apex-local-review-ok" hidden></p>' +
       '<div class="apex-local-review-row"><span>Ctrl+Enter to save</span><button type="button" class="apex-local-action" data-cancel>Cancel</button><button type="submit" class="apex-local-action is-primary">Save</button></div>';
     document.body.appendChild(composer);
     var anchor = existing ? nodeFor(existing) : options[selected] && options[selected].node;
@@ -231,11 +252,61 @@ export const REVIEW_JS = String.raw`
     });
     if (anchor && options[selected]) highlight(anchor, describe(options[selected]));
     var area = composer.querySelector("textarea");
+    var mode = "comment";
+    var propertySelect = composer.querySelector('select[name="property"]');
+    var valueInput = composer.querySelector('input[name="value"]');
+    function current() { return editableOf(options[targetSelect ? Number(targetSelect.value) : selected]); }
+    function fillProperties() {
+      var editable = current(), properties = editProperties(editable);
+      propertySelect.innerHTML = properties.map(function (name) { return '<option value="' + esc(name) + '">' + esc(name) + "</option>"; }).join("");
+      var editButton = composer.querySelector('[data-mode="edit"]');
+      if (editButton) editButton.disabled = !properties.length;
+      if (!properties.length && mode === "edit") setMode("comment");
+      fillValue();
+    }
+    function fillValue() {
+      var editable = current();
+      valueInput.value = editable && propertySelect.value ? editable.values[propertySelect.value] || "" : "";
+      var whereNode = composer.querySelector("[data-edit-where]");
+      whereNode.textContent = editable ? editable.patch + " · " + editable.file : "";
+    }
+    function setMode(next) {
+      mode = next;
+      composer.querySelectorAll("[data-mode]").forEach(function (button) { button.classList.toggle("is-on", button.getAttribute("data-mode") === mode); });
+      composer.querySelectorAll("[data-mode-pane]").forEach(function (pane) { pane.hidden = pane.getAttribute("data-mode-pane") !== mode; });
+      (mode === "edit" ? valueInput : area).focus();
+    }
+    if (!existing) {
+      composer.querySelectorAll("[data-mode]").forEach(function (button) { button.addEventListener("click", function () { setMode(button.getAttribute("data-mode")); }); });
+      if (targetSelect) targetSelect.addEventListener("change", fillProperties);
+      propertySelect.addEventListener("change", fillValue);
+      valueInput.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); composer.requestSubmit(); } });
+      fillProperties();
+    }
     area.focus();
     area.addEventListener("keydown", function (event) { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); composer.requestSubmit(); } });
     composer.querySelector("[data-cancel]").addEventListener("click", closeComposer);
     composer.addEventListener("submit", function (event) {
       event.preventDefault();
+      var message = composer.querySelector(".apex-local-review-error"), ok = composer.querySelector(".apex-local-review-ok");
+      message.hidden = true; ok.hidden = true;
+      if (mode === "edit") {
+        var editable = current(), digest = editable && (config.digests || {})[editable.file];
+        if (!editable || !digest) { message.hidden = false; message.textContent = "This component has no editable source file."; return; }
+        saving = true;
+        return send({ op: "patch", page: editable.page, target: editable.patch, property: propertySelect.value, value: valueInput.value, digest: digest }).then(function (data) {
+          // Stays "saving" until the composer closes, so the preview's reload with the change goes through.
+          config.digests[editable.file] = data.result.afterDigest;
+          editable.values[propertySelect.value] = valueInput.value;
+          ok.hidden = false;
+          ok.textContent = "Saved to " + data.result.file + ". The preview reloads with the change; validate or ship to deploy it.";
+        }, function (error) {
+          saving = false;
+          message.hidden = false;
+          message.textContent = error.status === 409 ? "The source file changed since this page loaded. Reload the page and edit the newer version." : error.message;
+        });
+      }
+      if (!area.value.trim()) { message.hidden = false; message.textContent = "Write what should change."; return; }
       var body = existing
         ? { op: "edit", id: existing.id, text: area.value, intent: composer.querySelector('select[name="intent"]').value }
         : { op: "add", page: config.page, target: targetOf(options[Number(targetSelect.value)]), intent: composer.querySelector('select[name="intent"]').value || undefined, text: area.value };
@@ -257,7 +328,7 @@ export const REVIEW_JS = String.raw`
   // ------------------------------------------------------------- data
   function send(body) {
     return fetch(route, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body) })
-      .then(function (response) { return response.json().then(function (data) { if (!response.ok || data.error) throw new Error(data.error || response.statusText); return data; }); });
+      .then(function (response) { return response.json().then(function (data) { if (!response.ok || data.error) { var error = new Error(data.error || response.statusText); error.status = response.status; throw error; } return data; }); });
   }
 
   function load() {
@@ -396,7 +467,8 @@ export const REVIEW_JS = String.raw`
     new MutationObserver(function () { if (!panel.hidden) refresh(); }).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
   addEventListener("focus", refresh);
   setInterval(refresh, 10000);
-  window.apexLocalReview = { pick: setPicking, reload: load, candidates: candidates };
+  // The live client keeps the page while a draft is open; a property save lets its own reload through.
+  window.apexLocalReview = { pick: setPicking, reload: load, candidates: candidates, busy: function () { return !!composer && !saving; } };
   load();
 })();
 `;
