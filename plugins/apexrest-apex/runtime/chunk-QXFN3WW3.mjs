@@ -9,9 +9,12 @@ import {
 import {
   PATCH_PROPERTIES,
   pageContext,
-  patchPage
-} from "./chunk-J2TMG6JP.mjs";
-import "./chunk-SGGASY5P.mjs";
+  patchPage,
+  recordRevision,
+  revisionOf,
+  sourceInventory
+} from "./chunk-OQKQPROZ.mjs";
+import "./chunk-ESGGZIAY.mjs";
 import {
   bool,
   get,
@@ -33581,7 +33584,9 @@ var PreviewServer = class {
       const fresh = file === ":memory:" || !fs15.existsSync(file);
       this.db = db2 = new LocalDatabase(file);
       this.seedProblems = fresh && !options3.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options3.seedDirs) : [];
+      const startedAt = (/* @__PURE__ */ new Date()).toISOString();
       this.renderer = this.#load();
+      options3.onLoad?.(startedAt);
       this.live = new LiveHub({
         sourceDir: this.options.sourceDir,
         data: !options3.oracle && this.db.trackWrites(),
@@ -33654,9 +33659,11 @@ var PreviewServer = class {
     if (!files.length) return void 0;
     const previous = this.renderer.app;
     try {
+      const startedAt = (/* @__PURE__ */ new Date()).toISOString();
       this.renderer = this.#load();
       this.#loadError = void 0;
       this.#revision += 1;
+      this.options.onLoad?.(startedAt);
       const pages2 = affectedPages(files, [previous, this.renderer.app]);
       const regions = Array.isArray(pages2) && pages2.length === 1 ? replaceableRegions(
         previous.pages.get(pages2[0]),
@@ -34293,8 +34300,10 @@ async function previewStart(root, input) {
   const oracle = input.env ? await connectOracle(root, input.env, void 0, { commit }) : void 0;
   const data = await projectData(root, sourceDir);
   const reviewFile = await reviewFileFor(root);
+  const onLoad = await previewRevisionRecorder(root, sourceDir);
   const server = new PreviewServer({
     reviewFile,
+    ...onLoad ? { onLoad } : {},
     ...oracle ? { oracle } : {},
     ...data.seedDirs ? { seedDirs: data.seedDirs } : {},
     ...data.database && !oracle ? { database: data.database } : {},
@@ -34317,6 +34326,27 @@ async function previewStart(root, input) {
     ...server.options.oracle ? { environment: server.options.oracle.environment } : {}
   });
   return describe(server, false);
+}
+async function previewRevisionRecorder(root, sourceDir) {
+  let ctx;
+  try {
+    ctx = await loadProject(root);
+  } catch {
+    return void 0;
+  }
+  const appDir = path17.resolve(ctx.root, ctx.config.application.sourceDir);
+  if (!fs16.existsSync(appDir) || fs16.realpathSync(appDir) !== fs16.realpathSync(sourceDir)) return void 0;
+  const project2 = ctx;
+  return (startedAt) => {
+    void (async () => {
+      const files = await sourceInventory(project2);
+      await recordRevision(project2.root, "preview", {
+        revision: revisionOf(files),
+        startedAt,
+        finishedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    })().catch(() => void 0);
+  };
 }
 async function stopServer(sourceDir, server) {
   let port;
@@ -34580,6 +34610,7 @@ async function previewDispatch(operation2, parsed2, root) {
 export {
   previewCheck,
   previewDispatch,
+  previewRevisionRecorder,
   previewSetup,
   previewStart,
   previewStatus,

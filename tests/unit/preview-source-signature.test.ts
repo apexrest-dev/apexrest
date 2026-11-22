@@ -24,3 +24,29 @@ test('preview reloads a renamed page file whose modification time is older than 
   await rename(file, path.join(app, 'pages/p00001-start.apx'));
   assert.match(await page(), /<title>Renamed home<\/title>/u);
 });
+
+test('preview reports each successful source load, not a failed one', async (t) => {
+  const { app, assets } = await workspace(t);
+  const loads: string[] = [];
+  const server = new PreviewServer({
+    sourceDir: app,
+    assetsDir: assets,
+    database: ':memory:',
+    toolbar: false,
+    onLoad: (startedAt) => loads.push(startedAt),
+  });
+  await server.start();
+  t.after(() => server.stop());
+  assert.equal(loads.length, 1);
+  const page = async () => (await fetch(`${server.url}/r/demo/home`)).text();
+  const file = path.join(app, 'pages/p00001-home.apx');
+  const source = await readFile(file, 'utf8');
+  await writeFile(file, source.replace('title: Home', 'title: Edited home'));
+  assert.match(await page(), /<title>Edited home<\/title>/u);
+  assert.equal(loads.length, 2);
+  assert.ok(Date.parse(loads[1]!) >= Date.parse(loads[0]!));
+  // An unparsable edit keeps the last good renderer and records nothing.
+  await writeFile(file, source.replace(/\)\s*$/u, ''));
+  await page();
+  assert.equal(loads.length, 2);
+});

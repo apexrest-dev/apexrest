@@ -465,3 +465,36 @@ test('preview edits change one property through the digest-bound patch service',
   assert.equal(unsupported.status, 400);
   assert.equal(await readFile(pageFile, 'utf8'), after);
 });
+
+test('a project preview records the source revision it rendered, separately from deploys', async (t) => {
+  const { root } = await project(t);
+  const { previewRevisionRecorder } = await import('../../packages/core/src/preview/service.ts');
+  const { loadProject } = await import('../../packages/core/src/config.ts');
+  const { sourceInventory } = await import('../../packages/core/src/deploy.ts');
+  const { revisionStatus, sourceRevision } = await import('../../packages/core/src/revision.ts');
+  const ctx = await loadProject(root);
+  const app = path.join(root, ctx.config.application.sourceDir);
+  // Only the project's own APEXlang folder is recorded.
+  assert.equal(await previewRevisionRecorder(root, path.join(root, 'assets')), undefined);
+  const record = (await previewRevisionRecorder(root, app))!;
+  const status = async () => revisionStatus(root, sourceRevision(await sourceInventory(ctx), ctx.config));
+  const settled = async (check: (value: Awaited<ReturnType<typeof status>>) => boolean) => {
+    for (let i = 0; i < 100; i++) {
+      const value = await status();
+      if (check(value)) return value;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    return status();
+  };
+  record(new Date().toISOString());
+  const first = await settled((value) => !!value.preview);
+  assert.equal(first.preview?.current, true);
+  assert.equal(first.validated, null);
+  assert.deepEqual(first.deployed, {});
+  // A later source edit makes the recorded preview revision stale until the next load.
+  const page = path.join(app, 'pages', 'p00003-orders.apx');
+  await writeFile(page, (await readFile(page, 'utf8')).replace('name: Orders', 'name: Orders 2'));
+  assert.equal((await status()).preview?.current, false);
+  record(new Date().toISOString());
+  assert.equal((await settled((value) => value.preview?.current === true)).preview?.current, true);
+});

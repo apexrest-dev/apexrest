@@ -11,6 +11,8 @@ import { revisionOf } from '../../packages/core/src/revision.ts';
 import { PreviewServer } from '../../packages/core/src/preview/server.ts';
 import { OracleAdapter } from '../../packages/core/src/oracle.ts';
 import { closeSqlclSessions } from '../../packages/core/src/sqlcl-session.ts';
+import { pageContext, patchPage } from '../../packages/core/src/edit/patch.ts';
+import { insertComponents } from '../../packages/core/src/edit/insert.ts';
 
 type Row = {
   scenario: string;
@@ -190,6 +192,113 @@ await editScenario('preview burst save of 3 files', async (marker) => {
     }),
   );
 }
+// --- Semantic edits through the digest-bound services (context -> patch/insert -> preview HTML).
+async function semanticScenario(
+  name: string,
+  page: string,
+  file: string,
+  apply: (marker: string, digest: string) => Promise<void>,
+) {
+  const url = (await server.pages()).find((entry) => entry.id === page)?.url;
+  const before = await readFile(file, 'utf8');
+  const samples: number[] = [];
+  let failures = 0;
+  for (let i = 0; i < reps; i++) {
+    const marker = `Bench${Date.now().toString(36)}${i}`;
+    const started = performance.now();
+    await apply(marker, (await pageContext(ctx, page)).digest);
+    let seen: number | undefined;
+    while (url && performance.now() - started < 5000) {
+      if ((await (await fetch(new URL(url, server.url))).text()).includes(marker)) {
+        seen = performance.now();
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    if (seen === undefined) failures++;
+    else samples.push(seen - started);
+    await writeFile(file, before);
+  }
+  rows.push(
+    row(name, 'context + service call -> server HTML has the edit', samples, failures, {
+      limitations: `page ${page}; server-side preview readiness; browser paint not observed`,
+    }),
+  );
+}
+await semanticScenario('semantic property edit', pageId, target, async (marker, digest) => {
+  await patchPage(ctx, {
+    page: pageId,
+    operations: [{ target: 'page', property: 'title', value: marker }],
+    expectedDigest: digest,
+  });
+});
+// The first page with a reportRegion region carries the reportRegion scenarios.
+let reportRegion:
+  { page: string; region: string; query: string; columns: string[]; file: string } | undefined;
+for (const file of pageFiles) {
+  const page = String(Number(/p(\d+)/u.exec(path.basename(file))![1]));
+  if (page === '0') continue;
+  const context = await pageContext(ctx, page);
+  const region = context.regions.find((entry) => entry.query && entry.columns?.length);
+  if (region)
+    reportRegion = {
+      page,
+      region: region.target.slice('region:'.length),
+      query: region.query!,
+      columns: region.columns!.map((column) => column.target.split('.').pop()!),
+      file: path.join(work, file),
+    };
+  if (reportRegion) break;
+}
+if (reportRegion) {
+  const found = reportRegion;
+  await semanticScenario(
+    'add report column with projection',
+    found.page,
+    found.file,
+    async (marker, digest) => {
+      await patchPage(ctx, {
+        page: found.page,
+        operations: [
+          {
+            target: `region:${found.region}`,
+            property: 'query',
+            value: `select q.*, 'x' as BENCH_COLUMN from (\n${found.query}\n) q`,
+            columns: [...found.columns.map((name) => ({ name })), { name: 'BENCH_COLUMN', heading: marker }],
+          },
+        ],
+        expectedDigest: digest,
+      });
+    },
+  );
+  await semanticScenario('filter with submit/refresh', found.page, found.file, async (marker, digest) => {
+    const suffix = Date.now().toString(36);
+    const item = `P${found.page}_BENCH_${suffix.toUpperCase()}`;
+    await insertComponents(ctx, {
+      page: found.page,
+      components: {
+        regions: [{ id: `bench-${suffix}`, type: 'staticContent', name: marker }],
+        items: [
+          {
+            name: item,
+            type: 'selectList',
+            label: 'Status',
+            region: `bench-${suffix}`,
+            lov: [{ label: 'A', value: 'A' }],
+          },
+        ],
+        refreshes: [{ items: [item], regions: [found.region] }],
+      },
+      expectedDigest: digest,
+    });
+  });
+} else
+  for (const scenario of ['add report column with projection', 'filter with submit/refresh'])
+    rows.push(
+      row(scenario, 'not_run', [], 0, {
+        limitations: 'not_run: the project has no reportRegion region with a query',
+      }),
+    );
 await server.stop();
 
 // --- Compiler validation (offline SQLcl), cold then warm in one process.
@@ -303,18 +412,14 @@ if (env) {
       limitations: 'not_run: pass --env for an authorized DEV/QA/TEST target',
     }),
   );
-for (const scenario of [
-  'semantic property edit',
-  'add report column with projection',
-  'filter with submit/refresh',
-  'page from recipe to preview',
-  'shared LOV change',
-])
-  rows.push(
-    row(scenario, 'not_run', [], 0, {
-      limitations: 'not_run: needs the P2 semantic edit service or a recipe fixture',
-    }),
-  );
+rows.push(
+  row('page from recipe to preview', 'not_run', [], 0, {
+    limitations: 'not_run: new-page scaffolding is not wired into this benchmark yet',
+  }),
+  row('shared LOV change', 'not_run', [], 0, {
+    limitations: 'not_run: semantic edits cover page files only; shared components have no edit service',
+  }),
+);
 
 await rm(work, { recursive: true, force: true });
 const report = { createdAt: new Date().toISOString(), project: ctx0.config.projectId, reps, rows };

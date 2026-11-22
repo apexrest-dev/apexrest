@@ -2,7 +2,7 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   deploymentBinding,
   verifyDeploymentPredicates
-} from "./chunk-SGGASY5P.mjs";
+} from "./chunk-ESGGZIAY.mjs";
 import {
   parseApexLang
 } from "./chunk-NGNFSMKO.mjs";
@@ -67,15 +67,6 @@ import {
   Fault,
   external_exports
 } from "./chunk-CI5IU2PI.mjs";
-
-// packages/core/src/edit/patch.ts
-import path4 from "node:path";
-import { readFile as readFile3, readdir as readdir2 } from "node:fs/promises";
-
-// packages/core/src/deploy.ts
-import path3 from "node:path";
-import { readFile as readFile2, mkdir, cp, open, readdir, rename, rm, rmdir } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
 
 // packages/core/src/revision.ts
 import path from "node:path";
@@ -153,6 +144,11 @@ async function revisionStatus(root, latestLocal) {
     failed: state.failed
   };
 }
+
+// packages/core/src/deploy.ts
+import path3 from "node:path";
+import { readFile as readFile2, mkdir, cp, open, readdir, rename, rm, rmdir } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 
 // packages/core/src/sql-review.ts
 function sqlTokens(sql) {
@@ -2958,6 +2954,10 @@ ${error.message}`,
     return plan;
   }
 };
+
+// packages/core/src/edit/patch.ts
+import path4 from "node:path";
+import { readFile as readFile3, readdir as readdir2 } from "node:fs/promises";
 
 // packages/core/src/edit/apexlang-edit.ts
 import { createHash } from "node:crypto";

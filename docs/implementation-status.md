@@ -2,6 +2,79 @@
 
 The current source and bundled plugin version is **2.8.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
+## Fast-development verification and handoff (2026-11-22, local)
+
+This covers [APE-397](https://linear.app/apexrest/issue/APE-397), [APE-398](https://linear.app/apexrest/issue/APE-398) and [APE-399](https://linear.app/apexrest/issue/APE-399), checked on commit `93940a80` plus the changes below.
+
+Evidence lives in ignored `docs/evidence/fast-dev/`: `candidate-local-2026-11-22.json`, `candidate-semantic-2026-11-22.json` and `ab-2026-11-22/`.
+
+The host was darwin-arm64 (10 CPU, 16 GiB) with Node v25.9.0. The SQLcl compiler was 26.1.2 (pinned) and the SQLcl CLI 26.3.0. The target was local APEX 26.2.0 on Oracle 23.26.4 (Podman, 2 CPU / 4 GB VM), application 26220, env `local`, using the direct SQLcl CLI transport.
+
+**Repository gate.** These all passed:
+
+- typecheck, lint, schema, catalog, pattern, composer and template checks;
+- unit tests (894 pass, 2 skipped, 0 fail);
+- contracts (147/147), packaging and installers;
+- the repository-plugin smoke test (CLI plus stdio MCP catalog);
+- plugin check, docs check and site check;
+- the release dry run (built, not published).
+
+`check-release-readiness` returns 3, with stable not ready. Its qualification entries are stale or blocked: composer runtime and native new-chat, local checks, native macOS, Linux and Windows, and Oracle local and integration. This is a release gate on external evidence, unchanged by this work. Repository tests are not Oracle or native-host evidence.
+
+**Separate attribution of revisions.** The preview now records the project source revision of each successful load as `preview` in `.apexrest/revisions.json` (best effort; a failed load records nothing). It does so only when it renders the project's own APEXlang folder.
+
+Observed on review-e2e with `apexrest status`:
+
+1. **After a CLI one-shot `ship mode:apply` to `local` (no broker):** latest local, preview, validated and deployed all showed `41927f233633`, and all were current.
+2. **After a page edit:** latest local became `dcc26a2588f6`, and preview, validated and deployed stayed on `41927f233633`, marked not current.
+3. **After the next preview request:** preview moved to `dcc26a2588f6` (current). Validated and deployed stayed attributed to their own revision.
+4. **After the edit was restored:** all four were current again.
+
+Earlier, the target held a benchmark revision while local differed, and status reported `current: false` for it. Older results that arrive late are dropped by `recordRevision`, which keeps the newer `startedAt` (`source-revision.test.ts`). Not run: ORDS and SQLcl MCP transports, a remote target, Windows and Linux hosts.
+
+**Measured improvements ([APE-398](https://linear.app/apexrest/issue/APE-398)).** Each comparison below uses the same workload and host.
+
+| Clock                                          | Before                  | After              |
+| ---------------------------------------------- | ----------------------- | ------------------ |
+| Preview rename with an older mtime (5 reps)    | 0/5 detected within 3 s | 5/5, 8.8 ms median |
+| Preview title edit (file write to server HTML) | 8 ms                    | 9.3 ms             |
+| Compiler validation, warm                      | 81.6 ms                 | 105.2 ms           |
+
+The baseline is the 2026-11-22 local run on `7222c36+dirty`; the application has since grown from 29 files and 6 pages to 30 files and 7 pages. The title-edit and compiler figures are within run-to-run noise; no speedup is claimed.
+
+New semantic-edit clocks, from context plus a service call to the edit appearing in server HTML (20 reps, page 10 report):
+
+| Scenario                       | Median  | p95     |
+| ------------------------------ | ------- | ------- |
+| Semantic property edit         | 24.9 ms | 29.6 ms |
+| Report column with projection  | 26.1 ms | 28 ms   |
+| Filter with submit and refresh | 26.1 ms | 27.4 ms |
+
+Still `not_run`:
+
+- new-page scaffolding to preview (not wired into the benchmark);
+- a shared LOV change (no edit service for shared components).
+
+**Native page ship.** Alternating A/B runs on the same project state: baseline `b80f416f` (slices A–C) against `93940a80`, 3 runs each, one CLI process per run.
+
+| Build               | Median | Range       |
+| ------------------- | ------ | ----------- |
+| Baseline `b80f416f` | 15.4 s | 14.6–16.1 s |
+| `93940a80`          | 15.5 s | 14.4–17.5 s |
+
+There is no native speed claim: slices D–H do not change the one-shot page ship. A single earlier 3-run candidate series measured 19.2 s on the same day; the alternating series shows that was variance, not a regression.
+
+The remaining cost per ship:
+
+- planning 5.4–6.6 s (export about 2.5 s, cold compiler about 2.5–3 s in a fresh process);
+- backup 2.4–2.8 s;
+- Oracle import 5.8–7.5 s;
+- readback about 0.1–0.2 s.
+
+Browser paint was not measured.
+
+**Handoff ([APE-399](https://linear.app/apexrest/issue/APE-399)).** Slices A–H each have a section above. Each section separates what was implemented, what was verified locally or in the browser, measurements, and gaps. Local, compiler, confirmed import and browser evidence are kept apart, and no cross-workload number is presented as a speedup.
+
 ## Visual editing in the developer preview, Slice H (2026-11-22, local)
 
 **Selections bound to source revisions ([APE-377](https://linear.app/apexrest/issue/APE-377)).** The review picker's component map now carries, for each region, item, button, report column and the page:

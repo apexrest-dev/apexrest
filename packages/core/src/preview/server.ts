@@ -79,6 +79,11 @@ export interface PreviewOptions {
   oracle?: ConnectedOracle;
   /** Review comments file (`<project>/.apexrest/review/comments.json`); turns review mode on. */
   reviewFile?: string;
+  /**
+   * Called after each successful source load (the first and every refresh) with its start time,
+   * so a project preview can record the source revision it rendered (revision.ts).
+   */
+  onLoad?: (startedAt: string) => void;
 }
 
 export interface PreviewPage {
@@ -198,7 +203,9 @@ export class PreviewServer {
       this.db = db = new LocalDatabase(file);
       this.seedProblems =
         fresh && !options.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options.seedDirs) : [];
+      const startedAt = new Date().toISOString();
       this.renderer = this.#load();
+      options.onLoad?.(startedAt);
       // Connected mode rolls every request back, so only source reloads are pushed there.
       this.live = new LiveHub({
         sourceDir: this.options.sourceDir,
@@ -278,9 +285,11 @@ export class PreviewServer {
     if (!files.length) return undefined;
     const previous = this.renderer.app;
     try {
+      const startedAt = new Date().toISOString();
       this.renderer = this.#load();
       this.#loadError = undefined;
       this.#revision += 1;
+      this.options.onLoad?.(startedAt);
       const pages = affectedPages(files, [previous, this.renderer.app]);
       const regions =
         Array.isArray(pages) && pages.length === 1

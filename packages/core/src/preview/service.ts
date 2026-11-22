@@ -6,6 +6,8 @@ import { APEX_DOWNLOAD_URL, APEX_FULL_VERSION, defaultAssetsDir, loadAssets, set
 import { loadApplication } from './apexlang.ts';
 import { localGaps } from './gaps.ts';
 import { pageContext } from '../edit/patch.ts';
+import { sourceInventory } from '../deploy.ts';
+import { recordRevision, revisionOf } from '../revision.ts';
 import {
   describeReviewComment,
   listReviewComments,
@@ -180,8 +182,10 @@ export async function previewStart(
   const oracle = input.env ? await connectOracle(root, input.env, undefined, { commit }) : undefined;
   const data = await projectData(root, sourceDir);
   const reviewFile = await reviewFileFor(root);
+  const onLoad = await previewRevisionRecorder(root, sourceDir);
   const server = new PreviewServer({
     reviewFile,
+    ...(onLoad ? { onLoad } : {}),
     ...(oracle ? { oracle } : {}),
     ...(data.seedDirs ? { seedDirs: data.seedDirs } : {}),
     ...(data.database && !oracle ? { database: data.database } : {}),
@@ -204,6 +208,34 @@ export async function previewStart(
     ...(server.options.oracle ? { environment: server.options.oracle.environment } : {}),
   });
   return describe(server, false);
+}
+
+/**
+ * When the preview renders a project's own APEXlang folder, records the project source revision
+ * of each successful load as `preview` in `.apexrest/revisions.json`, so status shows what the
+ * preview rendered next to validated, importing and deployed revisions. Best effort: recording
+ * never affects rendering, and an older load's result never replaces a newer one.
+ */
+export async function previewRevisionRecorder(root: string, sourceDir: string) {
+  let ctx;
+  try {
+    ctx = await loadProject(root);
+  } catch {
+    return undefined;
+  }
+  const appDir = path.resolve(ctx.root, ctx.config.application.sourceDir);
+  if (!fs.existsSync(appDir) || fs.realpathSync(appDir) !== fs.realpathSync(sourceDir)) return undefined;
+  const project = ctx;
+  return (startedAt: string) => {
+    void (async () => {
+      const files = await sourceInventory(project);
+      await recordRevision(project.root, 'preview', {
+        revision: revisionOf(files),
+        startedAt,
+        finishedAt: new Date().toISOString(),
+      });
+    })().catch(() => undefined);
+  };
 }
 
 async function stopServer(sourceDir: string, server: PreviewServer): Promise<void> {
