@@ -845,6 +845,24 @@ test('an alias another workspace application uses is refused at plan time, befor
   assert.deepEqual((result.data as { usedBy?: number[] }).usedBy, [201]);
 });
 
+test('a database-only plan ignores the alias of other workspace applications', async () => {
+  const { ctx, service, fake } = await prepared();
+  let asked = false;
+  (
+    fake as unknown as { aliasHolders: (e: unknown, c: unknown, alias: string) => Promise<number[]> }
+  ).aliasHolders = async () => {
+    asked = true;
+    return [201];
+  };
+  await atomicWrite(
+    path.join(ctx.root, ctx.config.database.migrationsDir, '0001__a.sql'),
+    'begin null; end;\n/',
+  );
+  const plan = await service.plan(ctx, 'dev', { importMode: 'none' });
+  assert.equal(plan.scope, 'database-only');
+  assert.equal(asked, false);
+});
+
 test('recover names the identifier it needs when the run does not exist', async () => {
   const { ctx, service } = await prepared();
   await assert.rejects(service.recover(ctx, randomUUID()), (error: Fault) => {

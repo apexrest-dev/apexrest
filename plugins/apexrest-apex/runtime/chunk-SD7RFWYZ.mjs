@@ -1,7 +1,10 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   resourceRoot
-} from "./chunk-KUO6IZIO.mjs";
+} from "./chunk-QHMPNNGG.mjs";
+import {
+  runProcess
+} from "./chunk-MPKKOQVI.mjs";
 import {
   managedHome,
   parse
@@ -16,9 +19,6 @@ import {
   withLock,
   writeJson
 } from "./chunk-26MTCOZK.mjs";
-import {
-  runProcess
-} from "./chunk-MPKKOQVI.mjs";
 import {
   Fault,
   __commonJS,

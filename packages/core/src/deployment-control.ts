@@ -298,6 +298,89 @@ export class LocalDeploymentControl {
       await rm(this.file('active.json'));
     });
   }
+  /**
+   * Applies a human-confirmed database reconciliation of one held run (deploy-reconcile.ts):
+   * records what the person stated about each of the run's scripts, then releases the run's
+   * ownership. Only the run that owns the store, on this host, with its process gone.
+   */
+  async reconcileRun(
+    runId: string,
+    projectId: string,
+    statements: {
+      kind: 'migration' | 'package';
+      file: string;
+      version: string;
+      checksum: string;
+      applied: boolean;
+    }[],
+  ) {
+    await this.checkService();
+    return withLock(this.file('control.lock'), async () => {
+      const owner = await this.owner();
+      if (!owner || owner.runId !== runId)
+        throw new Fault(
+          'RUN_NOT_OWNER',
+          'This run does not hold the deployment ownership of the target.',
+          5,
+          'conflict',
+        );
+      if (owner.hostname !== hostname())
+        throw new Fault(
+          'RUN_ON_OTHER_HOST',
+          'The run was started on another host; reconcile it there.',
+          5,
+          'conflict',
+        );
+      let alive = true;
+      try {
+        process.kill(owner.pid, 0);
+      } catch (error) {
+        alive = (error as NodeJS.ErrnoException).code !== 'ESRCH';
+      }
+      if (alive && owner.pid !== process.pid)
+        throw new Fault(
+          'RUN_STILL_ALIVE',
+          'The process of this run is still alive; wait for its terminal result.',
+          5,
+          'conflict',
+        );
+      const historyFile = this.file('history.json');
+      let history = (await exists(historyFile)) ? parse(historySchema, await readJson(historyFile)) : [];
+      const packagesFile = this.file('packages.json');
+      const packages = (await exists(packagesFile))
+        ? parse(packagesSchema, await readJson(packagesFile))
+        : {};
+      for (const statement of statements) {
+        if (statement.kind === 'migration') {
+          const other = history.find((row) => row.version === statement.version && row.run_id !== runId);
+          if (other)
+            throw new Fault(
+              'MIGRATION_HISTORY_CONFLICT',
+              `${statement.version} is already recorded by run ${other.run_id}.`,
+              5,
+            );
+          history = history.filter((row) => row.version !== statement.version);
+          if (statement.applied)
+            history.push({
+              version: statement.version,
+              checksum: statement.checksum,
+              status: 'succeeded',
+              run_id: runId,
+            });
+        } else if (statement.applied) packages[projectId + ':' + statement.file] = statement.checksum;
+      }
+      await writeJson(
+        historyFile,
+        history.sort((a, b) => a.version.localeCompare(b.version)),
+      );
+      await writeJson(
+        packagesFile,
+        Object.fromEntries(Object.entries(packages).sort(([a], [b]) => a.localeCompare(b))),
+      );
+      await rm(this.file('active.json'));
+      return owner;
+    });
+  }
   /** Release only the reconciled run after its worker has stopped. Keep history. */
   async claimReconciled(runId: string) {
     await this.checkService(true);

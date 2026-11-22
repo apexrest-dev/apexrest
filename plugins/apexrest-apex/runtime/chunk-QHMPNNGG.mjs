@@ -1,28 +1,8 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
-  isProductionTarget,
-  loadProject,
-  managedHome,
-  parse,
-  refName,
-  relativePath,
-  targetDigest
-} from "./chunk-LIG5PZ4K.mjs";
-import {
   closeSqlclReadScope,
   runPooledSqlcl
-} from "./chunk-4LEHTNYH.mjs";
-import {
-  atomicWrite,
-  canonical,
-  contained,
-  exists,
-  hash,
-  inventory,
-  readJson,
-  withLock,
-  writeJson
-} from "./chunk-26MTCOZK.mjs";
+} from "./chunk-6H3NFORN.mjs";
 import {
   SQLCL_READ_TIMEOUT_MS,
   SQLCL_WRITE_TIMEOUT_MS,
@@ -38,42 +18,33 @@ import {
   runSqlclMcp
 } from "./chunk-MPKKOQVI.mjs";
 import {
+  VERSION
+} from "./chunk-33BV6A47.mjs";
+import {
+  isProductionTarget,
+  loadProject,
+  managedHome,
+  parse,
+  refName,
+  relativePath,
+  targetDigest
+} from "./chunk-LIG5PZ4K.mjs";
+import {
+  atomicWrite,
+  canonical,
+  contained,
+  exists,
+  hash,
+  inventory,
+  readJson,
+  withLock,
+  writeJson
+} from "./chunk-26MTCOZK.mjs";
+import {
   Fault,
   __export,
   external_exports
 } from "./chunk-CI5IU2PI.mjs";
-
-// plugins/metadata.json
-var metadata_default = {
-  name: "apexrest-apex",
-  version: "2.8.0",
-  description: "Develop, deploy and test Oracle APEX applications from Codex or Claude Code.",
-  author: {
-    name: "APEXREST",
-    url: "https://apexrest-dev.github.io/apexrest/"
-  },
-  license: "Apache-2.0",
-  interface: {
-    displayName: "APEXREST for Codex and Claude Code",
-    shortDescription: "Oracle APEX development workflows",
-    longDescription: "Oracle APEX development, controlled deployment and testing directly in your current Codex or Claude Code session.",
-    developerName: "APEXREST",
-    websiteURL: "https://apexrest-dev.github.io/apexrest/",
-    composerIcon: "./assets/apexrest-icon.svg",
-    logo: "./assets/apexrest-logo.svg",
-    logoDark: "./assets/apexrest-logo.svg",
-    category: "Productivity",
-    capabilities: ["Read", "Write"],
-    defaultPrompt: [
-      "Use $apexrest-work to build or change my Oracle APEX application in this session.",
-      "Use $apexrest-setup to check my tools and connection references.",
-      "Use $apexrest-safety to explain what blocked my APEX deployment or test."
-    ]
-  }
-};
-
-// packages/core/src/version.ts
-var VERSION = metadata_default.version;
 
 // packages/core/src/partial-import.ts
 import path4 from "node:path";
@@ -346,6 +317,77 @@ var LocalDeploymentControl = class {
     await withLock(this.file("control.lock"), async () => {
       await this.assertOwner(runId);
       await rm(this.file("active.json"));
+    });
+  }
+  /**
+   * Applies a human-confirmed database reconciliation of one held run (deploy-reconcile.ts):
+   * records what the person stated about each of the run's scripts, then releases the run's
+   * ownership. Only the run that owns the store, on this host, with its process gone.
+   */
+  async reconcileRun(runId, projectId, statements) {
+    await this.checkService();
+    return withLock(this.file("control.lock"), async () => {
+      const owner = await this.owner();
+      if (!owner || owner.runId !== runId)
+        throw new Fault(
+          "RUN_NOT_OWNER",
+          "This run does not hold the deployment ownership of the target.",
+          5,
+          "conflict"
+        );
+      if (owner.hostname !== hostname())
+        throw new Fault(
+          "RUN_ON_OTHER_HOST",
+          "The run was started on another host; reconcile it there.",
+          5,
+          "conflict"
+        );
+      let alive = true;
+      try {
+        process.kill(owner.pid, 0);
+      } catch (error) {
+        alive = error.code !== "ESRCH";
+      }
+      if (alive && owner.pid !== process.pid)
+        throw new Fault(
+          "RUN_STILL_ALIVE",
+          "The process of this run is still alive; wait for its terminal result.",
+          5,
+          "conflict"
+        );
+      const historyFile = this.file("history.json");
+      let history = await exists(historyFile) ? parse(historySchema, await readJson(historyFile)) : [];
+      const packagesFile = this.file("packages.json");
+      const packages = await exists(packagesFile) ? parse(packagesSchema, await readJson(packagesFile)) : {};
+      for (const statement of statements) {
+        if (statement.kind === "migration") {
+          const other = history.find((row) => row.version === statement.version && row.run_id !== runId);
+          if (other)
+            throw new Fault(
+              "MIGRATION_HISTORY_CONFLICT",
+              `${statement.version} is already recorded by run ${other.run_id}.`,
+              5
+            );
+          history = history.filter((row) => row.version !== statement.version);
+          if (statement.applied)
+            history.push({
+              version: statement.version,
+              checksum: statement.checksum,
+              status: "succeeded",
+              run_id: runId
+            });
+        } else if (statement.applied) packages[projectId + ":" + statement.file] = statement.checksum;
+      }
+      await writeJson(
+        historyFile,
+        history.sort((a, b) => a.version.localeCompare(b.version))
+      );
+      await writeJson(
+        packagesFile,
+        Object.fromEntries(Object.entries(packages).sort(([a], [b]) => a.localeCompare(b)))
+      );
+      await rm(this.file("active.json"));
+      return owner;
     });
   }
   /** Release only the reconciled run after its worker has stopped. Keep history. */
@@ -4700,7 +4742,6 @@ export {
   configureConnection,
   coordination,
   LocalDeploymentControl,
-  VERSION,
   syncPath,
   privateCopy,
   checkSnapshot,

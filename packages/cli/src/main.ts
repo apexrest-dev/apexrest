@@ -100,7 +100,7 @@ function optionLine(name: string, field: Field) {
       ? ' ' + Object.values(def.entries).join('|')
       : numbers.has(name)
         ? ' N'
-        : name === 'confirmation' || name === 'requests' || name === 'operations'
+        : name === 'confirmation' || name === 'requests' || name === 'operations' || name === 'statements'
           ? ' JSON'
           : def.type === 'array'
             ? ' VALUE...'
@@ -312,11 +312,19 @@ try {
     try {
       await executeJob(await loadProject(argv[1]!), argv[2]!, dispatch);
     } catch (error) {
+      // The development broker took this job first: nothing to do and nothing to record.
+      if (error instanceof Fault && error.code === 'JOB_ALREADY_CLAIMED') process.exit(0);
       // A worker that cannot begin (project or request errors) never ran
       // the operation; record that instead of leaving the job queued.
       await failQueuedJob(argv[1]!, argv[2]!, error).catch(() => undefined);
       throw error;
     }
+  } else if (argv[0] === '--broker') {
+    if (argv.length !== 2) throw new Fault('INVALID_INPUT', 'Invalid internal broker request.', 2);
+    const { runBroker } = await import('../../core/src/broker.ts');
+    await runBroker(await loadProject(argv[1]!), dispatch);
+    // The broker serves until it is stopped or idle; its server keeps the process alive.
+    await new Promise(() => undefined);
   } else if (argv[0] === 'mcp') {
     if (argv.length !== 1) throw new Fault('INVALID_INPUT', 'mcp accepts no arguments.', 2);
     const { startMcp } = await import('../../mcp/src/server.ts');
@@ -344,7 +352,12 @@ try {
             const files = [value];
             while (argv[i + 1] && !argv[i + 1]!.startsWith('--')) files.push(argv[++i]!);
             input[name] = files;
-          } else if (name === 'confirmation' || name === 'requests' || name === 'operations') {
+          } else if (
+            name === 'confirmation' ||
+            name === 'requests' ||
+            name === 'operations' ||
+            name === 'statements'
+          ) {
             try {
               input[name] = JSON.parse(value);
             } catch {

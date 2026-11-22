@@ -1,20 +1,27 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   ArtifactService,
-  JobService,
   catalogRead,
   catalogSearch,
   composeMaterialize,
   composePlan,
   deploymentBinding,
-  jobToolResult,
   metadataRead,
   schemas,
   verifyDeploymentPredicates
-} from "./chunk-ZN4GNBR6.mjs";
+} from "./chunk-JX7XA2FH.mjs";
 import {
   browserPreferences
 } from "./chunk-DJPW35KJ.mjs";
+import {
+  brokerStatus,
+  startBroker,
+  stopBroker
+} from "./chunk-3UYRY6NA.mjs";
+import {
+  JobService,
+  jobToolResult
+} from "./chunk-LQZZL2TR.mjs";
 import {
   parseApexLang
 } from "./chunk-MJESXBPA.mjs";
@@ -22,7 +29,7 @@ import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-RA4GN7NK.mjs";
+} from "./chunk-SD7RFWYZ.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   CODE_LIMIT,
@@ -31,7 +38,6 @@ import {
   SCRIPT_RESTRICT_LEVEL,
   SEARCH_LINKS,
   SyncStore,
-  VERSION,
   auditUpgradeSource,
   boundCode,
   buildReferencePostings,
@@ -91,7 +97,15 @@ import {
   supportedFile,
   syncPath,
   withConnectedReads
-} from "./chunk-KUO6IZIO.mjs";
+} from "./chunk-QHMPNNGG.mjs";
+import {
+  runProcess,
+  sqlclTimings,
+  withSqlclTimings
+} from "./chunk-MPKKOQVI.mjs";
+import {
+  VERSION
+} from "./chunk-33BV6A47.mjs";
 import {
   environment,
   isProductionTarget,
@@ -116,11 +130,6 @@ import {
   writeJson
 } from "./chunk-26MTCOZK.mjs";
 import {
-  runProcess,
-  sqlclTimings,
-  withSqlclTimings
-} from "./chunk-MPKKOQVI.mjs";
-import {
   Fault,
   artifactPage,
   external_exports,
@@ -132,7 +141,8 @@ import {
 } from "./chunk-CI5IU2PI.mjs";
 
 // packages/core/src/service.ts
-import path14 from "node:path";
+import { fileURLToPath } from "node:url";
+import path15 from "node:path";
 
 // packages/core/src/doctor.ts
 import path from "node:path";
@@ -3311,7 +3321,7 @@ var DeploymentService = class {
    * A working copy stays bound (mode `working-copy`) so apply still checks its revision.
    */
   async databasePlan(ctx, name) {
-    const full = await this.legacyPlan(ctx, name, false, true);
+    const full = await this.legacyPlan(ctx, name, false, true, void 0, void 0, false);
     const operations = full.operations.filter((o) => o.kind === "migration" || o.kind === "package");
     if (!operations.length)
       throw new Fault(
@@ -3323,7 +3333,7 @@ var DeploymentService = class {
     plan.digest = planDigest(plan);
     return plan;
   }
-  async legacyPlan(ctx, name, restore = false, fresh = false, observed, backupAlias) {
+  async legacyPlan(ctx, name, restore = false, fresh = false, observed, backupAlias, applicationImport = true) {
     const env = environment(ctx, name);
     await refuseProductionDeployment(env, name);
     const connection = await resolveConnection(env.readConnectionRef);
@@ -3355,7 +3365,7 @@ var DeploymentService = class {
       // under a changed alias, which then fails post-import verification. Refuse it here.
       // Only without a sync baseline (a new or first-imported application); the post-import identity
       // check stays the guard, so a failed lookup never blocks planning.
-      !working && alias && typeof this.oracle.aliasHolders === "function" ? this.oracle.aliasHolders(env, connection, alias).catch(() => []) : Promise.resolve([])
+      applicationImport && !working && alias && typeof this.oracle.aliasHolders === "function" ? this.oracle.aliasHolders(env, connection, alias).catch(() => []) : Promise.resolve([])
     ]);
     if (targetCheck.status === "rejected") throw targetCheck.reason;
     if (sourceCheck.status === "rejected") throw sourceCheck.reason;
@@ -4754,7 +4764,7 @@ var ApexLangDocument = class {
         if (!owner) throw unsupported(`Property outside a component at line ${index + 1}.`);
         const key = unquote(property[2]);
         const prefix = groupPath();
-        const path15 = prefix ? `${prefix}.${key}` : key;
+        const path16 = prefix ? `${prefix}.${key}` : key;
         const value = property[4] ?? "";
         const colon = text.indexOf(":", property[1].length + property[2].length);
         const valueStart = property[3] ? line.offset + colon + 1 + property[3].length : line.offset + colon + 1;
@@ -4765,8 +4775,8 @@ var ApexLangDocument = class {
           value,
           opaque: value === "" || value === "{" || value === "[" || value.startsWith("```")
         };
-        if (owner.properties.has(path15)) throw unsupported(`Duplicate property ${path15} at line ${index + 1}.`);
-        owner.properties.set(path15, entry);
+        if (owner.properties.has(path16)) throw unsupported(`Duplicate property ${path16} at line ${index + 1}.`);
+        owner.properties.set(path16, entry);
         if (value === "") pendingFence = entry;
         else if (value === "{") stack.push({ type: "value", close: "}" });
         else if (value === "[") stack.push({ type: "value", close: "]" });
@@ -4793,15 +4803,15 @@ function scalarText(value) {
   const plain = value !== "" && value === value.trim() && !["true", "false", "{", "["].includes(value) && !/^["@\\[{]|^```|^\/\/|^\/\*/u.test(value);
   return plain ? value : JSON.stringify(value);
 }
-function setProperty(doc, node, path15, value) {
+function setProperty(doc, node, path16, value) {
   const text = scalarText(value);
-  const existing = node.properties.get(path15);
+  const existing = node.properties.get(path16);
   if (existing) {
-    if (existing.opaque) throw unsupported(`${path15} holds a multi-line value; edit it in source.`);
+    if (existing.opaque) throw unsupported(`${path16} holds a multi-line value; edit it in source.`);
     return { start: existing.valueStart, end: existing.valueEnd, content: text };
   }
-  const parts = path15.split(".");
-  if (parts.length > 2) throw unsupported(`Nested property ${path15} is not supported.`);
+  const parts = path16.split(".");
+  if (parts.length > 2) throw unsupported(`Nested property ${path16} is not supported.`);
   const indent = " ".repeat(node.indent + 4);
   const eol = doc.eol;
   if (parts.length === 2) {
@@ -4825,7 +4835,7 @@ function setProperty(doc, node, path15, value) {
   const after = node.properties.get("name")?.line ?? node.open;
   const line = doc.lines[after];
   const at = line.offset + line.text.length + line.eol.length;
-  return { start: at, end: at, content: `${indent}${path15}: ${text}${eol}` };
+  return { start: at, end: at, content: `${indent}${path16}: ${text}${eol}` };
 }
 function applyEdits(source, edits) {
   let result = source;
@@ -4838,9 +4848,9 @@ function applyEdits(source, edits) {
   }
   return result;
 }
-function readProperty(component, path15) {
+function readProperty(component, path16) {
   let value = component.props;
-  for (const part of path15.split(".")) {
+  for (const part of path16.split(".")) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
     value = value[part];
   }
@@ -5015,8 +5025,106 @@ async function patchPage(ctx, input) {
   });
 }
 
-// packages/core/src/panel.ts
+// packages/core/src/deploy-reconcile.ts
 import path9 from "node:path";
+import { appendFile } from "node:fs/promises";
+async function reconcileRun(ctx, input) {
+  if (!input.userRequest.trim())
+    throw new Fault(
+      "USER_REQUEST_REQUIRED",
+      "Pass the literal instruction of the person who inspected the database.",
+      2
+    );
+  const runDir = await contained(ctx.root, ".apexrest/deployments/" + input.run);
+  if (!await exists(path9.join(runDir, "plan.json")))
+    throw new Fault(
+      "RUN_NOT_FOUND",
+      `No deployment run ${input.run} exists in this project.`,
+      2,
+      "not_found"
+    );
+  const plan = await readJson(path9.join(runDir, "plan.json"));
+  const state = await readJson(path9.join(runDir, "state.json"));
+  if (!["outcome_unknown", "failed"].includes(String(state.state)))
+    throw new Fault(
+      "RUN_NOT_HELD",
+      `Run ${input.run} is ${state.state}; only interrupted runs are reconciled.`,
+      5
+    );
+  if (plan.environment !== input.env)
+    throw new Fault(
+      "PLAN_TARGET_MISMATCH",
+      `Run ${input.run} deployed to ${plan.environment}, not ${input.env}.`,
+      5
+    );
+  const env = environment(ctx, input.env);
+  await refuseProductionDeployment(env, input.env, plan.targetDigest);
+  if (targetDigest(env) !== plan.targetDigest)
+    throw new Fault("PLAN_TARGET_MISMATCH", "The environment configuration changed since this run.", 5);
+  const scripts = plan.operations.filter((op) => op.kind === "migration" || op.kind === "package");
+  const files = new Set(scripts.map((op) => op.file));
+  const stated = new Map(input.statements.map((entry) => [entry.file, entry.outcome]));
+  const missing = [...files].filter((file2) => !stated.has(file2));
+  const unknown = [...stated.keys()].filter((file2) => !files.has(file2));
+  if (missing.length || unknown.length || stated.size !== input.statements.length)
+    throw new Fault(
+      "RECONCILIATION_INCOMPLETE",
+      `State each script of the run exactly once as applied or not_applied.${missing.length ? ` Missing: ${missing.join(", ")}.` : ""}${unknown.length ? ` Not in the run: ${unknown.join(", ")}.` : ""}`,
+      2,
+      "blocked",
+      { scripts: [...files] }
+    );
+  if ([...stated.values()].some((outcome) => outcome !== "applied" && outcome !== "not_applied"))
+    throw new Fault("INVALID_INPUT", "Each outcome is applied or not_applied.", 2);
+  const expected = `${input.run}:${plan.digest.slice(0, 12)}`;
+  if (input.confirm !== expected)
+    throw new Fault(
+      "RECONCILIATION_CONFIRMATION_REQUIRED",
+      `Confirm the inspected run, plan and target by passing --confirm ${expected}. The statement is recorded as the person's and releases the run.`,
+      4,
+      "blocked",
+      { expected, scripts: [...files] }
+    );
+  const statements = scripts.map((op) => ({
+    kind: op.kind,
+    file: op.file,
+    version: path9.basename(op.file),
+    checksum: op.sha256,
+    applied: stated.get(op.file) === "applied"
+  }));
+  const owner = await new LocalDeploymentControl(env).reconcileRun(
+    input.run,
+    ctx.config.projectId,
+    statements
+  );
+  const at = (/* @__PURE__ */ new Date()).toISOString();
+  const record = {
+    runId: input.run,
+    planDigest: plan.digest,
+    environment: input.env,
+    at,
+    userRequest: input.userRequest,
+    statements: input.statements,
+    releasedOwner: owner
+  };
+  await writeJson(path9.join(runDir, "reconciliation.json"), record);
+  await appendFile(
+    path9.join(runDir, "journal.jsonl"),
+    JSON.stringify({ runId: input.run, state: "reconciled", at }) + "\n"
+  );
+  return {
+    run: input.run,
+    released: true,
+    recorded: statements.map((entry) => ({
+      file: entry.file,
+      outcome: entry.applied ? "applied" : "not_applied"
+    })),
+    nextAction: "Create a fresh plan: scripts stated not_applied run again; applied ones are skipped."
+  };
+}
+
+// packages/core/src/panel.ts
+import path10 from "node:path";
 import { readdir as readdir3, realpath as realpath3, stat as stat3 } from "node:fs/promises";
 var safe = (value) => sanitized(value);
 var historyLimit = 2e3;
@@ -5039,7 +5147,7 @@ var PanelService = class {
       const dated = await Promise.all(
         entries.map(async (entry) => ({
           entry,
-          at: (await stat3(path9.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
+          at: (await stat3(path10.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
         }))
       );
       omitted = entries.length - historyLimit;
@@ -5195,7 +5303,7 @@ var PanelService = class {
 // packages/core/src/usage.ts
 import { AsyncLocalStorage } from "node:async_hooks";
 import { constants, lstat, open as open2 } from "node:fs/promises";
-import path10 from "node:path";
+import path11 from "node:path";
 var count2 = external_exports.number().int().nonnegative().safe();
 var duration = external_exports.number().finite().nonnegative().max(7 * 864e5);
 var modelName = external_exports.string().max(120).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/);
@@ -5255,7 +5363,7 @@ function retain(store) {
   store.entries = store.entries.slice(discarded);
   return store;
 }
-var file = () => path10.join(managedHome(), "usage-log.json");
+var file = () => path11.join(managedHome(), "usage-log.json");
 async function readPrivate(file2, maximum) {
   const before = await lstat(file2);
   if (!before.isFile() || before.isSymbolicLink() || before.size > maximum)
@@ -5286,7 +5394,7 @@ async function readStore() {
 async function saveLocked(entry) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await withLock(path10.join(managedHome(), "usage-log.lock"), async () => {
+      return await withLock(path11.join(managedHome(), "usage-log.lock"), async () => {
         const store = await readStore();
         const existing = entry.importDigest && store.entries.find((old) => old.importDigest === entry.importDigest);
         if (existing) return { recorded: false, duplicate: true, entry: existing };
@@ -5580,7 +5688,7 @@ async function importUsage(host, source, elapsedMs, counterMode) {
       "Enable local usage logging with settings configure --usage-log on.",
       2
     );
-  const contents = await readPrivate(path10.resolve(source), 8 * 1024 * 1024);
+  const contents = await readPrivate(path11.resolve(source), 8 * 1024 * 1024);
   const native = nativeUsage(host, records(contents), counterMode);
   const elapsed = elapsedMs === void 0 ? native.elapsed : parse(duration, elapsedMs);
   const entry = parse(entrySchema2, {
@@ -5658,13 +5766,13 @@ async function usageStatus(limit = 20) {
 }
 
 // packages/core/src/peer-review.ts
-import path13 from "node:path";
+import path14 from "node:path";
 import { randomUUID as randomUUID2 } from "node:crypto";
 import { mkdir as mkdir2, readFile as readFile8, rm as rm2 } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/cli-command.ts
-import path11 from "node:path";
+import path12 from "node:path";
 import { readFile as readFile7, stat as stat4 } from "node:fs/promises";
 var SHIM_LIMIT = 64 * 1024;
 var NODE_FLAG = /^--?[A-Za-z0-9][\w-]*(?:=[\w./:-]*)?$/u;
@@ -5701,12 +5809,12 @@ async function resolveCliCommand(command, args, host = {}) {
       3,
       "dependency_missing"
     );
-  const extension = path11.extname(located).toLowerCase();
+  const extension = path12.extname(located).toLowerCase();
   if (extension === ".cmd" || extension === ".bat") {
     const content = await readFile7(located);
     const shim = content.length <= SHIM_LIMIT ? npmShimTarget(content.toString("utf8")) : void 0;
     if (shim) {
-      const target = path11.join(path11.dirname(located), ...shim.target.split(/[\\/]/u));
+      const target = path12.join(path12.dirname(located), ...shim.target.split(/[\\/]/u));
       if (await isFile(target))
         return shim.node ? { executable: host.execPath ?? process.execPath, args: [...shim.nodeArgs, target, ...args] } : { executable: target, args };
     }
@@ -5720,7 +5828,7 @@ async function resolveCliCommand(command, args, host = {}) {
 }
 
 // packages/core/src/ship.ts
-import path12 from "node:path";
+import path13 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -5765,23 +5873,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source = path12.resolve(root, input.sourceDir);
-  if (!await exists(path12.join(source, "application.apx")))
+  const source = path13.resolve(root, input.sourceDir);
+  if (!await exists(path13.join(source, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path12.join(source, ".apex", "apexlang.json");
+  const own = path13.join(source, ".apex", "apexlang.json");
   if (await exists(own)) return { source, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path12.resolve(input.project));
-  for (let dir = path12.dirname(source); ; dir = path12.dirname(dir)) {
-    if (await exists(path12.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path13.resolve(input.project));
+  for (let dir = path13.dirname(source); ; dir = path13.dirname(dir)) {
+    if (await exists(path13.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path12.dirname(dir) === dir) break;
+    if (path13.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -5790,7 +5898,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file2 = path12.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file2 = path13.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file2)) return { source, metadata: { origin: "project", file: file2 } };
   }
   throw new Fault(
@@ -6295,8 +6403,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID2());
   await mkdir2(scratch, { recursive: true });
   try {
-    const schemaFile = path13.join(scratch, "verdict.schema.json");
-    const lastFile = path13.join(scratch, "last-message.json");
+    const schemaFile = path14.join(scratch, "verdict.schema.json");
+    const lastFile = path14.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -6509,7 +6617,7 @@ function prewarmCompiler(project) {
       try {
         const ctx = await loadProject(project);
         const source = await contained(ctx.root, ctx.config.application.sourceDir);
-        if (!await exists(path14.join(source, ".apex/apexlang.json"))) {
+        if (!await exists(path15.join(source, ".apex/apexlang.json"))) {
           compilerPrewarms.delete(project);
           return;
         }
@@ -6537,7 +6645,7 @@ async function compilerPrewarmed(project) {
   await compilerPrewarms.get(project);
 }
 async function shutdownOracle() {
-  const close = engine.closeSqlclSessions ?? (await import("./chunk-LCNHRIKE.mjs").then(
+  const close = engine.closeSqlclSessions ?? (await import("./chunk-DNAZ633T.mjs").then(
     (m) => m,
     () => ({})
   )).closeSqlclSessions;
@@ -6706,7 +6814,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-UHBQ36JW.mjs");
+      const { previewDispatch } = await import("./chunk-NEYB3ZVO.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -6736,29 +6844,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-SI6FSRKF.mjs");
+        const { ToolchainService } = await import("./chunk-G5PHF2H2.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-MR3X5KUP.mjs");
+        const { uninstallTools } = await import("./chunk-IPTLVPS5.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-R3TVCZEM.mjs");
+        const { setup } = await import("./chunk-7PAMJYIF.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-R3TVCZEM.mjs");
+        const { validateNative } = await import("./chunk-7PAMJYIF.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-R3TVCZEM.mjs");
+        const { uninstallNative } = await import("./chunk-7PAMJYIF.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -6768,11 +6876,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text("directory"),
           text("template"),
-          text("alias") ?? path14.basename(path14.resolve(text("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text("alias") ?? path15.basename(path15.resolve(text("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-GQPDVSIC.mjs");
+        const { scaffold } = await import("./chunk-7WATZJFT.mjs");
         data = await scaffold(await loadProject(root), text("specFile"), text("env"));
         break;
       }
@@ -6888,6 +6996,18 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           case "compose.materialize":
             data = await composeMaterialize(ctx, schemas["compose.materialize"].parse(parsed), signal);
+            break;
+          case "dev.start":
+            data = await startBroker(
+              ctx,
+              path15.join(path15.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
+            );
+            break;
+          case "dev.status":
+            data = await brokerStatus(ctx);
+            break;
+          case "dev.stop":
+            data = await stopBroker(ctx, Number(parsed.waitSeconds ?? 30));
             break;
           case "project.patch":
             data = await patchPage(ctx, schemas["project.patch"].parse(parsed));
@@ -7087,6 +7207,9 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
               signal
             );
             break;
+          case "deploy.reconcile":
+            data = await reconcileRun(ctx, schemas["deploy.reconcile"].parse(parsed));
+            break;
           case "deploy.status":
             data = await deployment.reconcile(ctx, text("run"));
             break;
@@ -7145,7 +7268,7 @@ var observationOnly = /* @__PURE__ */ new Set([
 ]);
 async function rememberProject(root) {
   try {
-    const ctx = await loadProject(path14.resolve(root));
+    const ctx = await loadProject(path15.resolve(root));
     await recordProject(ctx.root, ctx.config.projectId);
   } catch {
   }

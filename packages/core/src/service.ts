@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { withSqlclTimings, sqlclTimings } from './sqlcl-timings.ts';
 import { composePlan, composeMaterialize } from './composer/service.ts';
 import { VERSION } from './version.ts';
@@ -19,6 +20,8 @@ import { SyncStore, checkpoint } from './sync.ts';
 import { DeploymentService, deployPlanSchema, sourceInventory } from './deploy.ts';
 import { recordRevision, revisionOf } from './revision.ts';
 import { patchPage } from './edit/patch.ts';
+import { brokerStatus, startBroker, stopBroker } from './broker.ts';
+import { reconcileRun } from './deploy-reconcile.ts';
 import { ArtifactService } from './artifacts.ts';
 import { jobToolResult, JobService, type JobPhase } from './jobs.ts';
 import { configureSqlcl, sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
@@ -500,6 +503,19 @@ async function dispatchObserved(
           case 'compose.materialize':
             data = await composeMaterialize(ctx, schemas['compose.materialize'].parse(parsed), signal);
             break;
+          case 'dev.start':
+            // The runtime entry sits next to this bundle (dist/runtime/apexrest.mjs), as for MCP workers.
+            data = await startBroker(
+              ctx,
+              path.join(path.dirname(fileURLToPath(import.meta.url)), 'apexrest.mjs'),
+            );
+            break;
+          case 'dev.status':
+            data = await brokerStatus(ctx);
+            break;
+          case 'dev.stop':
+            data = await stopBroker(ctx, Number(parsed.waitSeconds ?? 30));
+            break;
           case 'project.patch':
             data = await patchPage(ctx, schemas['project.patch'].parse(parsed));
             break;
@@ -704,6 +720,9 @@ async function dispatchObserved(
               await readJson(await contained(ctx.root, text('plan'))),
               signal,
             );
+            break;
+          case 'deploy.reconcile':
+            data = await reconcileRun(ctx, schemas['deploy.reconcile'].parse(parsed));
             break;
           case 'deploy.status':
             // Reconciliation resolves the read connection and exports the target.

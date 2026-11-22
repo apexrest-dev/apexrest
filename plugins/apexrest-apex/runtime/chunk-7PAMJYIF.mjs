@@ -1,9 +1,10 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   toolCatalog
-} from "./chunk-ZN4GNBR6.mjs";
+} from "./chunk-JX7XA2FH.mjs";
 import "./chunk-TDM3E2NK.mjs";
 import "./chunk-DJPW35KJ.mjs";
+import "./chunk-LQZZL2TR.mjs";
 import "./chunk-MJESXBPA.mjs";
 import {
   ToolchainService,
@@ -11,27 +12,11 @@ import {
   renameWithRetry,
   runCommand,
   runtimeState
-} from "./chunk-RA4GN7NK.mjs";
+} from "./chunk-SD7RFWYZ.mjs";
 import {
-  VERSION,
   resourceRoot
-} from "./chunk-KUO6IZIO.mjs";
-import {
-  managedHome
-} from "./chunk-LIG5PZ4K.mjs";
-import "./chunk-4LEHTNYH.mjs";
-import {
-  atomicWrite,
-  canonical,
-  contained,
-  containedChild,
-  exists,
-  hash,
-  inventory,
-  readJson,
-  withLock,
-  writeJson
-} from "./chunk-26MTCOZK.mjs";
+} from "./chunk-QHMPNNGG.mjs";
+import "./chunk-6H3NFORN.mjs";
 import {
   Client,
   ReadBuffer,
@@ -53,6 +38,24 @@ import {
   require_validation_error,
   serializeMessage
 } from "./chunk-MPKKOQVI.mjs";
+import {
+  VERSION
+} from "./chunk-33BV6A47.mjs";
+import {
+  managedHome
+} from "./chunk-LIG5PZ4K.mjs";
+import {
+  atomicWrite,
+  canonical,
+  contained,
+  containedChild,
+  exists,
+  hash,
+  inventory,
+  readJson,
+  withLock,
+  writeJson
+} from "./chunk-26MTCOZK.mjs";
 import {
   Fault,
   __commonJS,

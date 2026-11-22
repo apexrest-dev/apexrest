@@ -2,11 +2,8 @@
 
 ## Fast development and review comments (2026-11-22)
 
-- **Decide on the held local run.** Run `08e6e532` on the local `APEXREST_262_TEST` schema is held as `DATABASE_RECOVERY_REQUIRED`.
-  - Its database state was inspected: no table, and a partial package that has been dropped. Its ownership was not released.
-  - The product has no supported command to confirm a database reconciliation and release a run. Release it manually, or implement that confirmation flow ([APE-403](https://linear.app/apexrest/issue/APE-403)). It must be bound to the exact run and confirmed by a human.
-  - Verification continued on the separate local schema `APEXREST_262_E2E`.
-- **Remaining fast-development tickets.** Slices A, B and C are implemented locally. Slices D to H remain. The compound P2 edits (columns with projection, SQL replacement, recipe insertion, filters) belong to slice F.
+- **Remaining fast-development tickets.** Slices A to D are implemented locally. Slices E to H remain. The compound P2 edits (columns with projection, SQL replacement, recipe insertion, filters) belong to slice F.
+- **Broker gain is small.** The broker saved about 0.25 s per apply (9.06 s against 9.31 s). The 6.5 s import in the isolated SQLcl write session dominates, so slice E (warm import server or session reuse) and slice G (export path) are where time can still be saved.
 - **Largest measured native cost.** On the local target a small page ship spends about 4.8 s planning (export and compile) and 6.6 s importing, out of a 14.2 s median. P4 (warm worker) and P6 (export path) work should be measured against that split.
 - **Preview revision state.** The preview counts its own revisions but does not record the project `sourceDigest` it rendered in `revisions.json`; add it when the preview runs inside a project.
 - **Not yet covered by review mode.** Comments on interactive grid columns and on items inside dialogs are not covered. Screenshots of the selection are not stored.

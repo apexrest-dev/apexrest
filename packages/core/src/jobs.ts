@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { open } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
@@ -59,7 +60,7 @@ export class JobService {
    */
   async startInline(operation: string, input: Record<string, unknown>, execute: JobExecutor) {
     const id = await this.enqueue(operation, input);
-    const run = executeJob(this.ctx, id, execute).catch(async (error: unknown) => {
+    const run = executeJob(this.ctx, id, execute, 'in-process').catch(async (error: unknown) => {
       await failQueuedJob(this.ctx.root, id, error).catch(() => undefined);
     });
     inlineJobs.set(id, run);
@@ -74,6 +75,18 @@ export class JobService {
   }
   async start(operation: string, input: Record<string, unknown>, runtime: string) {
     const id = await this.enqueue(operation, input);
+    // A running development broker (broker.ts) takes the job in its warm process. Without a
+    // confirmed acceptance a detached worker starts as before; the exclusive claim keeps the job
+    // from running twice.
+    const { submitToBroker } = await import('./broker.ts');
+    if (await submitToBroker(this.ctx.root, id).catch(() => false))
+      return {
+        jobId: id,
+        status: 'queued',
+        runner: 'broker' as const,
+        nextAction:
+          'Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results. Cancellation does not imply database rollback.',
+      };
     try {
       const worker = spawn(process.execPath, [runtime, '--job-worker', this.ctx.root, id], {
         cwd: this.ctx.root,
@@ -176,6 +189,8 @@ export async function failQueuedJob(projectRoot: string, id: string, error: unkn
   if (!(await exists(file))) return false;
   const state = (await readJson(file)) as { status?: string; operation?: string };
   if (state.status !== 'queued') return false;
+  // A claimed job may already be running in another runner: its heartbeat decides the outcome.
+  if (await exists(path.join(path.dirname(file), 'claim.json'))) return false;
   const operation = typeof state.operation === 'string' ? state.operation : 'job';
   await writeJson(file, {
     id,
@@ -198,9 +213,37 @@ export function jobOutcome(result: unknown) {
 }
 /** Consecutive heartbeat failures tolerated before the job aborts (2 s apart, well inside the 60 s expiry). */
 export const HEARTBEAT_FAILURE_LIMIT = 10;
-export async function executeJob(ctx: ProjectContext, id: string, execute: JobExecutor) {
+/**
+ * Takes the job exclusively before anything runs (`claim.json`, created with O_EXCL). A job is
+ * executed by at most one runner — the development broker or a detached worker — even when a
+ * starter could not tell whether the broker accepted it and started a worker as well.
+ */
+export async function claimJob(root: string, runner: string): Promise<boolean> {
+  let handle;
+  try {
+    handle = await open(path.join(root, 'claim.json'), 'wx', 0o600);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    throw error;
+  }
+  try {
+    await handle.writeFile(JSON.stringify({ runner, pid: process.pid, at: new Date().toISOString() }) + '\n');
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  return true;
+}
+export async function executeJob(
+  ctx: ProjectContext,
+  id: string,
+  execute: JobExecutor,
+  runner = 'detached-worker',
+) {
   parse(z.uuid(), id);
   const root = await contained(ctx.root, '.apexrest/jobs/' + id);
+  if (!(await claimJob(root, runner)))
+    throw new Fault('JOB_ALREADY_CLAIMED', 'Another runner already took this job.', 5, 'conflict');
   const request = (await readJson(path.join(root, 'request.json'))) as {
     operation: string;
     input: Record<string, unknown>;
@@ -352,6 +395,17 @@ export function jobToolResult(operation: string, job: Record<string, unknown>): 
     return {
       ...success(operation, job, `Job ${job.status}; use the existing jobId to retrieve its result.`),
       status: active,
+      nextActions,
+    };
+  // The broker replaced this never-started apply by a newer apply of the same environment.
+  if (job.status === 'superseded')
+    return {
+      ...success(
+        operation,
+        job,
+        `Job superseded by ${String(job.supersededBy)}; it never started. Read that job for the deployment result.`,
+      ),
+      status: 'superseded',
       nextActions,
     };
   const status = job.status === 'failed' || job.status === 'cancelled' ? job.status : 'outcome_unknown';

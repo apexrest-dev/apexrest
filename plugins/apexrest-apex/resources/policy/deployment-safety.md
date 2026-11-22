@@ -194,6 +194,28 @@ When SQLcl runs the import to its end and reports an Oracle or compiler error, t
 | The error is a lost or killed connection      | `OUTCOME_UNKNOWN`, as before: the server session's fate is not known.                               |
 | APEXREST stopped SQLcl (timeout, cancel, ...) | `OUTCOME_UNKNOWN` without automatic recovery, as below.                                             |
 
+### Confirm a reviewed database reconciliation
+
+A run that was interrupted while it ran migrations or package scripts ends as `database-review-required`. `mode:recover` never replays SQL, so the run keeps the target's deployment ownership (`TARGET_LOCKED`) until a person has inspected the database.
+
+After the inspection, the person states the outcome of every script of the run:
+
+```sh
+apexrest deploy reconcile --project /abs/project --env dev --run <run id> --statements '[{"file":"src/database/packages/0010__api.sql","outcome":"not_applied"}]' --user-request "<what the person checked and did>" --confirm <run id>:<plan digest prefix>
+```
+
+- `applied` records the script as applied, and the next plan skips it. `not_applied` (also after a manual cleanup) leaves it out of the history, and the next plan runs it again.
+- Without `--confirm`, or with a wrong value, the command changes nothing and prints the expected `<run id>:<plan digest prefix>` and the run's scripts.
+- The command refuses:
+  - a missing or extra script;
+  - another environment or a changed target;
+  - a production-marked target;
+  - a run that finished;
+  - a run started on another host;
+  - a run whose process is still alive.
+- It never connects to the database. It records the statement and the released owner in `reconciliation.json` next to the run and adds `reconciled` to the run journal; the run's own `state.json` is kept. It then releases the run's ownership; create a fresh plan next.
+- It is a CLI command, not an MCP tool: the statement is the person's.
+
 ### When APEXREST stopped SQLcl
 
 When APEXREST itself stopped SQLcl before Oracle confirmed the outcome — a timeout, cancellation, the output limit or an unconfirmed batch — the call it had sent can still be running on the server, so no automatic recovery or retry runs. The result names the run and the cause, and `apexrest_ship mode:recover` is used once no APEXREST session remains on the target.

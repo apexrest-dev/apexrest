@@ -2,6 +2,39 @@
 
 The current source and bundled plugin version is **2.8.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
+## Reviewed database reconciliation (2026-11-22, local, uncommitted)
+
+**[APE-403](https://linear.app/apexrest/issue/APE-403).** `apexrest deploy reconcile` releases a run held as `database-review-required` once a person has inspected the database:
+
+- the person states every migration and package of the run as `applied` or `not_applied`;
+- the person types `--confirm <run id>:<plan digest prefix>`;
+- the command records `userRequest` and the statement in `reconciliation.json`, updates the local history exactly as stated, and releases the run's ownership.
+
+It never connects to the database. It refuses an incomplete statement, a different environment or target, production, a finished run, another host and a live run process. It is CLI only, with no MCP tool.
+
+**Database-only plans and aliases.** `importMode:none` plans no longer fail on another workspace application's alias (`APPLICATION_ALIAS_IN_USE`); they import no application.
+
+**Verified on the local APEX 26.2.** Held run `08e6e532` (`APEXREST_262_TEST`) was released after the user confirmed that both its packages were not applied. A fresh database-only ship then created `APEXREST_CUSTOMERS`, the package and its body, and the trigger, all VALID. Unit tests cover the refusals and the history updates.
+
+## Development broker, Slice D (2026-11-22, local, uncommitted)
+
+**Broker ([APE-361](https://linear.app/apexrest/issue/APE-361), [APE-373](https://linear.app/apexrest/issue/APE-373)).** `broker.ts` adds `apexrest dev start|status|stop`: one process per project on a private token-protected Unix socket or named pipe. It has an idle timeout, and its stop waits for running jobs. Ship apply jobs from MCP go to the broker when it runs; otherwise they use the detached worker as before.
+
+**Ownership ([APE-365](https://linear.app/apexrest/issue/APE-365)).** Every runner (broker, detached worker, in-process) now claims a job with `claim.json`, created with O_EXCL, before it runs. An unconfirmed hand-off can therefore start a fallback worker without running the job twice. `failQueuedJob` no longer fails a claimed job; its heartbeat decides. Never-started, started-unknown and completed-with-lost-response jobs keep their existing records.
+
+**Coalescing ([APE-375](https://linear.app/apexrest/issue/APE-375)).** The broker runs `ship.apply` jobs one at a time per environment. Waiting jobs collapse into the newest when its plan is at least as recent. The others become `superseded` (shown as a success that never started, naming the job that applies the changes). A running import is never touched.
+
+**Unknown outcomes ([APE-372](https://linear.app/apexrest/issue/APE-372)).** Already enforced: an unknown outcome keeps the deployment lease (`TARGET_LOCKED`), as seen with the held local run `08e6e532`.
+
+**Measured ([APE-378](https://linear.app/apexrest/issue/APE-378)).** On the local APEX 26.2.0 target, `ship.apply` jobs measured from start to terminal state, 3 runs each, alternating:
+
+| Runner          | Median | Backup | Import |
+| --------------- | ------ | ------ | ------ |
+| Detached worker | 9.31 s | 2.11 s | 6.52 s |
+| Broker          | 9.06 s | 1.99 s | 6.49 s |
+
+The broker saves about 0.25 s, within run-to-run noise. The import itself dominates, through the isolated SQLcl write session. A coalescing check on the same target queued two applies back to back: the first was `superseded` and the second `completed`.
+
 ## Incremental preview, Slice C (2026-11-22, local, uncommitted)
 
 **Source index ([APE-351](https://linear.app/apexrest/issue/APE-351)).** `loadApplication` takes a per-file parse cache keyed by size, modification time and substitutions, so unchanged files keep their parsed components. `preview/source-index.ts` lists the changed files and the affected pages:
@@ -106,7 +139,7 @@ The MCP catalog budget was raised by 150 bytes (to 15,150; the Codex catalog is 
 
 The target identity query now also reads the parsing schema's creation time. History written before the schema existed, or recorded for another creation time, is moved to an `archived-schema-*` folder and nothing is deleted. A run that began before the new schema must be reconciled first.
 
-The interrupted run `08e6e532` on schema `APEXREST_262_TEST` stays held. Its partial package was dropped, and its ownership was not released (see next actions).
+The interrupted run `08e6e532` on schema `APEXREST_262_TEST` was later released through `deploy reconcile` (see below).
 
 ## npm 2.8.0 qualification (2026-11-18)
 

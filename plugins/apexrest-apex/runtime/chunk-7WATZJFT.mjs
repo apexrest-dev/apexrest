@@ -10,12 +10,14 @@ import {
 import {
   resourceRoot,
   sourceRelease
-} from "./chunk-KUO6IZIO.mjs";
+} from "./chunk-QHMPNNGG.mjs";
+import "./chunk-6H3NFORN.mjs";
+import "./chunk-MPKKOQVI.mjs";
+import "./chunk-33BV6A47.mjs";
 import {
   environment,
   parse
 } from "./chunk-LIG5PZ4K.mjs";
-import "./chunk-4LEHTNYH.mjs";
 import {
   atomicWrite,
   canonical,
@@ -27,7 +29,6 @@ import {
   withLock,
   writeJson
 } from "./chunk-26MTCOZK.mjs";
-import "./chunk-MPKKOQVI.mjs";
 import {
   Fault,
   external_exports

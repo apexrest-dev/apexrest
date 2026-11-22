@@ -164,6 +164,15 @@
 <li>Workers have a 15-minute deadline.</li>
 <li>SQLcl has separate process timeouts and classified diagnostics, including commands that print an error despite exit code zero.</li>
 </ul>
+<h3 id="development-broker">Development broker</h3>
+<p><code>apexrest dev start --project PATH</code> starts one long-lived process for the project, <code>dev status</code> shows it with its running and waiting jobs, and <code>dev stop</code> stops it after its running jobs finish.</p>
+<ul>
+<li><strong>What it runs.</strong> It runs the same durable job records as a detached worker, in a warm process, and its pooled read sessions survive between jobs. Plans, grants, backups, drift checks, the deployment lease and unknown-outcome handling are unchanged. Database write sessions keep their isolation per operation.</li>
+<li><strong>Endpoint.</strong> It listens on a private OS-local endpoint, a Unix socket or named pipe, and accepts only requests carrying the token in its 0600 record under <code>.apexrest/broker/</code>. It exits after <code>APEXREST_BROKER_IDLE_MINUTES</code> (default 30) idle minutes.</li>
+<li><strong>No double runs.</strong> Every runner claims a job exclusively (<code>claim.json</code>) before it runs. When a starter cannot confirm the broker took a job, it starts a detached worker as before; the job still runs once. A starter never marks a claimed job failed: its heartbeat decides the outcome.</li>
+<li><strong>One apply per environment.</strong> <code>ship.apply</code> jobs of one environment run one at a time. When several are waiting and the newest plan is at least as recent as the others, only the newest runs and the others are recorded <code>superseded</code>, naming the job that applies their changes. A running import is never cancelled or changed.</li>
+<li><strong>Unknown outcomes.</strong> A run with an unknown outcome keeps its deployment lease, so later writes to the same schema stay blocked (<code>TARGET_LOCKED</code>) until it is reconciled.</li>
+</ul>
 <h2 id="persistent-sqlcl-engine">Persistent SQLcl engine</h2>
 <p>SQLcl executes a piped script only after stdin EOF, so a long-lived engine uses SQLcl&#39;s own server mode (<code>sql -mcp</code>).</p>
 <h3 id="session-pool">Session pool</h3>

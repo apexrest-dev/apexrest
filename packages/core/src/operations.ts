@@ -164,6 +164,12 @@ export const schemas = {
     workingCopy: z.boolean().default(false),
   }),
   'project.inspect': z.strictObject({ ...base, detail: z.enum(['full', 'summary']).default('full') }),
+  'dev.start': z.strictObject({ ...base }),
+  'dev.status': z.strictObject({ ...base }),
+  'dev.stop': z.strictObject({
+    ...base,
+    waitSeconds: z.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(30),
+  }),
   'project.patch': z.strictObject({
     ...base,
     page: z
@@ -294,6 +300,21 @@ export const schemas = {
     .superRefine(checkImportOptions),
   'deploy.apply': z.strictObject({ ...base, plan: relativePath }),
   'deploy.status': z.strictObject({ ...base, run: z.uuid() }),
+  'deploy.reconcile': z.strictObject({
+    ...base,
+    env,
+    run: z.uuid(),
+    statements: z
+      .array(z.strictObject({ file: relativePath, outcome: z.enum(['applied', 'not_applied']) }))
+      .max(1000)
+      .describe('JSON: [{file, outcome: applied|not_applied}] for every script of the run'),
+    confirm: z.string().max(200).optional().describe('<run id>:<plan digest prefix>, typed by the person'),
+    userRequest: z
+      .string()
+      .min(1)
+      .max(4000)
+      .describe('Literal instruction of the person who inspected the database'),
+  }),
   'deploy.restore-plan': z.strictObject({ ...base, backup: z.uuid(), out: relativePath }),
   'browser.open': z.strictObject({
     ...base,

@@ -81,6 +81,16 @@ The `apexrest_ship` `mode:apply` call waits up to `waitSeconds` (default 25, max
 - Workers have a 15-minute deadline.
 - SQLcl has separate process timeouts and classified diagnostics, including commands that print an error despite exit code zero.
 
+### Development broker
+
+`apexrest dev start --project PATH` starts one long-lived process for the project, `dev status` shows it with its running and waiting jobs, and `dev stop` stops it after its running jobs finish.
+
+- **What it runs.** It runs the same durable job records as a detached worker, in a warm process, and its pooled read sessions survive between jobs. Plans, grants, backups, drift checks, the deployment lease and unknown-outcome handling are unchanged. Database write sessions keep their isolation per operation.
+- **Endpoint.** It listens on a private OS-local endpoint, a Unix socket or named pipe, and accepts only requests carrying the token in its 0600 record under `.apexrest/broker/`. It exits after `APEXREST_BROKER_IDLE_MINUTES` (default 30) idle minutes.
+- **No double runs.** Every runner claims a job exclusively (`claim.json`) before it runs. When a starter cannot confirm the broker took a job, it starts a detached worker as before; the job still runs once. A starter never marks a claimed job failed: its heartbeat decides the outcome.
+- **One apply per environment.** `ship.apply` jobs of one environment run one at a time. When several are waiting and the newest plan is at least as recent as the others, only the newest runs and the others are recorded `superseded`, naming the job that applies their changes. A running import is never cancelled or changed.
+- **Unknown outcomes.** A run with an unknown outcome keeps its deployment lease, so later writes to the same schema stay blocked (`TARGET_LOCKED`) until it is reconciled.
+
 ## Persistent SQLcl engine
 
 SQLcl executes a piped script only after stdin EOF, so a long-lived engine uses SQLcl's own server mode (`sql -mcp`).

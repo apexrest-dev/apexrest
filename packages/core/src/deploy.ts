@@ -1394,7 +1394,8 @@ export class DeploymentService {
    * A working copy stays bound (mode `working-copy`) so apply still checks its revision.
    */
   private async databasePlan(ctx: ProjectContext, name: string): Promise<DeployPlan> {
-    const full = await this.legacyPlan(ctx, name, false, true);
+    // No application import: the alias of the workspace's other applications does not matter.
+    const full = await this.legacyPlan(ctx, name, false, true, undefined, undefined, false);
     const operations = full.operations.filter((o) => o.kind === 'migration' || o.kind === 'package');
     if (!operations.length)
       throw new Fault(
@@ -1413,6 +1414,7 @@ export class DeploymentService {
     fresh = false,
     observed?: Parameters<DeploymentService['fingerprint']>[3],
     backupAlias?: string,
+    applicationImport = true,
   ): Promise<DeployPlan> {
     const env = environment(ctx, name);
     await refuseProductionDeployment(env, name);
@@ -1451,7 +1453,7 @@ export class DeploymentService {
       // under a changed alias, which then fails post-import verification. Refuse it here.
       // Only without a sync baseline (a new or first-imported application); the post-import identity
       // check stays the guard, so a failed lookup never blocks planning.
-      !working && alias && typeof this.oracle.aliasHolders === 'function'
+      applicationImport && !working && alias && typeof this.oracle.aliasHolders === 'function'
         ? this.oracle.aliasHolders(env, connection, alias).catch(() => [] as number[])
         : Promise.resolve([] as number[]),
     ]);

@@ -2,28 +2,32 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   dispatch
-} from "./chunk-JJ2ESE54.mjs";
+} from "./chunk-OOLGST57.mjs";
 import {
-  setPreviewOwner
-} from "./chunk-PFOHMLO4.mjs";
-import {
-  executeJob,
-  failQueuedJob,
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-ZN4GNBR6.mjs";
+} from "./chunk-JX7XA2FH.mjs";
 import "./chunk-TDM3E2NK.mjs";
 import "./chunk-DJPW35KJ.mjs";
+import "./chunk-3UYRY6NA.mjs";
+import {
+  executeJob,
+  failQueuedJob
+} from "./chunk-LQZZL2TR.mjs";
+import {
+  setPreviewOwner
+} from "./chunk-PFOHMLO4.mjs";
 import "./chunk-MJESXBPA.mjs";
-import "./chunk-RA4GN7NK.mjs";
-import "./chunk-KUO6IZIO.mjs";
+import "./chunk-SD7RFWYZ.mjs";
+import "./chunk-QHMPNNGG.mjs";
+import "./chunk-6H3NFORN.mjs";
+import "./chunk-MPKKOQVI.mjs";
+import "./chunk-33BV6A47.mjs";
 import {
   loadProject
 } from "./chunk-LIG5PZ4K.mjs";
-import "./chunk-4LEHTNYH.mjs";
 import "./chunk-26MTCOZK.mjs";
-import "./chunk-MPKKOQVI.mjs";
 import {
   Fault,
   failure
@@ -99,7 +103,7 @@ var isFlag = (name, field) => booleans.has(name) || field !== void 0 && unwrap(f
 var optionColumn = 32;
 function optionLine(name, field) {
   const { def, description } = unwrap(field);
-  const value = isFlag(name, field) ? "" : def.type === "enum" && def.entries ? " " + Object.values(def.entries).join("|") : numbers.has(name) ? " N" : name === "confirmation" || name === "requests" || name === "operations" ? " JSON" : def.type === "array" ? " VALUE..." : name === "project" || /(?:Dir|File)$/.test(name) ? " PATH" : " VALUE";
+  const value = isFlag(name, field) ? "" : def.type === "enum" && def.entries ? " " + Object.values(def.entries).join("|") : numbers.has(name) ? " N" : name === "confirmation" || name === "requests" || name === "operations" || name === "statements" ? " JSON" : def.type === "array" ? " VALUE..." : name === "project" || /(?:Dir|File)$/.test(name) ? " PATH" : " VALUE";
   const text = "  " + flag(name) + value;
   return description ? text.padEnd(optionColumn) + " " + description : text;
 }
@@ -295,12 +299,18 @@ try {
     try {
       await executeJob(await loadProject(argv[1]), argv[2], dispatch);
     } catch (error) {
+      if (error instanceof Fault && error.code === "JOB_ALREADY_CLAIMED") process.exit(0);
       await failQueuedJob(argv[1], argv[2], error).catch(() => void 0);
       throw error;
     }
+  } else if (argv[0] === "--broker") {
+    if (argv.length !== 2) throw new Fault("INVALID_INPUT", "Invalid internal broker request.", 2);
+    const { runBroker } = await import("./chunk-54WRYS2G.mjs");
+    await runBroker(await loadProject(argv[1]), dispatch);
+    await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-FN27JQ4I.mjs");
+    const { startMcp } = await import("./chunk-LK5BGXFE.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -324,7 +334,7 @@ try {
             const files = [value];
             while (argv[i + 1] && !argv[i + 1].startsWith("--")) files.push(argv[++i]);
             input[name] = files;
-          } else if (name === "confirmation" || name === "requests" || name === "operations") {
+          } else if (name === "confirmation" || name === "requests" || name === "operations" || name === "statements") {
             try {
               input[name] = JSON.parse(value);
             } catch {

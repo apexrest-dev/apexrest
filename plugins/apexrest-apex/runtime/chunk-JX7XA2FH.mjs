@@ -8,6 +8,9 @@ import {
   browserModeSchema
 } from "./chunk-DJPW35KJ.mjs";
 import {
+  JOB_WAIT_MAX_SECONDS
+} from "./chunk-LQZZL2TR.mjs";
+import {
   parseApexLang
 } from "./chunk-MJESXBPA.mjs";
 import {
@@ -22,7 +25,7 @@ import {
   sqlclMode,
   sqlclRestriction,
   targetIdentitySql
-} from "./chunk-KUO6IZIO.mjs";
+} from "./chunk-QHMPNNGG.mjs";
 import {
   environment,
   identifier,
@@ -48,10 +51,8 @@ import {
   __toESM,
   artifactPage,
   external_exports,
-  failure,
   redact,
-  sanitized,
-  success
+  sanitized
 } from "./chunk-CI5IU2PI.mjs";
 
 // node_modules/yaml/dist/nodes/identity.js
@@ -131,17 +132,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node2, visitor, path6) {
-      const ctrl = callVisitor(key, node2, visitor, path6);
+    function visit_(key, node2, visitor, path5) {
+      const ctrl = callVisitor(key, node2, visitor, path5);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path6, ctrl);
-        return visit_(key, ctrl, visitor, path6);
+        replaceNode(key, path5, ctrl);
+        return visit_(key, ctrl, visitor, path5);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path6 = Object.freeze(path6.concat(node2));
+          path5 = Object.freeze(path5.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = visit_(i, node2.items[i], visitor, path6);
+            const ci = visit_(i, node2.items[i], visitor, path5);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -152,13 +153,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path6 = Object.freeze(path6.concat(node2));
-          const ck = visit_("key", node2.key, visitor, path6);
+          path5 = Object.freeze(path5.concat(node2));
+          const ck = visit_("key", node2.key, visitor, path5);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = visit_("value", node2.value, visitor, path6);
+          const cv = visit_("value", node2.value, visitor, path5);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -179,17 +180,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node2, visitor, path6) {
-      const ctrl = await callVisitor(key, node2, visitor, path6);
+    async function visitAsync_(key, node2, visitor, path5) {
+      const ctrl = await callVisitor(key, node2, visitor, path5);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path6, ctrl);
-        return visitAsync_(key, ctrl, visitor, path6);
+        replaceNode(key, path5, ctrl);
+        return visitAsync_(key, ctrl, visitor, path5);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node2)) {
-          path6 = Object.freeze(path6.concat(node2));
+          path5 = Object.freeze(path5.concat(node2));
           for (let i = 0; i < node2.items.length; ++i) {
-            const ci = await visitAsync_(i, node2.items[i], visitor, path6);
+            const ci = await visitAsync_(i, node2.items[i], visitor, path5);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -200,13 +201,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node2)) {
-          path6 = Object.freeze(path6.concat(node2));
-          const ck = await visitAsync_("key", node2.key, visitor, path6);
+          path5 = Object.freeze(path5.concat(node2));
+          const ck = await visitAsync_("key", node2.key, visitor, path5);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node2.key = null;
-          const cv = await visitAsync_("value", node2.value, visitor, path6);
+          const cv = await visitAsync_("value", node2.value, visitor, path5);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -233,23 +234,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node2, visitor, path6) {
+    function callVisitor(key, node2, visitor, path5) {
       if (typeof visitor === "function")
-        return visitor(key, node2, path6);
+        return visitor(key, node2, path5);
       if (identity.isMap(node2))
-        return visitor.Map?.(key, node2, path6);
+        return visitor.Map?.(key, node2, path5);
       if (identity.isSeq(node2))
-        return visitor.Seq?.(key, node2, path6);
+        return visitor.Seq?.(key, node2, path5);
       if (identity.isPair(node2))
-        return visitor.Pair?.(key, node2, path6);
+        return visitor.Pair?.(key, node2, path5);
       if (identity.isScalar(node2))
-        return visitor.Scalar?.(key, node2, path6);
+        return visitor.Scalar?.(key, node2, path5);
       if (identity.isAlias(node2))
-        return visitor.Alias?.(key, node2, path6);
+        return visitor.Alias?.(key, node2, path5);
       return void 0;
     }
-    function replaceNode(key, path6, node2) {
-      const parent = path6[path6.length - 1];
+    function replaceNode(key, path5, node2) {
+      const parent = path5[path5.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node2;
       } else if (identity.isPair(parent)) {
@@ -861,10 +862,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path6, value) {
+    function collectionFromPath(schema, path5, value) {
       let v = value;
-      for (let i = path6.length - 1; i >= 0; --i) {
-        const k = path6[i];
+      for (let i = path5.length - 1; i >= 0; --i) {
+        const k = path5[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -883,7 +884,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path6) => path6 == null || typeof path6 === "object" && !!path6[Symbol.iterator]().next().done;
+    var isEmptyPath = (path5) => path5 == null || typeof path5 === "object" && !!path5[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -913,11 +914,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path6, value) {
-        if (isEmptyPath(path6))
+      addIn(path5, value) {
+        if (isEmptyPath(path5))
           this.add(value);
         else {
-          const [key, ...rest] = path6;
+          const [key, ...rest] = path5;
           const node2 = this.get(key, true);
           if (identity.isCollection(node2))
             node2.addIn(rest, value);
@@ -931,8 +932,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path6) {
-        const [key, ...rest] = path6;
+      deleteIn(path5) {
+        const [key, ...rest] = path5;
         if (rest.length === 0)
           return this.delete(key);
         const node2 = this.get(key, true);
@@ -946,8 +947,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path6, keepScalar) {
-        const [key, ...rest] = path6;
+      getIn(path5, keepScalar) {
+        const [key, ...rest] = path5;
         const node2 = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node2) ? node2.value : node2;
@@ -965,8 +966,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path6) {
-        const [key, ...rest] = path6;
+      hasIn(path5) {
+        const [key, ...rest] = path5;
         if (rest.length === 0)
           return this.has(key);
         const node2 = this.get(key, true);
@@ -976,8 +977,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path6, value) {
-        const [key, ...rest] = path6;
+      setIn(path5, value) {
+        const [key, ...rest] = path5;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3492,9 +3493,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path6, value) {
+      addIn(path5, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path6, value);
+          this.contents.addIn(path5, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3569,14 +3570,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path6) {
-        if (Collection.isEmptyPath(path6)) {
+      deleteIn(path5) {
+        if (Collection.isEmptyPath(path5)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path6) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path5) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3591,10 +3592,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path6, keepScalar) {
-        if (Collection.isEmptyPath(path6))
+      getIn(path5, keepScalar) {
+        if (Collection.isEmptyPath(path5))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path6, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path5, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3605,10 +3606,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path6) {
-        if (Collection.isEmptyPath(path6))
+      hasIn(path5) {
+        if (Collection.isEmptyPath(path5))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path6) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path5) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3625,13 +3626,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path6, value) {
-        if (Collection.isEmptyPath(path6)) {
+      setIn(path5, value) {
+        if (Collection.isEmptyPath(path5)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path6), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path5), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path6, value);
+          this.contents.setIn(path5, value);
         }
       }
       /**
@@ -5592,9 +5593,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path6) => {
+    visit.itemAtPath = (cst, path5) => {
       let item2 = cst;
-      for (const [field, index] of path6) {
+      for (const [field, index] of path5) {
         const tok = item2?.[field];
         if (tok && "items" in tok) {
           item2 = tok.items[index];
@@ -5603,23 +5604,23 @@ var require_cst_visit = __commonJS({
       }
       return item2;
     };
-    visit.parentCollection = (cst, path6) => {
-      const parent = visit.itemAtPath(cst, path6.slice(0, -1));
-      const field = path6[path6.length - 1][0];
+    visit.parentCollection = (cst, path5) => {
+      const parent = visit.itemAtPath(cst, path5.slice(0, -1));
+      const field = path5[path5.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path6, item2, visitor) {
-      let ctrl = visitor(item2, path6);
+    function _visit(path5, item2, visitor) {
+      let ctrl = visitor(item2, path5);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item2[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path6.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path5.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5630,10 +5631,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item2, path6);
+            ctrl = ctrl(item2, path5);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item2, path6) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item2, path5) : ctrl;
     }
     exports.visit = visit;
   }
@@ -7384,308 +7385,6 @@ var require_dist = __commonJS({
   }
 });
 
-// packages/core/src/jobs.ts
-import path from "node:path";
-import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { setTimeout as delay } from "node:timers/promises";
-var JOB_WAIT_MAX_SECONDS = 120;
-var jobOperations = [
-  "compose.plan",
-  "compose.materialize",
-  "apex.sync",
-  "apex.generate",
-  "apex.export",
-  "apex.validate",
-  "deploy.plan",
-  "deploy.apply",
-  "ship.apply",
-  "ship",
-  "peer"
-];
-var JobService = class {
-  constructor(ctx) {
-    this.ctx = ctx;
-  }
-  ctx;
-  async enqueue(operation, input) {
-    if (!jobOperations.includes(operation))
-      throw new Fault("INVALID_JOB_OPERATION", "Operation cannot run as a background job.", 2);
-    const id = randomUUID(), root = await contained(this.ctx.root, ".apexrest/jobs/" + id);
-    await writeJson(path.join(root, "request.json"), {
-      id,
-      operation,
-      input: { ...input, project: this.ctx.root }
-    });
-    await writeJson(path.join(root, "state.json"), {
-      id,
-      status: "queued",
-      operation,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    return id;
-  }
-  /**
-   * Run a job inside this process: same request/state files and heartbeat as a
-   * detached worker, so apexrest_job observes it identically, but the warm
-   * SQLcl session pool and capability caches are reused. Use only for work
-   * whose interruption leaves no database write unresolved.
-   */
-  async startInline(operation, input, execute) {
-    const id = await this.enqueue(operation, input);
-    const run = executeJob(this.ctx, id, execute).catch(async (error) => {
-      await failQueuedJob(this.ctx.root, id, error).catch(() => void 0);
-    });
-    inlineJobs.set(id, run);
-    void run.finally(() => inlineJobs.delete(id));
-    return {
-      jobId: id,
-      status: "queued",
-      runner: "in-process",
-      nextAction: "Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results."
-    };
-  }
-  async start(operation, input, runtime) {
-    const id = await this.enqueue(operation, input);
-    try {
-      const worker = spawn(process.execPath, [runtime, "--job-worker", this.ctx.root, id], {
-        cwd: this.ctx.root,
-        env: process.env,
-        detached: true,
-        stdio: "ignore",
-        windowsHide: true
-      });
-      await new Promise((resolve, reject) => {
-        worker.once("spawn", resolve);
-        worker.once("error", reject);
-      });
-      worker.once("exit", (code2, signal) => {
-        void failQueuedJob(
-          this.ctx.root,
-          id,
-          new Fault(
-            "WORKER_EXITED",
-            `The detached worker exited before starting the operation (code ${code2 ?? "null"}${signal ? ", signal " + signal : ""}).`,
-            3
-          )
-        ).catch(() => void 0);
-      });
-      worker.unref();
-    } catch (error) {
-      await failQueuedJob(this.ctx.root, id, error).catch(() => void 0);
-      throw error;
-    }
-    return {
-      jobId: id,
-      status: "queued",
-      runner: "detached-worker",
-      nextAction: "Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results. Cancellation does not imply database rollback."
-    };
-  }
-  async status(id, waitSeconds = 0, signal) {
-    parse(external_exports.uuid(), id);
-    parse(external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS), waitSeconds);
-    const root = await contained(this.ctx.root, ".apexrest/jobs/" + id);
-    if (!await exists(path.join(root, "state.json")))
-      throw new Fault("JOB_NOT_FOUND", `No job ${id} exists in this project.`, 2, "not_found");
-    const deadline = Date.now() + waitSeconds * 1e3;
-    for (; ; ) {
-      const state = await readJson(path.join(root, "state.json"));
-      if (!["queued", "running"].includes(state.status)) return state;
-      if (Date.parse(state.updatedAt) + 6e4 < Date.now())
-        return {
-          ...state,
-          status: "outcome_unknown",
-          nextAction: "Worker heartbeat expired. Reconcile target before retrying."
-        };
-      const remaining = deadline - Date.now();
-      if (remaining <= 0 || signal?.aborted) return state;
-      await delay(Math.min(250, remaining), void 0, { signal }).catch((error) => {
-        if (!signal?.aborted) throw error;
-      });
-    }
-  }
-  async cancel(id) {
-    parse(external_exports.uuid(), id);
-    const state = await this.status(id);
-    const file = await contained(this.ctx.root, ".apexrest/jobs/" + id + "/state.json");
-    const recorded = await readJson(file);
-    if (!["queued", "running"].includes(recorded.status ?? "")) return state;
-    await writeJson(await contained(this.ctx.root, ".apexrest/jobs/" + id + "/cancel.json"), {
-      requestedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    if (state.status !== "queued" && state.status !== "running")
-      return { ...state, jobId: id, cancellationRequested: true, rollbackConfirmed: false };
-    return { jobId: id, status: "cancellation_requested", rollbackConfirmed: false };
-  }
-};
-var inlineJobs = /* @__PURE__ */ new Map();
-async function settleInlineJobs() {
-  await Promise.allSettled([...inlineJobs.values()]);
-}
-async function failQueuedJob(projectRoot, id, error) {
-  parse(external_exports.uuid(), id);
-  const file = await contained(projectRoot, ".apexrest/jobs/" + id + "/state.json");
-  if (!await exists(file)) return false;
-  const state = await readJson(file);
-  if (state.status !== "queued") return false;
-  const operation = typeof state.operation === "string" ? state.operation : "job";
-  await writeJson(file, {
-    id,
-    operation,
-    status: "failed",
-    result: failure(operation, error),
-    nextAction: "The worker did not start this operation. Resolve the diagnostic, then start a new job.",
-    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-  });
-  return true;
-}
-function jobOutcome(result) {
-  const value = result;
-  if (!value || typeof value !== "object" || value.ok !== false) return "completed";
-  return typeof value.status === "string" && !["queued", "running", "completed", "succeeded"].includes(value.status) ? value.status : "failed";
-}
-var HEARTBEAT_FAILURE_LIMIT = 10;
-async function executeJob(ctx, id, execute) {
-  parse(external_exports.uuid(), id);
-  const root = await contained(ctx.root, ".apexrest/jobs/" + id);
-  const request = await readJson(path.join(root, "request.json"));
-  const controller = new AbortController();
-  let done = false;
-  let phase;
-  const pulse = async () => {
-    if (done) return;
-    if (await exists(path.join(root, "cancel.json"))) controller.abort();
-    if (!done)
-      await writeJson(path.join(root, "state.json"), {
-        id,
-        operation: request.operation,
-        status: "running",
-        ...phase ? { phase } : {},
-        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-      });
-  };
-  await pulse();
-  let pending = Promise.resolve();
-  let heartbeatFailures = 0;
-  const schedule = () => {
-    pending = pending.then(pulse).then(() => {
-      heartbeatFailures = 0;
-    }).catch(() => {
-      if (++heartbeatFailures >= HEARTBEAT_FAILURE_LIMIT) controller.abort();
-    });
-  };
-  const timer = setInterval(schedule, 2e3), timeout = setTimeout(() => controller.abort(), 9e5);
-  const progress = (next) => {
-    phase = next;
-    schedule();
-  };
-  try {
-    let result;
-    try {
-      result = await execute(request.operation, request.input, controller.signal, progress);
-    } catch (error) {
-      result = failure(request.operation, error);
-    }
-    done = true;
-    clearInterval(timer);
-    clearTimeout(timeout);
-    await pending;
-    await writeJson(path.join(root, "state.json"), {
-      id,
-      operation: request.operation,
-      status: jobOutcome(result),
-      ...phase ? { phase } : {},
-      result,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-  } finally {
-    done = true;
-    clearInterval(timer);
-    clearTimeout(timeout);
-  }
-}
-var completedResultSchema = external_exports.object({
-  schemaVersion: external_exports.literal(1),
-  ok: external_exports.boolean(),
-  operation: external_exports.string(),
-  status: external_exports.string(),
-  runId: external_exports.string(),
-  summary: external_exports.string(),
-  diagnostics: external_exports.array(
-    external_exports.object({
-      severity: external_exports.enum(["error", "warning", "info"]),
-      code: external_exports.string(),
-      message: external_exports.string(),
-      file: external_exports.string().optional(),
-      line: external_exports.number().int().optional(),
-      column: external_exports.number().int().optional(),
-      type: external_exports.string().optional(),
-      hint: external_exports.string().optional(),
-      validValues: external_exports.array(external_exports.string()).optional()
-    }).transform(({ severity, code: code2, message, file, line, column, type, hint, validValues }) => ({
-      severity,
-      code: code2,
-      message,
-      ...file !== void 0 ? { file } : {},
-      ...line !== void 0 ? { line } : {},
-      ...column !== void 0 ? { column } : {},
-      ...type !== void 0 ? { type } : {},
-      ...hint !== void 0 ? { hint } : {},
-      ...validValues !== void 0 ? { validValues } : {}
-    }))
-  ),
-  artifacts: external_exports.array(external_exports.string()),
-  nextActions: external_exports.array(external_exports.string()),
-  data: external_exports.unknown().optional(),
-  exitCode: external_exports.union([
-    external_exports.literal(0),
-    external_exports.literal(1),
-    external_exports.literal(2),
-    external_exports.literal(3),
-    external_exports.literal(4),
-    external_exports.literal(5),
-    external_exports.literal(6)
-  ])
-});
-function jobToolResult(operation, job) {
-  const active = job.status === "queued" || job.status === "running" ? job.status : void 0;
-  if (!active && job.result !== void 0) {
-    const nested = completedResultSchema.safeParse(job.result);
-    if (nested.success && nested.data.operation === operation) return { ...nested.data, data: job };
-  }
-  const nextActions = typeof job.nextAction === "string" ? [job.nextAction] : ["Read apexrest_job action:status with this jobId; inspect the existing operation before any retry."];
-  if (job.status === "completed") {
-    const result2 = failure(
-      operation,
-      new Fault(
-        "JOB_RESULT_UNREADABLE",
-        "The job completed but its recorded result cannot be read for this operation. Inspect its existing record; do not repeat the operation.",
-        1,
-        "completed_unreadable"
-      )
-    );
-    return { ...result2, nextActions, data: job };
-  }
-  if (active)
-    return {
-      ...success(operation, job, `Job ${job.status}; use the existing jobId to retrieve its result.`),
-      status: active,
-      nextActions
-    };
-  const status = job.status === "failed" || job.status === "cancelled" ? job.status : "outcome_unknown";
-  const result = failure(
-    operation,
-    new Fault(
-      status === "failed" ? "JOB_FAILED" : status === "cancelled" ? "CANCELLED" : "JOB_OUTCOME_UNKNOWN",
-      status === "outcome_unknown" ? "The job outcome is unknown. Inspect its existing record; do not repeat the operation." : `Job ${status}. Inspect the existing operation record.`,
-      status === "failed" ? 1 : 6,
-      status
-    )
-  );
-  return { ...result, nextActions, data: job };
-}
-
 // packages/core/src/composer/service.ts
 import { readFile as readFile6 } from "node:fs/promises";
 
@@ -7857,8 +7556,8 @@ async function metadataRead(adapter, env2, connection, value, debugTimings = fal
 }
 
 // packages/core/src/artifacts.ts
-import path2 from "node:path";
-import { randomUUID as randomUUID2 } from "node:crypto";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { readFile, readdir, rm, mkdir } from "node:fs/promises";
 var ArtifactService = class {
   constructor(ctx) {
@@ -7875,12 +7574,12 @@ var ArtifactService = class {
     const home = managedHome();
     if (create) await mkdir(home, { recursive: true, mode: 448 });
     if (!await exists(home)) return null;
-    return contained(home, path2.join("results", hash(this.ctx.root)));
+    return contained(home, path.join("results", hash(this.ctx.root)));
   }
   async persist(content, kind, format) {
-    const id = randomUUID2(), directory = format === "json" ? await this.resultDirectory(true) : await contained(this.ctx.root, this.ctx.config.artifacts.directory);
-    await atomicWrite(path2.join(directory, id + ".txt"), content);
-    await writeJson(path2.join(directory, id + ".json"), {
+    const id = randomUUID(), directory = format === "json" ? await this.resultDirectory(true) : await contained(this.ctx.root, this.ctx.config.artifacts.directory);
+    await atomicWrite(path.join(directory, id + ".txt"), content);
+    await writeJson(path.join(directory, id + ".json"), {
       id,
       kind,
       sha256: hash(content),
@@ -7896,7 +7595,7 @@ var ArtifactService = class {
     parse(external_exports.number().int().min(0).max(1e7), offset);
     parse(external_exports.number().int().min(1).max(16384), limit2);
     const results = await this.resultDirectory();
-    const directory = results && await exists(path2.join(results, id + ".json")) ? results : await contained(this.ctx.root, this.ctx.config.artifacts.directory);
+    const directory = results && await exists(path.join(results, id + ".json")) ? results : await contained(this.ctx.root, this.ctx.config.artifacts.directory);
     const metadataFile = await contained(directory, id + ".json");
     if (!await exists(metadataFile))
       throw new Fault(
@@ -7929,17 +7628,17 @@ var ArtifactService = class {
     let removed = 0;
     for (const directory of directories) {
       if (!directory || !await exists(directory)) continue;
-      const relative = path2.relative(this.ctx.root, directory).split(path2.sep).join("/");
+      const relative = path.relative(this.ctx.root, directory).split(path.sep).join("/");
       if ([".apexrest/sync", ".apexrest/backups", ".apexrest/deployments", ".apexrest/plans"].some(
         (root) => relative === root || relative.startsWith(root + "/")
       ))
         continue;
       for (const file of await readdir(directory))
         if (/^[a-f0-9-]{36}\.json$/.test(file)) {
-          const metadata = await readJson(path2.join(directory, file)).catch(() => null);
+          const metadata = await readJson(path.join(directory, file)).catch(() => null);
           if (typeof metadata?.expiresAt === "string" && Date.parse(metadata.expiresAt) < Date.now()) {
-            await rm(path2.join(directory, file));
-            await rm(path2.join(directory, file.replace(".json", ".txt")), { force: true });
+            await rm(path.join(directory, file));
+            await rm(path.join(directory, file.replace(".json", ".txt")), { force: true });
             removed++;
           }
         }
@@ -8259,7 +7958,7 @@ import { readFile as readFile4, readdir as readdir3 } from "node:fs/promises";
 // packages/core/src/composer/formats.ts
 var import_yaml = __toESM(require_dist(), 1);
 import { readFile as readFile2, lstat, realpath } from "node:fs/promises";
-import path3 from "node:path";
+import path2 from "node:path";
 function canonical(value) {
   if (Array.isArray(value)) return "[" + value.map(canonical).join(",") + "]";
   if (value && typeof value === "object")
@@ -8320,12 +8019,12 @@ function validate(schema, value) {
   return result.data;
 }
 async function safePath(root, relative) {
-  if (path3.isAbsolute(relative) || relative.split(/[\\/]/).includes(".."))
+  if (path2.isAbsolute(relative) || relative.split(/[\\/]/).includes(".."))
     throw new Fault("COMPOSER_PATH_UNSAFE", "Expected a contained relative path.", 2);
   const file = await contained(root, relative);
   let probe = await realpath(root);
-  for (const part of path3.relative(probe, file).split(path3.sep).filter(Boolean)) {
-    probe = path3.join(probe, part);
+  for (const part of path2.relative(probe, file).split(path2.sep).filter(Boolean)) {
+    probe = path2.join(probe, part);
     let info;
     try {
       info = await lstat(probe);
@@ -8348,10 +8047,10 @@ function planDigest(plan) {
 }
 
 // packages/core/src/composer/catalog.ts
-import path4 from "node:path";
+import path3 from "node:path";
 import { readFile as readFile3, readdir as readdir2, cp, mkdir as mkdir2 } from "node:fs/promises";
 async function loadCatalog(project2, cachePayloads = true) {
-  const root = path4.join(resourceRoot(), "blocks");
+  const root = path3.join(resourceRoot(), "blocks");
   const index = JSON.parse(await readFile3(await safePath(root, "manifest.json"), "utf8"));
   if (index.schemaVersion !== 1 || !Array.isArray(index.packages) || index.packages.length > 1e3)
     throw new Fault("CATALOG_INVALID", "Unsupported block registry.", 2);
@@ -8366,7 +8065,7 @@ async function loadCatalog(project2, cachePayloads = true) {
     if (project2 && cachePayloads) {
       const cache = await safePath(project2, `.apexrest/composer/cache/${digest2}`);
       if (!await exists(cache)) {
-        await mkdir2(path4.dirname(cache), { recursive: true, mode: 448 });
+        await mkdir2(path3.dirname(cache), { recursive: true, mode: 448 });
         await cp(directory, cache, { recursive: true, errorOnExist: true, force: false });
       }
       if (semanticDigest(await inventory(cache)) !== digest2)
@@ -8458,7 +8157,7 @@ function resolvePackages(catalog, selectors, profile) {
 }
 async function catalogSearch(query, options = {}) {
   if (options.corpus === "blueprints") {
-    const root = path4.join(resourceRoot(), "blueprints"), entries = JSON.parse(await readFile3(path4.join(root, "index.json"), "utf8"));
+    const root = path3.join(resourceRoot(), "blueprints"), entries = JSON.parse(await readFile3(path3.join(root, "index.json"), "utf8"));
     const hits = entries.filter((e) => (e.id + " " + e.title).toLowerCase().includes(query.toLowerCase()));
     return {
       totalMatches: hits.length,
@@ -8500,7 +8199,7 @@ async function catalogSearch(query, options = {}) {
   };
 }
 async function bundledBlueprintProfiles() {
-  const root = path4.join(resourceRoot(), "blueprints"), index = JSON.parse(await readFile3(path4.join(root, "index.json"), "utf8"));
+  const root = path3.join(resourceRoot(), "blueprints"), index = JSON.parse(await readFile3(path3.join(root, "index.json"), "utf8"));
   const byProfile = {};
   for (const entry2 of index)
     try {
@@ -8514,7 +8213,7 @@ async function bundledBlueprintProfiles() {
 async function catalogRead(id, offset = 0, limit2 = 4096, project2) {
   let content;
   if (id.startsWith("blueprint:")) {
-    const root = path4.join(resourceRoot(), "blueprints"), index = JSON.parse(await readFile3(path4.join(root, "index.json"), "utf8"));
+    const root = path3.join(resourceRoot(), "blueprints"), index = JSON.parse(await readFile3(path3.join(root, "index.json"), "utf8"));
     const entry2 = index.find((e) => e.id === id);
     if (!entry2) throw new Fault("REFERENCE_NOT_FOUND", "Unknown blueprint.", 2);
     content = await readFile3(await safePath(root, entry2.path), "utf8");
@@ -10169,9 +9868,9 @@ function planComposition(input) {
 }
 
 // packages/core/src/composer/materializer.ts
-import path5 from "node:path";
+import path4 from "node:path";
 import { readFile as readFile5, mkdir as mkdir3, cp as cp2, rm as rm2, open } from "node:fs/promises";
-import { randomUUID as randomUUID3 } from "node:crypto";
+import { randomUUID as randomUUID2 } from "node:crypto";
 var activeJournal = ".apexrest/composer/journal.json";
 var journalSchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
@@ -10232,11 +9931,11 @@ async function bytes(ctx, relative) {
 }
 async function durable(ctx, relative, content) {
   const file = await safePath(ctx.root, relative);
-  await mkdir3(path5.dirname(file), { recursive: true, mode: 448 });
+  await mkdir3(path4.dirname(file), { recursive: true, mode: 448 });
   if (content === null) await rm2(file, { force: true });
   else await atomicWrite(file, content);
   try {
-    const handle = await open(path5.dirname(file), "r");
+    const handle = await open(path4.dirname(file), "r");
     try {
       await handle.sync();
     } finally {
@@ -10322,7 +10021,7 @@ async function checkPreconditions(ctx, plan) {
 async function stagePlan(ctx, plan) {
   const relative = `.apexrest/composer/staging/${plan.digest}`, base2 = await safePath(ctx.root, relative);
   await mkdir3(base2, { recursive: true, mode: 448 });
-  const application = path5.join(base2, "application");
+  const application = path4.join(base2, "application");
   await rm2(application, { recursive: true, force: true });
   await cp2(await safePath(ctx.root, ctx.config.application.sourceDir), application, { recursive: true });
   for (const op of plan.operations.filter(
@@ -10438,7 +10137,7 @@ async function materialize(ctx, plan, options = {}) {
       );
     const record = {
       schemaVersion: 1,
-      id: randomUUID3(),
+      id: randomUUID2(),
       phase: "prepared",
       plan,
       records: [],
@@ -10867,7 +10566,7 @@ async function composePlan(ctx, request, oracle = new OracleAdapter(), signal) {
     planDigest: plan.digest,
     artifactId,
     diagnostics: plan.diagnostics,
-    operations: plan.operations.map(({ path: path6, reason, before, after }) => ({ path: path6, reason, before, after })),
+    operations: plan.operations.map(({ path: path5, reason, before, after }) => ({ path: path5, reason, before, after })),
     allocationCount: Object.keys(plan.allocations).length,
     compiler,
     databaseEffects: [],
@@ -11003,6 +10702,12 @@ var schemas = {
     workingCopy: external_exports.boolean().default(false)
   }),
   "project.inspect": external_exports.strictObject({ ...base, detail: external_exports.enum(["full", "summary"]).default("full") }),
+  "dev.start": external_exports.strictObject({ ...base }),
+  "dev.status": external_exports.strictObject({ ...base }),
+  "dev.stop": external_exports.strictObject({
+    ...base,
+    waitSeconds: external_exports.number().int().min(0).max(JOB_WAIT_MAX_SECONDS).default(30)
+  }),
   "project.patch": external_exports.strictObject({
     ...base,
     page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number"),
@@ -11098,6 +10803,14 @@ var schemas = {
   "deploy.plan": external_exports.strictObject({ ...base, env, out: relativePath, ...importOptions }).superRefine(checkImportOptions),
   "deploy.apply": external_exports.strictObject({ ...base, plan: relativePath }),
   "deploy.status": external_exports.strictObject({ ...base, run: external_exports.uuid() }),
+  "deploy.reconcile": external_exports.strictObject({
+    ...base,
+    env,
+    run: external_exports.uuid(),
+    statements: external_exports.array(external_exports.strictObject({ file: relativePath, outcome: external_exports.enum(["applied", "not_applied"]) })).max(1e3).describe("JSON: [{file, outcome: applied|not_applied}] for every script of the run"),
+    confirm: external_exports.string().max(200).optional().describe("<run id>:<plan digest prefix>, typed by the person"),
+    userRequest: external_exports.string().min(1).max(4e3).describe("Literal instruction of the person who inspected the database")
+  }),
   "deploy.restore-plan": external_exports.strictObject({ ...base, backup: external_exports.uuid(), out: relativePath }),
   "browser.open": external_exports.strictObject({
     ...base,
@@ -11395,11 +11108,6 @@ export {
   verifyDeploymentPredicates,
   composePlan,
   composeMaterialize,
-  JobService,
-  settleInlineJobs,
-  failQueuedJob,
-  executeJob,
-  jobToolResult,
   schemas,
   internalOperations,
   toolCatalog

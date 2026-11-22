@@ -526,6 +526,48 @@
     },
     "additionalProperties": false
   },
+  "dev.start": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "additionalProperties": false
+  },
+  "dev.status": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "additionalProperties": false
+  },
+  "dev.stop": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "waitSeconds": {
+        "default": 30,
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 120
+      }
+    },
+    "additionalProperties": false
+  },
   "project.patch": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -1344,6 +1386,71 @@
     },
     "required": [
       "run"
+    ],
+    "additionalProperties": false
+  },
+  "deploy.reconcile": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "env": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+      },
+      "run": {
+        "type": "string",
+        "format": "uuid",
+        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+      },
+      "statements": {
+        "maxItems": 1000,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "file": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "outcome": {
+              "type": "string",
+              "enum": [
+                "applied",
+                "not_applied"
+              ]
+            }
+          },
+          "required": [
+            "file",
+            "outcome"
+          ],
+          "additionalProperties": false
+        },
+        "description": "JSON: [{file, outcome: applied|not_applied}] for every script of the run"
+      },
+      "confirm": {
+        "description": "<run id>:<plan digest prefix>, typed by the person",
+        "type": "string",
+        "maxLength": 200
+      },
+      "userRequest": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000,
+        "description": "Literal instruction of the person who inspected the database"
+      }
+    },
+    "required": [
+      "env",
+      "run",
+      "statements",
+      "userRequest"
     ],
     "additionalProperties": false
   },
