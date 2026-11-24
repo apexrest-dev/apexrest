@@ -100,6 +100,8 @@ export async function setup(input: Record<string, unknown>) {
     yes: Boolean(input.yes),
     nonInteractive: Boolean(input.nonInteractive),
     acceptOracleLicense: Boolean(input.acceptOracleLicense),
+    // The project's toolchain lock selects SQLcl; without --project the current folder's project, else the baseline.
+    ...(text('project') ? { project: text('project')! } : {}),
   };
   const existingRuntime = await runtimeState(home);
   const nativePlan = await installNative({

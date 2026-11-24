@@ -9,7 +9,7 @@ import { DeploymentService, planDigest } from '../../packages/core/src/deploy.ts
 import type { DeployPlan } from '../../packages/core/src/deploy.ts';
 import { writeJson, atomicWrite, canonical, hash, inventory } from '../../packages/core/src/fs.ts';
 import { LocalDeploymentControl } from '../../packages/core/src/deployment-control.ts';
-import { Fault } from '../../packages/core/src/result.ts';
+import { Fault, failure } from '../../packages/core/src/result.ts';
 import { ArtifactService } from '../../packages/core/src/artifacts.ts';
 
 // Deploy grants must bind the exact plan digest. Emulate recording the user's
@@ -216,6 +216,131 @@ test('a recognised rewrite next to a real local edit is a conflict and nothing i
   assert.deepEqual(await inventory(local), before);
   assert.equal(await readFile(path.join(local, 'deployments/default.json'), 'utf8'), '{\n}\n');
   assert.equal(await new SyncStore(ctx, env, 'dev').read(), null);
+});
+
+test('a source conflict names every differing file in the diagnostics and result data', async () => {
+  const { ctx, service, server } = await workingCopyFixture();
+  const local = path.join(ctx.root, ctx.config.application.sourceDir);
+  await atomicWrite(path.join(server, 'application.apx'), 'server edit');
+  await atomicWrite(path.join(server, 'pages/p00001-home.apx'), 'server only');
+  await atomicWrite(path.join(local, 'pages/p00002-local.apx'), 'local only');
+  const before = await inventory(local);
+  const error = await service.sync(ctx, 'dev', 'init').then(
+    () => assert.fail('init must conflict'),
+    (caught: unknown) => caught as Fault,
+  );
+  assert.equal(error.code, 'SYNC_SOURCE_CONFLICT');
+  assert.match(error.message, /3 files: application\.apx \(changed\), pages\/p00001-home\.apx \(removed\)/);
+  const result = failure('apex.sync', error);
+  assert.deepEqual(
+    result.diagnostics.map((entry) => entry.file),
+    ['application.apx', 'pages/p00001-home.apx', 'pages/p00002-local.apx'],
+  );
+  assert.deepEqual(result.data, {
+    differingFileCount: 3,
+    addedFiles: ['pages/p00002-local.apx'],
+    removedFiles: ['pages/p00001-home.apx'],
+    changedFiles: ['application.apx'],
+    fileListsTruncated: false,
+    importProof: 'no-recorded-import',
+  });
+  assert.deepEqual(await inventory(local), before);
+});
+
+/**
+ * The observed flow: sync invalidated, a full ship of hand-written sources, then init. The fake
+ * import stores the shipped sources in Oracle's canonical form, as APEX 26.2 exports them.
+ */
+async function shippedWithRewrites() {
+  const f = await initialized();
+  const local = path.join(f.ctx.root, f.ctx.config.application.sourceDir);
+  await f.service.sync(f.ctx, 'dev', 'invalidate');
+  await atomicWrite(
+    path.join(local, 'application.apx'),
+    'application fixture (\n    name: "Home Finance"\n)\n',
+  );
+  await atomicWrite(
+    path.join(local, 'pages/p00001-home.apx'),
+    'page 1 (\n    source {\n        sqlQuery:\n        ```sql\n        select 1 from dual\n        ```\n    }\n)\n',
+  );
+  await atomicWrite(path.join(local, 'supporting-objects/deinstall-script.sql'), '');
+  const importApplication = f.oracle.importApplication.bind(f.oracle);
+  f.oracle.importApplication = async (...args: Parameters<typeof importApplication>) => {
+    await importApplication(...args);
+    await atomicWrite(
+      path.join(f.server, 'application.apx'),
+      'application fixture (\n    name: Home Finance\n)\n',
+    );
+    await atomicWrite(
+      path.join(f.server, 'pages/p00001-home.apx'),
+      'page 1 (\n    source {\n        sqlQuery: select 1 from dual\n    }\n)\n',
+    );
+    await rm(path.join(f.server, 'supporting-objects/deinstall-script.sql'));
+    await atomicWrite(path.join(f.server, 'shared-components/navigation-menu.apx'), 'list menu (\n)\n');
+  };
+  const plan = await f.service.plan(f.ctx, 'dev');
+  assert.equal(plan.schemaVersion === 2 && plan.mode, 'full-export');
+  const shipped = await f.service.apply(f.ctx, plan);
+  return { ...f, local, shipped };
+}
+
+test('init after a successful full ship adopts Oracle import rewrites of the shipped sources', async () => {
+  const { ctx, service, server, store, local, shipped } = await shippedWithRewrites();
+  const imported = await inventory(local);
+  const result = (await service.sync(ctx, 'dev', 'init')) as {
+    status: string;
+    normalized?: Array<{ file: string; rule: string; action: string }>;
+    normalizedFromDeploymentRunId?: string;
+  };
+  assert.equal(result.status, 'ready');
+  assert.equal(result.normalizedFromDeploymentRunId, shipped.runId);
+  assert.deepEqual(result.normalized, [
+    { file: 'application.apx', rule: 'last-import-rewrite', action: 'replaced' },
+    { file: 'pages/p00001-home.apx', rule: 'last-import-rewrite', action: 'replaced' },
+    { file: 'shared-components/navigation-menu.apx', rule: 'last-import-rewrite', action: 'added' },
+    { file: 'supporting-objects/deinstall-script.sql', rule: 'last-import-rewrite', action: 'removed' },
+  ]);
+  assert.deepEqual(await inventory(local), await inventory(server));
+  assert.equal((await store.read())?.status, 'ready');
+  // The bytes that were imported remain in the run's frozen snapshot.
+  assert.deepEqual(
+    await inventory(path.join(shipped.directory, 'snapshot', ctx.config.application.sourceDir)),
+    imported,
+  );
+});
+
+test('a local edit after the ship still conflicts and nothing is changed', async () => {
+  const { ctx, service, store, local } = await shippedWithRewrites();
+  await atomicWrite(path.join(local, 'application.apx'), 'application fixture (\n    name: "Edited"\n)\n');
+  const before = await inventory(local);
+  await assert.rejects(service.sync(ctx, 'dev', 'init'), (error: Fault) => {
+    assert.equal(error.code, 'SYNC_SOURCE_CONFLICT');
+    assert.equal(error.details?.importProof, 'local-changed-since-import');
+    assert.ok((error.details?.changedFiles as string[]).includes('application.apx'));
+    return true;
+  });
+  assert.deepEqual(await inventory(local), before);
+  assert.equal((await store.read())?.status, 'invalidated');
+});
+
+test('a server change after the ship or another target still conflicts', async () => {
+  const { ctx, env, service, controls, local } = await shippedWithRewrites();
+  const before = await inventory(local);
+  const saved = controls.metadata.lastUpdatedOn;
+  controls.metadata.lastUpdatedOn = 'external edit';
+  await assert.rejects(service.sync(ctx, 'dev', 'init'), (error: Fault) => {
+    assert.equal(error.code, 'SYNC_SOURCE_CONFLICT');
+    assert.equal(error.details?.importProof, 'server-changed-since-import');
+    return true;
+  });
+  controls.metadata.lastUpdatedOn = saved;
+  // The same application on another target (here, another application ID) proves nothing.
+  env.applicationId += 1;
+  await assert.rejects(service.sync(ctx, 'dev', 'init'), (error: Fault) => {
+    assert.equal(error.details?.importProof, 'no-recorded-import');
+    return true;
+  });
+  assert.deepEqual(await inventory(local), before);
 });
 
 test('init installs sources when source directory is absent', async () => {

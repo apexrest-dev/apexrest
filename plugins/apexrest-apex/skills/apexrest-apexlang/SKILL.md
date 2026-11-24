@@ -33,6 +33,6 @@ Filtered dashboards: submit each filter item with every dependent region or char
 
 ## Editing rules
 
-Establish tables, joins, keys and metric meanings from metadata (`apexrest_metadata_read`, batched `requests` for several objects) before binding sources. Edit related components together: column mappings, shared-component references, submitted items and refresh actions for every AJAX-dependent query. Preserve `.apex/apexlang.json`, Oracle IDs, templates, authentication and authorization; merge recipes into the existing application rather than replacing settings. Resolve warnings that say a requested behavior was ignored. Then continue with validation, shipping and browser checks in [work](../apexrest-work/SKILL.md).
+Establish tables, joins, keys and metric meanings from metadata (`apexrest_metadata_read`, batched `requests` for several objects) before binding sources. Edit related components together: column mappings, shared-component references, submitted items and refresh actions for every AJAX-dependent query. Preserve `.apex/apexlang.json`, Oracle IDs, templates, authentication and authorization; merge recipes into the existing application rather than replacing settings. Resolve warnings that say a requested behavior was ignored. `knownFalsePositive` CodeScan findings need no fix; keep security intact. Then continue with validation, shipping and browser checks in [work](../apexrest-work/SKILL.md).
 
 Design preview without Oracle: `apexrest_preview action:start` (setup once) serves pages locally; not validation.

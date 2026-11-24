@@ -78,6 +78,7 @@ The goal is that a page renders and behaves locally as it would on APEX with the
 
 - Local migration history is keyed only by database identity and parsing schema. A rebuilt database with the same `FREE`/`freepdb1`/schema identity inherited the destroyed database's history, so the first plan skipped `0001__customers.sql`. Detect a recreated database (for example DBID or creation time) or report the mismatch before planning.
 - The 2026-11-06 sync-init normalization accepts the two known server rewrites of a generated blank app (`app.id`, the empty deinstall script). Repeat `apex sync init` on a fresh template project against the real target; it was not rerun after the fix. Defaults and reordering beyond those two rewrites still raise `SYNC_SOURCE_CONFLICT`.
+- The 2026-11-16 post-ship sync-init adoption relies on a `post-import.json` written by a full import. Repeat invalidate, full ship and `apex sync --action init` against the real target to confirm that APEX 26.2 import moves `last_updated_on` and that init adopts the rewrites. Runs shipped before the fix have no record and still conflict.
 - `ship --plan <planId>` fails with `INTERNAL_ERROR` (ENOENT). Accept a plan ID, or return an input error that names the plan path.
 - A database-only apply journals a `backing_up` phase although it backs nothing up; the time is spent on the fresh target export. Name the phase for what it does.
 
@@ -166,7 +167,8 @@ A261-058 unknown-connection now records `CONNECTION_REQUIRED` / 3 with a next ac
 - Select further recipes from the remaining two community candidates (both need external AI services) added on 2026-10-14 only after per-source dependency closure, adaptation to the 26.1 recipe scaffold and compiler checks; resolve the LGPL-3.0 review for United-Codes/uc_ai before redistributing any of its files.
 - Qualify the internet 26.1 recipes, including the 93 official-source adaptations added on 2026-11-01, on explicit DEV/QA/TEST applications. The editable grid and sectioned form need a project table and row processing before saving; Geocoded Address needs the Oracle geocoding service. Pinned source checks, offline compiler results and packaged MCP probes do not establish SQL execution, import, browser behavior or native-host discovery.
 - Use the host in-app browser for affected interactions and relevant narrow layouts; keep observations separate from compiler/import results.
-- Reconcile the nine advisory CodeScan findings in the local 26.2 CRM fixture before claiming security qualification.
+- Reconcile the nine advisory CodeScan findings in the local 26.2 CRM fixture before claiming security qualification; findings marked `knownFalsePositive` need no source fix but still do not qualify security.
+- Re-run the CodeScan known-false-positive variants on each new SQLcl release and retire or re-version `apex262-sqlcl263-codescan-v1` when Oracle's rules recognize 26.2 application security properties.
 - Existing projects can drop retired `tests` and `database.testsDir` settings; the loader ignores them. Regenerate old plans and reconcile unresolved deployment state rather than rewriting journals.
 
 ## APEX 26.2

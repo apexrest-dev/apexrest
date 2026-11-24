@@ -18,7 +18,7 @@ You install the plugin, let it install Java and SQLcl, configure a direct SQLcl 
 
 Two other starting points:
 
-- **Already using APEX 26.2?** Start with [partial imports: update a page and its shared components](apex-26.2.md#quick-start-from-an-updated-checkout). Use the updated checkout runtime and the reviewed 26.2 compiler; the managed dependency installer still defaults to 26.1.
+- **Already using APEX 26.2?** Start with [partial imports: update a page and its shared components](apex-26.2.md#quick-start-from-an-updated-checkout). Use the updated checkout runtime and the reviewed 26.2 compiler. `dependencies install --project PATH` installs SQLcl 26.3 from the project's toolchain lock; without a project it installs the 26.1 baseline.
 - **Working in a cloud task?** See [Codex Cloud](#codex-cloud).
 
 ## Which version this guide describes
@@ -119,10 +119,11 @@ Missing SQLcl or Java is a reason to install, not to stop. The setup skill (`$ap
 
 4. Rerun the doctor afterwards.
 
-| Option                  | Effect                  |
-| ----------------------- | ----------------------- |
-| `--offline`             | Uses cached downloads.  |
-| `--home`, `--cache-dir` | Select managed storage. |
+| Option                  | Effect                                                   |
+| ----------------------- | -------------------------------------------------------- |
+| `--offline`             | Uses cached downloads.                                   |
+| `--home`, `--cache-dir` | Select managed storage.                                  |
+| `--project`             | Installs the versions the project's toolchain lock pins. |
 
 Tools install under `~/.apexrest` (or `APEXREST_HOME`). A custom `--home` must also be set as `APEXREST_HOME` for later CLI and MCP processes.
 

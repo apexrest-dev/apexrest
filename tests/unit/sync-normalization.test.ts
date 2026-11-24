@@ -4,7 +4,11 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { atomicWrite, inventory } from '../../packages/core/src/fs.ts';
-import { generatedSourceNormalizations } from '../../packages/core/src/sync-normalization.ts';
+import {
+  generatedSourceNormalizations,
+  lastImportRewrites,
+  sourceDifferences,
+} from '../../packages/core/src/sync-normalization.ts';
 
 /** `apex generate` output as written locally, and the same app as the server exports it. */
 const GENERATED = {
@@ -117,4 +121,20 @@ test('anything beyond the recognised rewrites stays a conflict', async (t) => {
     )(),
     undefined,
   );
+});
+
+test('source differences are listed by path and adopted from the server in the opposite direction', () => {
+  const local = { 'a.apx': '1', 'b.apx': '2', 'local-only.sql': '3' };
+  const server = { 'a.apx': '1', 'b.apx': 'x', 'server-only.apx': '4' };
+  assert.deepEqual(sourceDifferences(local, server), [
+    { file: 'b.apx', change: 'changed' },
+    { file: 'local-only.sql', change: 'added' },
+    { file: 'server-only.apx', change: 'removed' },
+  ]);
+  assert.deepEqual(lastImportRewrites(local, server), [
+    { file: 'b.apx', rule: 'last-import-rewrite', action: 'replaced' },
+    { file: 'local-only.sql', rule: 'last-import-rewrite', action: 'removed' },
+    { file: 'server-only.apx', rule: 'last-import-rewrite', action: 'added' },
+  ]);
+  assert.deepEqual(sourceDifferences(local, { ...local }), []);
 });

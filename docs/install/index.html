@@ -39,7 +39,7 @@ node plugins/apexrest-apex/runtime/apexrest.mjs dependencies install --yes --acc
 <ul>
 <li>Read the preview, including the <a href="https://www.oracle.com/downloads/licenses/oracle-free-license.html">Oracle terms</a>, before the second command; <code>--accept-oracle-license</code> records that separate consent.</li>
 <li>Tools install under <code>~/.apexrest</code> (or <code>APEXREST_HOME</code>).</li>
-<li>The managed SQLcl default is for 26.1; select the reviewed SQLcl 26.3 compiler separately for <a href="/apexrest/apex-26.2/#requirements">26.2 partial imports</a>.</li>
+<li>Without a project the managed SQLcl is the 26.1 baseline. Add <code>--project PATH</code> (or run from the project root, the folder that holds <code>apexrest.json</code>) to install what the project&#39;s toolchain lock pins, such as SQLcl 26.3 for <a href="/apexrest/apex-26.2/#requirements">26.2 projects</a>.</li>
 <li>Application verification uses the host in-app browser.</li>
 </ul>
 <h2 id="3-optional-the-apexrest-command">3. Optional: the <code>apexrest</code> command</h2>

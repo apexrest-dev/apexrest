@@ -1,8 +1,18 @@
 import path from 'node:path';
 import { mkdir, mkdtemp, readdir, readlink, rename, rm, chmod, statfs, realpath } from 'node:fs/promises';
 import { z } from 'zod';
-import { exists, hash, hashFile, readJson, withLock, writeJson } from '../../core/src/fs.ts';
-import { managedHome, parse } from '../../core/src/config.ts';
+import {
+  canonical,
+  contained,
+  exists,
+  hash,
+  hashFile,
+  readJson,
+  withLock,
+  writeJson,
+} from '../../core/src/fs.ts';
+import { loadProject, managedHome, parse } from '../../core/src/config.ts';
+import type { ProjectContext } from '../../core/src/config.ts';
 import { resourceRoot } from '../../core/src/project.ts';
 import { runProcess } from '../../core/src/process.ts';
 import { Fault } from '../../core/src/result.ts';
@@ -36,6 +46,10 @@ export interface SetupRequest {
   yes?: boolean;
   nonInteractive?: boolean;
   acceptOracleLicense?: boolean;
+  /** Explicit project root: its toolchain lock selects the artifacts, and it must be configured. */
+  project?: string;
+  /** Folder an apexrest.json is looked up in when no project is given (default: the process folder). */
+  cwd?: string;
 }
 export interface InstalledTree {
   destination: string;
@@ -171,19 +185,94 @@ async function installArtifact(artifact: Artifact, destination: string, cache: s
     await rm(staging, { recursive: true, force: true });
   }
 }
+type LockedArtifact = z.infer<typeof artifactSchema>;
+export interface ToolchainSource {
+  source: 'project' | 'baseline';
+  /** Project root, when the artifacts come from its lock. */
+  project?: string;
+  lockFile: string;
+  profile?: string;
+}
+async function reviewedLocks() {
+  const folder = path.join(resourceRoot(), 'toolchains');
+  const names = (await readdir(folder))
+    .filter((name) => /^toolchain(?:-[0-9.]+)?\.lock\.json$/.test(name))
+    .sort();
+  return Promise.all(
+    names.map(async (name) => ({ name, lock: parse(lockSchema, await readJson(path.join(folder, name))) })),
+  );
+}
+async function projectContext(r: SetupRequest): Promise<ProjectContext | undefined> {
+  if (r.project) return loadProject(r.project);
+  try {
+    return await loadProject(r.cwd ?? process.cwd());
+  } catch (error) {
+    // Outside a project folder the built-in baseline applies; a broken project file still fails.
+    if (error instanceof Fault && error.code === 'PROJECT_NOT_CONFIGURED') return undefined;
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+/**
+ * Artifacts for this platform and where they come from. A project's own toolchain lock is the
+ * source of truth (project init copies the matching reviewed profile lock into it, plans bind its
+ * digest and doctor compares SQLcl with it); without a project the built-in baseline applies.
+ * Project artifacts must equal an entry of a lock shipped with the plugin, so a project file never
+ * introduces an unreviewed download. An id the project does not pin for this platform keeps the baseline.
+ */
+export async function lockedArtifacts(r: SetupRequest, os: string, arch: string) {
+  const locks = await reviewedLocks();
+  const baseline = locks.find((entry) => entry.name === 'toolchain.lock.json');
+  if (!baseline) throw new Fault('TOOLCHAIN_LOCK_REQUIRED', 'The plugin toolchain lock is missing.', 3);
+  const forPlatform = (artifacts: LockedArtifact[]) =>
+    artifacts.filter((a) => a.os === os && a.arch === arch);
+  const base = forPlatform(baseline.lock.artifacts);
+  const ctx = await projectContext(r);
+  if (!ctx)
+    return {
+      artifacts: base,
+      toolchain: { source: 'baseline', lockFile: 'toolchains/toolchain.lock.json' } as ToolchainSource,
+    };
+  const lockFile = ctx.config.toolchain.lockFile;
+  const file = await contained(ctx.root, lockFile);
+  if (!(await exists(file)))
+    throw new Fault(
+      'TOOLCHAIN_LOCK_REQUIRED',
+      `The project needs its pinned toolchain lock ${lockFile}.`,
+      3,
+      'not_configured',
+    );
+  const pinned = forPlatform(parse(lockSchema, await readJson(file)).artifacts);
+  const reviewed = new Set(locks.flatMap((entry) => entry.lock.artifacts.map((a) => canonical(a))));
+  for (const artifact of pinned)
+    if (!reviewed.has(canonical(artifact)))
+      throw new Fault(
+        'TOOLCHAIN_LOCK_UNREVIEWED',
+        `${lockFile} pins ${artifact.id} ${artifact.version} for ${os}/${arch}, which no toolchain lock shipped with this plugin reviews. Restore the project lock from the plugin's toolchains/ profile lock or update the plugin.`,
+        3,
+        'blocked',
+      );
+  const artifacts = base.map((a) => pinned.find((p) => p.id === a.id) ?? a);
+  for (const extra of pinned) if (!artifacts.includes(extra)) artifacts.push(extra);
+  return {
+    artifacts,
+    toolchain: {
+      source: 'project',
+      project: ctx.root,
+      lockFile,
+      ...(ctx.config.toolchain.profile ? { profile: ctx.config.toolchain.profile } : {}),
+    } as ToolchainSource,
+  };
+}
 export class ToolchainService {
   async inspect() {
     return { platform: platformProfile(), state: await runtimeState() };
   }
   async plan(r: SetupRequest) {
     const platform = platformProfile();
-    const lock = parse(
-      lockSchema,
-      await readJson(path.join(resourceRoot(), 'toolchains/toolchain.lock.json')),
-    );
+    const { artifacts, toolchain } = await lockedArtifacts(r, platform.os, platform.arch);
     const home = await canonicalHome(r.home ?? managedHome()),
       cache = path.resolve(r.cacheDir ?? path.join(home, 'cache'));
-    const artifacts = lock.artifacts.filter((a) => a.os === platform.os && a.arch === platform.arch);
     const steps = await Promise.all(
       artifacts.map(async (artifact) => {
         const candidate =
@@ -240,6 +329,7 @@ export class ToolchainService {
       home,
       cache,
       platform,
+      toolchain,
       steps,
       offline: r.offline ?? false,
       proxy: proxyStatus(),
@@ -317,6 +407,7 @@ export class ToolchainService {
       return {
         schemaVersion: 1,
         status: actions.length ? 'needs-user-action' : 'toolchain-verified',
+        toolchain: plan.toolchain,
         components: state.components,
         actions,
         state,

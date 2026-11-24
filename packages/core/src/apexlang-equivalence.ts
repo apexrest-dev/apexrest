@@ -24,6 +24,7 @@ const buttonActionDefaultRule = 'button.behavior.action:submitPage-default';
 const assignedIdentifierRule = 'process.advanced.executionMappingIdentifier:server-assigned';
 const limit = 8 * 1024 * 1024;
 
+export type ApexlangNode = Node;
 type Node =
   | { kind: 'property'; name: string; value: string; literal?: string; indent?: string }
   | { kind: 'literal'; value: string }
@@ -35,7 +36,7 @@ type Node =
  * bytes. Unknown forms fail closed. The vendor lexer treats an entire property
  * line as a value, so // and /* inside those values must never become comments.
  */
-function readStructure(source: string): Node[] {
+export function readStructure(source: string): Node[] {
   if (Buffer.byteLength(source) > limit) throw new Error('Source exceeds the comparison limit.');
   const lines = source.match(/[^\r\n]*(?:\r\n|\r|\n|$)/g)?.filter(Boolean) ?? [];
   const roots: Node[] = [];

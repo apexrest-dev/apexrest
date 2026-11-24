@@ -1,5 +1,11 @@
 # Current changes
 
+## Unreleased
+
+- **Sync init after a full ship.** `apex sync --action init` no longer fails with `SYNC_SOURCE_CONFLICT` when the only differences are Oracle's export rewrites of sources a successful full `ship` just imported to the same target. Init adopts the server export, lists the files in `normalized` (rule `last-import-rewrite`) and names the run in `normalizedFromDeploymentRunId`. `SYNC_SOURCE_CONFLICT` now names the differing files. See [26.2 baseline](docs/apex-26.2.md#1-configure-sqlcl-and-initialize-the-baseline).
+- **Project toolchain in setup.** `setup` and `dependencies install` (which gains `--project`) install the Node.js, Java and SQLcl the project's toolchain lock pins, for `--project` or the project root as the current folder; a 26.2 project gets SQLcl 26.3.0.260.1620 instead of the 26.1.2 baseline. Lock entries must match a lock shipped with the plugin (`TOOLCHAIN_LOCK_UNREVIEWED`). See [26.2 toolchain](docs/apex-26.2.md#select-the-262-toolchain).
+- **CodeScan known false positives.** SQLcl 26.3 findings APEX-002, APEX-009 and APEX-031 on `application.apx` stay in `staticAnalysis.findings` but are marked `knownFalsePositive` (policy `apex262-sqlcl263-codescan-v1`) when the 26.2 source proves the setting. See [26.2 authoring](docs/apex-26.2.md#codescan-known-false-positives).
+
 ## Source bundle 2.9.0
 
 - **Review mode in the local preview.** **Alt+Shift+C** selects a region, item, button, report column or the page, and leaves a comment for any agent, stored in `.apexrest/review/comments.json`. **Edit** in the same form changes a title, label, heading, format or sequence through the digest-bound patch service. `preview comments` returns each comment with its patch target and file digest. See [local preview](docs/local-preview.md#review-comments).

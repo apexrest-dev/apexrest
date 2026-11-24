@@ -47,7 +47,13 @@ import { VERSION } from './version.ts';
 import { inspectSql, executableSql, type DatabaseOperation } from './sql-review.ts';
 import { APEXLANG_EQUIVALENCE_POLICY, compareApplicationExports } from './apexlang-equivalence.ts';
 import { databaseMeetsApex262Minimum } from './compatibility.ts';
-import { generatedSourceNormalizations, type SourceNormalization } from './sync-normalization.ts';
+import {
+  generatedSourceNormalizations,
+  lastImportRewrites,
+  sourceDifferences,
+  type SourceDifference,
+  type SourceNormalization,
+} from './sync-normalization.ts';
 import {
   importOptions,
   importSelectionSchema,
@@ -633,6 +639,138 @@ async function appendJournal(runDir: string, event: Record<string, unknown>) {
   }
   await writeJson(path.join(runDir, 'state.json'), event);
 }
+/**
+ * What a confirmed, verified full application import left on the server: the exact
+ * application sources it imported and the target identity and update metadata read right
+ * after it. Written into the run directory before the run is recorded as succeeded.
+ */
+const postImportSchema = z.strictObject({
+  schemaVersion: z.literal(1),
+  runId: z.uuid(),
+  planDigest: digestSchema,
+  projectId: refName,
+  projectRoot: z.string(),
+  environment: refName,
+  targetDigest: digestSchema,
+  sourceDir: z.string(),
+  applicationDigest: digestSchema,
+  target: z.record(z.string(), z.unknown()),
+  metadata: z.strictObject({ lastUpdatedOn: z.string().nullable(), lastUpdatedBy: z.string().nullable() }),
+  observedAt: z.iso.datetime(),
+});
+const POST_IMPORT_FILE = 'post-import.json';
+/** Why the last recorded import does not explain a local/server difference. */
+type ImportProofRefusal = 'no-recorded-import' | 'local-changed-since-import' | 'server-changed-since-import';
+/**
+ * The run that proves the local application sources are exactly what this project last
+ * imported, in full, to this target, and that the server has not been updated since. Every
+ * binding is read from the run's integrity-checked plan and its post-import record; the
+ * current target and update metadata must equal those observed right after that import.
+ */
+async function lastImportProof(
+  ctx: ProjectContext,
+  name: string,
+  env: Environment,
+  local: Record<string, string>,
+  current: { target: unknown; metadata: unknown },
+): Promise<{ runId: string; observedAt: string } | { refused: ImportProofRefusal }> {
+  const runs = path.join(ctx.root, '.apexrest/deployments');
+  let refused: ImportProofRefusal = 'no-recorded-import';
+  let proof: { runId: string; observedAt: string } | null = null;
+  const entries = (await exists(runs)) ? await readdir(runs, { withFileTypes: true }) : [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const runDir = path.join(runs, entry.name);
+    try {
+      if (!(await exists(path.join(runDir, POST_IMPORT_FILE)))) continue;
+      const record = postImportSchema.parse(await readJson(path.join(runDir, POST_IMPORT_FILE)));
+      const plan = deployPlanSchema.parse(await readJson(path.join(runDir, 'plan.json')));
+      const state = (await readJson(path.join(runDir, 'state.json'))) as { runId?: unknown; state?: unknown };
+      const files = applicationFiles(ctx, plan.sources);
+      if (
+        record.runId !== entry.name ||
+        state.runId !== record.runId ||
+        state.state !== 'succeeded' ||
+        plan.digest !== planDigest(plan) ||
+        record.planDigest !== plan.digest ||
+        plan.restore ||
+        plan.scope !== 'full-application-import' ||
+        (plan.schemaVersion === 4 && plan.importSelection.resolvedMode === 'files') ||
+        plan.projectId !== ctx.config.projectId ||
+        record.projectId !== ctx.config.projectId ||
+        plan.projectRoot !== ctx.root ||
+        record.projectRoot !== ctx.root ||
+        plan.environment !== name ||
+        record.environment !== name ||
+        plan.targetDigest !== targetDigest(env) ||
+        record.targetDigest !== targetDigest(env) ||
+        record.sourceDir !== ctx.config.application.sourceDir ||
+        record.applicationDigest !== hash(canonical(files))
+      )
+        continue;
+      if (canonical(files) !== canonical(local)) {
+        if (refused === 'no-recorded-import') refused = 'local-changed-since-import';
+        continue;
+      }
+      if (
+        canonical(record.target) !== canonical(current.target) ||
+        canonical(record.metadata) !== canonical(current.metadata)
+      ) {
+        refused = 'server-changed-since-import';
+        continue;
+      }
+      if (!proof || record.observedAt > proof.observedAt)
+        proof = { runId: record.runId, observedAt: record.observedAt };
+    } catch {
+      // An unreadable or foreign run record proves nothing.
+    }
+  }
+  return proof ?? { refused };
+}
+/** Bounded file lists for a SYNC_SOURCE_CONFLICT diagnostic and its result data. */
+function sourceConflict(differences: SourceDifference[], reason?: ImportProofRefusal) {
+  const names = (change: SourceDifference['change']) =>
+    differences.filter((entry) => entry.change === change).map((entry) => entry.file);
+  const added = names('added'),
+    removed = names('removed'),
+    changed = names('changed');
+  const shown = differences
+    .slice(0, 10)
+    .map((entry) => `${entry.file} (${entry.change})`)
+    .join(', ');
+  const explanation =
+    reason === 'local-changed-since-import'
+      ? ' The local sources are not the ones last imported to this target.'
+      : reason === 'server-changed-since-import'
+        ? ' The server changed after the last recorded import of these sources.'
+        : reason === 'no-recorded-import'
+          ? ' No recorded import of these sources to this target explains the difference.'
+          : '';
+  return new Fault(
+    'SYNC_SOURCE_CONFLICT',
+    `Local sources differ from the expected inventory in ${differences.length} file${differences.length === 1 ? '' : 's'}: ${shown}${differences.length > 10 ? ', ...' : ''}.${explanation} Staged artifacts were retained; local files were preserved.`,
+    5,
+    'failed',
+    {
+      diagnostics: differences.map((entry) => ({
+        code: 'SYNC_SOURCE_CONFLICT',
+        file: entry.file,
+        message:
+          entry.change === 'added'
+            ? 'Local file is absent from the expected inventory.'
+            : entry.change === 'removed'
+              ? 'Expected file is missing locally.'
+              : 'Local file differs from the expected inventory.',
+      })),
+      differingFileCount: differences.length,
+      addedFiles: added.slice(0, 50),
+      removedFiles: removed.slice(0, 50),
+      changedFiles: changed.slice(0, 50),
+      fileListsTruncated: [added, removed, changed].some((list) => list.length > 50),
+      ...(reason ? { importProof: reason } : {}),
+    },
+  );
+}
 export class DeploymentService {
   constructor(private oracle = new OracleAdapter()) {}
   async localTarget(ctx: ProjectContext, plan: Pick<DeployPlan, 'environment'>) {
@@ -1003,20 +1141,15 @@ export class DeploymentService {
         const source = await syncPath(ctx, ctx.config.application.sourceDir);
         const refreshKnown = action === 'refresh' && previous?.sourceDir === ctx.config.application.sourceDir;
         let normalized: SourceNormalization[] = [];
+        let adoptedFromRun: string | undefined;
         if (await exists(source)) {
           const expected = refreshKnown ? checkpoint(previous!).files : exported.files;
-          const conflict = () =>
-            new Fault(
-              'SYNC_SOURCE_CONFLICT',
-              'Local sources differ from the expected inventory. Staged artifacts were retained; local files were preserved.',
-              5,
-            );
           const local = await inventory(source);
-          if (canonical(local) !== canonical(expected)) {
+          const differences = sourceDifferences(local, expected);
+          if (differences.length) {
             // A freshly generated app differs from its own server export only where Oracle
-            // rewrites it on import. Those files alone are adopted from the server; any other
-            // difference is a real local edit and stays a conflict.
-            const adopt =
+            // rewrites it on import. Those files alone are adopted from the server.
+            let adopt =
               action === 'init'
                 ? await generatedSourceNormalizations(
                     source,
@@ -1026,13 +1159,31 @@ export class DeploymentService {
                     env.applicationId,
                   )
                 : undefined;
-            if (!adopt) throw conflict();
+            let proof: Awaited<ReturnType<typeof lastImportProof>> | undefined;
+            if (!adopt && action === 'init') {
+              // Local sources that are exactly this project's last verified full import to this
+              // target, with the server unchanged since, differ from the export only by Oracle's
+              // import rewrites. Those sources stay in the run's frozen snapshot.
+              proof = await lastImportProof(ctx, name, env, local, { target, metadata });
+              if (!('refused' in proof)) {
+                adopt = lastImportRewrites(local, expected);
+                adoptedFromRun = proof.runId;
+              }
+            }
+            // Any other difference is a real local edit and stays a conflict.
+            if (!adopt)
+              throw sourceConflict(differences, proof && 'refused' in proof ? proof.refused : undefined);
             for (const change of adopt) {
               const target = await contained(source, change.file);
               if (change.action === 'removed') await rm(target);
-              else await cp(await contained(baselineRoot, change.file), target, { force: true });
+              else {
+                await mkdir(path.dirname(target), { recursive: true });
+                await cp(await contained(baselineRoot, change.file), target, { force: true });
+              }
             }
-            if (canonical(await inventory(source)) !== canonical(expected)) throw conflict();
+            const installed = await inventory(source);
+            if (canonical(installed) !== canonical(expected))
+              throw sourceConflict(sourceDifferences(installed, expected));
             normalized = adopt;
           }
           if (refreshKnown) {
@@ -1070,7 +1221,13 @@ export class DeploymentService {
         await store.write(state);
         // Private baseline and backup copies are installed; release the Oracle staging exports.
         await this.oracle.discardStage?.(exported.stage);
-        return normalized.length ? { ...(await store.status()), normalized } : store.status();
+        return normalized.length
+          ? {
+              ...(await store.status()),
+              normalized,
+              ...(adoptedFromRun ? { normalizedFromDeploymentRunId: adoptedFromRun } : {}),
+            }
+          : store.status();
       } finally {
         await this.releaseLease(env, runId);
       }
@@ -2436,6 +2593,9 @@ export class DeploymentService {
         }
       }
       importConfirmed = true;
+      // A full import of the local sources (not a restore or a selected-file import) leaves a
+      // post-import record that lets sync init recognise Oracle's rewrites of those sources.
+      const recordsImport = !plan.restore && !selection;
       let serverSnapshot: Awaited<ReturnType<typeof persistSnapshot>> | null = null;
       let target: Awaited<ReturnType<OracleAdapter['verifyTarget']>>;
       let postImportMetadata: Awaited<ReturnType<OracleAdapter['applicationMetadata']>> | undefined;
@@ -2445,6 +2605,15 @@ export class DeploymentService {
           const observed = await this.oracle.targetWithMetadata(env, readConnection);
           target = observed.target;
           postImportMetadata = observed.metadata;
+        } else if (recordsImport && typeof this.oracle.targetWithMetadata === 'function') {
+          // The same single read also observes the update metadata a later sync init compares.
+          try {
+            const observed = await this.oracle.targetWithMetadata(env, readConnection);
+            target = observed.target;
+            postImportMetadata = observed.metadata;
+          } catch {
+            target = await this.oracle.verifyTarget(env, readConnection);
+          }
         } else target = await this.oracle.verifyTarget(env, readConnection);
         if (
           !target.application ||
@@ -2552,6 +2721,30 @@ export class DeploymentService {
           postImportMetadata!,
         );
         syncSucceeded = true;
+      }
+      if (recordsImport && postImportMetadata) {
+        try {
+          const files = applicationFiles(ctx, plan.sources);
+          await writeJson(
+            path.join(runDir, POST_IMPORT_FILE),
+            postImportSchema.parse({
+              schemaVersion: 1,
+              runId,
+              planDigest: plan.digest,
+              projectId: plan.projectId,
+              projectRoot: plan.projectRoot,
+              environment: plan.environment,
+              targetDigest: plan.targetDigest,
+              sourceDir: ctx.config.application.sourceDir,
+              applicationDigest: hash(canonical(files)),
+              target,
+              metadata: postImportMetadata,
+              observedAt: new Date().toISOString(),
+            }),
+          );
+        } catch {
+          // The record is optional evidence: without it sync init reports a conflict instead.
+        }
       }
       await record('succeeded');
       return { runId, state, directory: runDir, ...(freshBackupId ? { backupId: freshBackupId } : {}) };

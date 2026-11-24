@@ -43,7 +43,7 @@ export function lockDiagnostics(check: SqlclLockCheck): Diagnostic[] {
         severity: 'warning',
         code: 'TOOLCHAIN_SQLCL_MISMATCH',
         message: `The selected SQLcl is build ${check.found}, but ${check.lockFile} pins ${check.expected}. APEXLang validation and deploys may fail with INVALID_VERSION.`,
-        hint: `Install SQLcl ${check.expected} with apexrest dependencies install, or point APEXREST_SQLCL at its bin/sql.`,
+        hint: `Install SQLcl ${check.expected} with apexrest dependencies install --project PATH, or point APEXREST_SQLCL at its bin/sql.`,
       },
     ];
   if (check.status === 'unknown')

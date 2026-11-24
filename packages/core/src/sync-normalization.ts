@@ -5,8 +5,51 @@ import { canonical, contained } from './fs.ts';
 /** One local source file that sync init may replace with the server's equivalent bytes. */
 export interface SourceNormalization {
   file: string;
-  rule: 'deployment-app-id-target' | 'empty-deinstall-script';
-  action: 'replaced' | 'removed';
+  rule: 'deployment-app-id-target' | 'empty-deinstall-script' | 'last-import-rewrite';
+  action: 'replaced' | 'removed' | 'added';
+}
+
+/** How one local file differs from the inventory sync expected (the server export on init). */
+export interface SourceDifference {
+  file: string;
+  /** added: only local; removed: only expected; changed: different bytes. */
+  change: 'added' | 'removed' | 'changed';
+}
+
+/** Every file whose local bytes differ from the expected inventory, sorted by path. */
+export function sourceDifferences(
+  local: Record<string, string>,
+  expected: Record<string, string>,
+): SourceDifference[] {
+  return [...new Set([...Object.keys(local), ...Object.keys(expected)])]
+    .filter((file) => local[file] !== expected[file])
+    .sort()
+    .map((file) => ({
+      file,
+      change: !expected[file] ? 'added' : !local[file] ? 'removed' : 'changed',
+    }));
+}
+
+/**
+ * Oracle's import rewrites of sources this project imported itself, adopted file by file from
+ * the server export. The caller must first prove that the local sources are exactly the last
+ * successful full import to this target and that the server is unchanged since that import;
+ * every difference is then Oracle's canonical form of the imported bytes.
+ */
+export function lastImportRewrites(
+  local: Record<string, string>,
+  server: Record<string, string>,
+): SourceNormalization[] {
+  return sourceDifferences(local, server).map(({ file, change }) => ({
+    file,
+    rule: 'last-import-rewrite' as const,
+    action:
+      change === 'added'
+        ? ('removed' as const)
+        : change === 'removed'
+          ? ('added' as const)
+          : ('replaced' as const),
+  }));
 }
 
 const DEPLOYMENT_FILE = 'deployments/default.json';

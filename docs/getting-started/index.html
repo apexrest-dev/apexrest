@@ -49,7 +49,7 @@
 </div>
 <p>Two other starting points:</p>
 <ul>
-<li><strong>Already using APEX 26.2?</strong> Start with <a href="/apexrest/apex-26.2/#quick-start-from-an-updated-checkout">partial imports: update a page and its shared components</a>. Use the updated checkout runtime and the reviewed 26.2 compiler; the managed dependency installer still defaults to 26.1.</li>
+<li><strong>Already using APEX 26.2?</strong> Start with <a href="/apexrest/apex-26.2/#quick-start-from-an-updated-checkout">partial imports: update a page and its shared components</a>. Use the updated checkout runtime and the reviewed 26.2 compiler. <code>dependencies install --project PATH</code> installs SQLcl 26.3 from the project&#39;s toolchain lock; without a project it installs the 26.1 baseline.</li>
 <li><strong>Working in a cloud task?</strong> See <a href="#codex-cloud">Codex Cloud</a>.</li>
 </ul>
 <h2 id="which-version-this-guide-describes">Which version this guide describes</h2>
@@ -187,6 +187,10 @@ claude plugin install apexrest@apexrest
 <tr>
 <td><code>--home</code>, <code>--cache-dir</code></td>
 <td>Select managed storage.</td>
+</tr>
+<tr>
+<td><code>--project</code></td>
+<td>Installs the versions the project&#39;s toolchain lock pins.</td>
 </tr>
 </tbody></table>
 </div>

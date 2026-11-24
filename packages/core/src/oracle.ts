@@ -38,7 +38,13 @@ import {
   sourceMmdVersion,
   type TargetVersions,
 } from './compatibility.ts';
-import { parseCodeScan, type AdvisoryFinding } from './upgrade-audit.ts';
+import { parseCodeScan } from './upgrade-audit.ts';
+import {
+  CODESCAN_KNOWN_FALSE_POSITIVE_POLICY,
+  classifyCodeScanFindings,
+  readApplicationSource,
+  type ClassifiedFinding,
+} from './codescan-known-issues.ts';
 import { localConnectionEndpoint, localServerHost } from './locality.ts';
 import { LocalDeploymentControl } from './deployment-control.ts';
 import { scopedExportFile, supportedFile } from './partial-import.ts';
@@ -817,7 +823,9 @@ export class OracleAdapter {
     signal?: AbortSignal,
   ): Promise<{
     status: 'advisory' | 'unavailable';
-    findings: AdvisoryFinding[];
+    findings: ClassifiedFinding[];
+    knownFalsePositivePolicy?: string;
+    knownFalsePositives?: number;
     reason?: string;
   }> {
     const compiler = await this.capabilities(signal);
@@ -844,7 +852,18 @@ export class OracleAdapter {
         false,
         signal,
       );
-      return { status: 'advisory', findings: parseCodeScan(result.output, copy) };
+      // Read the inspected copy so the proof matches the scanned bytes.
+      const findings = classifyCodeScanFindings(parseCodeScan(result.output, copy), {
+        compilerVersion: compiler.version,
+        mmdVersion: await sourceMmdVersion(copy),
+        application: await readApplicationSource(copy),
+      });
+      return {
+        status: 'advisory',
+        findings,
+        knownFalsePositivePolicy: CODESCAN_KNOWN_FALSE_POSITIVE_POLICY,
+        knownFalsePositives: findings.filter((finding) => finding.knownFalsePositive).length,
+      };
     } catch (error) {
       if (signal?.aborted || (error instanceof Fault && error.code === 'CANCELLED')) throw error;
       return {

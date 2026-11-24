@@ -5,7 +5,7 @@ This page describes the project file `apexrest.json`, environments, connection r
 ## Before you start
 
 - Implementation uses the current host session (Codex or Claude Code) and its permissions.
-- A project has one `apexrest.json` and one pinned toolchain lock. `project init` creates both, with an empty environment map.
+- A project has one `apexrest.json` and one pinned toolchain lock, named by the required `toolchain.lockFile` (a path inside the project). `project init` creates both, copying the reviewed lock of the selected profile, with an empty environment map.
 - Every target operation requires an explicit environment; the plugin never guesses a database, workspace or application ID.
 
 ## Optional project settings
@@ -16,6 +16,7 @@ This page describes the project file `apexrest.json`, environments, connection r
 | `decisionApi`       | Configures component selection only; overrides the [machine-wide default](#machine-wide-settings) | `enabled` (default false), `apiKeyEnv` (default `OPENAI_API_KEY`), optional project-relative `envFile`, and `timeoutMs` (default 3000, range 250–10000)                                  |
 | `peerReview`        | Enables cross-vendor review of saved ship plans                                                   | `mode` (`off` default, `advisory`, `required`), `vendor` (`auto` default, `codex`, `claude`), optional `model` passed to the peer CLI, and `timeoutSeconds` (default 600, range 60–1800) |
 
+- `toolchain.lockFile`: `setup` and `dependencies install` with `--project`, or run from the project root (the folder that holds `apexrest.json`; subfolders are not searched), install and record the Node.js, Java and SQLcl this lock pins. Its entries must match a lock shipped with the plugin.
 - `toolchain.profile`: existing projects without it retain 26.1 behavior; selecting a profile does not upgrade a database or rewrite Oracle source metadata. See [APEX 26.2 support](apex-26.2.md) for the matching compiler lock and partial-import requirements.
 - `decisionApi`: the key comes from the process environment first, then the explicitly configured private ignored ENV file. Selection falls back locally on API/credential failures; ordinary reference search/read remain local. See [Decisions selection](component-catalog.md#optional-openai-decisions-selection) for configuration and CLI/MCP examples.
 - `peerReview`: see [Peer review](#cross-vendor-peer-review).

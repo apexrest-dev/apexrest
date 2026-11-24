@@ -69,6 +69,8 @@ const numbers = new Set([
 const BANNER = 'APEXREST for Codex and Claude Code — independent Oracle APEX developer tools';
 const EXIT_CODES =
   'Exit codes: 0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown/cancelled.';
+const TOOLCHAIN_PROJECT_HELP =
+  "--project PATH installs the Node.js/Java/SQLcl its toolchain lock pins; without it, the current folder's project lock, else the built-in baseline.";
 const command = (op: string) => op.replace('.', ' ');
 const flag = (name: string) => '--' + name.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
 interface FieldDef {
@@ -242,6 +244,13 @@ function help() {
       'Install: apexrest dependencies install --yes',
       '--accept-oracle-license records separate consent to the Oracle terms shown in the preview.',
       '--offline uses cached downloads; --home and --cache-dir select managed storage.',
+      TOOLCHAIN_PROJECT_HELP,
+    );
+  if (key === 'setup' || key === 'plugin.install' || key === 'plugin.update')
+    lines.push(
+      '',
+      TOOLCHAIN_PROJECT_HELP,
+      '--version is the APEXREST package version, not the toolchain profile.',
     );
   if (key === 'dependencies.uninstall')
     lines.push(

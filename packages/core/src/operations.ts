@@ -136,7 +136,7 @@ export const schemas = {
       .describe('Caller-measured elapsed time for that run'),
   }),
   setup: z.strictObject(setup),
-  'dependencies.install': z.strictObject(dependencies),
+  'dependencies.install': z.strictObject({ ...base, ...dependencies }),
   'dependencies.uninstall': z.strictObject({
     home: z.string().optional(),
     dryRun: z.boolean().default(false),
