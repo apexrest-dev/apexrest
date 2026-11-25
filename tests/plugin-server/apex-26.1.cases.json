@@ -2091,6 +2091,22 @@
       ],
       "evidence": ["scenario report"],
       "budgetMs": 600000
+    },
+    {
+      "id": "A261-104",
+      "title": "Paired candidate qualification",
+      "acceptance": ["FASTDEV-V13"],
+      "execution": "manual",
+      "surface": "cli",
+      "authorization": "application-import",
+      "steps": [
+        "With explicit authorization, run node scripts/bench/run.mjs scripts/bench/qualify.ts --project <project> --env <env> --authorized-target <env> --out <file>."
+      ],
+      "expected": [
+        "Paired baseline/candidate records per cohort and scenario keep every outcome and safeguard; each candidate receives a scoped promote, retain-experimental or reject decision; production is refused."
+      ],
+      "evidence": ["qualification report"],
+      "budgetMs": 3600000
     }
   ],
   "metrics": "quality-performance.json"

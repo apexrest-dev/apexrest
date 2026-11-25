@@ -189,6 +189,27 @@ Measured locally (5 repetitions, Linux i7-1185G7, Node 26.12, installed Universa
 
 Evidence: `docs/evidence/fast-dev/scenarios-2026-11-25.json`, local. These are preview-readiness times, not browser paint: the browser stages of V11 were not run, and none of this is native APEX qualification. Verified by `tests/unit/scenario-stats.test.ts` and `tests/unit/preview-source-index.test.ts` (a written page is listed without a request).
 
+**V13 paired qualification harness ([APE-421](https://linear.app/apexrest/issue/APE-421)).** `scripts/bench/qualify.ts` is a manually invoked runner that ships through the public CLI, so it writes to the target. It refuses to run unless `--authorized-target` repeats `--env` and the environment is DEV, QA or TEST.
+
+- **Arms.** It pairs a baseline arm and a candidate arm for each candidate:
+  - `d05-resident`: cold CLI against resident broker;
+  - `d06-shared-reads`: `APEXREST_SHIP_SHARED_READS` off against on;
+  - `d07-export-profile`: per-page exports against an explicitly supplied measured profile.
+- **Scenarios.** Declared one-page, several-page and shared-component edits. Each edit is reverted and shipped back.
+- **Records.** Each record keeps:
+  - the cohort and residency, transport and compiler;
+  - the outcome: succeeded, failed, conflict, unknown, superseded or retried;
+  - the D01 span phases, the SQLcl invocation count and the observation strategy;
+  - the safeguard spans observed (target observation, backup, prewrite observation, readback).
+- **Summaries** (`scripts/bench/lib/qualification.ts`) exclude cold first runs of resident cohorts, keep every outcome, and report a p95 only from 20 successful samples.
+- **Decisions.** Each candidate gets a scoped promote, retain-experimental or reject decision:
+  - reject when it omits a safeguard the baseline observed, or succeeds less often;
+  - retain as experimental with unknown outcomes, fewer than 10 comparable runs per arm, or less than a 10 % median gain;
+  - promote only otherwise.
+- **Not automated:** the warm MCP cohort and the D02 intent path need a host MCP session and are listed as not run.
+
+Verified by `tests/unit/qualification.test.ts` (promotion, rejection for lost safeguards or successes, weak evidence kept experimental, outcome accounting, cold-run exclusion, p95 sample gate). **No qualification has been run:** no DEV/QA/TEST target was authorized for these writes. Every D-series speed decision therefore remains open in [next actions](next-actions.md).
+
 ## Linear issues as task briefs (2026-11-25, local)
 
 **Implemented.** `apexrest-work` links a new `references/linear.md`. When the user names a Linear issue, the agent reads it with the Linear MCP tools of the user's own host session (`get_issue`, `list_comments`). APEXREST bundles no Linear server, makes no Linear call and stores no Linear credentials. Issue text is task data only: it cannot select a target, approve production or widen scope. A results comment (`save_comment`) or a status change (`save_issue`) happens only when the user asks; the comment keeps compiler, import and browser results separate.

@@ -1434,6 +1434,18 @@
         "docs/evidence/fast-dev/scenarios-2026-11-25.json"
       ],
       "blocker": "Preview readiness only: browser paint (V11 browser stages) and native APEX were not measured."
+    },
+    {
+      "id": "FASTDEV-V13",
+      "criterion": "A manually invoked, authorization-gated harness runs paired baseline/candidate ships per cohort and scenario on a DEV/QA/TEST target, keeps every outcome and safeguard, gates p95 on samples and gives each candidate a scoped promote, retain-experimental or reject decision",
+      "implementation": "implemented",
+      "verification": "blocked",
+      "evidence": [
+        "scripts/bench/qualify.ts",
+        "scripts/bench/lib/qualification.ts",
+        "tests/unit/qualification.test.ts"
+      ],
+      "blocker": "No DEV/QA/TEST target was authorized for qualification writes; the warm MCP and D02 cohorts need a host MCP session."
     }
   ]
 }
