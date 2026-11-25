@@ -226,6 +226,49 @@ export const schemas = {
       .describe('Page file digest you read; required to write'),
     dryRun: z.boolean().default(false),
   }),
+  'project.edit': z.strictObject({
+    ...base,
+    page: z
+      .string()
+      .regex(/^\d{1,5}$/u)
+      .describe('Page number'),
+    operations: z
+      .array(
+        z.discriminatedUnion('op', [
+          z.strictObject({
+            op: z.literal('set'),
+            target: z.string().min(1).max(300),
+            property: z.enum(['title', 'label', 'heading', 'format', 'sequence', 'query']),
+            value: z.string().max(100000),
+            columns: z
+              .array(
+                z.strictObject({
+                  name: z.string().min(1).max(128),
+                  heading: z.string().max(4000).optional(),
+                  dataType: z.enum(['varchar2', 'number', 'date', 'timestamp']).optional(),
+                }),
+              )
+              .max(200)
+              .optional(),
+          }),
+          z.strictObject({
+            op: z.literal('insert'),
+            components: z
+              .record(z.string(), z.unknown())
+              .describe('Scaffold fragment: {regions, items?, refreshes?}'),
+          }),
+        ]),
+      )
+      .min(1)
+      .max(50)
+      .describe('JSON: [{op:set, target, property, value} | {op:insert, components}] on one page snapshot'),
+    expectedDigest: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional()
+      .describe('Page file digest you read; required to write'),
+    dryRun: z.boolean().default(false),
+  }),
   'project.scaffold': z.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
   'connection.add': z
     .strictObject({
@@ -428,6 +471,7 @@ export const schemas = {
       'patch',
       'context',
       'insert',
+      'edit',
       'connection_add',
       'connection_list',
       'connection_test',

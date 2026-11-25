@@ -3087,8 +3087,32 @@ ${error.message}`,
 };
 
 // packages/core/src/edit/patch.ts
+import path6 from "node:path";
+import { readFile as readFile5 } from "node:fs/promises";
+
+// packages/core/src/edit/page-file.ts
 import path4 from "node:path";
 import { readFile as readFile3, readdir as readdir2 } from "node:fs/promises";
+async function pageFile(ctx, page) {
+  const app = await contained(ctx.root, ctx.config.application.sourceDir);
+  const dir = path4.join(app, "pages");
+  const matches = [];
+  for (const name of (await readdir2(dir)).filter((file) => file.endsWith(".apx")).sort()) {
+    const head = (await readFile3(path4.join(dir, name), "utf8")).slice(0, 4096);
+    if (new RegExp(`^page\\s+${page}\\s*\\(`, "mu").test(head)) matches.push(path4.join(dir, name));
+  }
+  if (matches.length !== 1)
+    throw new Fault(
+      matches.length ? "TARGET_AMBIGUOUS" : "TARGET_NOT_FOUND",
+      matches.length ? `Several files declare page ${page}.` : `No page file declares page ${page}.`,
+      matches.length ? 5 : 2
+    );
+  return matches[0];
+}
+
+// packages/core/src/edit/transaction.ts
+import path5 from "node:path";
+import { readFile as readFile4 } from "node:fs/promises";
 
 // packages/core/src/edit/apexlang-edit.ts
 import { createHash } from "node:crypto";
@@ -3236,7 +3260,7 @@ var ApexLangDocument = class {
         if (!owner) throw unsupported(`Property outside a component at line ${index + 1}.`);
         const key = unquote(property[2]);
         const prefix = groupPath();
-        const path5 = prefix ? `${prefix}.${key}` : key;
+        const path7 = prefix ? `${prefix}.${key}` : key;
         const value = property[4] ?? "";
         const colon = text.indexOf(":", property[1].length + property[2].length);
         const valueStart = property[3] ? line.offset + colon + 1 + property[3].length : line.offset + colon + 1;
@@ -3247,8 +3271,8 @@ var ApexLangDocument = class {
           value,
           opaque: value === "" || value === "{" || value === "[" || value.startsWith("```")
         };
-        if (owner.properties.has(path5)) throw unsupported(`Duplicate property ${path5} at line ${index + 1}.`);
-        owner.properties.set(path5, entry);
+        if (owner.properties.has(path7)) throw unsupported(`Duplicate property ${path7} at line ${index + 1}.`);
+        owner.properties.set(path7, entry);
         if (value === "") pendingFence = entry;
         else if (value === "{") stack.push({ type: "value", close: "}" });
         else if (value === "[") stack.push({ type: "value", close: "]" });
@@ -3275,15 +3299,15 @@ function scalarText(value) {
   const plain = value !== "" && value === value.trim() && !["true", "false", "{", "["].includes(value) && !/^["@\\[{]|^```|^\/\/|^\/\*/u.test(value);
   return plain ? value : JSON.stringify(value);
 }
-function setProperty(doc, node, path5, value) {
+function setProperty(doc, node, path7, value) {
   const text = scalarText(value);
-  const existing = node.properties.get(path5);
+  const existing = node.properties.get(path7);
   if (existing) {
-    if (existing.opaque) throw unsupported(`${path5} holds a multi-line value; edit it in source.`);
+    if (existing.opaque) throw unsupported(`${path7} holds a multi-line value; edit it in source.`);
     return { start: existing.valueStart, end: existing.valueEnd, content: text };
   }
-  const parts = path5.split(".");
-  if (parts.length > 2) throw unsupported(`Nested property ${path5} is not supported.`);
+  const parts = path7.split(".");
+  if (parts.length > 2) throw unsupported(`Nested property ${path7} is not supported.`);
   const indent = " ".repeat(node.indent + 4);
   const eol = doc.eol;
   if (parts.length === 2) {
@@ -3307,7 +3331,7 @@ function setProperty(doc, node, path5, value) {
   const after = node.properties.get("name")?.line ?? node.open;
   const line = doc.lines[after];
   const at = line.offset + line.text.length + line.eol.length;
-  return { start: at, end: at, content: `${indent}${path5}: ${text}${eol}` };
+  return { start: at, end: at, content: `${indent}${path7}: ${text}${eol}` };
 }
 function applyEdits(source, edits) {
   let result = source;
@@ -3320,10 +3344,10 @@ function applyEdits(source, edits) {
   }
   return result;
 }
-function setFencedText(doc, node, path5, text) {
-  const property = node.properties.get(path5);
+function setFencedText(doc, node, path7, text) {
+  const property = node.properties.get(path7);
   if (!property?.fence || property.fence.close < 0)
-    throw unsupported(`${path5} is not a fenced literal of ${node.kind} ${node.key}.`);
+    throw unsupported(`${path7} is not a fenced literal of ${node.kind} ${node.key}.`);
   if (/^\s*```/mu.test(text))
     throw new Fault("INVALID_INPUT", "The text cannot contain a ``` fence line.", 2);
   const open2 = doc.lines[property.fence.open];
@@ -3342,13 +3366,108 @@ function appendChild(doc, parent, text) {
   const close = doc.lines[parent.close];
   return { start: close.offset, end: close.offset, content: text };
 }
-function readProperty(component, path5) {
+function readProperty(component, path7) {
   let value = component.props;
-  for (const part of path5.split(".")) {
+  for (const part of path7.split(".")) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
     value = value[part];
   }
   return value;
+}
+
+// packages/core/src/edit/transaction.ts
+function combine(plans) {
+  const edits = [];
+  for (const plan of plans)
+    for (const edit of plan.edits) {
+      const same = edit.start === edit.end && edits.find((other) => other.start === edit.start && other.end === edit.start);
+      if (same) same.content += edit.content;
+      else edits.push({ ...edit });
+    }
+  return edits;
+}
+function snapshotOf(source, pageId) {
+  const doc = new ApexLangDocument(source);
+  const node = ApexLangDocument.one(doc.roots, "page", pageId, "The file");
+  const parsed = parseApexLang(source, "page").find((c) => c.type === "page" && c.id === node.key);
+  if (!parsed) throw new Fault("TARGET_NOT_FOUND", `No page ${pageId} in its file.`, 2);
+  return { source, pageId, doc, node, parsed };
+}
+function transformPage(source, pageId, groups) {
+  const snapshot = snapshotOf(source, pageId);
+  const plans = groups.map((plan) => plan(snapshot));
+  const edits = combine(plans);
+  const result = applyEdits(source, edits);
+  let after;
+  try {
+    after = parseApexLang(result, "edit").find((c) => c.type === "page" && c.id === snapshot.node.key);
+  } catch (error) {
+    throw new Fault("TRANSFORM_INVALID", `The edited page does not parse: ${error.message}`, 5);
+  }
+  new ApexLangDocument(result);
+  if (!after) throw new Fault("TRANSFORM_INVALID", `Page ${pageId} did not read back.`, 5);
+  for (const plan of plans) plan.verify(after);
+  return { result, edits: edits.length, targets: [...new Set(plans.flatMap((plan) => plan.targets ?? []))] };
+}
+async function runPageTransaction(ctx, input, groups) {
+  if (!/^\d{1,5}$/u.test(input.page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
+  if (!input.operations.length || input.operations.length > 50)
+    throw new Fault("INVALID_INPUT", "Give 1-50 operations.", 2);
+  const pageId = String(Number(input.page));
+  const file = await pageFile(ctx, pageId);
+  const relative = path5.relative(ctx.root, file).split(path5.sep).join("/");
+  const plan = async () => {
+    const source = await readFile4(file, "utf8");
+    return { source, digest: digestOf(source), ...transformPage(source, pageId, groups(input.operations)) };
+  };
+  if (input.dryRun || !input.expectedDigest) {
+    const planned = await plan();
+    if (!input.dryRun)
+      throw new Fault(
+        "EXPECTED_DIGEST_REQUIRED",
+        `Pass expectedDigest ${planned.digest} (the ${relative} you read) to apply the edit.`,
+        2,
+        "blocked",
+        { file: relative, currentDigest: planned.digest }
+      );
+    return {
+      file: relative,
+      page: input.page,
+      beforeDigest: planned.digest,
+      afterDigest: digestOf(planned.result),
+      written: false,
+      operations: input.operations.length,
+      result: planned.result,
+      targets: planned.targets,
+      next: `Apply with expectedDigest ${planned.digest}.`
+    };
+  }
+  return withLock(path5.join(ctx.root, ".apexrest", "source-edit.lock"), async () => {
+    const before = await sourceInventory(ctx);
+    const planned = await plan();
+    if (planned.digest !== input.expectedDigest)
+      throw new Fault(
+        "TRANSFORM_CONFLICT",
+        `${relative} changed since it was read; read it again and retry.`,
+        5,
+        "conflict",
+        { file: relative, currentDigest: planned.digest }
+      );
+    await atomicWrite(file, planned.result);
+    const after = await sourceInventory(ctx);
+    return {
+      file: relative,
+      page: input.page,
+      beforeDigest: planned.digest,
+      afterDigest: digestOf(planned.result),
+      written: true,
+      operations: input.operations.length,
+      change: sourceChange(before, after, ctx.config.application.sourceDir),
+      result: planned.result,
+      targets: planned.targets,
+      next: "Source edited only. Validate or ship to check it with the compiler and import it."
+    };
+  });
 }
 
 // packages/core/src/edit/patch.ts
@@ -3410,25 +3529,8 @@ function resolve(page, operation) {
     throw new Fault("INVALID_INPUT", "sequence must be a positive integer.", 2);
   return { node, path: pathFor, find };
 }
-async function pageFile(ctx, page) {
-  const app = await contained(ctx.root, ctx.config.application.sourceDir);
-  const dir = path4.join(app, "pages");
-  const matches = [];
-  for (const name of (await readdir2(dir)).filter((file) => file.endsWith(".apx")).sort()) {
-    const head = (await readFile3(path4.join(dir, name), "utf8")).slice(0, 4096);
-    if (new RegExp(`^page\\s+${page}\\s*\\(`, "mu").test(head)) matches.push(path4.join(dir, name));
-  }
-  if (matches.length !== 1)
-    throw new Fault(
-      matches.length ? "TARGET_AMBIGUOUS" : "TARGET_NOT_FOUND",
-      matches.length ? `Several files declare page ${page}.` : `No page file declares page ${page}.`,
-      matches.length ? 5 : 2
-    );
-  return matches[0];
-}
-function transform(source, pageId, operations) {
-  const doc = new ApexLangDocument(source);
-  const page = ApexLangDocument.one(doc.roots, "page", pageId, "The file");
+function planSets(snapshot, operations) {
+  const { doc, node: page } = snapshot;
   const resolved = operations.map((operation) => ({ operation, ...resolve(page, operation) }));
   const seen = /* @__PURE__ */ new Set();
   for (const entry of resolved) {
@@ -3438,52 +3540,34 @@ function transform(source, pageId, operations) {
     seen.add(key);
   }
   const edits = [];
-  const add = (edit) => {
-    const same = edits.find(
-      (other) => other.start === edit.start && other.end === edit.start && edit.end === edit.start
-    );
-    if (same) same.content += edit.content;
-    else edits.push(edit);
-  };
   for (const entry of resolved) {
-    if (entry.operation.property === "query") {
-      for (const edit2 of queryEdits(doc, entry.node, entry.operation)) add(edit2);
-      continue;
-    }
-    const edit = setProperty(doc, entry.node, entry.path, entry.operation.value);
-    add(edit);
+    if (entry.operation.property === "query") edits.push(...queryEdits(doc, entry.node, entry.operation));
+    else edits.push(setProperty(doc, entry.node, entry.path, entry.operation.value));
   }
-  const result = applyEdits(source, edits);
-  let parsed;
-  try {
-    parsed = parseApexLang(result, "patch");
-  } catch (error) {
-    throw new Fault("TRANSFORM_INVALID", `The edited page does not parse: ${error.message}`, 5);
-  }
-  new ApexLangDocument(result);
-  const parsedPage = parsed.find((c) => c.type === "page" && c.id === page.key);
-  for (const entry of resolved) {
-    const component = parsedPage && entry.find(parsedPage);
-    const value = component && readProperty(component, entry.path);
-    if (entry.operation.property === "query") {
-      const names = component?.children.filter((child) => child.type === "column").map((child) => child.id.toUpperCase());
-      const expected = (entry.operation.columns ?? []).map((column) => column.name.toUpperCase());
-      if (String(value ?? "").trim() !== entry.operation.value.trim() || JSON.stringify(names) !== JSON.stringify(expected))
+  const verify = (parsedPage) => {
+    for (const entry of resolved) {
+      const component = entry.find(parsedPage);
+      const value = component && readProperty(component, entry.path);
+      if (entry.operation.property === "query") {
+        const names = component?.children.filter((child) => child.type === "column").map((child) => child.id.toUpperCase());
+        const expected = (entry.operation.columns ?? []).map((column) => column.name.toUpperCase());
+        if (String(value ?? "").trim() !== entry.operation.value.trim() || JSON.stringify(names) !== JSON.stringify(expected))
+          throw new Fault(
+            "TRANSFORM_INVALID",
+            `${entry.operation.target} query or columns did not read back.`,
+            5
+          );
+        continue;
+      }
+      if (value !== entry.operation.value)
         throw new Fault(
           "TRANSFORM_INVALID",
-          `${entry.operation.target} query or columns did not read back.`,
+          `${entry.operation.target} ${entry.operation.property} did not read back.`,
           5
         );
-      continue;
     }
-    if (value !== entry.operation.value)
-      throw new Fault(
-        "TRANSFORM_INVALID",
-        `${entry.operation.target} ${entry.operation.property} did not read back.`,
-        5
-      );
-  }
-  return { result, edits: edits.length };
+  };
+  return { edits, verify, targets: resolved.map((entry) => entry.operation.target) };
 }
 function queryEdits(doc, region, operation) {
   const type = doc.lines[region.open] && region.properties.get("type")?.value;
@@ -3542,8 +3626,8 @@ function queryEdits(doc, region, operation) {
 async function pageContext(ctx, page) {
   if (!/^\d{1,5}$/u.test(page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
   const file = await pageFile(ctx, String(Number(page)));
-  const source = await readFile3(file, "utf8");
-  const parsed = parseApexLang(source, path4.relative(ctx.root, file)).find((c) => c.type === "page");
+  const source = await readFile5(file, "utf8");
+  const parsed = parseApexLang(source, path6.relative(ctx.root, file)).find((c) => c.type === "page");
   if (!parsed) throw new Fault("TARGET_NOT_FOUND", `No page ${page} in its file.`, 2);
   const text = (component, dotted) => {
     const value = readProperty(component, dotted);
@@ -3551,7 +3635,7 @@ async function pageContext(ctx, page) {
   };
   const compact = (value) => Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== void 0 && entry !== ""));
   return {
-    file: path4.relative(ctx.root, file).split(path4.sep).join("/"),
+    file: path6.relative(ctx.root, file).split(path6.sep).join("/"),
     digest: digestOf(source),
     page: compact({ id: parsed.id, name: text(parsed, "name"), title: text(parsed, "title") }),
     regions: parsed.children.filter((c) => c.type === "region").map(
@@ -3587,81 +3671,27 @@ async function pageContext(ctx, page) {
   };
 }
 async function patchPage(ctx, input) {
-  if (!/^\d{1,5}$/u.test(input.page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
-  if (!input.operations.length || input.operations.length > 50)
-    throw new Fault("INVALID_INPUT", "Give 1-50 operations.", 2);
-  const file = await pageFile(ctx, String(Number(input.page)));
-  const relative = path4.relative(ctx.root, file).split(path4.sep).join("/");
-  const preview = async () => {
-    const source = await readFile3(file, "utf8");
-    return {
-      source,
-      digest: digestOf(source),
-      ...transform(source, String(Number(input.page)), input.operations)
-    };
-  };
-  if (input.dryRun || !input.expectedDigest) {
-    const planned = await preview();
-    if (!input.dryRun)
-      throw new Fault(
-        "EXPECTED_DIGEST_REQUIRED",
-        `Pass expectedDigest ${planned.digest} (the ${relative} you read) to apply the edit.`,
-        2,
-        "blocked",
-        { file: relative, currentDigest: planned.digest }
-      );
-    return {
-      file: relative,
-      page: input.page,
-      beforeDigest: planned.digest,
-      afterDigest: digestOf(planned.result),
-      written: false,
-      operations: input.operations.length,
-      next: `Apply with expectedDigest ${planned.digest}.`
-    };
-  }
-  return withLock(path4.join(ctx.root, ".apexrest", "source-edit.lock"), async () => {
-    const before = await sourceInventory(ctx);
-    const planned = await preview();
-    if (planned.digest !== input.expectedDigest)
-      throw new Fault(
-        "TRANSFORM_CONFLICT",
-        `${relative} changed since it was read; read it again and retry.`,
-        5,
-        "conflict",
-        { file: relative, currentDigest: planned.digest }
-      );
-    await atomicWrite(file, planned.result);
-    const after = await sourceInventory(ctx);
-    return {
-      file: relative,
-      page: input.page,
-      beforeDigest: planned.digest,
-      afterDigest: digestOf(planned.result),
-      written: true,
-      operations: input.operations.length,
-      change: sourceChange(before, after, ctx.config.application.sourceDir),
-      next: "Source edited only. Validate or ship to check it with the compiler and import it."
-    };
-  });
+  const {
+    result: _text,
+    targets: _targets,
+    ...outcome
+  } = await runPageTransaction(ctx, input, (operations) => [(snapshot) => planSets(snapshot, operations)]);
+  return outcome;
 }
 
 export {
   revisionOf,
   sourceRevision,
-  sourceChange,
   recordRevision,
   revisionStatus,
   deployPlanSchema,
   planDigest,
   sourceInventory,
   DeploymentService,
-  digestOf,
-  ApexLangDocument,
-  applyEdits,
   appendChild,
+  runPageTransaction,
   PATCH_PROPERTIES,
-  pageFile,
+  planSets,
   pageContext,
   patchPage
 };

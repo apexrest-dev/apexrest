@@ -1,13 +1,12 @@
 import path from 'node:path';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import type { ProjectContext } from '../config.ts';
-import { atomicWrite, contained, withLock } from '../fs.ts';
 import { Fault } from '../result.ts';
-import { sourceInventory } from '../deploy.ts';
-import { sourceChange, type SourceChange } from '../revision.ts';
+import type { SourceChange } from '../revision.ts';
+import { pageFile } from './page-file.ts';
+import { runPageTransaction, transformPage, type PageSnapshot, type PlannedEdit } from './transaction.ts';
 import {
   ApexLangDocument,
-  applyEdits,
   digestOf,
   parseApexLang,
   readProperty,
@@ -119,28 +118,11 @@ function resolve(page: ComponentNode, operation: PatchOperation): Resolved {
   return { node, path: pathFor, find };
 }
 
-/** The page's own file: exactly one `.apx` under `pages/` declaring `page <id>`. */
-export async function pageFile(ctx: ProjectContext, page: string): Promise<string> {
-  const app = await contained(ctx.root, ctx.config.application.sourceDir);
-  const dir = path.join(app, 'pages');
-  const matches: string[] = [];
-  for (const name of (await readdir(dir)).filter((file) => file.endsWith('.apx')).sort()) {
-    const head = (await readFile(path.join(dir, name), 'utf8')).slice(0, 4096);
-    if (new RegExp(`^page\\s+${page}\\s*\\(`, 'mu').test(head)) matches.push(path.join(dir, name));
-  }
-  if (matches.length !== 1)
-    throw new Fault(
-      matches.length ? 'TARGET_AMBIGUOUS' : 'TARGET_NOT_FOUND',
-      matches.length ? `Several files declare page ${page}.` : `No page file declares page ${page}.`,
-      matches.length ? 5 : 2,
-    );
-  return matches[0]!;
-}
+export { pageFile };
 
-/** Computes the edited text and validates it; throws before anything is written. */
-function transform(source: string, pageId: string, operations: PatchOperation[]) {
-  const doc = new ApexLangDocument(source);
-  const page = ApexLangDocument.one(doc.roots, 'page', pageId, 'The file');
+/** Plans property and query operations against the page snapshot; throws before anything is written. */
+export function planSets(snapshot: PageSnapshot, operations: PatchOperation[]): PlannedEdit {
+  const { doc, node: page } = snapshot;
   const resolved = operations.map((operation) => ({ operation, ...resolve(page, operation) }));
   const seen = new Set<string>();
   for (const entry of resolved) {
@@ -149,60 +131,47 @@ function transform(source: string, pageId: string, operations: PatchOperation[])
       throw new Fault('TRANSFORM_CONFLICT', `Two operations set ${entry.path} of the same component.`, 5);
     seen.add(key);
   }
-  // Insertions at the same anchor (two new groups before one child) are combined in order.
   const edits: TextEdit[] = [];
-  const add = (edit: TextEdit) => {
-    const same = edits.find(
-      (other) => other.start === edit.start && other.end === edit.start && edit.end === edit.start,
-    );
-    if (same) same.content += edit.content;
-    else edits.push(edit);
-  };
   for (const entry of resolved) {
-    if (entry.operation.property === 'query') {
-      for (const edit of queryEdits(doc, entry.node, entry.operation)) add(edit);
-      continue;
-    }
-    const edit = setProperty(doc, entry.node, entry.path, entry.operation.value);
-    add(edit);
+    if (entry.operation.property === 'query') edits.push(...queryEdits(doc, entry.node, entry.operation));
+    else edits.push(setProperty(doc, entry.node, entry.path, entry.operation.value));
   }
-  const result = applyEdits(source, edits);
-  // Validation: the result parses, every target reads the new value, and the scanner still accepts it.
-  let parsed;
-  try {
-    parsed = parseApexLang(result, 'patch');
-  } catch (error) {
-    throw new Fault('TRANSFORM_INVALID', `The edited page does not parse: ${(error as Error).message}`, 5);
-  }
-  new ApexLangDocument(result);
-  const parsedPage = parsed.find((c) => c.type === 'page' && c.id === page.key);
-  for (const entry of resolved) {
-    const component = parsedPage && entry.find(parsedPage);
-    const value = component && readProperty(component, entry.path);
-    if (entry.operation.property === 'query') {
-      const names = component?.children
-        .filter((child) => child.type === 'column')
-        .map((child) => child.id.toUpperCase());
-      const expected = (entry.operation.columns ?? []).map((column) => column.name.toUpperCase());
-      if (
-        String(value ?? '').trim() !== entry.operation.value.trim() ||
-        JSON.stringify(names) !== JSON.stringify(expected)
-      )
+  // Validation: every target reads the new value from the parsed result.
+  const verify = (parsedPage: ReturnType<typeof parseApexLang>[number]) => {
+    for (const entry of resolved) {
+      const component = entry.find(parsedPage);
+      const value = component && readProperty(component, entry.path);
+      if (entry.operation.property === 'query') {
+        const names = component?.children
+          .filter((child) => child.type === 'column')
+          .map((child) => child.id.toUpperCase());
+        const expected = (entry.operation.columns ?? []).map((column) => column.name.toUpperCase());
+        if (
+          String(value ?? '').trim() !== entry.operation.value.trim() ||
+          JSON.stringify(names) !== JSON.stringify(expected)
+        )
+          throw new Fault(
+            'TRANSFORM_INVALID',
+            `${entry.operation.target} query or columns did not read back.`,
+            5,
+          );
+        continue;
+      }
+      if (value !== entry.operation.value)
         throw new Fault(
           'TRANSFORM_INVALID',
-          `${entry.operation.target} query or columns did not read back.`,
+          `${entry.operation.target} ${entry.operation.property} did not read back.`,
           5,
         );
-      continue;
     }
-    if (value !== entry.operation.value)
-      throw new Fault(
-        'TRANSFORM_INVALID',
-        `${entry.operation.target} ${entry.operation.property} did not read back.`,
-        5,
-      );
-  }
-  return { result, edits: edits.length };
+  };
+  return { edits, verify, targets: resolved.map((entry) => entry.operation.target) };
+}
+
+/** Computes the edited text and validates it; throws before anything is written. */
+function transform(source: string, pageId: string, operations: PatchOperation[]) {
+  const { result, edits } = transformPage(source, pageId, [(snapshot) => planSets(snapshot, operations)]);
+  return { result, edits };
 }
 
 /**
@@ -346,63 +315,12 @@ export interface PatchResult {
 }
 
 export async function patchPage(ctx: ProjectContext, input: PatchInput): Promise<PatchResult> {
-  if (!/^\d{1,5}$/u.test(input.page)) throw new Fault('INVALID_INPUT', 'page is a page number.', 2);
-  if (!input.operations.length || input.operations.length > 50)
-    throw new Fault('INVALID_INPUT', 'Give 1-50 operations.', 2);
-  const file = await pageFile(ctx, String(Number(input.page)));
-  const relative = path.relative(ctx.root, file).split(path.sep).join('/');
-  const preview = async () => {
-    const source = await readFile(file, 'utf8');
-    return {
-      source,
-      digest: digestOf(source),
-      ...transform(source, String(Number(input.page)), input.operations),
-    };
-  };
-  if (input.dryRun || !input.expectedDigest) {
-    const planned = await preview();
-    if (!input.dryRun)
-      throw new Fault(
-        'EXPECTED_DIGEST_REQUIRED',
-        `Pass expectedDigest ${planned.digest} (the ${relative} you read) to apply the edit.`,
-        2,
-        'blocked',
-        { file: relative, currentDigest: planned.digest },
-      );
-    return {
-      file: relative,
-      page: input.page,
-      beforeDigest: planned.digest,
-      afterDigest: digestOf(planned.result),
-      written: false,
-      operations: input.operations.length,
-      next: `Apply with expectedDigest ${planned.digest}.`,
-    };
-  }
-  return withLock(path.join(ctx.root, '.apexrest', 'source-edit.lock'), async () => {
-    const before = await sourceInventory(ctx);
-    const planned = await preview();
-    if (planned.digest !== input.expectedDigest)
-      throw new Fault(
-        'TRANSFORM_CONFLICT',
-        `${relative} changed since it was read; read it again and retry.`,
-        5,
-        'conflict',
-        { file: relative, currentDigest: planned.digest },
-      );
-    await atomicWrite(file, planned.result);
-    const after = await sourceInventory(ctx);
-    return {
-      file: relative,
-      page: input.page,
-      beforeDigest: planned.digest,
-      afterDigest: digestOf(planned.result),
-      written: true,
-      operations: input.operations.length,
-      change: sourceChange(before, after, ctx.config.application.sourceDir),
-      next: 'Source edited only. Validate or ship to check it with the compiler and import it.',
-    };
-  });
+  const {
+    result: _text,
+    targets: _targets,
+    ...outcome
+  } = await runPageTransaction(ctx, input, (operations) => [(snapshot) => planSets(snapshot, operations)]);
+  return outcome;
 }
 
 export const _forTests = { transform };

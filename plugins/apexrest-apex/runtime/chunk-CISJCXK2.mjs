@@ -13,7 +13,7 @@ import {
   recordRevision,
   revisionOf,
   sourceInventory
-} from "./chunk-QXSHAZH3.mjs";
+} from "./chunk-5P7YH266.mjs";
 import "./chunk-Y2XCPATG.mjs";
 import {
   bool,

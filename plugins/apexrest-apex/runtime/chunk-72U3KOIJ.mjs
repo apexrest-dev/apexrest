@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-D2ICIJXH.mjs";
+} from "./chunk-CPLKPPVJ.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -20,23 +20,20 @@ import {
   jobToolResult
 } from "./chunk-NOTPADGV.mjs";
 import {
-  ApexLangDocument,
   DeploymentService,
   appendChild,
-  applyEdits,
   deployPlanSchema,
-  digestOf,
   pageContext,
-  pageFile,
   patchPage,
   planDigest,
+  planSets,
   recordRevision,
   revisionOf,
   revisionStatus,
-  sourceChange,
+  runPageTransaction,
   sourceInventory,
   sourceRevision
-} from "./chunk-QXSHAZH3.mjs";
+} from "./chunk-5P7YH266.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -45,9 +42,6 @@ import {
   composePlan,
   metadataRead
 } from "./chunk-Y2XCPATG.mjs";
-import {
-  parseApexLang
-} from "./chunk-J7SOVXCF.mjs";
 import {
   batchCommand,
   locateCommand,
@@ -118,7 +112,6 @@ import {
   updatePolicy
 } from "./chunk-OZXHZF36.mjs";
 import {
-  atomicWrite,
   canonical,
   contained,
   exists,
@@ -140,7 +133,7 @@ import {
 
 // packages/core/src/service.ts
 import { fileURLToPath } from "node:url";
-import path12 from "node:path";
+import path11 from "node:path";
 
 // packages/core/src/doctor.ts
 import path from "node:path";
@@ -1744,12 +1737,16 @@ async function referenceSelect(input, signal, fetcher = fetch) {
 }
 
 // packages/core/src/edit/insert.ts
-import path5 from "node:path";
-import { readFile as readFile4 } from "node:fs/promises";
-function fragment(source, pageId, components) {
-  const doc = new ApexLangDocument(source);
-  const node = ApexLangDocument.one(doc.roots, "page", pageId, "The file");
-  const parsed = parseApexLang(source, "page").find((c) => c.type === "page");
+function merged(list) {
+  return {
+    regions: list.flatMap((c) => c.regions ?? []),
+    items: list.flatMap((c) => c.items ?? []),
+    refreshes: list.flatMap((c) => c.refreshes ?? [])
+  };
+}
+function planInsert(snapshot, list) {
+  const { doc, node, parsed, pageId } = snapshot;
+  const components = merged(list);
   const spec = scaffoldSchema.safeParse({
     applicationName: "insert",
     pages: [
@@ -1757,8 +1754,8 @@ function fragment(source, pageId, components) {
         id: Number(pageId),
         name: "insert",
         regions: components.regions ?? [],
-        ...components.items ? { items: components.items } : {},
-        ...components.refreshes ? { refreshes: components.refreshes } : {}
+        ...components.items?.length ? { items: components.items } : {},
+        ...components.refreshes?.length ? { refreshes: components.refreshes } : {}
       }
     ]
   });
@@ -1801,78 +1798,79 @@ function fragment(source, pageId, components) {
   let text = page.regions.map((region, index) => renderRegion(region, offset + index, "26.2")).join("\n");
   let rest = renderPageBody(page, "26.2", { regions: false });
   const actions = existing("dynamicAction");
+  const refreshNames = [];
   (page.refreshes ?? []).forEach((_refresh, index) => {
     let n = index + 1;
     while (actions.has(`REFRESH-${n}`)) n++;
     actions.add(`REFRESH-${n}`);
+    refreshNames.push(`refresh-${n}`);
     rest = rest.replace(`dynamicAction refresh-${index + 1} (`, `dynamicAction refresh-${n} (\0`).replace(`name: Refresh dependent regions ${index + 1}`, `name: Refresh dependent regions ${n}`);
   });
   rest = rest.replaceAll("\0", "");
   text = [text, rest].filter(Boolean).join("\n");
   const lines = text.split("\n").join(doc.eol) + doc.eol;
-  const result = applyEdits(source, [appendChild(doc, node, lines)]);
-  let after;
-  try {
-    after = parseApexLang(result, "page").find((c) => c.type === "page");
-  } catch (error) {
-    throw new Fault("TRANSFORM_INVALID", `The edited page does not parse: ${error.message}`, 5);
-  }
-  new ApexLangDocument(result);
-  for (const region of page.regions)
-    if (!after?.children.some((c) => c.type === "region" && c.id === region.id))
-      throw new Fault("TRANSFORM_INVALID", `Region ${region.id} did not read back.`, 5);
-  return result;
+  const verify = (after) => {
+    for (const region of page.regions)
+      if (!after.children.some((c) => c.type === "region" && c.id === region.id))
+        throw new Fault("TRANSFORM_INVALID", `Region ${region.id} did not read back.`, 5);
+    for (const item of page.items ?? [])
+      if (!after.children.some((c) => c.type === "pageItem" && c.id.toUpperCase() === item.name.toUpperCase()))
+        throw new Fault("TRANSFORM_INVALID", `Item ${item.name} did not read back.`, 5);
+  };
+  return {
+    edits: [appendChild(doc, node, lines)],
+    verify,
+    targets: [
+      ...page.regions.map((region) => `region:${region.id}`),
+      ...(page.items ?? []).map((item) => `item:${item.name.toUpperCase()}`),
+      ...refreshNames.map((name) => `dynamicAction:${name}`)
+    ]
+  };
 }
 async function insertComponents(ctx, input) {
-  if (!/^\d{1,5}$/u.test(input.page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
-  const pageId = String(Number(input.page));
-  const file2 = await pageFile(ctx, pageId);
-  const relative = path5.relative(ctx.root, file2).split(path5.sep).join("/");
-  if (input.dryRun || !input.expectedDigest) {
-    const source = await readFile4(file2, "utf8");
-    const result = fragment(source, pageId, input.components);
-    if (!input.dryRun)
-      throw new Fault(
-        "EXPECTED_DIGEST_REQUIRED",
-        `Pass expectedDigest ${digestOf(source)} (the ${relative} you read).`,
-        2,
-        "blocked",
-        {
-          file: relative,
-          currentDigest: digestOf(source)
-        }
-      );
-    return { file: relative, beforeDigest: digestOf(source), afterDigest: digestOf(result), written: false };
+  const outcome = await runPageTransaction(
+    ctx,
+    {
+      page: input.page,
+      operations: [input.components],
+      expectedDigest: input.expectedDigest,
+      dryRun: input.dryRun
+    },
+    (list) => [(snapshot) => planInsert(snapshot, list)]
+  );
+  return {
+    file: outcome.file,
+    beforeDigest: outcome.beforeDigest,
+    afterDigest: outcome.afterDigest,
+    written: outcome.written,
+    ...outcome.change ? { change: outcome.change } : {},
+    ...outcome.written ? { next: outcome.next } : {}
+  };
+}
+
+// packages/core/src/edit/page-edit.ts
+function editGroups(operations) {
+  const sets = [];
+  const inserts = [];
+  for (const operation of operations) {
+    if (operation.op === "set") {
+      const { op: _op, ...set } = operation;
+      sets.push(set);
+    } else if (operation.op === "insert") inserts.push(operation.components);
+    else throw new Fault("INVALID_INPUT", `Unknown edit op ${operation.op}.`, 2);
   }
-  return withLock(path5.join(ctx.root, ".apexrest", "source-edit.lock"), async () => {
-    const before = await sourceInventory(ctx);
-    const source = await readFile4(file2, "utf8");
-    if (digestOf(source) !== input.expectedDigest)
-      throw new Fault(
-        "TRANSFORM_CONFLICT",
-        `${relative} changed since it was read; read it again and retry.`,
-        5,
-        "conflict",
-        {
-          file: relative,
-          currentDigest: digestOf(source)
-        }
-      );
-    const result = fragment(source, pageId, input.components);
-    await atomicWrite(file2, result);
-    return {
-      file: relative,
-      beforeDigest: digestOf(source),
-      afterDigest: digestOf(result),
-      written: true,
-      change: sourceChange(before, await sourceInventory(ctx), ctx.config.application.sourceDir),
-      next: "Source edited only. Validate or ship to check it with the compiler and import it."
-    };
-  });
+  const groups = [];
+  if (sets.length) groups.push((snapshot) => planSets(snapshot, sets));
+  if (inserts.length) groups.push((snapshot) => planInsert(snapshot, inserts));
+  return groups;
+}
+async function editPage(ctx, input) {
+  const { result: _text, ...outcome } = await runPageTransaction(ctx, input, editGroups);
+  return outcome;
 }
 
 // packages/core/src/deploy-reconcile.ts
-import path6 from "node:path";
+import path5 from "node:path";
 import { appendFile } from "node:fs/promises";
 async function reconcileRun(ctx, input) {
   if (!input.userRequest.trim())
@@ -1882,15 +1880,15 @@ async function reconcileRun(ctx, input) {
       2
     );
   const runDir = await contained(ctx.root, ".apexrest/deployments/" + input.run);
-  if (!await exists(path6.join(runDir, "plan.json")))
+  if (!await exists(path5.join(runDir, "plan.json")))
     throw new Fault(
       "RUN_NOT_FOUND",
       `No deployment run ${input.run} exists in this project.`,
       2,
       "not_found"
     );
-  const plan = await readJson(path6.join(runDir, "plan.json"));
-  const state = await readJson(path6.join(runDir, "state.json"));
+  const plan = await readJson(path5.join(runDir, "plan.json"));
+  const state = await readJson(path5.join(runDir, "state.json"));
   if (!["outcome_unknown", "failed"].includes(String(state.state)))
     throw new Fault(
       "RUN_NOT_HELD",
@@ -1934,7 +1932,7 @@ async function reconcileRun(ctx, input) {
   const statements = scripts.map((op) => ({
     kind: op.kind,
     file: op.file,
-    version: path6.basename(op.file),
+    version: path5.basename(op.file),
     checksum: op.sha256,
     applied: stated.get(op.file) === "applied"
   }));
@@ -1953,9 +1951,9 @@ async function reconcileRun(ctx, input) {
     statements: input.statements,
     releasedOwner: owner
   };
-  await writeJson(path6.join(runDir, "reconciliation.json"), record);
+  await writeJson(path5.join(runDir, "reconciliation.json"), record);
   await appendFile(
-    path6.join(runDir, "journal.jsonl"),
+    path5.join(runDir, "journal.jsonl"),
     JSON.stringify({ runId: input.run, state: "reconciled", at }) + "\n"
   );
   return {
@@ -1970,7 +1968,7 @@ async function reconcileRun(ctx, input) {
 }
 
 // packages/core/src/panel.ts
-import path7 from "node:path";
+import path6 from "node:path";
 import { readdir, realpath as realpath3, stat as stat3 } from "node:fs/promises";
 var safe = (value) => sanitized(value);
 var historyLimit = 2e3;
@@ -1993,7 +1991,7 @@ var PanelService = class {
       const dated = await Promise.all(
         entries.map(async (entry) => ({
           entry,
-          at: (await stat3(path7.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
+          at: (await stat3(path6.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
         }))
       );
       omitted = entries.length - historyLimit;
@@ -2149,7 +2147,7 @@ var PanelService = class {
 // packages/core/src/usage.ts
 import { AsyncLocalStorage } from "node:async_hooks";
 import { constants, lstat, open } from "node:fs/promises";
-import path8 from "node:path";
+import path7 from "node:path";
 var count2 = external_exports.number().int().nonnegative().safe();
 var duration = external_exports.number().finite().nonnegative().max(7 * 864e5);
 var modelName = external_exports.string().max(120).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/);
@@ -2209,7 +2207,7 @@ function retain(store) {
   store.entries = store.entries.slice(discarded);
   return store;
 }
-var file = () => path8.join(managedHome(), "usage-log.json");
+var file = () => path7.join(managedHome(), "usage-log.json");
 async function readPrivate(file2, maximum) {
   const before = await lstat(file2);
   if (!before.isFile() || before.isSymbolicLink() || before.size > maximum)
@@ -2240,7 +2238,7 @@ async function readStore() {
 async function saveLocked(entry) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await withLock(path8.join(managedHome(), "usage-log.lock"), async () => {
+      return await withLock(path7.join(managedHome(), "usage-log.lock"), async () => {
         const store = await readStore();
         const existing = entry.importDigest && store.entries.find((old) => old.importDigest === entry.importDigest);
         if (existing) return { recorded: false, duplicate: true, entry: existing };
@@ -2534,7 +2532,7 @@ async function importUsage(host, source, elapsedMs, counterMode) {
       "Enable local usage logging with settings configure --usage-log on.",
       2
     );
-  const contents = await readPrivate(path8.resolve(source), 8 * 1024 * 1024);
+  const contents = await readPrivate(path7.resolve(source), 8 * 1024 * 1024);
   const native = nativeUsage(host, records(contents), counterMode);
   const elapsed = elapsedMs === void 0 ? native.elapsed : parse(duration, elapsedMs);
   const entry = parse(entrySchema2, {
@@ -2612,14 +2610,14 @@ async function usageStatus(limit = 20) {
 }
 
 // packages/core/src/peer-review.ts
-import path11 from "node:path";
+import path10 from "node:path";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile as readFile6, rm } from "node:fs/promises";
+import { mkdir, readFile as readFile5, rm } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/cli-command.ts
-import path9 from "node:path";
-import { readFile as readFile5, stat as stat4 } from "node:fs/promises";
+import path8 from "node:path";
+import { readFile as readFile4, stat as stat4 } from "node:fs/promises";
 var SHIM_LIMIT = 64 * 1024;
 var NODE_FLAG = /^--?[A-Za-z0-9][\w-]*(?:=[\w./:-]*)?$/u;
 function npmShimTarget(text) {
@@ -2655,12 +2653,12 @@ async function resolveCliCommand(command, args, host = {}) {
       3,
       "dependency_missing"
     );
-  const extension = path9.extname(located).toLowerCase();
+  const extension = path8.extname(located).toLowerCase();
   if (extension === ".cmd" || extension === ".bat") {
-    const content = await readFile5(located);
+    const content = await readFile4(located);
     const shim = content.length <= SHIM_LIMIT ? npmShimTarget(content.toString("utf8")) : void 0;
     if (shim) {
-      const target = path9.join(path9.dirname(located), ...shim.target.split(/[\\/]/u));
+      const target = path8.join(path8.dirname(located), ...shim.target.split(/[\\/]/u));
       if (await isFile(target))
         return shim.node ? { executable: host.execPath ?? process.execPath, args: [...shim.nodeArgs, target, ...args] } : { executable: target, args };
     }
@@ -2674,7 +2672,7 @@ async function resolveCliCommand(command, args, host = {}) {
 }
 
 // packages/core/src/ship.ts
-import path10 from "node:path";
+import path9 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -2719,23 +2717,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source = path10.resolve(root, input.sourceDir);
-  if (!await exists(path10.join(source, "application.apx")))
+  const source = path9.resolve(root, input.sourceDir);
+  if (!await exists(path9.join(source, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path10.join(source, ".apex", "apexlang.json");
+  const own = path9.join(source, ".apex", "apexlang.json");
   if (await exists(own)) return { source, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path10.resolve(input.project));
-  for (let dir = path10.dirname(source); ; dir = path10.dirname(dir)) {
-    if (await exists(path10.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path9.resolve(input.project));
+  for (let dir = path9.dirname(source); ; dir = path9.dirname(dir)) {
+    if (await exists(path9.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path10.dirname(dir) === dir) break;
+    if (path9.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -2744,7 +2742,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file2 = path10.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file2 = path9.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file2)) return { source, metadata: { origin: "project", file: file2 } };
   }
   throw new Fault(
@@ -3249,8 +3247,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID());
   await mkdir(scratch, { recursive: true });
   try {
-    const schemaFile = path11.join(scratch, "verdict.schema.json");
-    const lastFile = path11.join(scratch, "last-message.json");
+    const schemaFile = path10.join(scratch, "verdict.schema.json");
+    const lastFile = path10.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -3301,7 +3299,7 @@ async function runPeer(vendor, ctx, prompt, options) {
         `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
         1
       );
-    if (vendor === "codex") return parseVerdict(await readFile6(lastFile, "utf8"));
+    if (vendor === "codex") return parseVerdict(await readFile5(lastFile, "utf8"));
     const envelope = JSON.parse(result.stdout);
     if (envelope.is_error)
       throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
@@ -3463,7 +3461,7 @@ function prewarmCompiler(project) {
       try {
         const ctx = await loadProject(project);
         const source = await contained(ctx.root, ctx.config.application.sourceDir);
-        if (!await exists(path12.join(source, ".apex/apexlang.json"))) {
+        if (!await exists(path11.join(source, ".apex/apexlang.json"))) {
           compilerPrewarms.delete(project);
           return;
         }
@@ -3514,6 +3512,11 @@ function routeProject(parsed) {
       };
     case "context":
       return { operation: "project.context", input: pick("project", "page") };
+    case "edit":
+      return {
+        operation: "project.edit",
+        input: pick("project", "page", "operations", "expectedDigest")
+      };
     case "patch":
       return {
         operation: "project.patch",
@@ -3667,7 +3670,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-HEX52QAE.mjs");
+      const { previewDispatch } = await import("./chunk-CISJCXK2.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -3709,17 +3712,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-ECW3HFQJ.mjs");
+        const { setup } = await import("./chunk-KGHJN5BU.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-ECW3HFQJ.mjs");
+        const { validateNative } = await import("./chunk-KGHJN5BU.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-ECW3HFQJ.mjs");
+        const { uninstallNative } = await import("./chunk-KGHJN5BU.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -3729,7 +3732,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text("directory"),
           text("template"),
-          text("alias") ?? path12.basename(path12.resolve(text("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text("alias") ?? path11.basename(path11.resolve(text("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "project.scaffold": {
@@ -3853,7 +3856,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           case "dev.start":
             data = await startBroker(
               ctx,
-              path12.join(path12.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
+              path11.join(path11.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
             );
             break;
           case "dev.status":
@@ -3870,6 +3873,9 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           case "project.patch":
             data = await patchPage(ctx, schemas["project.patch"].parse(parsed));
+            break;
+          case "project.edit":
+            data = await editPage(ctx, schemas["project.edit"].parse(parsed));
             break;
           case "project.inspect":
             data = await projectInspect(ctx, parsed.detail);
@@ -4127,7 +4133,7 @@ var observationOnly = /* @__PURE__ */ new Set([
 ]);
 async function rememberProject(root) {
   try {
-    const ctx = await loadProject(path12.resolve(root));
+    const ctx = await loadProject(path11.resolve(root));
     await recordProject(ctx.root, ctx.config.projectId);
   } catch {
   }

@@ -173,6 +173,33 @@ var schemas = {
     expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional().describe("Page file digest you read; required to write"),
     dryRun: external_exports.boolean().default(false)
   }),
+  "project.edit": external_exports.strictObject({
+    ...base,
+    page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number"),
+    operations: external_exports.array(
+      external_exports.discriminatedUnion("op", [
+        external_exports.strictObject({
+          op: external_exports.literal("set"),
+          target: external_exports.string().min(1).max(300),
+          property: external_exports.enum(["title", "label", "heading", "format", "sequence", "query"]),
+          value: external_exports.string().max(1e5),
+          columns: external_exports.array(
+            external_exports.strictObject({
+              name: external_exports.string().min(1).max(128),
+              heading: external_exports.string().max(4e3).optional(),
+              dataType: external_exports.enum(["varchar2", "number", "date", "timestamp"]).optional()
+            })
+          ).max(200).optional()
+        }),
+        external_exports.strictObject({
+          op: external_exports.literal("insert"),
+          components: external_exports.record(external_exports.string(), external_exports.unknown()).describe("Scaffold fragment: {regions, items?, refreshes?}")
+        })
+      ])
+    ).min(1).max(50).describe("JSON: [{op:set, target, property, value} | {op:insert, components}] on one page snapshot"),
+    expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional().describe("Page file digest you read; required to write"),
+    dryRun: external_exports.boolean().default(false)
+  }),
   "project.scaffold": external_exports.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
   "connection.add": external_exports.strictObject({
     ...base,
@@ -328,6 +355,7 @@ var schemas = {
       "patch",
       "context",
       "insert",
+      "edit",
       "connection_add",
       "connection_list",
       "connection_test"

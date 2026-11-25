@@ -728,6 +728,135 @@
     ],
     "additionalProperties": false
   },
+  "project.edit": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "page": {
+        "type": "string",
+        "pattern": "^\\d{1,5}$",
+        "description": "Page number"
+      },
+      "operations": {
+        "minItems": 1,
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "set"
+                },
+                "target": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "property": {
+                  "type": "string",
+                  "enum": [
+                    "title",
+                    "label",
+                    "heading",
+                    "format",
+                    "sequence",
+                    "query"
+                  ]
+                },
+                "value": {
+                  "type": "string",
+                  "maxLength": 100000
+                },
+                "columns": {
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "heading": {
+                        "type": "string",
+                        "maxLength": 4000
+                      },
+                      "dataType": {
+                        "type": "string",
+                        "enum": [
+                          "varchar2",
+                          "number",
+                          "date",
+                          "timestamp"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "op",
+                "target",
+                "property",
+                "value"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "insert"
+                },
+                "components": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {},
+                  "description": "Scaffold fragment: {regions, items?, refreshes?}"
+                }
+              },
+              "required": [
+                "op",
+                "components"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "description": "JSON: [{op:set, target, property, value} | {op:insert, components}] on one page snapshot"
+      },
+      "expectedDigest": {
+        "description": "Page file digest you read; required to write",
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "dryRun": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "page",
+      "operations"
+    ],
+    "additionalProperties": false
+  },
   "project.scaffold": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -1936,6 +2065,7 @@
           "patch",
           "context",
           "insert",
+          "edit",
           "connection_add",
           "connection_list",
           "connection_test"

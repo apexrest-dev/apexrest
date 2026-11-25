@@ -21,6 +21,7 @@ import { DeploymentService, deployPlanSchema, sourceInventory } from './deploy.t
 import { recordRevision, revisionOf } from './revision.ts';
 import { pageContext, patchPage } from './edit/patch.ts';
 import { insertComponents } from './edit/insert.ts';
+import { editPage } from './edit/page-edit.ts';
 import { brokerStatus, startBroker, stopBroker } from './broker.ts';
 import { reconcileRun } from './deploy-reconcile.ts';
 import { ArtifactService } from './artifacts.ts';
@@ -150,6 +151,11 @@ function routeProject(parsed: Record<string, unknown>) {
       };
     case 'context':
       return { operation: 'project.context', input: pick('project', 'page') };
+    case 'edit':
+      return {
+        operation: 'project.edit',
+        input: pick('project', 'page', 'operations', 'expectedDigest'),
+      };
     case 'patch':
       return {
         operation: 'project.patch',
@@ -532,6 +538,9 @@ async function dispatchObserved(
             break;
           case 'project.patch':
             data = await patchPage(ctx, schemas['project.patch'].parse(parsed));
+            break;
+          case 'project.edit':
+            data = await editPage(ctx, schemas['project.edit'].parse(parsed));
             break;
           case 'project.inspect':
             data = await projectInspect(ctx, parsed.detail as 'full' | 'summary');

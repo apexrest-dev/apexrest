@@ -1541,6 +1541,25 @@
       ],
       "budgetMs": null,
       "samples": 1
+    },
+    {
+      "id": "A261-072",
+      "title": "Compound semantic page edit",
+      "acceptance": ["FASTDEV-A01"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Read a page with project action:context.",
+        "Send project action:edit with set, query and insert operations and the read digest.",
+        "Repeat with one invalid operation."
+      ],
+      "expected": [
+        "One atomic write; every operation reads back; source change names only that page.",
+        "The invalid request writes nothing and the page stays byte-identical."
+      ],
+      "evidence": ["sanitized result code", "page file digest before and after", "MCP call count"],
+      "budgetMs": 5000
     }
   ],
   "metrics": "quality-performance.json"

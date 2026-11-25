@@ -32,3 +32,11 @@ Unknown targets, ambiguous ids, unsupported properties, multi-line values and co
 - A refresh may target new or existing regions; its dynamic action gets an unused name.
 - Existing components keep their bytes. The edit uses the same digest, lock and atomic write as `patch`.
 - For a filter: a `staticContent` region, a `selectList` item and a `refreshes` entry for the report. Then add the item to the report query with a `query` patch.
+
+## Several changes in one edit
+
+`apexrest_project action:edit page:"10" expectedDigest:"<digest>" operations:[...]` combines `{"op":"set", target, property, value, columns?}` (the `patch` operations) and `{"op":"insert", components}` (the `insert` fragment) in one transaction. Every operation resolves against the page you read; the result is checked and written once, or not at all. An operation cannot target a component another operation of the same edit inserts: insert it, then edit it with the new digest.
+
+```text
+apexrest_project action:edit page:"10" expectedDigest:"<digest>" operations:[{"op":"insert","components":{"regions":[{"id":"filters","type":"staticContent","name":"Filters"}],"items":[{"name":"P10_STATUS","region":"filters","type":"selectList","label":"Status","lov":[{"label":"Open","value":"O"}]}],"refreshes":[{"items":["P10_STATUS"],"regions":["customers"]}]}},{"op":"set","target":"region:customers","property":"query","value":"select id, name, status from customers where :P10_STATUS is null or status = :P10_STATUS","columns":[{"name":"NAME"},{"name":"STATUS"}]}]
+```
