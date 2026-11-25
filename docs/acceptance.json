@@ -1234,6 +1234,19 @@
         "docs/local-preview.md"
       ],
       "blocker": "Route and planner tests pass and the client script parses; the editor has not been observed in a browser. After a save the preview reloads rather than keeping report filter and sort state."
+    },
+    {
+      "id": "FASTDEV-V05",
+      "criterion": "Drag-and-drop and keyboard moves in the visual editor produce the same typed moveComponent request for supported destinations and slots, update the preview only from committed source, and keep the intended destination with a precise reason when a move is refused",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/preview/extensions/review.ts",
+        "packages/core/src/preview/extensions/review/client.ts",
+        "tests/unit/preview-review.test.ts",
+        "docs/local-preview.md"
+      ],
+      "blocker": "Route and configuration tests pass and the client script parses; dragging and the move form have not been observed in a browser."
     }
   ]
 }

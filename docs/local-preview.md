@@ -121,6 +121,8 @@ Template, template options and grid placement are offered for 26.2 sources. Thei
 
 **Columns…** (in Edit, on an interactive or classic report or one of its columns) opens the report's columns as they are in the source, including columns with no rows to show: a **Shown** checkbox, the heading and the format mask per column, and ↑/↓ to change the order. **Save columns** writes the order, visibility, heading and format changes in one edit; the SQL and data types are not touched. An interactive report's shown columns are its default saved report's. If a change is invalid or the file changed meanwhile, nothing is written and the editor keeps your values. After a save the page reloads, so report filters and sorting start again.
 
+**Move…** (in Edit, on an item, button or region) moves it to another region of the same page file, or a region to page level: pick the destination, a slot the destination accepts and an optional sequence, then **Add move**. You can also drag **⠿ Drag onto a region** onto a region on the page, which fills in the same form. The move joins the proposed changes and is saved with them; nothing on the page moves until the source is saved and the page reloads. A refused move (an unsupported slot, a missing destination) writes nothing and says why.
+
 The edit goes through the same digest-bound patch service as `project patch` and `apexrest_project action:patch`:
 
 - **Add to changes** collects a change and lets you pick another component or property of the same page file; the list shows every proposed change before you save. **Save** writes them all, with the field you are editing, as one atomic change.

@@ -686,3 +686,46 @@ test('the column editor reads every report column from source and saves order, v
   assert.equal(await readFile(pageFile, 'utf8'), text);
   assert.equal((await call('/r/demo/__apex/x/review?columns=nope&page=3')).status, 404);
 });
+
+test('visual moves send the shared move operation; rejected moves name the reason and write nothing', async (t) => {
+  const { call, post, pageFile } = await project(t);
+  const config = configOf(await (await call('/r/demo/orders')).text());
+  // The form offers the move primitive's own slot rules and each region's type.
+  assert.deepEqual(config.moves.item, ['regionBody', 'body', 'contentBody']);
+  assert.ok(config.moves.buttonInInteractiveReport.includes('rightOfInteractiveReportSearchBar'));
+  assert.equal(
+    config.map.find((entry: { patch: string }) => entry.patch === 'region:orders').regionType,
+    'interactiveReport',
+  );
+  const before = await readFile(pageFile, 'utf8');
+  const moved = await post({
+    op: 'patch',
+    page: '3',
+    digest: sha(before),
+    operations: [
+      {
+        op: 'moveComponent',
+        component: 'item:P3_SEARCH',
+        to: { region: 'orders', slot: 'regionBody', sequence: 1 },
+      },
+      { target: 'item:P3_SEARCH', property: 'label', value: 'Find' },
+    ],
+  });
+  assert.equal(moved.status, 200, await moved.clone().text());
+  const after = await readFile(pageFile, 'utf8');
+  assert.match(
+    after,
+    /pageItem P3_SEARCH \([\s\S]*?label: Find[\s\S]*?region: @orders\n {12}slot: regionBody/u,
+  );
+  const rejected = await post({
+    op: 'patch',
+    page: '3',
+    digest: sha(after),
+    operations: [
+      { op: 'moveComponent', component: 'button:refresh', to: { region: 'orders', slot: 'dialogFooter' } },
+    ],
+  });
+  assert.equal(rejected.status, 400);
+  assert.match((await rejected.json()).error, /Slot dialogFooter is not supported/u);
+  assert.equal(await readFile(pageFile, 'utf8'), after);
+});

@@ -4,7 +4,7 @@ import {
   insertComponents,
   pageContext,
   patchPage
-} from "./chunk-IPR345CC.mjs";
+} from "./chunk-KO2R3DGR.mjs";
 import {
   schemas
 } from "./chunk-VXYDSEDO.mjs";
@@ -4328,7 +4328,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-7GKKBE2U.mjs");
+      const { previewDispatch } = await import("./chunk-OBUPRCJD.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();

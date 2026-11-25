@@ -5,8 +5,8 @@ import {
 } from "./chunk-4SDMRO4L.mjs";
 import {
   dispatch
-} from "./chunk-FXBYGYMY.mjs";
-import "./chunk-IPR345CC.mjs";
+} from "./chunk-V7NP44RG.mjs";
+import "./chunk-KO2R3DGR.mjs";
 import {
   internalOperations,
   schemas,
@@ -323,7 +323,7 @@ try {
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-ESDCVWQE.mjs");
+    const { startMcp } = await import("./chunk-VPW235KQ.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

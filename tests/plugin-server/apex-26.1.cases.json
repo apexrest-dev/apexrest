@@ -1849,6 +1849,24 @@
       ],
       "evidence": ["page file digest before and after", "screenshot of the editor"],
       "budgetMs": 60000
+    },
+    {
+      "id": "A261-089",
+      "title": "Visual component moves",
+      "acceptance": ["FASTDEV-V05"],
+      "execution": "manual",
+      "surface": "browser",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "In review mode, drag an item's handle onto another region; pick a slot and save.",
+        "Repeat with the keyboard-only form.",
+        "Try a slot the destination does not accept."
+      ],
+      "expected": [
+        "Both paths send the same moveComponent request; the page reloads with the item in place; the refused move keeps the page and shows the reason."
+      ],
+      "evidence": ["page file digest before and after", "request body"],
+      "budgetMs": 60000
     }
   ],
   "metrics": "quality-performance.json"

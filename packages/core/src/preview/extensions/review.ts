@@ -4,6 +4,7 @@ import path from 'node:path';
 import { loadProject } from '../../config.ts';
 import { pageContext, patchPage, PATCH_PROPERTIES, type PatchProperty } from '../../edit/patch.ts';
 import { editPage } from '../../edit/page-edit.ts';
+import { BUTTON_SLOTS, ITEM_SLOTS, PAGE_SLOTS, SUB_REGION_SLOTS } from '../../edit/move.ts';
 import { Fault } from '../../result.ts';
 import { get, str, type ApxComponent } from '../apexlang.ts';
 import { registerExtension, type RouteRequest, type RouteResponse } from '../extensions.ts';
@@ -46,6 +47,8 @@ interface MapEntry {
   keys: string[];
   /** Owning region id and DOM id of a column. */
   region?: string;
+  /** Region type (regions), for the move form's slot rules. */
+  regionType?: string;
   regionDom?: string;
   /** Page that declares the component (0 for the global page). */
   page: string;
@@ -208,6 +211,7 @@ export function reviewMap(renderer: ApexRenderer, page: ApxComponent): MapEntry[
           ...base,
           kind: 'region',
           label: str(child.props, 'name', child.id),
+          regionType: str(child.props, 'type', ''),
           keys: [dom],
           patch: `region:${child.id}`,
           values: values('region', child),
@@ -319,9 +323,29 @@ async function patchRoute(file: string, input: Record<string, unknown>): Promise
     return json({ error: 'patch needs page, target, property, value and the file digest' }, 400);
   if (!raw.length || raw.length > MAX_BATCH) return json({ error: `Give 1-${MAX_BATCH} operations.` }, 400);
   const operations: { target: string; property: PatchProperty; value: string }[] = [];
-  const orders: { op: 'orderColumns'; region: string; order: string[]; visible?: Record<string, boolean> }[] =
-    [];
+  const orders: (
+    | { op: 'orderColumns'; region: string; order: string[]; visible?: Record<string, boolean> }
+    | { op: 'moveComponent'; component: string; to: { region?: string; slot: string; sequence?: number } }
+  )[] = [];
   for (const [index, entry] of raw.entries()) {
+    if (entry?.op === 'moveComponent') {
+      const to = (entry.to ?? {}) as Record<string, unknown>;
+      if (typeof entry.component !== 'string' || typeof to.slot !== 'string')
+        return json(
+          { error: 'moveComponent needs the component and a destination slot', operation: index },
+          400,
+        );
+      orders.push({
+        op: 'moveComponent',
+        component: entry.component,
+        to: {
+          ...(typeof to.region === 'string' && to.region ? { region: to.region } : {}),
+          slot: to.slot,
+          ...(typeof to.sequence === 'number' ? { sequence: to.sequence } : {}),
+        },
+      });
+      continue;
+    }
     if (entry?.op === 'orderColumns') {
       const order = Array.isArray(entry.order) ? entry.order.map(String) : [];
       const visible =
@@ -526,6 +550,16 @@ registerExtension({
       intents: REVIEW_INTENTS,
       map: reviewMap(renderer, ctx.page),
       pageValues: values('page', ctx.page),
+      // The move primitive's own slot rules (edit/move.ts), so the form offers only accepted moves.
+      moves: {
+        item: ITEM_SLOTS,
+        button: BUTTON_SLOTS,
+        buttonInInteractiveReport: [...BUTTON_SLOTS, 'rightOfInteractiveReportSearchBar'],
+        subRegion: SUB_REGION_SLOTS,
+        page: PAGE_SLOTS[
+          str(ctx.page.props, 'appearance.pageMode', '') === 'modalDialog' ? 'modal' : 'normal'
+        ],
+      },
       ...editableFor(renderer.app.root),
       digests: digestsFor(renderer, ctx.page),
     };

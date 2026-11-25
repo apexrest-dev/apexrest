@@ -2152,5 +2152,9 @@ export {
   pageContext,
   patchPage,
   insertComponents,
+  ITEM_SLOTS,
+  BUTTON_SLOTS,
+  SUB_REGION_SLOTS,
+  PAGE_SLOTS,
   editPage
 };

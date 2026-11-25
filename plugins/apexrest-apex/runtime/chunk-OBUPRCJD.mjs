@@ -9,7 +9,11 @@ import {
 import {
   APEX_DOWNLOAD_URL,
   APEX_FULL_VERSION,
+  BUTTON_SLOTS,
+  ITEM_SLOTS,
+  PAGE_SLOTS,
   PATCH_PROPERTIES,
+  SUB_REGION_SLOTS,
   ZipReader,
   applyEscape,
   applyTemplate,
@@ -28,7 +32,7 @@ import {
   setupAssets,
   templateOptions,
   text
-} from "./chunk-IPR345CC.mjs";
+} from "./chunk-KO2R3DGR.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -26066,6 +26070,9 @@ html.apex-local-review-picking,html.apex-local-review-picking *{cursor:crosshair
 .apex-local-review-columns td{padding:2px 4px;border-bottom:1px solid rgba(255,255,255,.08)}
 .apex-local-review-columns tr.is-error td{color:#ffb4a8}
 .apex-local-review-columns input[type=text]{width:100%}
+.apex-local-review-move{display:grid;grid-template-columns:auto 1fr;gap:4px 6px;align-items:center;font-size:12px;margin:4px 0}
+.apex-local-review-drag{cursor:grab;user-select:none}
+.apex-local-review-drop{outline:2px dashed #7c4dff !important;outline-offset:2px}
 .apex-local-review-banner{position:fixed;z-index:2147483000;top:8px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:16px;background:#7c4dff;color:#fff;font:600 12px/16px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none}
 `;
 var REVIEW_JS = String.raw`
@@ -26247,7 +26254,7 @@ var REVIEW_JS = String.raw`
   }, true);
 
   // ------------------------------------------------------------- composer
-  function closeComposer() { if (composer) composer.remove(); composer = null; saving = false; if (!picking) highlight(null); }
+  function closeComposer() { if (composer) { composer.dispatchEvent(new Event("apex-local-close")); composer.remove(); } composer = null; saving = false; if (!picking) highlight(null); }
 
   function openComposer(found, existing) {
     closeComposer();
@@ -26270,6 +26277,10 @@ var REVIEW_JS = String.raw`
       (config.layoutUnavailable ? '<p class="apex-local-review-where">' + esc(config.layoutUnavailable) + "</p>" : "") +
       '<button type="button" class="apex-local-action" data-batch-add title="Collect this change and pick another component or property">Add to changes</button>' +
       '<button type="button" class="apex-local-action" data-columns hidden title="Show, hide, rename, format and order this report\'s columns">Columns…</button>' +
+      '<button type="button" class="apex-local-action" data-move-open hidden title="Move this component to another region or position">Move…</button>' +
+      '<div data-move-form hidden><div class="apex-local-review-move"><span>To</span><select name="move-region" aria-label="Destination"></select><span>Slot</span><select name="move-slot" aria-label="Slot"></select>' +
+      '<span>Sequence</span><input name="move-sequence" inputmode="numeric" aria-label="Sequence (optional)" placeholder="unchanged"></div>' +
+      '<span class="apex-local-review-drag" draggable="true" data-move-drag title="Or drag onto a region on the page">⠿ Drag onto a region</span> <button type="button" class="apex-local-action" data-move-add>Add move</button></div>' +
       '<ol class="apex-local-review-batch" data-batch aria-label="Proposed changes"></ol><div data-column-editor hidden></div></div>' +
       '<p class="apex-local-review-error" hidden></p><p class="apex-local-review-ok" hidden></p>' +
       '<div class="apex-local-review-row"><span>Ctrl+Enter to save</span><button type="button" class="apex-local-action" data-cancel>Cancel</button><button type="submit" class="apex-local-action is-primary">Save</button></div>';
@@ -26360,6 +26371,7 @@ var REVIEW_JS = String.raw`
     function fillProperties() {
       var editable = current(), properties = editProperties(editable);
       if (typeof updateColumnsButton === "function" && columnsButton) updateColumnsButton();
+      if (typeof updateMoveButton === "function" && moveOpen) updateMoveButton();
       propertySelect.innerHTML = properties.map(function (name) { return '<option value="' + esc(name) + '">' + esc(name) + "</option>"; }).join("");
       var editButton = composer.querySelector('[data-mode="edit"]');
       if (editButton) editButton.disabled = !properties.length;
@@ -26389,7 +26401,10 @@ var REVIEW_JS = String.raw`
     }
     function renderBatch(failed) {
       batchList.innerHTML = batch.map(function (entry, index) {
-        return '<li' + (index === failed ? ' class="is-error"' : "") + ">" + esc(entry.target + " · " + entry.property + " → " + entry.value) +
+        var label = entry.move
+          ? entry.target + " · move → " + (entry.move.to.region ? "region " + entry.move.to.region : "page") + " / " + entry.move.to.slot + (entry.move.to.sequence ? " #" + entry.move.to.sequence : "")
+          : entry.target + " · " + entry.property + " → " + entry.value;
+        return '<li' + (index === failed ? ' class="is-error"' : "") + ">" + esc(label) +
           '<button type="button" class="apex-local-action" data-batch-remove="' + index + '" aria-label="Remove this change">×</button></li>';
       }).join("");
     }
@@ -26400,7 +26415,7 @@ var REVIEW_JS = String.raw`
         message.hidden = false; message.textContent = "Changes are saved per page file; save these first.";
         return false;
       }
-      batch = batch.filter(function (entry) { return !(entry.target === next.target && entry.property === next.property); });
+      batch = batch.filter(function (entry) { return !(entry.target === next.target && entry.property === next.property && !!entry.move === !!next.move); });
       batch.push(next);
       renderBatch();
       return true;
@@ -26455,6 +26470,91 @@ var REVIEW_JS = String.raw`
         .catch(function (error) { message.hidden = false; message.textContent = error.message; });
     }
     columnsButton.addEventListener("click", openColumns);
+    // Move: the same typed request from the form (keyboard) or a drop on a region (pointer).
+    var moveOpen = composer.querySelector("[data-move-open]"), moveForm = composer.querySelector("[data-move-form]");
+    var moveRegion = composer.querySelector('select[name="move-region"]'), moveSlot = composer.querySelector('select[name="move-slot"]'), moveSequence = composer.querySelector('input[name="move-sequence"]');
+    var MOVABLE = { item: 1, button: 1, region: 1 };
+    function regionsOf(editable) {
+      return (config.map || []).filter(function (entry) { return entry.kind === "region" && entry.file === editable.file && entry.patch !== editable.patch; });
+    }
+    function slotsFor(editable, regionId) {
+      var moves = config.moves || {}, target = (config.map || []).filter(function (entry) { return entry.kind === "region" && entry.patch === "region:" + regionId; })[0];
+      if (editable.kind === "item") return moves.item || [];
+      if (editable.kind === "button") return (target && target.regionType === "interactiveReport" ? moves.buttonInInteractiveReport : moves.button) || [];
+      return regionId ? moves.subRegion || [] : moves.page || [];
+    }
+    function fillSlots() {
+      var editable = current();
+      moveSlot.innerHTML = slotsFor(editable, moveRegion.value).map(function (slot) { return '<option value="' + esc(slot) + '">' + esc(slot) + "</option>"; }).join("");
+    }
+    function fillMove(regionId) {
+      var editable = current();
+      var options = (editable.kind === "region" ? [["", "Page (no parent region)"]] : []).concat(regionsOf(editable).map(function (entry) { return [entry.patch.slice(7), entry.label + " (" + entry.patch.slice(7) + ")"]; }));
+      moveRegion.innerHTML = options.map(function (option) { return '<option value="' + esc(option[0]) + '"' + (option[0] === regionId ? " selected" : "") + ">" + esc(option[1]) + "</option>"; }).join("");
+      fillSlots();
+    }
+    function updateMoveButton() {
+      var editable = current();
+      moveOpen.hidden = !(editable && MOVABLE[editable.kind]);
+      if (moveOpen.hidden) moveForm.hidden = true;
+    }
+    moveOpen.addEventListener("click", function () { moveForm.hidden = false; fillMove(); moveRegion.focus(); });
+    moveRegion.addEventListener("change", fillSlots);
+    composer.querySelector("[data-move-add]").addEventListener("click", function () {
+      var editable = current(), message = composer.querySelector(".apex-local-review-error"), sequence = moveSequence.value.trim();
+      message.hidden = true;
+      if (!editable || !moveSlot.value) { message.hidden = false; message.textContent = "Pick a destination slot."; return; }
+      if (sequence && !/^[1-9]\d{0,8}$/.test(sequence)) { message.hidden = false; message.textContent = "Sequence is a positive whole number."; return; }
+      if (batch.length && batch[0].editable.file !== editable.file) { message.hidden = false; message.textContent = "Changes are saved per page file; save these first."; return; }
+      var to = { slot: moveSlot.value };
+      if (moveRegion.value) to.region = moveRegion.value;
+      if (sequence) to.sequence = Number(sequence);
+      batch = batch.filter(function (entry) { return !(entry.move && entry.target === editable.patch); });
+      batch.push({ editable: editable, target: editable.patch, property: "move", value: "", move: { op: "moveComponent", component: editable.patch, to: to } });
+      renderBatch();
+    });
+    // Dropping onto a region only fills the form; nothing on the page moves until the source is saved.
+    var dragged = false, dropTarget = null;
+    composer.querySelector("[data-move-drag]").addEventListener("dragstart", function (event) {
+      dragged = true;
+      event.dataTransfer.setData("text/plain", current().patch);
+      event.dataTransfer.effectAllowed = "move";
+    });
+    function regionAt(node) {
+      var editable = current();
+      for (var element = node; element && element !== document.body; element = element.parentElement) {
+        if (!element.id) continue;
+        var entry = regionsOf(editable).filter(function (candidate) { return candidate.keys.indexOf(element.id) >= 0; })[0];
+        if (entry) return { entry: entry, element: element };
+      }
+      return null;
+    }
+    function onDragOver(event) {
+      if (!dragged) return;
+      var found = regionAt(event.target);
+      if (dropTarget && (!found || found.element !== dropTarget)) { dropTarget.classList.remove("apex-local-review-drop"); dropTarget = null; }
+      if (!found) return;
+      event.preventDefault();
+      dropTarget = found.element;
+      dropTarget.classList.add("apex-local-review-drop");
+    }
+    function onDrop(event) {
+      if (!dragged) return;
+      var found = regionAt(event.target);
+      if (dropTarget) dropTarget.classList.remove("apex-local-review-drop");
+      dropTarget = null; dragged = false;
+      if (!found) return;
+      event.preventDefault();
+      moveForm.hidden = false;
+      fillMove(found.entry.patch.slice(7));
+      moveSlot.focus();
+    }
+    document.addEventListener("dragover", onDragOver);
+    document.addEventListener("drop", onDrop);
+    composer.addEventListener("apex-local-close", function () {
+      document.removeEventListener("dragover", onDragOver);
+      document.removeEventListener("drop", onDrop);
+    });
     columnEditor.addEventListener("click", function (event) {
       var move = event.target.closest("[data-move]");
       if (move) {
@@ -26523,11 +26623,11 @@ var REVIEW_JS = String.raw`
         if (!digest) { message.hidden = false; message.textContent = "This component has no editable source file."; return; }
         saving = true;
         return send({ op: "patch", page: batch[0].editable.page, digest: digest, operations: batch.map(function (entry) {
-          return { target: entry.target, property: entry.property, value: entry.value };
+          return entry.move || { target: entry.target, property: entry.property, value: entry.value };
         }) }).then(function (data) {
           // Stays "saving" until the composer closes, so the preview's reload with the change goes through.
           config.digests[file] = data.result.afterDigest;
-          batch.forEach(function (entry) { entry.editable.values[entry.property] = entry.value; });
+          batch.forEach(function (entry) { if (!entry.move) entry.editable.values[entry.property] = entry.value; });
           ok.hidden = false;
           ok.textContent = "Saved " + batch.length + (batch.length === 1 ? " change" : " changes") + " to " + data.result.file +
             " in one edit. The preview reloads with the change; validate or ship to deploy it.";
@@ -26841,6 +26941,7 @@ function reviewMap(renderer, page2) {
           ...base,
           kind: "region",
           label: str(child.props, "name", child.id),
+          regionType: str(child.props, "type", ""),
           keys: [dom],
           patch: `region:${child.id}`,
           values: values("region", child)
@@ -26927,6 +27028,24 @@ async function patchRoute(file, input) {
   const operations2 = [];
   const orders = [];
   for (const [index, entry] of raw2.entries()) {
+    if (entry?.op === "moveComponent") {
+      const to = entry.to ?? {};
+      if (typeof entry.component !== "string" || typeof to.slot !== "string")
+        return json5(
+          { error: "moveComponent needs the component and a destination slot", operation: index },
+          400
+        );
+      orders.push({
+        op: "moveComponent",
+        component: entry.component,
+        to: {
+          ...typeof to.region === "string" && to.region ? { region: to.region } : {},
+          slot: to.slot,
+          ...typeof to.sequence === "number" ? { sequence: to.sequence } : {}
+        }
+      });
+      continue;
+    }
     if (entry?.op === "orderColumns") {
       const order = Array.isArray(entry.order) ? entry.order.map(String) : [];
       const visible = entry.visible && typeof entry.visible === "object" && !Array.isArray(entry.visible) ? Object.fromEntries(Object.entries(entry.visible).map(([name, value3]) => [name, value3 === true])) : void 0;
@@ -27099,6 +27218,14 @@ registerExtension({
       intents: REVIEW_INTENTS,
       map: reviewMap(renderer, ctx.page),
       pageValues: values("page", ctx.page),
+      // The move primitive's own slot rules (edit/move.ts), so the form offers only accepted moves.
+      moves: {
+        item: ITEM_SLOTS,
+        button: BUTTON_SLOTS,
+        buttonInInteractiveReport: [...BUTTON_SLOTS, "rightOfInteractiveReportSearchBar"],
+        subRegion: SUB_REGION_SLOTS,
+        page: PAGE_SLOTS[str(ctx.page.props, "appearance.pageMode", "") === "modalDialog" ? "modal" : "normal"]
+      },
       ...editableFor(renderer.app.root),
       digests: digestsFor(renderer, ctx.page)
     };

@@ -33,8 +33,8 @@ export interface MoveComponentOperation {
   };
 }
 
-const ITEM_SLOTS = ['regionBody', 'body', 'contentBody'];
-const BUTTON_SLOTS = [
+export const ITEM_SLOTS = ['regionBody', 'body', 'contentBody'];
+export const BUTTON_SLOTS = [
   'next',
   'previous',
   'edit',
@@ -49,8 +49,8 @@ const BUTTON_SLOTS = [
   'top',
   'bottom',
 ];
-const SUB_REGION_SLOTS = ['subRegions', 'regionBody', 'body'];
-const PAGE_SLOTS = {
+export const SUB_REGION_SLOTS = ['subRegions', 'regionBody', 'body'];
+export const PAGE_SLOTS = {
   normal: ['body', 'breadcrumbBar', 'leftColumn', 'rightSideColumn'],
   modal: ['contentBody', 'dialogFooter'],
 };
