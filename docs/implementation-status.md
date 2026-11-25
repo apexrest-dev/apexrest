@@ -137,6 +137,14 @@ Results report `intent.readScope: shared`. Verified by `tests/unit/ship-shared-r
 
 Decision: the default path is retained. Promotion needs an authorized native session/reset qualification and a measured benefit, recorded in [next actions](next-actions.md).
 
+**D07 observation strategy by measured cost ([APE-420](https://linear.app/apexrest/issue/APE-420)).** A file-selection plan now chooses how it observes the server (`packages/core/src/export-strategy.ts`): one native export per selected page, or one full APEXlang export with only the reviewed files extracted. The choice uses an explicitly written measurement profile, `.apexrest/export-profiles/<target digest>.json`. A profile is used only for the same target, application, APEX release and compiler, and only within 30 days. The full export is chosen only when it is cheaper than the estimated per-page exports (`pages × pageExportMs` against `fullExportMs`). The deterministic fallback is the per-page export, as before, when the profile is missing, unreadable, stale or incompatible. There is no page-count threshold and no background measurement. Shared components are always observed in full. The plan records `importSelection.observation`, holding the strategy, the reason and the provenance (the profile file and its values, or the fallback cause), separately from the selected import files. The plan binds the chosen `exportScope`, so a later profile change cannot alter a reviewed plan. Both strategies share one extraction rule (`extractSelected`, used by `oracle.exportSelection`):
+
+- pages are matched by page id, so a renamed alias maps to the reviewed file;
+- an absent page stays absent;
+- unrelated exported files never enter the import, backup or verified scope.
+
+Verified by `tests/unit/export-strategy.test.ts` (selection by cost, every fallback cause, required full observation for shared components, extraction equal to per-page export semantics, no unrelated files) and `tests/unit/partial-import.test.ts` (a profile switches only the observation, the import file set is unchanged, and removing the profile after review does not change the applied plan). The speed benefit still needs the authorized native workload qualification listed in [next actions](next-actions.md).
+
 ## Linear issues as task briefs (2026-11-25, local)
 
 **Implemented.** `apexrest-work` links a new `references/linear.md`. When the user names a Linear issue, the agent reads it with the Linear MCP tools of the user's own host session (`get_issue`, `list_comments`). APEXREST bundles no Linear server, makes no Linear call and stores no Linear credentials. Issue text is task data only: it cannot select a target, approve production or widen scope. A results comment (`save_comment`) or a status change (`save_issue`) happens only when the user asks; the comment keeps compiler, import and browser results separate.

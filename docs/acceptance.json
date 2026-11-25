@@ -1389,6 +1389,21 @@
       "verification": "partial",
       "evidence": ["packages/core/src/ship-intent.ts", "tests/unit/ship-shared-reads.test.ts"],
       "blocker": "Promotion requires authorized native session/reset qualification and a measured benefit; not run."
+    },
+    {
+      "id": "FASTDEV-D07",
+      "criterion": "File-selection plans choose per-page or full-export observation from a compatible explicit measurement profile with a deterministic per-page fallback, record strategy, reason and provenance separately from the import files, and extract only the reviewed files",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/export-strategy.ts",
+        "packages/core/src/deploy.ts",
+        "packages/core/src/oracle.ts",
+        "packages/core/src/partial-import.ts",
+        "tests/unit/export-strategy.test.ts",
+        "tests/unit/partial-import.test.ts"
+      ],
+      "blocker": "Repository fixtures. Performance promotion needs an authorized native workload profile."
     }
   ]
 }

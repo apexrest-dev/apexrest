@@ -2043,6 +2043,22 @@
       ],
       "evidence": ["read scope observations"],
       "budgetMs": 30000
+    },
+    {
+      "id": "A261-101",
+      "title": "Observation strategy by measured cost",
+      "acceptance": ["FASTDEV-D07"],
+      "execution": "harness",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Plan a page selection without an export profile, then with a compatible profile that makes a full export cheaper, then with a stale profile."
+      ],
+      "expected": [
+        "The plan records the strategy, reason and provenance separately from the import files; the profile switches only the observation; missing, stale or incompatible profiles fall back to per-page exports."
+      ],
+      "evidence": ["plan importSelection.observation"],
+      "budgetMs": 30000
     }
   ],
   "metrics": "quality-performance.json"

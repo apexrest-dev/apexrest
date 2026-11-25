@@ -207,3 +207,4 @@ Preserve functional catalog provenance, licensing and compiler bindings. Preserv
 - After a separately authorized push to `main`, verify the live [GitHub Pages website](https://apexrest-dev.github.io/apexrest/), search, navigation and assets.
 - **Resident CLI ship qualification (APE-437).** Measure cold against resident CLI ships on a native DEV target, using the `planning` span's `compilerReused` and the operation totals, before any speed claim.
 - **Shared ship read scope (APE-438, experimental).** Qualify `APEXREST_SHIP_SHARED_READS=1` on an authorized native DEV target (session reset between batches, measured read-server startup saved) before enabling it by default; otherwise keep the per-phase scopes.
+- **Export observation profile (APE-420).** Measure single-page and full APEXlang export times on an authorized native DEV target, write `.apexrest/export-profiles/<target digest>.json`, and qualify the full-export extraction choice before claiming a speedup.

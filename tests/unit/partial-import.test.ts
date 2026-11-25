@@ -752,3 +752,35 @@ test('sync changes lists server edits since the checkpoint next to local edits a
   assert.deepEqual(await f.store.read(), before, 'sync state is untouched');
   assert.equal(await f.content(sibling), 'baseline ' + sibling, 'local sources are untouched');
 });
+
+test('an export profile changes only the observation strategy; the reviewed plan binds it', async (t) => {
+  const f = await initialized(t);
+  await f.edit(page, 'profiled page edit');
+  const plain = await f.service.plan(f.ctx, 'dev');
+  assert.equal(selected(plain).exportScope, 'selected');
+  assert.deepEqual(selected(plain).observation?.provenance, { kind: 'fallback', profile: 'missing' });
+  const { writeJson } = await import('../../packages/core/src/fs.ts');
+  const capabilities = selected(plain).capabilities as { apexVersion: string; compilerVersion: string };
+  const profileFile = path.join(f.ctx.root, '.apexrest/export-profiles', `${plain.targetDigest}.json`);
+  await writeJson(profileFile, {
+    schemaVersion: 1,
+    targetDigest: plain.targetDigest,
+    applicationId: f.ctx.config.environments.dev!.applicationId,
+    apexVersion: capabilities.apexVersion,
+    compilerVersion: capabilities.compilerVersion,
+    pageExportMs: 5000,
+    fullExportMs: 1000,
+    measuredAt: new Date().toISOString(),
+    source: 'test profile',
+  });
+  const profiled = await f.service.plan(f.ctx, 'dev');
+  assert.equal(selected(profiled).exportScope, 'full');
+  assert.equal(selected(profiled).observation?.strategy, 'full-export-extraction');
+  assert.equal(selected(profiled).observation?.provenance.kind, 'profile');
+  // The import file set is unchanged by the strategy.
+  assert.deepEqual(selected(profiled).files, selected(plain).files);
+  // Removing the profile after review cannot change the bound plan.
+  await rm(profileFile);
+  await f.apply(profiled);
+  assert.deepEqual(f.imports.at(-1), [page]);
+});

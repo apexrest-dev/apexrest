@@ -1596,6 +1596,34 @@
                 "selected",
                 "full"
               ]
+            },
+            "observation": {
+              "type": "object",
+              "properties": {
+                "strategy": {
+                  "type": "string",
+                  "enum": [
+                    "page-exports",
+                    "full-export-extraction"
+                  ]
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "provenance": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "strategy",
+                "reason",
+                "provenance"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [

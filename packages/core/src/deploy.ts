@@ -1,6 +1,7 @@
 import { withSqlclTimings, sqlclTimings } from './sqlcl-timings.ts';
 import { correlationId, openSpan, spanned, traceReport } from './spans.ts';
 import { withConnectedReads } from './sqlcl-read-scope.ts';
+import { chooseObservation, readExportProfile } from './export-strategy.ts';
 import path from 'node:path';
 import { readFile, mkdir, cp, open, readdir, rename, rm, rmdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -1388,9 +1389,18 @@ export class DeploymentService {
       options.importMode === 'files' ? options.files : changedFiles(checkpoint(working).files, local);
     if (candidates.some((file) => !local[file] || !supportedFile(file)))
       return { reasons: ['unsupported-component-files'] };
-    const exportScope = candidates.every(scopedExportFile) ? 'selected' : 'full';
     const connection = await resolveConnection(env.readConnectionRef);
     const capabilities = await this.oracle.partialImportCapabilities(source, versions);
+    // Per-page exports or one full export with extraction (export-strategy.ts); the plan binds it.
+    const observation = chooseObservation({
+      files: candidates,
+      targetDigest: targetDigest(env),
+      applicationId: env.applicationId,
+      apexVersion: versions.apexVersion,
+      compilerVersion: String(capabilities.compilerVersion ?? ''),
+      profile: await readExportProfile(ctx, targetDigest(env)),
+    });
+    const exportScope = observation.exportScope;
     if (capabilities.compilerVersion !== working.compilerVersion)
       throw new Fault(
         'SYNC_COMPILER_CHANGED',
@@ -1531,13 +1541,21 @@ export class DeploymentService {
           requestedMode: options.importMode as 'auto' | 'full' | 'files',
           resolvedMode: 'files',
           files: selected.files,
-          reasons: exportScope === 'full' ? ['shared-components-require-full-apexlang-observation'] : [],
+          reasons:
+            observation.provenance.kind === 'required'
+              ? ['shared-components-require-full-apexlang-observation']
+              : [],
           dependencies: selected.files.filter((file) => file.startsWith('shared-components/')),
           before,
           effective,
           capabilities,
           readbackPolicy: APEXLANG_EQUIVALENCE_POLICY,
           exportScope,
+          observation: {
+            strategy: observation.strategy,
+            reason: observation.reason,
+            provenance: observation.provenance,
+          },
         },
       };
       plan.digest = planDigest(plan);

@@ -23,6 +23,14 @@ export const importSelectionSchema = z.strictObject({
   capabilities: z.record(z.string(), z.unknown()),
   readbackPolicy: z.literal(APEXLANG_EQUIVALENCE_POLICY).optional(),
   exportScope: z.enum(['selected', 'full']).optional(),
+  /** Why that observation was chosen and from which measurement (export-strategy.ts). */
+  observation: z
+    .strictObject({
+      strategy: z.enum(['page-exports', 'full-export-extraction']),
+      reason: z.string(),
+      provenance: z.record(z.string(), z.unknown()),
+    })
+    .optional(),
 });
 export type ImportSelection = z.infer<typeof importSelectionSchema>;
 export function importOptions(value: ImportOptions = {}): Required<ImportOptions> {

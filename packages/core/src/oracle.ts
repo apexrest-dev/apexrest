@@ -31,6 +31,7 @@ import { sqlclConfig, type SqlclConfig } from './sqlcl-config.ts';
 import { runSqlclMcp, type SqlclMcpRequest } from './sqlcl-mcp.ts';
 import { runPooledSqlcl } from './sqlcl-session.ts';
 import { currentReadScope } from './sqlcl-read-scope.ts';
+import { extractSelected } from './export-strategy.ts';
 import { ScriptSession, scriptSessionDisabled, WarmImportServer, warmImportDisabled } from './sqlcl-warm.ts';
 import { runOrdsBridge, type OrdsBridgeJob } from './ords.ts';
 import {
@@ -1070,18 +1071,17 @@ export class OracleAdapter {
       if (exportScope === 'full') {
         const exported = await this.exportApplication(env, connection, 'APEXLANG');
         try {
-          for (const file of selected) {
-            // Full observations may include unrelated files; only the reviewed scope is retained.
-            const pageId = /^pages\/p(\d{5})/.exec(file)?.[1];
-            const matches = Object.keys(exported.files).filter((candidate) =>
-              pageId ? /^pages\/p(\d{5})/.exec(candidate)?.[1] === pageId : candidate === file,
-            );
-            if (matches.length > 1)
-              throw new Fault('PARTIAL_EXPORT_AMBIGUOUS', 'Export has duplicate selected identities.', 5);
-            if (!matches.length) continue;
+          // Full observations may include unrelated files; only the reviewed scope is retained.
+          let picked: Record<string, string>;
+          try {
+            picked = extractSelected(exported.files, selected);
+          } catch {
+            throw new Fault('PARTIAL_EXPORT_AMBIGUOUS', 'Export has duplicate selected identities.', 5);
+          }
+          for (const [file, source] of Object.entries(picked)) {
             const target = await contained(directory, file);
             await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
-            await cp(await contained(exported.directory, matches[0]!), target);
+            await cp(await contained(exported.directory, source), target);
           }
           const files = await inventory(directory);
           return {

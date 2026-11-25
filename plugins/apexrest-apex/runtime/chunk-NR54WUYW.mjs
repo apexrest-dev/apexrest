@@ -6,7 +6,7 @@ import {
 import {
   deploymentBinding,
   verifyDeploymentPredicates
-} from "./chunk-HLUA2IXO.mjs";
+} from "./chunk-KNRJIVWR.mjs";
 import {
   correlationId,
   openSpan,
@@ -23,6 +23,7 @@ import {
   checkSnapshot,
   checkSyncBackup,
   checkpoint,
+  chooseObservation,
   compareApplicationExports,
   coordination,
   databaseMeetsApex262Minimum,
@@ -32,16 +33,16 @@ import {
   persistSnapshot,
   pickFiles,
   privateCopy,
+  readExportProfile,
   rebaseAfterImport,
   resolveConnection,
-  scopedExportFile,
   selectImport,
   sourceRelease,
   sqlclToken,
   stageSelection,
   supportedFile,
   syncPath
-} from "./chunk-2DFWP5Y4.mjs";
+} from "./chunk-OKEQDTRJ.mjs";
 import {
   VERSION
 } from "./chunk-4GRGGAQV.mjs";
@@ -1518,9 +1519,17 @@ var DeploymentService = class {
     const candidates = options.importMode === "files" ? options.files : changedFiles(checkpoint(working).files, local);
     if (candidates.some((file) => !local[file] || !supportedFile(file)))
       return { reasons: ["unsupported-component-files"] };
-    const exportScope = candidates.every(scopedExportFile) ? "selected" : "full";
     const connection = await resolveConnection(env.readConnectionRef);
     const capabilities = await this.oracle.partialImportCapabilities(source, versions);
+    const observation = chooseObservation({
+      files: candidates,
+      targetDigest: targetDigest(env),
+      applicationId: env.applicationId,
+      apexVersion: versions.apexVersion,
+      compilerVersion: String(capabilities.compilerVersion ?? ""),
+      profile: await readExportProfile(ctx, targetDigest(env))
+    });
+    const exportScope = observation.exportScope;
     if (capabilities.compilerVersion !== working.compilerVersion)
       throw new Fault(
         "SYNC_COMPILER_CHANGED",
@@ -1654,13 +1663,18 @@ var DeploymentService = class {
           requestedMode: options.importMode,
           resolvedMode: "files",
           files: selected.files,
-          reasons: exportScope === "full" ? ["shared-components-require-full-apexlang-observation"] : [],
+          reasons: observation.provenance.kind === "required" ? ["shared-components-require-full-apexlang-observation"] : [],
           dependencies: selected.files.filter((file) => file.startsWith("shared-components/")),
           before,
           effective,
           capabilities,
           readbackPolicy: APEXLANG_EQUIVALENCE_POLICY,
-          exportScope
+          exportScope,
+          observation: {
+            strategy: observation.strategy,
+            reason: observation.reason,
+            provenance: observation.provenance
+          }
         }
       };
       plan.digest = planDigest(plan);

@@ -1506,7 +1506,13 @@ var importSelectionSchema = external_exports.strictObject({
   effective: snapshotSchema.nullable(),
   capabilities: external_exports.record(external_exports.string(), external_exports.unknown()),
   readbackPolicy: external_exports.literal(APEXLANG_EQUIVALENCE_POLICY).optional(),
-  exportScope: external_exports.enum(["selected", "full"]).optional()
+  exportScope: external_exports.enum(["selected", "full"]).optional(),
+  /** Why that observation was chosen and from which measurement (export-strategy.ts). */
+  observation: external_exports.strictObject({
+    strategy: external_exports.enum(["page-exports", "full-export-extraction"]),
+    reason: external_exports.string(),
+    provenance: external_exports.record(external_exports.string(), external_exports.unknown())
+  }).optional()
 });
 function importOptions(value = {}) {
   const mode = value.importMode ?? "auto";
@@ -1668,7 +1674,7 @@ async function rebaseAfterImport(ctx, runId, reviewedLocal, before, server, sele
 }
 
 // packages/core/src/project.ts
-import path14 from "node:path";
+import path15 from "node:path";
 import { cp as cp4, mkdir as mkdir6, lstat as lstat3, readdir as readdir6, writeFile, mkdtemp as mkdtemp2, rm as rm6, rename as rename4 } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
@@ -2378,8 +2384,8 @@ async function exampleValues(text, id) {
     contracts ??= load2();
     const all = await contracts;
     const at = id?.indexOf("inventory/app/") ?? -1;
-    const path15 = at < 0 ? void 0 : id.slice(at + "inventory/app/".length).split("/").slice(0, -1).join("/");
-    const root = path15 === void 0 ? void 0 : all.find((c) => c.segments.join("/") === path15);
+    const path16 = at < 0 ? void 0 : id.slice(at + "inventory/app/".length).split("/").slice(0, -1).join("/");
+    const root = path16 === void 0 ? void 0 : all.find((c) => c.segments.join("/") === path16);
     const lines = text.split("\n");
     const indent2 = (line) => line.length - line.trimStart().length;
     const found = /* @__PURE__ */ new Map();
@@ -2488,9 +2494,82 @@ async function contractSkeleton(id) {
 
 // packages/core/src/oracle.ts
 import { performance as performance2 } from "node:perf_hooks";
-import path13 from "node:path";
+import path14 from "node:path";
 import { randomUUID } from "node:crypto";
 import { cp as cp3, mkdir as mkdir5, mkdtemp, readFile as readFile8, readdir as readdir5, realpath as realpath5, rename as rename3, rm as rm5, stat as stat4 } from "node:fs/promises";
+
+// packages/core/src/export-strategy.ts
+import path9 from "node:path";
+var exportProfileSchema = external_exports.strictObject({
+  schemaVersion: external_exports.literal(1),
+  targetDigest: external_exports.string(),
+  applicationId: external_exports.union([external_exports.number(), external_exports.string()]),
+  apexVersion: external_exports.string(),
+  compilerVersion: external_exports.string(),
+  /** Median wall time of one single-page APEXlang export call. */
+  pageExportMs: external_exports.number().positive(),
+  /** Median wall time of one full APEXlang application export. */
+  fullExportMs: external_exports.number().positive(),
+  measuredAt: external_exports.string(),
+  source: external_exports.string().min(1).max(200)
+});
+var PROFILE_MAX_AGE_DAYS = 30;
+var profileFile = (targetDigest2) => path9.posix.join(".apexrest/export-profiles", `${targetDigest2}.json`);
+async function readExportProfile(ctx, targetDigest2) {
+  const relative = profileFile(targetDigest2);
+  const file = await contained(ctx.root, relative);
+  if (!await exists(file)) return { status: "missing", relative };
+  const parsed = exportProfileSchema.safeParse(await readJson(file).catch(() => void 0));
+  return parsed.success ? { status: "found", relative, profile: parsed.data } : { status: "unreadable", relative };
+}
+function chooseObservation(input) {
+  if (!input.files.every(scopedExportFile))
+    return {
+      exportScope: "full",
+      strategy: "full-export-extraction",
+      reason: "shared-components-require-full-apexlang-observation",
+      provenance: { kind: "required" }
+    };
+  const fallback = (profile2) => ({
+    exportScope: "selected",
+    strategy: "page-exports",
+    reason: `no usable export profile (${profile2}); per-page exports`,
+    provenance: { kind: "fallback", profile: profile2 }
+  });
+  if (input.profile.status !== "found") return fallback(input.profile.status);
+  const { profile, relative } = input.profile;
+  if (profile.targetDigest !== input.targetDigest || String(profile.applicationId) !== String(input.applicationId) || profile.apexVersion !== input.apexVersion || profile.compilerVersion !== input.compilerVersion)
+    return fallback("incompatible");
+  const age = (input.now ?? Date.now()) - Date.parse(profile.measuredAt);
+  if (!Number.isFinite(age) || age < 0 || age > PROFILE_MAX_AGE_DAYS * 864e5) return fallback("stale");
+  const estimatedPageExportsMs = input.files.length * profile.pageExportMs;
+  const full = profile.fullExportMs < estimatedPageExportsMs;
+  return {
+    exportScope: full ? "full" : "selected",
+    strategy: full ? "full-export-extraction" : "page-exports",
+    reason: `${input.files.length} page export(s) estimated at ${Math.round(estimatedPageExportsMs)} ms against one full export at ${Math.round(profile.fullExportMs)} ms`,
+    provenance: {
+      kind: "profile",
+      file: relative,
+      measuredAt: profile.measuredAt,
+      pageExportMs: profile.pageExportMs,
+      fullExportMs: profile.fullExportMs,
+      estimatedPageExportsMs
+    }
+  };
+}
+function extractSelected(exported, selected) {
+  const picked = {};
+  for (const file of selected) {
+    const pageId = /^pages\/p(\d{5})/.exec(file)?.[1];
+    const matches = Object.keys(exported).filter(
+      (candidate) => pageId ? /^pages\/p(\d{5})/.exec(candidate)?.[1] === pageId : candidate === file
+    );
+    if (matches.length > 1) throw new Error(`Export has duplicate selected identities for ${file}.`);
+    if (matches.length) picked[file] = matches[0];
+  }
+  return picked;
+}
 
 // packages/core/src/sqlcl-warm.ts
 import { performance } from "node:perf_hooks";
@@ -2683,16 +2762,16 @@ var ScriptSession = class {
 };
 
 // packages/core/src/ords.ts
-import path9 from "node:path";
+import path10 from "node:path";
 import { realpath as realpath4, rm as rm4 } from "node:fs/promises";
 async function sqlclHome(executable) {
-  const candidates = path9.isAbsolute(executable) ? [executable] : executable.includes(path9.sep) ? [path9.resolve(executable)] : (process.env.PATH ?? "").split(path9.delimiter).flatMap(
-    (directory) => process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"].map((extension) => path9.join(directory, executable + extension)) : [path9.join(directory, executable)]
+  const candidates = path10.isAbsolute(executable) ? [executable] : executable.includes(path10.sep) ? [path10.resolve(executable)] : (process.env.PATH ?? "").split(path10.delimiter).flatMap(
+    (directory) => process.platform === "win32" ? ["", ".exe", ".cmd", ".bat"].map((extension) => path10.join(directory, executable + extension)) : [path10.join(directory, executable)]
   );
   for (const candidate of candidates) {
     if (!await exists(candidate)) continue;
-    const home = path9.dirname(path9.dirname(await realpath4(candidate)));
-    if (await exists(path9.join(home, "lib", "jdbcrest.jar"))) return home;
+    const home = path10.dirname(path10.dirname(await realpath4(candidate)));
+    if (await exists(path10.join(home, "lib", "jdbcrest.jar"))) return home;
     break;
   }
   throw new Fault(
@@ -2705,7 +2784,7 @@ async function sqlclHome(executable) {
 async function resolveOrdsJava(javaHome, stage, env, signal, runner = runProcess) {
   const executableName = process.platform === "win32" ? "java.exe" : "java";
   const candidates = [
-    ...[javaHome, process.env.JAVA_HOME].filter((home) => !!home).map((home) => ({ executable: path9.join(home, "bin", executableName), javaHome: home })),
+    ...[javaHome, process.env.JAVA_HOME].filter((home) => !!home).map((home) => ({ executable: path10.join(home, "bin", executableName), javaHome: home })),
     { executable: executableName, javaHome: void 0 }
   ];
   const attempted = /* @__PURE__ */ new Set();
@@ -2741,11 +2820,11 @@ async function resolveOrdsJava(javaHome, stage, env, signal, runner = runProcess
 async function runOrdsBridge(settings, job, credentials, stage, signal, runner = runProcess) {
   if (signal?.aborted) throw new Fault("CANCELLED", "ORDS operation cancelled.", 6, "cancelled");
   const home = await sqlclHome(settings.executable);
-  const helper = path9.join(resourceRoot(), "ords", "OrdsBridge.java");
+  const helper = path10.join(resourceRoot(), "ords", "OrdsBridge.java");
   if (!await exists(helper))
     throw new Fault("ORDS_HELPER_REQUIRED", "The installed plugin is missing its ORDS helper.", 3, "blocked");
-  const jobFile = path9.join(stage, "ords-job.json");
-  const output = path9.join(stage, "ords-result.json");
+  const jobFile = path10.join(stage, "ords-job.json");
+  const output = path10.join(stage, "ords-result.json");
   await rm4(output, { force: true });
   await writeJson(jobFile, { ...job, output });
   const env = { ...process.env, JAVA_HOME: settings.javaHome };
@@ -2760,7 +2839,7 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
     executable: java.executable,
     args: [
       "-cp",
-      [path9.join(home, "lib", "*"), path9.join(home, "lib", "ext", "*")].join(path9.delimiter),
+      [path10.join(home, "lib", "*"), path10.join(home, "lib", "ext", "*")].join(path10.delimiter),
       helper,
       jobFile
     ],
@@ -2799,7 +2878,7 @@ async function runOrdsBridge(settings, job, credentials, stage, signal, runner =
 }
 
 // packages/core/src/compatibility.ts
-import path10 from "node:path";
+import path11 from "node:path";
 import { readFile as readFile5 } from "node:fs/promises";
 var APEX_262_PROFILE = {
   id: "apex262-sqlcl263-mmd3479",
@@ -2817,7 +2896,7 @@ function databaseMeetsApex262Minimum(version) {
 }
 async function sourceMmdVersion(source) {
   try {
-    const value = JSON.parse(await readFile5(path10.join(source, ".apex/apexlang.json"), "utf8"));
+    const value = JSON.parse(await readFile5(path11.join(source, ".apex/apexlang.json"), "utf8"));
     const version = value?.mmdVersion;
     return typeof version === "string" && /^\d+\.\d+\.\d+\+\d+$/.test(version) ? version : null;
   } catch {
@@ -2841,7 +2920,7 @@ function evaluatePartialImportCompatibility(input) {
 }
 
 // packages/core/src/upgrade-audit.ts
-import path11 from "node:path";
+import path12 from "node:path";
 import { readFile as readFile6, stat as stat3, opendir } from "node:fs/promises";
 function parseCodeScan(output, source) {
   const clean = output.replace(/\x1b\[[0-9;]*m/g, "");
@@ -2853,8 +2932,8 @@ function parseCodeScan(output, source) {
   for (const entry of report) {
     if (!entry || typeof entry.file !== "string" || !Array.isArray(entry.issues))
       throw new Error("CodeScan report entry is incomplete.");
-    const file = path11.relative(source, path11.resolve(source, entry.file)).replaceAll(path11.sep, "/");
-    if (!file || file.startsWith("../") || path11.isAbsolute(file))
+    const file = path12.relative(source, path12.resolve(source, entry.file)).replaceAll(path12.sep, "/");
+    if (!file || file.startsWith("../") || path12.isAbsolute(file))
       throw new Error("CodeScan returned a file outside the inspected source.");
     for (const issue of entry.issues) {
       if (typeof issue?.ruleNo !== "string" || typeof issue.msg !== "string" || !Number.isInteger(issue.line) || issue.line < 0 || !Number.isInteger(issue.col) || issue.col < 0)
@@ -2904,12 +2983,12 @@ async function auditUpgradeSource(source) {
   let inspected = 0, traversalTruncated = false;
   discovery: while (directories.length) {
     const relative = directories.pop();
-    for await (const entry of await opendir(path11.join(source, relative))) {
+    for await (const entry of await opendir(path12.join(source, relative))) {
       if (++inspected > 1e4) {
         traversalTruncated = true;
         break discovery;
       }
-      const file = path11.posix.join(relative, entry.name);
+      const file = path12.posix.join(relative, entry.name);
       if (entry.isSymbolicLink()) skipped.push(file);
       else if (entry.isDirectory()) directories.push(file);
       else if (entry.isFile() && /\.(?:apx|sql|js)$/i.test(file)) files.push(file);
@@ -2918,7 +2997,7 @@ async function auditUpgradeSource(source) {
   files.sort();
   let bytes = 0, scannedFiles = 0;
   for (const file of files) {
-    const absolute = path11.join(source, file), size = (await stat3(absolute)).size;
+    const absolute = path12.join(source, file), size = (await stat3(absolute)).size;
     if (size > 1024 * 1024 || bytes + size > 16 * 1024 * 1024 || scannedFiles >= 2e3) {
       skipped.push(file);
       continue;
@@ -2944,7 +3023,7 @@ async function auditUpgradeSource(source) {
 }
 
 // packages/core/src/codescan-known-issues.ts
-import path12 from "node:path";
+import path13 from "node:path";
 import { readFile as readFile7 } from "node:fs/promises";
 var CODESCAN_KNOWN_FALSE_POSITIVE_POLICY = "apex262-sqlcl263-codescan-v1";
 var KNOWN_FALSE_POSITIVES = [
@@ -3032,7 +3111,7 @@ function classifyCodeScanFindings(findings, context) {
 }
 async function readApplicationSource(source) {
   try {
-    return await readFile7(path12.join(source, "application.apx"), "utf8");
+    return await readFile7(path13.join(source, "application.apx"), "utf8");
   } catch {
     return null;
   }
@@ -3307,13 +3386,13 @@ var OracleAdapter = class {
   selectedTransport;
   selectedConnections = /* @__PURE__ */ new Map();
   async settings() {
-    const file = path13.join(managedHome(), "runtime.json");
+    const file = path14.join(managedHome(), "runtime.json");
     const state = await exists(file) ? await readJson(file) : {};
     const transport = await (this.selectedTransport ??= sqlclConfig());
     return {
       ...transport,
       executable: process.env.APEXREST_SQLCL ?? state.sqlcl ?? this.executable,
-      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path13.dirname(path13.dirname(state.java)) : process.env.JAVA_HOME)
+      javaHome: process.env.APEXREST_JAVA_HOME ?? (state.java ? path14.dirname(path14.dirname(state.java)) : process.env.JAVA_HOME)
     };
   }
   async selectedConnection(connection) {
@@ -3489,7 +3568,7 @@ prompt ${marker}
   }
   /** Working directory of pooled SQLcl servers: a durable private directory, never a per-call stage. */
   async sessionHome() {
-    const root = path13.join(managedHome(), "staging");
+    const root = path14.join(managedHome(), "staging");
     await mkdir5(root, { recursive: true, mode: 448 });
     return root;
   }
@@ -3506,14 +3585,14 @@ prompt ${marker}
       );
   }
   async stage() {
-    const root = path13.join(managedHome(), "staging");
+    const root = path14.join(managedHome(), "staging");
     await mkdir5(root, { recursive: true, mode: 448 });
-    return mkdtemp(path13.join(root, "oracle-"));
+    return mkdtemp(path14.join(root, "oracle-"));
   }
   /** Remove a private staging directory created by stage(). Other paths are never removed. */
   async discardStage(stage) {
     if (!stage) return;
-    const relative = path13.relative(path13.join(managedHome(), "staging"), path13.resolve(stage));
+    const relative = path14.relative(path14.join(managedHome(), "staging"), path14.resolve(stage));
     if (!/^oracle-[^/\\]+$/.test(relative)) return;
     await rm5(stage, { recursive: true, force: true });
   }
@@ -3535,12 +3614,12 @@ prompt ${marker}
     }
   }
   async capabilityKey(settings) {
-    if (!path13.isAbsolute(settings.executable)) return;
+    if (!path14.isAbsolute(settings.executable)) return;
     try {
       const executable = await realpath5(settings.executable);
-      const bin = path13.dirname(executable);
-      if (path13.basename(bin) !== "bin") return;
-      const lib = path13.join(path13.dirname(bin), "lib");
+      const bin = path14.dirname(executable);
+      if (path14.basename(bin) !== "bin") return;
+      const lib = path14.join(path14.dirname(bin), "lib");
       const mark = async (file, required) => {
         try {
           const info = await stat4(file, { bigint: true });
@@ -3553,11 +3632,11 @@ prompt ${marker}
       const marks = {
         executable: await mark(executable, true),
         lib: await mark(lib, true),
-        apex: await mark(path13.join(lib, "dbtools-apex.jar"), false),
-        apexlang: await mark(path13.join(lib, "apexlang-compiler.jar"), false),
-        ext: await mark(path13.join(lib, "ext"), false),
-        extApex: await mark(path13.join(lib, "ext/dbtools-apex.jar"), false),
-        extApexlang: await mark(path13.join(lib, "ext/apexlang-compiler.jar"), false)
+        apex: await mark(path14.join(lib, "dbtools-apex.jar"), false),
+        apexlang: await mark(path14.join(lib, "apexlang-compiler.jar"), false),
+        ext: await mark(path14.join(lib, "ext"), false),
+        extApex: await mark(path14.join(lib, "ext/dbtools-apex.jar"), false),
+        extApexlang: await mark(path14.join(lib, "ext/apexlang-compiler.jar"), false)
       };
       const { executable: _executable, ...rest } = settings;
       return hash(canonical({ ...rest, executable, marks }));
@@ -3575,7 +3654,7 @@ prompt ${marker}
   async capabilityFile(key) {
     if (!key || this.runner !== runProcess || /^(?:0|false|off)$/i.test(process.env.APEXREST_CAPABILITY_CACHE ?? ""))
       return void 0;
-    return path13.join(managedHome(), "cache", "sqlcl-capabilities", key + ".json");
+    return path14.join(managedHome(), "cache", "sqlcl-capabilities", key + ".json");
   }
   async storedCapabilities(key) {
     const file = await this.capabilityFile(key);
@@ -3594,7 +3673,7 @@ prompt ${marker}
     const file = await this.capabilityFile(key);
     if (file && capabilities.version && key === await this.capabilityKey(await this.settings()))
       try {
-        await mkdir5(path13.dirname(file), { recursive: true, mode: 448 });
+        await mkdir5(path14.dirname(file), { recursive: true, mode: 448 });
         await writeJson(file, { savedAt: Date.now(), capabilities });
       } catch {
       }
@@ -3698,7 +3777,7 @@ prompt ${marker}
     const file = await this.importHelpFile(key);
     if (file && help && key === await this.capabilityKey(await this.settings()))
       try {
-        await mkdir5(path13.dirname(file), { recursive: true, mode: 448 });
+        await mkdir5(path14.dirname(file), { recursive: true, mode: 448 });
         await writeJson(file, { savedAt: Date.now(), help, helpHash: hash(help) });
       } catch {
       }
@@ -3726,7 +3805,7 @@ prompt ${marker}
         findings: [],
         reason: "APEXlang CodeScan is qualified only for SQLcl 26.3."
       };
-    const stage = await this.stage(), copy = path13.join(stage, "application");
+    const stage = await this.stage(), copy = path14.join(stage, "application");
     try {
       await cp3(source, copy, { recursive: true, filter: withoutPreviewState(source) });
       const help = (await this.session("help codescan", void 0, false, signal)).output;
@@ -3784,16 +3863,16 @@ prompt ${marker}
     return { directory, compiler, output: result.output, files: await inventory(directory) };
   }
   async findApplication(root) {
-    if (await exists(path13.join(root, "application.apx"))) return root;
+    if (await exists(path14.join(root, "application.apx"))) return root;
     const found = [];
     for (const entry of await readdir5(root, { withFileTypes: true }))
       if (entry.isDirectory()) {
-        const dir = path13.join(root, entry.name);
-        if (await exists(path13.join(dir, "application.apx"))) found.push(dir);
+        const dir = path14.join(root, entry.name);
+        if (await exists(path14.join(dir, "application.apx"))) found.push(dir);
         else
           for (const sub of await readdir5(dir, { withFileTypes: true }))
-            if (sub.isDirectory() && await exists(path13.join(dir, sub.name, "application.apx")))
-              found.push(path13.join(dir, sub.name));
+            if (sub.isDirectory() && await exists(path14.join(dir, sub.name, "application.apx")))
+              found.push(path14.join(dir, sub.name));
       }
     if (found.length !== 1)
       throw new Fault(
@@ -3810,7 +3889,7 @@ prompt ${marker}
   async validate(source, signal, options = {}) {
     const compiler = await this.requireCapability("validate", signal);
     const before = await inventory(source);
-    const metadataFile = before[".apex/apexlang.json"] ? path13.join(source, ".apex/apexlang.json") : options.metadataFile;
+    const metadataFile = before[".apex/apexlang.json"] ? path14.join(source, ".apex/apexlang.json") : options.metadataFile;
     if (!metadataFile)
       throw new Fault(
         "MMD_METADATA_REQUIRED",
@@ -3821,13 +3900,13 @@ prompt ${marker}
     const expected = { ...before, ".apex/apexlang.json": hash(metadata) };
     if (before[".apex/apexlang.json"] && before[".apex/apexlang.json"] !== expected[".apex/apexlang.json"])
       throw new Fault("SOURCE_DRIFT", "Metadata changed before validation.", 5);
-    const stage = await this.stage(), copy = path13.join(stage, "application");
+    const stage = await this.stage(), copy = path14.join(stage, "application");
     let result;
     try {
       await cp3(source, copy, { recursive: true, filter: withoutPreviewState(source) });
       if (!before[".apex/apexlang.json"]) {
-        await mkdir5(path13.join(copy, ".apex"), { recursive: true });
-        await cp3(metadataFile, path13.join(copy, ".apex/apexlang.json"));
+        await mkdir5(path14.join(copy, ".apex"), { recursive: true });
+        await cp3(metadataFile, path14.join(copy, ".apex/apexlang.json"));
       }
       if (canonical(await inventory(copy)) !== canonical(expected))
         throw new Fault("SOURCE_DRIFT", "Source changed while staging validation.", 5);
@@ -3869,7 +3948,7 @@ prompt ${marker}
     const compiler = await this.requireCapability("export");
     const stage = await this.stage();
     const ords = (await this.settings()).databaseTransport === "ords";
-    const exportRoot = ords ? path13.join(stage, "export") : stage;
+    const exportRoot = ords ? path14.join(stage, "export") : stage;
     const result = ords ? {
       output: String(
         (await this.ordsBridge(
@@ -3926,23 +4005,22 @@ prompt ${marker}
         3
       );
     const compiler = await this.requireCapability("export");
-    const stage = await this.stage(), directory = path13.join(stage, "selection");
+    const stage = await this.stage(), directory = path14.join(stage, "selection");
     await mkdir5(directory, { mode: 448 });
     try {
       if (exportScope === "full") {
         const exported = await this.exportApplication(env, connection, "APEXLANG");
         try {
-          for (const file of selected) {
-            const pageId = /^pages\/p(\d{5})/.exec(file)?.[1];
-            const matches = Object.keys(exported.files).filter(
-              (candidate) => pageId ? /^pages\/p(\d{5})/.exec(candidate)?.[1] === pageId : candidate === file
-            );
-            if (matches.length > 1)
-              throw new Fault("PARTIAL_EXPORT_AMBIGUOUS", "Export has duplicate selected identities.", 5);
-            if (!matches.length) continue;
+          let picked;
+          try {
+            picked = extractSelected(exported.files, selected);
+          } catch {
+            throw new Fault("PARTIAL_EXPORT_AMBIGUOUS", "Export has duplicate selected identities.", 5);
+          }
+          for (const [file, source2] of Object.entries(picked)) {
             const target = await contained(directory, file);
-            await mkdir5(path13.dirname(target), { recursive: true, mode: 448 });
-            await cp3(await contained(exported.directory, matches[0]), target);
+            await mkdir5(path14.dirname(target), { recursive: true, mode: 448 });
+            await cp3(await contained(exported.directory, source2), target);
           }
           const files2 = await inventory(directory);
           return {
@@ -3983,7 +4061,7 @@ prompt ${marker}
       const outputs = [];
       const observed = /* @__PURE__ */ new Set();
       for (const [index, mapping] of mappings.entries()) {
-        const exportDirectory = path13.join(stage, "component-" + (index + 1));
+        const exportDirectory = path14.join(stage, "component-" + (index + 1));
         await mkdir5(exportDirectory, { mode: 448 });
         const result = await this.session(
           `apex export -applicationid ${env.applicationId} -exptype APEXLANG -skipExportDate -expOriginalIds -dir ${sqlclToken(exportDirectory)} -expComponents ${sqlclToken(mapping.type + ":" + mapping.id)}`,
@@ -4010,7 +4088,7 @@ prompt ${marker}
             );
           observed.add(mapping.file);
           const target = await contained(directory, mapping.file);
-          await mkdir5(path13.dirname(target), { recursive: true, mode: 448 });
+          await mkdir5(path14.dirname(target), { recursive: true, mode: 448 });
           await cp3(await contained(exportDirectory, file), target);
         }
       }
@@ -4322,8 +4400,8 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
     return { target, metadata: parseApplicationMetadata(rows[1]) };
   }
   async nativeDeployment(ctx, env, source) {
-    const output = path13.join(await this.stage(), "deployment.json");
-    const defaults = path13.join(source, "deployments/default.json");
+    const output = path14.join(await this.stage(), "deployment.json");
+    const defaults = path14.join(source, "deployments/default.json");
     const native = await exists(defaults) ? JSON.parse(await readFile8(defaults, "utf8")) : {};
     const oldApp = native.app ?? {};
     await writeJson(output, {
@@ -4356,7 +4434,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
           2
         );
       for (const file of selectedFiles) {
-        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path13.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
+        if (!/^[A-Za-z0-9_./-]+\.apx$/.test(file) || path14.isAbsolute(file) || file.split("/").some((part) => !part || part === "." || part === ".."))
           throw new Fault(
             "PARTIAL_IMPORT_FILES_INVALID",
             "Partial-import files must be literal contained APEXlang paths without globs.",
@@ -4365,7 +4443,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
         let valid = false;
         try {
           const physical = await realpath5(await contained(source, file));
-          valid = path13.relative(await realpath5(source), physical).replaceAll(path13.sep, "/") === file && (await stat4(physical)).isFile();
+          valid = path14.relative(await realpath5(source), physical).replaceAll(path14.sep, "/") === file && (await stat4(physical)).isFile();
         } catch {
         }
         if (!valid)
@@ -4388,7 +4466,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
     try {
       return await this.importWith(env, connection, source, config, signal, selectedFiles);
     } finally {
-      await this.discardStage(path13.dirname(config));
+      await this.discardStage(path14.dirname(config));
     }
   }
   warmImport;
@@ -4429,9 +4507,9 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
       warmup: `apex validate -input ${sqlclToken(source)}`
     });
     const entry = {
-      source: path13.resolve(source),
+      source: path14.resolve(source),
       server,
-      ...importDirectory ? { importDirectory: path13.resolve(importDirectory) } : {}
+      ...importDirectory ? { importDirectory: path14.resolve(importDirectory) } : {}
     };
     this.warmImport = entry;
     return {
@@ -4479,7 +4557,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
   takeWarmImport(source, selected) {
     const entry = this.warmImport;
     if (!entry || selected !== !!entry.importDirectory) return void 0;
-    if (selected && entry.importDirectory !== path13.resolve(source)) return void 0;
+    if (selected && entry.importDirectory !== path14.resolve(source)) return void 0;
     this.warmImport = void 0;
     return entry.server;
   }
@@ -4541,7 +4619,7 @@ end;
     const ords = (await this.settings()).databaseTransport === "ords";
     const stage = await this.stage();
     try {
-      const input = path13.join(stage, "restore.sql");
+      const input = path14.join(stage, "restore.sql");
       if (ords) {
         await this.requireMutationSupport();
         await atomicWrite(input, Buffer.concat([Buffer.from(setup), sql]));
@@ -4713,8 +4791,8 @@ async function installSources(source, root, destination) {
       5,
       "conflict"
     );
-  await mkdir5(path13.dirname(target), { recursive: true });
-  const staging = await mkdtemp(path13.join(path13.dirname(target), ".apexrest-copy-"));
+  await mkdir5(path14.dirname(target), { recursive: true });
+  const staging = await mkdtemp(path14.join(path14.dirname(target), ".apexrest-copy-"));
   await inventory(source);
   await cp3(source, staging, { recursive: true, filter: withoutPreviewState(source) });
   await rename3(staging, target);
@@ -4723,12 +4801,12 @@ async function installSources(source, root, destination) {
 
 // packages/core/src/project.ts
 function resourceRoot() {
-  return process.env.APEXREST_RESOURCES ?? path14.resolve(path14.dirname(fileURLToPath(import.meta.url)), "../resources");
+  return process.env.APEXREST_RESOURCES ?? path15.resolve(path15.dirname(fileURLToPath(import.meta.url)), "../resources");
 }
 async function projectInit(directory, template, alias) {
   parse(refName, alias);
-  const destination = path14.resolve(directory);
-  await mkdir6(path14.dirname(destination), { recursive: true });
+  const destination = path15.resolve(directory);
+  await mkdir6(path15.dirname(destination), { recursive: true });
   return withLock(destination + ".init.lock", async () => {
     if (await exists(destination)) {
       if (!(await lstat3(destination)).isDirectory() || (await readdir6(destination)).length)
@@ -4764,40 +4842,40 @@ async function projectInit(directory, template, alias) {
         environments: {},
         artifacts: { directory: ".apexrest/artifacts", retentionDays: 7 }
       };
-      await createFile(path14.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
-      await createFile(path14.join(root, ".gitignore"), ".apexrest/\nnode_modules/\n.env\n");
+      await createFile(path15.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
+      await createFile(path15.join(root, ".gitignore"), ".apexrest/\nnode_modules/\n.env\n");
       for (const dir of Object.values(config.database))
-        await mkdir6(path14.join(root, dir), { recursive: true });
+        await mkdir6(path15.join(root, dir), { recursive: true });
       await cp4(
-        path14.join(resourceRoot(), "toolchains/toolchain.lock.json"),
-        path14.join(root, config.toolchain.lockFile),
+        path15.join(resourceRoot(), "toolchains/toolchain.lock.json"),
+        path15.join(root, config.toolchain.lockFile),
         { force: false, errorOnExist: true }
       );
       if (template !== "existing-app") {
         const generated = await new OracleAdapter().generate(alias, alias);
         await installSources(generated.directory, root, config.application.sourceDir);
-        const release = await sourceRelease(path14.join(root, config.application.sourceDir));
+        const release = await sourceRelease(path15.join(root, config.application.sourceDir));
         if (release === "26.2") {
           config.toolchain.profile = "26.2";
           await cp4(
-            path14.join(resourceRoot(), "toolchains/toolchain-26.2.lock.json"),
-            path14.join(root, config.toolchain.lockFile)
+            path15.join(resourceRoot(), "toolchains/toolchain-26.2.lock.json"),
+            path15.join(root, config.toolchain.lockFile)
           );
-          await atomicWrite(path14.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
+          await atomicWrite(path15.join(root, "apexrest.json"), JSON.stringify(config, null, 2) + "\n");
         }
         if (template === "customer-crm") {
-          await cp4(path14.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
+          await cp4(path15.join(resourceRoot(), "templates/customer-crm/project"), root, { recursive: true });
           await cp4(
-            path14.join(
+            path15.join(
               resourceRoot(),
               "templates/customer-crm",
               release === "26.2" ? "apex-overlay-26.2" : "apex-overlay"
             ),
-            path14.join(root, config.application.sourceDir),
+            path15.join(root, config.application.sourceDir),
             { recursive: true }
           );
           const { readFile: readFile9 } = await import("node:fs/promises");
-          const file = path14.join(
+          const file = path15.join(
             root,
             config.application.sourceDir,
             release === "26.2" ? "shared-components/lists/navigation-menu.apx" : "shared-components/lists.apx"
@@ -4831,12 +4909,12 @@ async function projectInit(directory, template, alias) {
         const moved = [];
         try {
           for (const entry of await readdir6(root)) {
-            await rename4(path14.join(root, entry), path14.join(destination, entry));
+            await rename4(path15.join(root, entry), path15.join(destination, entry));
             moved.push(entry);
           }
         } catch (error) {
           for (const entry of moved.reverse())
-            await rename4(path14.join(destination, entry), path14.join(root, entry));
+            await rename4(path15.join(destination, entry), path15.join(root, entry));
           throw error;
         }
       } else await rename4(root, destination);
@@ -4935,7 +5013,6 @@ export {
   importOptions,
   sourceRelease,
   supportedFile,
-  scopedExportFile,
   pickFiles,
   overlaySelection,
   changedFiles,
@@ -4972,6 +5049,8 @@ export {
   componentNote,
   exampleValues,
   contractSkeleton,
+  readExportProfile,
+  chooseObservation,
   APEX_262_PROFILE,
   databaseMeetsApex262Minimum,
   auditUpgradeSource,

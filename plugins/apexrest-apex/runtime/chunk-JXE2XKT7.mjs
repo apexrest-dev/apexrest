@@ -3,7 +3,7 @@ import {
   claimJob,
   executeJob,
   failQueuedJob
-} from "./chunk-RMNRI5VB.mjs";
+} from "./chunk-GPFO76AL.mjs";
 import {
   revisionOf
 } from "./chunk-PCV5YPHF.mjs";
@@ -38,7 +38,7 @@ async function pendingShip(ctx, jobId) {
     );
     const input = request2.input ?? {};
     if (request2.operation === "ship.intent") {
-      const { readShipIntent } = await import("./chunk-YZ6GTNAU.mjs");
+      const { readShipIntent } = await import("./chunk-HUIZEM3I.mjs");
       const intent = await readShipIntent(ctx, String(input.intent ?? ""));
       return {
         jobId,
@@ -363,7 +363,7 @@ async function supersede(ctx, id, by, covered) {
   const state = await readJson(path2.join(root, "state.json"));
   if (state.operation === "ship.intent") {
     const request2 = await readJson(path2.join(root, "request.json"));
-    const { markIntentSuperseded } = await import("./chunk-YZ6GTNAU.mjs");
+    const { markIntentSuperseded } = await import("./chunk-HUIZEM3I.mjs");
     await markIntentSuperseded(ctx, String(request2.input?.intent ?? ""), by).catch(() => void 0);
   }
   await writeJson(path2.join(root, "state.json"), {
