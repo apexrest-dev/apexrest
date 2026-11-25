@@ -741,6 +741,22 @@ export const REVIEW_JS = String.raw`
       var item = event.target.closest("li[data-id]");
       var comment = item && comments.filter(function (entry) { return entry.id === item.getAttribute("data-id"); })[0];
       if (event.target.closest("[data-apex-local-review-pick]")) return setPicking(!picking);
+      var historyButton = event.target.closest("[data-apex-local-review-undo], [data-apex-local-review-redo]");
+      if (historyButton) {
+        var direction = historyButton.hasAttribute("data-apex-local-review-undo") ? "undo" : "redo", note = panel.querySelector("[data-apex-local-review-history]");
+        saving = true;
+        return send({ op: direction }).then(function (data) {
+          var done = data.result.undone || data.result.redone;
+          config.digests[data.result.file] = data.result.afterDigest;
+          note.hidden = false;
+          note.textContent = (direction === "undo" ? "Undid " : "Redid ") + done.summary + " in " + data.result.file +
+            ". Local source only: a deployed application is not reverted. The preview reloads.";
+        }, function (error) {
+          saving = false;
+          note.hidden = false;
+          note.textContent = error.status === 409 ? "The file changed since that edit, so nothing was " + (direction === "undo" ? "undone" : "redone") + "." : error.message;
+        });
+      }
       if (event.target.closest("[data-apex-local-review-copy]")) {
         return fetch(route + "?status=open&format=text", { credentials: "same-origin" }).then(function (r) { return r.text(); }).then(function (value) {
           var done = function () { var b = event.target.closest("button"); b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1500); };

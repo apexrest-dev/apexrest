@@ -96,3 +96,7 @@ Bind an existing list item to a shared LOV in `action:edit`: `{"op":"bindLov", "
 | `startNewRow`          | `region`, `item` | `true` or `false`                                      | `true`                |
 
 Template ids are checked against the installed theme (after `apexrest_preview action:setup`) or the templates Oracle's Universal Theme 26.2 Reference app uses; `interactive-report` and `cards-container` fit only their region types. Template options need the installed theme: each class must belong to the template, at most one per option group. Set `template` and `templateOptions` in the same patch to change both.
+
+## Undo and redo
+
+`apexrest_project action:undo` reverses the last page edit (`patch`, `insert`, `edit` or a preview visual edit; a compound edit is one step) and `action:redo` restores it. Both write only when the page file still has the digest that edit left or expects; otherwise nothing is written (`TRANSFORM_CONFLICT`). A new edit after an undo clears the redo step. The history keeps 50 entries for 14 days in `.apexrest/edit-history.json`. It covers local page source only: it never reverts a deployed application, and scaffold output, shared LOV edits and manual file edits are not in it.

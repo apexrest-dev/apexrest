@@ -312,6 +312,9 @@ var schemas = {
     dryRun: external_exports.boolean().default(false),
     context: external_exports.enum(["delta", "full", "none"]).default("delta").describe("Edited page context in the result: changed/inserted/removed targets (default), whole, none")
   }),
+  "project.undo": external_exports.strictObject({ ...base }),
+  "project.redo": external_exports.strictObject({ ...base }),
+  "project.history": external_exports.strictObject({ ...base }),
   "entity.list": external_exports.strictObject({ ...base }),
   "project.recipe": external_exports.strictObject({
     ...base,
@@ -502,6 +505,8 @@ var schemas = {
       "entities",
       "entity_check",
       "recipe",
+      "undo",
+      "redo",
       "connection_add",
       "connection_list",
       "connection_test"

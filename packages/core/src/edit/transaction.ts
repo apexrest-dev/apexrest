@@ -16,6 +16,7 @@ import {
   type TextEdit,
 } from './apexlang-edit.ts';
 import { pageFile } from './page-file.ts';
+import { recordEdit } from './history.ts';
 import type { Release } from './columns.ts';
 import { contextDelta, contextOf, type ContextDelta, type PageContext } from './context.ts';
 
@@ -192,7 +193,22 @@ export async function runPageTransaction<T>(
       context: mode === 'full' ? contextOf(result, relative) : contextDelta(source, result, relative),
     };
   };
-  const outcome = await guardedEdit(ctx, { file, relative, ...input, plan });
+  const outcome = await guardedEdit(ctx, {
+    file,
+    relative,
+    ...input,
+    plan,
+    onWritten: (planned) =>
+      recordEdit(ctx, {
+        file: relative,
+        page: pageId,
+        summary: planned.targets.length
+          ? planned.targets.join(', ')
+          : `${input.operations.length} operations`,
+        before: planned.source,
+        after: planned.result,
+      }),
+  });
   const { planned } = outcome;
   return {
     file: relative,
@@ -245,6 +261,8 @@ export async function guardedEdit<P extends { source: string; digest: string; re
     expectedDigest?: string | undefined;
     dryRun?: boolean | undefined;
     plan: () => Promise<P>;
+    /** Runs after the write, still under the lock (the edit history records the change here). */
+    onWritten?: ((planned: P) => Promise<void>) | undefined;
   },
 ): Promise<{ planned: P; written: boolean; change?: SourceChange }> {
   const { file, relative } = input;
@@ -272,6 +290,7 @@ export async function guardedEdit<P extends { source: string; digest: string; re
         { file: relative, currentDigest: planned.digest },
       );
     await atomicWrite(file, planned.result);
+    await input.onWritten?.(planned);
     const after = await sourceInventory(ctx);
     return { planned, written: true, change: sourceChange(before, after, ctx.config.application.sourceDir) };
   });

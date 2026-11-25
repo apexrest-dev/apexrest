@@ -123,6 +123,8 @@ Template, template options and grid placement are offered for 26.2 sources. Thei
 
 **Move…** (in Edit, on an item, button or region) moves it to another region of the same page file, or a region to page level: pick the destination, a slot the destination accepts and an optional sequence, then **Add move**. You can also drag **⠿ Drag onto a region** onto a region on the page, which fills in the same form. The move joins the proposed changes and is saved with them; nothing on the page moves until the source is saved and the page reloads. A refused move (an unsupported slot, a missing destination) writes nothing and says why.
 
+**Undo edit** and **Redo** in the Review panel step back and forward through the project's page edits (from this form, `project patch`, `insert` and `edit`): one undo reverses a whole saved batch. They write only when the page file is still exactly as that edit left it, so a newer change from anywhere is never overwritten. This is local source only; a deployed application is not reverted.
+
 The edit goes through the same digest-bound patch service as `project patch` and `apexrest_project action:patch`:
 
 - **Add to changes** collects a change and lets you pick another component or property of the same page file; the list shows every proposed change before you save. **Save** writes them all, with the field you are editing, as one atomic change.

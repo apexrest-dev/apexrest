@@ -4,6 +4,7 @@ import path from 'node:path';
 import { loadProject } from '../../config.ts';
 import { pageContext, patchPage, PATCH_PROPERTIES, type PatchProperty } from '../../edit/patch.ts';
 import { editPage } from '../../edit/page-edit.ts';
+import { redoEdit, undoEdit } from '../../edit/history.ts';
 import { BUTTON_SLOTS, ITEM_SLOTS, PAGE_SLOTS, SUB_REGION_SLOTS } from '../../edit/move.ts';
 import { Fault } from '../../result.ts';
 import { get, str, type ApxComponent } from '../apexlang.ts';
@@ -423,6 +424,21 @@ async function patchRoute(file: string, input: Record<string, unknown>): Promise
   }
 }
 
+/** Undo or redo the last local page-source edit (never a deployed application). */
+async function historyRoute(file: string, direction: 'undo' | 'redo'): Promise<RouteResponse> {
+  try {
+    const ctx = await loadProject(path.resolve(path.dirname(file), '..', '..'));
+    return json({ ok: true, result: await (direction === 'undo' ? undoEdit(ctx) : redoEdit(ctx)) });
+  } catch (error) {
+    if (error instanceof Fault)
+      return json(
+        { error: error.message, code: error.code, ...(error.details ?? {}) },
+        error.code === 'TRANSFORM_CONFLICT' ? 409 : error.exitCode === 2 ? 400 : 422,
+      );
+    return json({ error: (error as Error).message }, 500);
+  }
+}
+
 /**
  * The column editor's view of a report, read from the page file as it is now (not the rendered
  * rows, so columns without rows are listed): columns in effective display order with their
@@ -490,6 +506,9 @@ function reviewRoute(
     const input = parse(request);
     if (!input) return json({ error: 'invalid JSON' }, 400);
     switch (input.op) {
+      case 'undo':
+      case 'redo':
+        return historyRoute(file, input.op);
       case 'add': {
         const pageId = String(input.page ?? '');
         const page = renderer.findPage(pageId);
@@ -572,7 +591,10 @@ registerExtension({
       `<button type="button" class="apex-local-action is-primary" data-apex-local-review-pick title="Select a component on the page (Alt+Shift+C)">Select on page</button>` +
       `<label class="apex-local-muted"><input type="checkbox" data-apex-local-review-resolved> Resolved</label>` +
       `<label class="apex-local-muted"><input type="checkbox" data-apex-local-review-all> All pages</label>` +
-      `<button type="button" class="apex-local-action" data-apex-local-review-copy title="Copy the open comments as text for an agent">Copy</button></header>` +
+      `<button type="button" class="apex-local-action" data-apex-local-review-copy title="Copy the open comments as text for an agent">Copy</button>` +
+      `<button type="button" class="apex-local-action" data-apex-local-review-undo title="Undo the last local source edit (a deployed application is not reverted)">Undo edit</button>` +
+      `<button type="button" class="apex-local-action" data-apex-local-review-redo title="Redo the last undone local source edit">Redo</button></header>` +
+      `<p class="apex-local-review-hint" data-apex-local-review-history hidden></p>` +
       `<p class="apex-local-review-hint">Comments are saved in <code>.apexrest/review/comments.json</code>. Ask your agent to “apply the preview review comments”.</p>` +
       `<ol class="apex-local-review-list" data-apex-local-review-list><li class="apex-local-muted">Loading…</li></ol></div>` +
       `<script type="application/json" id="apexLocalReviewConfig">${JSON.stringify(config).replaceAll('<', '\\u003c')}</script>`

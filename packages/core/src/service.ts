@@ -26,6 +26,7 @@ import { lovContext, lovEdit, lovFile } from './edit/lov.ts';
 import { listEntities } from './entities.ts';
 import { checkEntityBinding } from './entity-check.ts';
 import { runRecipe } from './recipes.ts';
+import { editHistory, redoEdit, undoEdit } from './edit/history.ts';
 import { brokerStatus, startBroker, stopBroker } from './broker.ts';
 import { reconcileRun } from './deploy-reconcile.ts';
 import { ArtifactService } from './artifacts.ts';
@@ -157,6 +158,10 @@ function routeProject(parsed: Record<string, unknown>) {
       return { operation: 'project.context', input: pick('project', 'page') };
     case 'entities':
       return { operation: 'entity.list', input: pick('project') };
+    case 'undo':
+      return { operation: 'project.undo', input: pick('project') };
+    case 'redo':
+      return { operation: 'project.redo', input: pick('project') };
     case 'recipe':
       return { operation: 'project.recipe', input: pick('project', 'request', 'env') };
     case 'entity_check':
@@ -552,6 +557,15 @@ async function dispatchObserved(
             break;
           case 'project.patch':
             data = await patchPage(ctx, schemas['project.patch'].parse(parsed));
+            break;
+          case 'project.undo':
+            data = await undoEdit(ctx);
+            break;
+          case 'project.redo':
+            data = await redoEdit(ctx);
+            break;
+          case 'project.history':
+            data = await editHistory(ctx);
             break;
           case 'project.recipe':
             data = await runRecipe(ctx, schemas['project.recipe'].parse(parsed));

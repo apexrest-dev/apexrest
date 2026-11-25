@@ -4,10 +4,10 @@ import {
   insertComponents,
   pageContext,
   patchPage
-} from "./chunk-KO2R3DGR.mjs";
+} from "./chunk-YTZIT5VI.mjs";
 import {
   schemas
-} from "./chunk-VXYDSEDO.mjs";
+} from "./chunk-DVIG3GUA.mjs";
 import {
   browserPreferences
 } from "./chunk-O7MNIZXK.mjs";
@@ -29,17 +29,20 @@ import {
   lovContext,
   lovEdit,
   lovFile
-} from "./chunk-WMMNF7VE.mjs";
+} from "./chunk-6ZXILPSY.mjs";
 import {
   DeploymentService,
   deployPlanSchema,
+  editHistory,
   planDigest,
   recordRevision,
+  redoEdit,
   revisionOf,
   revisionStatus,
   sourceInventory,
-  sourceRevision
-} from "./chunk-RE4TE6OG.mjs";
+  sourceRevision,
+  undoEdit
+} from "./chunk-IUSD7CWG.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -4162,6 +4165,10 @@ function routeProject(parsed) {
       return { operation: "project.context", input: pick("project", "page") };
     case "entities":
       return { operation: "entity.list", input: pick("project") };
+    case "undo":
+      return { operation: "project.undo", input: pick("project") };
+    case "redo":
+      return { operation: "project.redo", input: pick("project") };
     case "recipe":
       return { operation: "project.recipe", input: pick("project", "request", "env") };
     case "entity_check":
@@ -4328,7 +4335,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-OBUPRCJD.mjs");
+      const { previewDispatch } = await import("./chunk-PJUL4H3T.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4370,17 +4377,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-HACRL3FR.mjs");
+        const { setup } = await import("./chunk-X4E2PHZC.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-HACRL3FR.mjs");
+        const { validateNative } = await import("./chunk-X4E2PHZC.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-HACRL3FR.mjs");
+        const { uninstallNative } = await import("./chunk-X4E2PHZC.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -4531,6 +4538,15 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           case "project.patch":
             data = await patchPage(ctx, schemas["project.patch"].parse(parsed));
+            break;
+          case "project.undo":
+            data = await undoEdit(ctx);
+            break;
+          case "project.redo":
+            data = await redoEdit(ctx);
+            break;
+          case "project.history":
+            data = await editHistory(ctx);
             break;
           case "project.recipe":
             data = await runRecipe(ctx, schemas["project.recipe"].parse(parsed));

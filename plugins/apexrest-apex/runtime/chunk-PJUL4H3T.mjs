@@ -32,7 +32,7 @@ import {
   setupAssets,
   templateOptions,
   text
-} from "./chunk-KO2R3DGR.mjs";
+} from "./chunk-YTZIT5VI.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -59,9 +59,11 @@ import {
 } from "./chunk-N3KQBIVW.mjs";
 import {
   recordRevision,
+  redoEdit,
   revisionOf,
-  sourceInventory
-} from "./chunk-RE4TE6OG.mjs";
+  sourceInventory,
+  undoEdit
+} from "./chunk-IUSD7CWG.mjs";
 import "./chunk-VN3PQCGH.mjs";
 import "./chunk-2ZCBZPPJ.mjs";
 import {
@@ -26763,6 +26765,22 @@ var REVIEW_JS = String.raw`
       var item = event.target.closest("li[data-id]");
       var comment = item && comments.filter(function (entry) { return entry.id === item.getAttribute("data-id"); })[0];
       if (event.target.closest("[data-apex-local-review-pick]")) return setPicking(!picking);
+      var historyButton = event.target.closest("[data-apex-local-review-undo], [data-apex-local-review-redo]");
+      if (historyButton) {
+        var direction = historyButton.hasAttribute("data-apex-local-review-undo") ? "undo" : "redo", note = panel.querySelector("[data-apex-local-review-history]");
+        saving = true;
+        return send({ op: direction }).then(function (data) {
+          var done = data.result.undone || data.result.redone;
+          config.digests[data.result.file] = data.result.afterDigest;
+          note.hidden = false;
+          note.textContent = (direction === "undo" ? "Undid " : "Redid ") + done.summary + " in " + data.result.file +
+            ". Local source only: a deployed application is not reverted. The preview reloads.";
+        }, function (error) {
+          saving = false;
+          note.hidden = false;
+          note.textContent = error.status === 409 ? "The file changed since that edit, so nothing was " + (direction === "undo" ? "undone" : "redone") + "." : error.message;
+        });
+      }
       if (event.target.closest("[data-apex-local-review-copy]")) {
         return fetch(route + "?status=open&format=text", { credentials: "same-origin" }).then(function (r) { return r.text(); }).then(function (value) {
           var done = function () { var b = event.target.closest("button"); b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1500); };
@@ -27109,6 +27127,19 @@ async function patchRoute(file, input) {
     return json5({ error: error.message }, 500);
   }
 }
+async function historyRoute(file, direction) {
+  try {
+    const ctx = await loadProject(path12.resolve(path12.dirname(file), "..", ".."));
+    return json5({ ok: true, result: await (direction === "undo" ? undoEdit(ctx) : redoEdit(ctx)) });
+  } catch (error) {
+    if (error instanceof Fault)
+      return json5(
+        { error: error.message, code: error.code, ...error.details ?? {} },
+        error.code === "TRANSFORM_CONFLICT" ? 409 : error.exitCode === 2 ? 400 : 422
+      );
+    return json5({ error: error.message }, 500);
+  }
+}
 async function columnsRoute(file, page2, region) {
   if (!/^\d{1,5}$/u.test(page2) || !/^[A-Za-z][A-Za-z0-9_-]{0,127}$/u.test(region))
     return json5({ error: "columns needs page and region" }, 400);
@@ -27159,6 +27190,9 @@ function reviewRoute(renderer, _session, request) {
     const input = parse2(request);
     if (!input) return json5({ error: "invalid JSON" }, 400);
     switch (input.op) {
+      case "undo":
+      case "redo":
+        return historyRoute(file, input.op);
       case "add": {
         const pageId = String(input.page ?? "");
         const page2 = renderer.findPage(pageId);
@@ -27230,7 +27264,7 @@ registerExtension({
       digests: digestsFor(renderer, ctx.page)
     };
     const badge = open3 ? `<span class="apex-local-badge is-review" data-apex-local-review-count>${open3}</span>` : '<span class="apex-local-badge is-review" data-apex-local-review-count hidden></span>';
-    return `<button type="button" class="apex-local-tb-button" data-apex-local-panel="review" title="Review: select components and leave comments for your agent (Alt+Shift+C)"><span class="fa fa-comment-o" aria-hidden="true"></span><span class="apex-local-tb-label">Review</span>${badge}</button><div class="apex-local-panel" data-panel="review" hidden><header><strong>Review comments \xB7 page ${escapeHtml(ctx.pageId)}</strong><button type="button" class="apex-local-action is-primary" data-apex-local-review-pick title="Select a component on the page (Alt+Shift+C)">Select on page</button><label class="apex-local-muted"><input type="checkbox" data-apex-local-review-resolved> Resolved</label><label class="apex-local-muted"><input type="checkbox" data-apex-local-review-all> All pages</label><button type="button" class="apex-local-action" data-apex-local-review-copy title="Copy the open comments as text for an agent">Copy</button></header><p class="apex-local-review-hint">Comments are saved in <code>.apexrest/review/comments.json</code>. Ask your agent to \u201Capply the preview review comments\u201D.</p><ol class="apex-local-review-list" data-apex-local-review-list><li class="apex-local-muted">Loading\u2026</li></ol></div><script type="application/json" id="apexLocalReviewConfig">${JSON.stringify(config).replaceAll("<", "\\u003c")}</script>`;
+    return `<button type="button" class="apex-local-tb-button" data-apex-local-panel="review" title="Review: select components and leave comments for your agent (Alt+Shift+C)"><span class="fa fa-comment-o" aria-hidden="true"></span><span class="apex-local-tb-label">Review</span>${badge}</button><div class="apex-local-panel" data-panel="review" hidden><header><strong>Review comments \xB7 page ${escapeHtml(ctx.pageId)}</strong><button type="button" class="apex-local-action is-primary" data-apex-local-review-pick title="Select a component on the page (Alt+Shift+C)">Select on page</button><label class="apex-local-muted"><input type="checkbox" data-apex-local-review-resolved> Resolved</label><label class="apex-local-muted"><input type="checkbox" data-apex-local-review-all> All pages</label><button type="button" class="apex-local-action" data-apex-local-review-copy title="Copy the open comments as text for an agent">Copy</button><button type="button" class="apex-local-action" data-apex-local-review-undo title="Undo the last local source edit (a deployed application is not reverted)">Undo edit</button><button type="button" class="apex-local-action" data-apex-local-review-redo title="Redo the last undone local source edit">Redo</button></header><p class="apex-local-review-hint" data-apex-local-review-history hidden></p><p class="apex-local-review-hint">Comments are saved in <code>.apexrest/review/comments.json</code>. Ask your agent to \u201Capply the preview review comments\u201D.</p><ol class="apex-local-review-list" data-apex-local-review-list><li class="apex-local-muted">Loading\u2026</li></ol></div><script type="application/json" id="apexLocalReviewConfig">${JSON.stringify(config).replaceAll("<", "\\u003c")}</script>`;
   },
   routes: { review: reviewRoute }
 });

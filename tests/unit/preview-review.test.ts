@@ -729,3 +729,24 @@ test('visual moves send the shared move operation; rejected moves name the reaso
   assert.match((await rejected.json()).error, /Slot dialogFooter is not supported/u);
   assert.equal(await readFile(pageFile, 'utf8'), after);
 });
+
+test('the review panel undoes and redoes the last local source edit', async (t) => {
+  const { post, pageFile } = await project(t);
+  const before = await readFile(pageFile, 'utf8');
+  await post({
+    op: 'patch',
+    page: '3',
+    target: 'region:orders',
+    property: 'title',
+    value: 'Undo me',
+    digest: sha(before),
+  });
+  const undo = await post({ op: 'undo' });
+  assert.equal(undo.status, 200);
+  assert.match((await undo.json()).result.next, /not reverted/u);
+  assert.equal(await readFile(pageFile, 'utf8'), before);
+  const redo = await post({ op: 'redo' });
+  assert.equal(redo.status, 200);
+  assert.match(await readFile(pageFile, 'utf8'), /name: Undo me/u);
+  assert.equal((await post({ op: 'redo' })).status, 400);
+});

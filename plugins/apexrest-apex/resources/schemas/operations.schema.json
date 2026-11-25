@@ -1377,6 +1377,42 @@
     ],
     "additionalProperties": false
   },
+  "project.undo": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "additionalProperties": false
+  },
+  "project.redo": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "additionalProperties": false
+  },
+  "project.history": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "additionalProperties": false
+  },
   "entity.list": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -2766,6 +2802,8 @@
           "entities",
           "entity_check",
           "recipe",
+          "undo",
+          "redo",
           "connection_add",
           "connection_list",
           "connection_test"

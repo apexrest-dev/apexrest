@@ -3232,7 +3232,7 @@ var ApexLangDocument = class {
         if (!owner) throw unsupported(`Property outside a component at line ${index + 1}.`);
         const key = unquote(property[2]);
         const prefix = groupPath();
-        const path6 = prefix ? `${prefix}.${key}` : key;
+        const path7 = prefix ? `${prefix}.${key}` : key;
         const value = property[4] ?? "";
         const colon = text2.indexOf(":", property[1].length + property[2].length);
         const valueStart = property[3] ? line.offset + colon + 1 + property[3].length : line.offset + colon + 1;
@@ -3243,8 +3243,8 @@ var ApexLangDocument = class {
           value,
           opaque: value === "" || value === "{" || value === "[" || value.startsWith("```")
         };
-        if (owner.properties.has(path6)) throw unsupported(`Duplicate property ${path6} at line ${index + 1}.`);
-        owner.properties.set(path6, entry);
+        if (owner.properties.has(path7)) throw unsupported(`Duplicate property ${path7} at line ${index + 1}.`);
+        owner.properties.set(path7, entry);
         if (value === "") pendingFence = entry;
         else if (value === "{") stack.push({ type: "value", close: "}" });
         else if (value === "[") stack.push({ type: "value", close: "]" });
@@ -3271,22 +3271,22 @@ function scalarText(value) {
   const plain = value !== "" && value === value.trim() && !["true", "false", "{", "["].includes(value) && !/^["@\\[{]|^```|^\/\/|^\/\*/u.test(value);
   return plain ? value : JSON.stringify(value);
 }
-function setProperty(doc, node, path6, value) {
-  return setPropertyText(doc, node, path6, scalarText(value));
+function setProperty(doc, node, path7, value) {
+  return setPropertyText(doc, node, path7, scalarText(value));
 }
 function referenceText(id) {
   if (!/^[A-Za-z0-9][A-Za-z0-9_.$#-]{0,254}$/u.test(id))
     throw new Fault("INVALID_INPUT", `${id} is not a component id.`, 2);
   return "@" + id;
 }
-function setPropertyText(doc, node, path6, text2) {
-  const existing = node.properties.get(path6);
+function setPropertyText(doc, node, path7, text2) {
+  const existing = node.properties.get(path7);
   if (existing) {
-    if (existing.opaque) throw unsupported(`${path6} holds a multi-line value; edit it in source.`);
+    if (existing.opaque) throw unsupported(`${path7} holds a multi-line value; edit it in source.`);
     return { start: existing.valueStart, end: existing.valueEnd, content: text2 };
   }
-  const parts = path6.split(".");
-  if (parts.length > 2) throw unsupported(`Nested property ${path6} is not supported.`);
+  const parts = path7.split(".");
+  if (parts.length > 2) throw unsupported(`Nested property ${path7} is not supported.`);
   const indent = " ".repeat(node.indent + 4);
   const eol = doc.eol;
   if (parts.length === 2) {
@@ -3310,12 +3310,12 @@ function setPropertyText(doc, node, path6, text2) {
   const after = node.properties.get("name")?.line ?? node.open;
   const line = doc.lines[after];
   const at = line.offset + line.text.length + line.eol.length;
-  return { start: at, end: at, content: `${indent}${path6}: ${text2}${eol}` };
+  return { start: at, end: at, content: `${indent}${path7}: ${text2}${eol}` };
 }
-function removeProperty(doc, node, path6) {
-  const property = node.properties.get(path6);
+function removeProperty(doc, node, path7) {
+  const property = node.properties.get(path7);
   if (!property) return void 0;
-  if (property.opaque) throw unsupported(`${path6} holds a multi-line value; edit it in source.`);
+  if (property.opaque) throw unsupported(`${path7} holds a multi-line value; edit it in source.`);
   const line = doc.lines[property.line];
   return { start: line.offset, end: line.offset + line.text.length + line.eol.length, content: "" };
 }
@@ -3330,10 +3330,10 @@ function applyEdits(source, edits) {
   }
   return result;
 }
-function setFencedText(doc, node, path6, text2) {
-  const property = node.properties.get(path6);
+function setFencedText(doc, node, path7, text2) {
+  const property = node.properties.get(path7);
   if (!property?.fence || property.fence.close < 0)
-    throw unsupported(`${path6} is not a fenced literal of ${node.kind} ${node.key}.`);
+    throw unsupported(`${path7} is not a fenced literal of ${node.kind} ${node.key}.`);
   if (/^\s*```/mu.test(text2))
     throw new Fault("INVALID_INPUT", "The text cannot contain a ``` fence line.", 2);
   const open2 = doc.lines[property.fence.open];
@@ -3352,9 +3352,9 @@ function appendChild(doc, parent, text2) {
   const close = doc.lines[parent.close];
   return { start: close.offset, end: close.offset, content: text2 };
 }
-function readProperty(component, path6) {
+function readProperty(component, path7) {
   let value = component.props;
-  for (const part of path6.split(".")) {
+  for (const part of path7.split(".")) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
     value = value[part];
   }
@@ -3362,8 +3362,8 @@ function readProperty(component, path6) {
 }
 
 // packages/core/src/edit/transaction.ts
-import path5 from "node:path";
-import { readFile as readFile4 } from "node:fs/promises";
+import path6 from "node:path";
+import { readFile as readFile5 } from "node:fs/promises";
 
 // packages/core/src/edit/page-file.ts
 import path4 from "node:path";
@@ -3385,6 +3385,129 @@ async function pageFile(ctx, page) {
   return matches[0];
 }
 
+// packages/core/src/edit/history.ts
+import path5 from "node:path";
+import { readFile as readFile4 } from "node:fs/promises";
+import { randomUUID as randomUUID2 } from "node:crypto";
+var HISTORY_LIMIT = 50;
+var HISTORY_DAYS = 14;
+var FILE = ".apexrest/edit-history.json";
+async function load(ctx) {
+  const file = await contained(ctx.root, FILE);
+  let history = { version: 1, undo: [], redo: [] };
+  if (await exists(file))
+    try {
+      const value = JSON.parse(await readFile4(file, "utf8"));
+      if (value.version === 1 && Array.isArray(value.undo) && Array.isArray(value.redo)) history = value;
+    } catch {
+    }
+  const oldest = Date.now() - HISTORY_DAYS * 24 * 3600 * 1e3;
+  const fresh = (entry) => Date.parse(entry.at) >= oldest;
+  return {
+    version: 1,
+    undo: history.undo.filter(fresh).slice(-HISTORY_LIMIT),
+    redo: history.redo.filter(fresh).slice(-HISTORY_LIMIT)
+  };
+}
+var save = async (ctx, history) => atomicWrite(await contained(ctx.root, FILE), JSON.stringify(history) + "\n");
+function difference(before, after) {
+  let prefix = 0;
+  const limit = Math.min(before.length, after.length);
+  while (prefix < limit && before[prefix] === after[prefix]) prefix++;
+  let suffix = 0;
+  while (suffix < limit - prefix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix])
+    suffix++;
+  return {
+    prefix,
+    suffix,
+    beforeMiddle: before.slice(prefix, before.length - suffix),
+    afterMiddle: after.slice(prefix, after.length - suffix)
+  };
+}
+async function recordEdit(ctx, edit) {
+  const history = await load(ctx);
+  history.undo.push({
+    id: randomUUID2(),
+    at: (/* @__PURE__ */ new Date()).toISOString(),
+    file: edit.file,
+    page: edit.page,
+    summary: edit.summary.slice(0, 200),
+    before: digestOf(edit.before),
+    after: digestOf(edit.after),
+    ...difference(edit.before, edit.after)
+  });
+  history.undo = history.undo.slice(-HISTORY_LIMIT);
+  history.redo = [];
+  await save(ctx, history);
+}
+async function editHistory(ctx) {
+  const history = await load(ctx);
+  const describe = (entry) => ({
+    id: entry.id,
+    at: entry.at,
+    file: entry.file,
+    page: entry.page,
+    summary: entry.summary
+  });
+  return {
+    undo: history.undo.slice(-10).reverse().map(describe),
+    redo: history.redo.slice(-10).reverse().map(describe),
+    limit: HISTORY_LIMIT,
+    retentionDays: HISTORY_DAYS,
+    scope: "Local page source only; undo never reverts a deployed application."
+  };
+}
+async function step(ctx, direction) {
+  return withLock(path5.join(ctx.root, ".apexrest", "source-edit.lock"), async () => {
+    const history = await load(ctx);
+    const entry = (direction === "undo" ? history.undo : history.redo).at(-1);
+    if (!entry) throw new Fault("HISTORY_EMPTY", `Nothing to ${direction}.`, 2);
+    const file = await contained(ctx.root, entry.file);
+    const current = await exists(file) ? await readFile4(file, "utf8") : "";
+    const expected = direction === "undo" ? entry.after : entry.before;
+    if (digestOf(current) !== expected)
+      throw new Fault(
+        "TRANSFORM_CONFLICT",
+        `${entry.file} changed since that edit; ${direction} would overwrite newer work, so nothing was written.`,
+        5,
+        "conflict",
+        { file: entry.file, currentDigest: digestOf(current) }
+      );
+    const middle = direction === "undo" ? entry.beforeMiddle : entry.afterMiddle;
+    const result = current.slice(0, entry.prefix) + middle + current.slice(current.length - entry.suffix);
+    if (digestOf(result) !== (direction === "undo" ? entry.before : entry.after))
+      throw new Fault(
+        "HISTORY_INVALID",
+        `The recorded ${direction} of ${entry.file} does not reproduce its digest.`,
+        5
+      );
+    const before = await sourceInventory(ctx);
+    await atomicWrite(file, result);
+    const after = await sourceInventory(ctx);
+    if (direction === "undo") {
+      history.undo.pop();
+      history.redo.push(entry);
+    } else {
+      history.redo.pop();
+      history.undo.push(entry);
+    }
+    await save(ctx, history);
+    return {
+      [direction === "undo" ? "undone" : "redone"]: { id: entry.id, summary: entry.summary },
+      file: entry.file,
+      page: entry.page,
+      beforeDigest: digestOf(current),
+      afterDigest: digestOf(result),
+      written: true,
+      change: sourceChange(before, after, ctx.config.application.sourceDir),
+      remaining: { undo: history.undo.length, redo: history.redo.length },
+      next: "Local source only; a deployed application is not reverted. Validate or ship to deploy this state."
+    };
+  });
+}
+var undoEdit = (ctx) => step(ctx, "undo");
+var redoEdit = (ctx) => step(ctx, "redo");
+
 // packages/core/src/edit/columns.ts
 var REPORTS = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
 var NAME = /^[A-Z][A-Z0-9_$#]{0,127}$/u;
@@ -3395,8 +3518,8 @@ var DATA_TYPES_261 = {
   timestamp: "TIMESTAMP"
 };
 var word = (name) => new RegExp(`(^|[^A-Z0-9_$#])${name.replace(/[$#]/gu, "\\$&")}([^A-Z0-9_$#]|$)`, "iu");
-var sequenceOf = (node, path6) => Number(node.properties.get(path6)?.value) || 0;
-var bySequence = (nodes, path6) => [...nodes].sort((a, b) => sequenceOf(a, path6) - sequenceOf(b, path6) || a.open - b.open);
+var sequenceOf = (node, path7) => Number(node.properties.get(path7)?.value) || 0;
+var bySequence = (nodes, path7) => [...nodes].sort((a, b) => sequenceOf(a, path7) - sequenceOf(b, path7) || a.open - b.open);
 function reportRegion(region, operation) {
   const type = String(region.properties.get("type")?.value ?? "");
   if (!REPORTS.has(type))
@@ -3452,8 +3575,8 @@ function afterColumns(doc, region, text2) {
   const at = line.offset + line.text.length + line.eol.length;
   return { start: at, end: at, content: text2 };
 }
-function placeInOrder(doc, order, path6, step) {
-  const current = order.map((node) => node ? sequenceOf(node, path6) : void 0);
+function placeInOrder(doc, order, path7, step2) {
+  const current = order.map((node) => node ? sequenceOf(node, path7) : void 0);
   const index = current.indexOf(void 0);
   const existing = current.filter((value) => value !== void 0);
   const increasing = existing.every((value, i) => i === 0 || value > existing[i - 1]);
@@ -3461,15 +3584,15 @@ function placeInOrder(doc, order, path6, step) {
     if (index === -1) return { edits: [], sequence: 0 };
     const previous = index > 0 ? current[index - 1] : 0;
     const next2 = index < current.length - 1 ? current[index + 1] : void 0;
-    if (next2 === void 0) return { edits: [], sequence: previous + step };
+    if (next2 === void 0) return { edits: [], sequence: previous + step2 };
     if (next2 - previous >= 2) return { edits: [], sequence: Math.floor((previous + next2) / 2) };
   }
   const edits = [];
   let sequence = 0;
   order.forEach((node, i) => {
-    const value = (i + 1) * step;
+    const value = (i + 1) * step2;
     if (!node) sequence = value;
-    else if (sequenceOf(node, path6) !== value) edits.push(setProperty(doc, node, path6, String(value)));
+    else if (sequenceOf(node, path7) !== value) edits.push(setProperty(doc, node, path7, String(value)));
   });
   return { edits, sequence };
 }
@@ -3926,11 +4049,11 @@ async function runPageTransaction(ctx, input, groups, dependencies = () => []) {
     throw new Fault("INVALID_INPUT", "Give 1-50 operations.", 2);
   const pageId = String(Number(input.page));
   const file = await pageFile(ctx, pageId);
-  const relative = path5.relative(ctx.root, file).split(path5.sep).join("/");
+  const relative = path6.relative(ctx.root, file).split(path6.sep).join("/");
   const found = await sourceRelease(await contained(ctx.root, ctx.config.application.sourceDir));
   const release = found === "26.1" ? "26.1" : "26.2";
   const plan = async () => {
-    const source = await readFile4(file, "utf8");
+    const source = await readFile5(file, "utf8");
     const related = /* @__PURE__ */ new Map();
     for (const key of new Set(dependencies(input.operations))) {
       const found2 = await loadRelated(ctx, key);
@@ -3949,7 +4072,19 @@ async function runPageTransaction(ctx, input, groups, dependencies = () => []) {
       context: mode === "full" ? contextOf(result, relative) : contextDelta(source, result, relative)
     };
   };
-  const outcome = await guardedEdit(ctx, { file, relative, ...input, plan });
+  const outcome = await guardedEdit(ctx, {
+    file,
+    relative,
+    ...input,
+    plan,
+    onWritten: (planned2) => recordEdit(ctx, {
+      file: relative,
+      page: pageId,
+      summary: planned2.targets.length ? planned2.targets.join(", ") : `${input.operations.length} operations`,
+      before: planned2.source,
+      after: planned2.result
+    })
+  });
   const { planned } = outcome;
   return {
     file: relative,
@@ -3970,14 +4105,14 @@ async function loadRelated(ctx, key) {
   const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   let file;
   if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
-  else if (kind === "lov") file = await (await import("./chunk-3YY4QZIF.mjs")).lovFile(ctx, id).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-DM64WJOW.mjs")).lovFile(ctx, id).catch(() => void 0);
   if (!file) return void 0;
-  const text2 = await readFile4(file, "utf8");
+  const text2 = await readFile5(file, "utf8");
   const parsed = parseApexLang(text2, "related").find(
     (c) => c.type === kind && (kind === "page" || c.id.toUpperCase() === id.toUpperCase() || String(c.props.name ?? "").toUpperCase() === id.toUpperCase())
   );
   if (!parsed) return void 0;
-  return { file: path5.relative(ctx.root, file).split(path5.sep).join("/"), digest: digestOf(text2), parsed };
+  return { file: path6.relative(ctx.root, file).split(path6.sep).join("/"), digest: digestOf(text2), parsed };
 }
 async function guardedEdit(ctx, input) {
   const { file, relative } = input;
@@ -3993,7 +4128,7 @@ async function guardedEdit(ctx, input) {
       );
     return { planned, written: false };
   }
-  return withLock(path5.join(ctx.root, ".apexrest", "source-edit.lock"), async () => {
+  return withLock(path6.join(ctx.root, ".apexrest", "source-edit.lock"), async () => {
     const before = await sourceInventory(ctx);
     const planned = await input.plan();
     if (planned.digest !== input.expectedDigest)
@@ -4005,6 +4140,7 @@ async function guardedEdit(ctx, input) {
         { file: relative, currentDigest: planned.digest }
       );
     await atomicWrite(file, planned.result);
+    await input.onWritten?.(planned);
     const after = await sourceInventory(ctx);
     return { planned, written: true, change: sourceChange(before, after, ctx.config.application.sourceDir) };
   });
@@ -4043,6 +4179,9 @@ export {
   columnVisible,
   visibilityEdits,
   contextOf,
+  editHistory,
+  undoEdit,
+  redoEdit,
   runPageTransaction,
   guardedEdit
 };

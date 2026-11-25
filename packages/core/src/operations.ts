@@ -421,6 +421,9 @@ export const schemas = {
       .default('delta')
       .describe('Edited page context in the result: changed/inserted/removed targets (default), whole, none'),
   }),
+  'project.undo': z.strictObject({ ...base }),
+  'project.redo': z.strictObject({ ...base }),
+  'project.history': z.strictObject({ ...base }),
   'entity.list': z.strictObject({ ...base }),
   'project.recipe': z.strictObject({
     ...base,
@@ -679,6 +682,8 @@ export const schemas = {
       'entities',
       'entity_check',
       'recipe',
+      'undo',
+      'redo',
       'connection_add',
       'connection_list',
       'connection_test',

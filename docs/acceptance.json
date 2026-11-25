@@ -1247,6 +1247,19 @@
         "docs/local-preview.md"
       ],
       "blocker": "Route and configuration tests pass and the client script parses; dragging and the move form have not been observed in a browser."
+    },
+    {
+      "id": "FASTDEV-V06",
+      "criterion": "A bounded project-local history undoes and redoes whole compound page edits byte for byte, writing only when the page file has the digest the entry expects, clearing the redo branch on new edits, and stating that it reverts local source, not a deployed application",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/edit/history.ts",
+        "packages/core/src/edit/transaction.ts",
+        "tests/unit/source-edit-history.test.ts",
+        "tests/unit/preview-review.test.ts"
+      ],
+      "blocker": "Local repository tests. The Review panel buttons have not been observed in a browser."
     }
   ]
 }

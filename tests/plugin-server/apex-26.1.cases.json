@@ -1867,6 +1867,24 @@
       ],
       "evidence": ["page file digest before and after", "request body"],
       "budgetMs": 60000
+    },
+    {
+      "id": "A261-090",
+      "title": "Undo and redo of page edits",
+      "acceptance": ["FASTDEV-V06"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Apply a compound project action:edit.",
+        "Run action:undo, then action:redo.",
+        "Edit the file outside the tool and run action:undo."
+      ],
+      "expected": [
+        "Undo restores the previous bytes and redo the edited bytes; after an external change nothing is written."
+      ],
+      "evidence": ["page file digests", "sanitized result codes"],
+      "budgetMs": 5000
     }
   ],
   "metrics": "quality-performance.json"
