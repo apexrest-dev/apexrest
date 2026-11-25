@@ -4,6 +4,7 @@ import { planSets, type PatchOperation } from './patch.ts';
 import { planInsert, type InsertInput } from './insert.ts';
 import {
   runPageTransaction,
+  type ContextMode,
   type PageSnapshot,
   type PlannedEdit,
   type TransactionResult,
@@ -23,6 +24,7 @@ export interface EditInput {
   operations: EditOperation[];
   expectedDigest?: string | undefined;
   dryRun?: boolean | undefined;
+  context?: ContextMode | undefined;
 }
 
 export type Group = (snapshot: PageSnapshot) => PlannedEdit;

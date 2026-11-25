@@ -4,7 +4,14 @@ import type { ProjectContext } from '../config.ts';
 import { Fault } from '../result.ts';
 import type { SourceChange } from '../revision.ts';
 import { pageFile } from './page-file.ts';
-import { runPageTransaction, transformPage, type PageSnapshot, type PlannedEdit } from './transaction.ts';
+import { contextOf, type ContextDelta, type PageContext } from './context.ts';
+import {
+  runPageTransaction,
+  transformPage,
+  type ContextMode,
+  type PageSnapshot,
+  type PlannedEdit,
+} from './transaction.ts';
 import {
   ApexLangDocument,
   digestOf,
@@ -242,58 +249,7 @@ function queryEdits(doc: ApexLangDocument, region: ComponentNode, operation: Pat
 export async function pageContext(ctx: ProjectContext, page: string) {
   if (!/^\d{1,5}$/u.test(page)) throw new Fault('INVALID_INPUT', 'page is a page number.', 2);
   const file = await pageFile(ctx, String(Number(page)));
-  const source = await readFile(file, 'utf8');
-  const parsed = parseApexLang(source, path.relative(ctx.root, file)).find((c) => c.type === 'page');
-  if (!parsed) throw new Fault('TARGET_NOT_FOUND', `No page ${page} in its file.`, 2);
-  const text = (component: ReturnType<typeof parseApexLang>[number], dotted: string) => {
-    const value = readProperty(component, dotted);
-    return typeof value === 'string' && value ? value : undefined;
-  };
-  const compact = <T extends Record<string, unknown>>(value: T) =>
-    Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined && entry !== '')) as T;
-  return {
-    file: path.relative(ctx.root, file).split(path.sep).join('/'),
-    digest: digestOf(source),
-    page: compact({ id: parsed.id, name: text(parsed, 'name'), title: text(parsed, 'title') }),
-    regions: parsed.children
-      .filter((c) => c.type === 'region')
-      .map((region) =>
-        compact({
-          target: `region:${region.id}`,
-          type: text(region, 'type'),
-          title: text(region, 'name'),
-          sequence: text(region, 'layout.sequence'),
-          line: region.line,
-          query: REPORTS.has(String(text(region, 'type'))) ? text(region, 'source.sqlQuery') : undefined,
-          columns: region.children
-            .filter((c) => c.type === 'column')
-            .map((column) =>
-              compact({
-                target: `column:${region.id}.${column.id}`,
-                heading: text(column, 'heading.heading'),
-                format: text(column, 'appearance.formatMask'),
-                sequence: text(column, 'layout.sequence'),
-              }),
-            ),
-        }),
-      ),
-    items: parsed.children
-      .filter((c) => c.type === 'pageItem')
-      .map((item) =>
-        compact({
-          target: `item:${item.id}`,
-          type: text(item, 'type'),
-          label: text(item, 'label.label'),
-          line: item.line,
-        }),
-      ),
-    buttons: parsed.children
-      .filter((c) => c.type === 'button')
-      .map((button) =>
-        compact({ target: `button:${button.id}`, label: text(button, 'label'), line: button.line }),
-      ),
-    next: 'Change titles, labels, headings, formats, sequences or a report query with project patch and this digest.',
-  };
+  return contextOf(await readFile(file, 'utf8'), path.relative(ctx.root, file).split(path.sep).join('/'));
 }
 
 export interface PatchInput {
@@ -301,6 +257,8 @@ export interface PatchInput {
   operations: PatchOperation[];
   expectedDigest?: string | undefined;
   dryRun?: boolean | undefined;
+  /** What the result carries of the edited page: the delta (default), the whole context or none. */
+  context?: ContextMode | undefined;
 }
 
 export interface PatchResult {
@@ -311,6 +269,7 @@ export interface PatchResult {
   written: boolean;
   operations: number;
   change?: SourceChange;
+  context?: ContextDelta | PageContext;
   next?: string;
 }
 

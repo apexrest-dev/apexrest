@@ -837,23 +837,23 @@ async function readLegacyRestore(directory, checksum) {
     "blocked"
   );
   for (const [index, line] of lines.entries()) {
-    const text = line.trim().replace(/[\t ]+/gu, " ").toLowerCase();
+    const text2 = line.trim().replace(/[\t ]+/gu, " ").toLowerCase();
     if (start === void 0) {
-      if (!text || /^(?:--|(?:rem(?:ark)?|prompt)(?: |$))/u.test(text)) continue;
+      if (!text2 || /^(?:--|(?:rem(?:ark)?|prompt)(?: |$))/u.test(text2)) continue;
       if (!blocks && !footer && ["set define off verify off feedback off", "whenever sqlerror exit sql.sqlcode rollback"].includes(
-        text
+        text2
       ))
         continue;
-      if (blocks && !footer && text === "set verify on feedback on define on") {
+      if (blocks && !footer && text2 === "set verify on feedback on define on") {
         footer = true;
         continue;
       }
-      if (footer || !/^(?:begin|declare)(?:\s|$)/u.test(text)) throw unsupported2(index);
+      if (footer || !/^(?:begin|declare)(?:\s|$)/u.test(text2)) throw unsupported2(index);
       start = index;
     }
     if (/^\s*[!$@#]|^\s*\.\s*$/u.test(line)) throw unsupported2(index);
-    if (/^\s*\/(?!\*)/u.test(line) && text !== "/") throw unsupported2(index);
-    if (text !== "/") continue;
+    if (/^\s*\/(?!\*)/u.test(line) && text2 !== "/") throw unsupported2(index);
+    if (text2 !== "/") continue;
     const block = lines.slice(start, index).join("\n");
     const commands = sqlclControlLines(block);
     if (commands.length) throw unsupported2(start + commands[0] - 1);
@@ -867,10 +867,10 @@ async function readLegacyRestore(directory, checksum) {
   return { file, bytes };
 }
 var securityHeader = /^(?:(?:authentication|authorization)(?:[-_ ]?scheme)?\s*[:=]|(?:authentication|authorization)\s*(?:\{|[\w.-]+\s*\())/i;
-function securityAttributes(text) {
+function securityAttributes(text2) {
   const out = [];
   let depth = 0;
-  for (const raw of text.split(/\r?\n/)) {
+  for (const raw of text2.split(/\r?\n/)) {
     const line = raw.trim();
     if (depth > 0) {
       out.push(line);
@@ -3110,10 +3110,6 @@ async function pageFile(ctx, page) {
   return matches[0];
 }
 
-// packages/core/src/edit/transaction.ts
-import path5 from "node:path";
-import { readFile as readFile4 } from "node:fs/promises";
-
 // packages/core/src/edit/apexlang-edit.ts
 import { createHash } from "node:crypto";
 var MAX_BYTES = 8 * 1024 * 1024;
@@ -3129,7 +3125,7 @@ var unquote = (raw) => {
     throw unsupported(`Invalid quoted identifier ${raw}`);
   }
 };
-var digestOf = (text) => createHash("sha256").update(text, "utf8").digest("hex");
+var digestOf = (text2) => createHash("sha256").update(text2, "utf8").digest("hex");
 var ApexLangDocument = class {
   constructor(source) {
     this.source = source;
@@ -3166,8 +3162,8 @@ var ApexLangDocument = class {
     let fenceOwner;
     for (let index = 0; index < this.lines.length; index++) {
       const line = this.lines[index];
-      const text = line.text;
-      const trimmed = text.trim();
+      const text2 = line.text;
+      const trimmed = text2.trim();
       if (fence) {
         if (trimmed === "```") {
           fence = false;
@@ -3177,17 +3173,17 @@ var ApexLangDocument = class {
         continue;
       }
       if (block) {
-        const end = text.indexOf("*/");
+        const end = text2.indexOf("*/");
         if (end === -1) continue;
-        if (text.slice(end + 2).trim()) throw unsupported("Content after a block comment is not supported.");
+        if (text2.slice(end + 2).trim()) throw unsupported("Content after a block comment is not supported.");
         block = false;
         continue;
       }
       if (!trimmed || trimmed.startsWith("//")) continue;
       if (trimmed.startsWith("/*")) {
-        const end = text.indexOf("*/", text.indexOf("/*") + 2);
+        const end = text2.indexOf("*/", text2.indexOf("/*") + 2);
         if (end === -1) block = true;
-        else if (text.slice(end + 2).trim())
+        else if (text2.slice(end + 2).trim())
           throw unsupported("Content after a block comment is not supported.");
         continue;
       }
@@ -3228,7 +3224,7 @@ var ApexLangDocument = class {
         });
         continue;
       }
-      const open2 = COMPONENT.exec(text);
+      const open2 = COMPONENT.exec(text2);
       if (open2) {
         const parent = component();
         if (stack.at(-1)?.type === "group")
@@ -3248,13 +3244,13 @@ var ApexLangDocument = class {
         stack.push({ type: "component", node });
         continue;
       }
-      const group = GROUP.exec(text);
+      const group = GROUP.exec(text2);
       if (group) {
         if (!component()) throw unsupported(`Group outside a component at line ${index + 1}.`);
         stack.push({ type: "group", path: group[2], start: index, indent: group[1].length });
         continue;
       }
-      const property = PROPERTY.exec(text);
+      const property = PROPERTY.exec(text2);
       if (property) {
         const owner = component();
         if (!owner) throw unsupported(`Property outside a component at line ${index + 1}.`);
@@ -3262,7 +3258,7 @@ var ApexLangDocument = class {
         const prefix = groupPath();
         const path7 = prefix ? `${prefix}.${key}` : key;
         const value = property[4] ?? "";
-        const colon = text.indexOf(":", property[1].length + property[2].length);
+        const colon = text2.indexOf(":", property[1].length + property[2].length);
         const valueStart = property[3] ? line.offset + colon + 1 + property[3].length : line.offset + colon + 1;
         const entry = {
           line: index,
@@ -3300,11 +3296,11 @@ function scalarText(value) {
   return plain ? value : JSON.stringify(value);
 }
 function setProperty(doc, node, path7, value) {
-  const text = scalarText(value);
+  const text2 = scalarText(value);
   const existing = node.properties.get(path7);
   if (existing) {
     if (existing.opaque) throw unsupported(`${path7} holds a multi-line value; edit it in source.`);
-    return { start: existing.valueStart, end: existing.valueEnd, content: text };
+    return { start: existing.valueStart, end: existing.valueEnd, content: text2 };
   }
   const parts = path7.split(".");
   if (parts.length > 2) throw unsupported(`Nested property ${path7} is not supported.`);
@@ -3317,7 +3313,7 @@ function setProperty(doc, node, path7, value) {
       return {
         start: close.offset,
         end: close.offset,
-        content: `${" ".repeat(group.indent + 4)}${parts[1]}: ${text}${eol}`
+        content: `${" ".repeat(group.indent + 4)}${parts[1]}: ${text2}${eol}`
       };
     }
     const before = node.children[0]?.open ?? node.close;
@@ -3325,13 +3321,13 @@ function setProperty(doc, node, path7, value) {
     return {
       start: anchor.offset,
       end: anchor.offset,
-      content: `${indent}${parts[0]} {${eol}${indent}    ${parts[1]}: ${text}${eol}${indent}}${eol}`
+      content: `${indent}${parts[0]} {${eol}${indent}    ${parts[1]}: ${text2}${eol}${indent}}${eol}`
     };
   }
   const after = node.properties.get("name")?.line ?? node.open;
   const line = doc.lines[after];
   const at = line.offset + line.text.length + line.eol.length;
-  return { start: at, end: at, content: `${indent}${path7}: ${text}${eol}` };
+  return { start: at, end: at, content: `${indent}${path7}: ${text2}${eol}` };
 }
 function applyEdits(source, edits) {
   let result = source;
@@ -3344,16 +3340,16 @@ function applyEdits(source, edits) {
   }
   return result;
 }
-function setFencedText(doc, node, path7, text) {
+function setFencedText(doc, node, path7, text2) {
   const property = node.properties.get(path7);
   if (!property?.fence || property.fence.close < 0)
     throw unsupported(`${path7} is not a fenced literal of ${node.kind} ${node.key}.`);
-  if (/^\s*```/mu.test(text))
+  if (/^\s*```/mu.test(text2))
     throw new Fault("INVALID_INPUT", "The text cannot contain a ``` fence line.", 2);
   const open2 = doc.lines[property.fence.open];
   const close = doc.lines[property.fence.close];
   const indent = open2.text.slice(0, open2.text.length - open2.text.trimStart().length);
-  const body = text.replace(/\r\n?/gu, "\n").replace(/\n+$/u, "").split("\n").map((line) => line ? indent + line : "").join(doc.eol);
+  const body = text2.replace(/\r\n?/gu, "\n").replace(/\n+$/u, "").split("\n").map((line) => line ? indent + line : "").join(doc.eol);
   const start = open2.offset + open2.text.length + open2.eol.length;
   return { start, end: close.offset, content: body + doc.eol };
 }
@@ -3362,9 +3358,9 @@ function removeComponent(doc, node) {
   const close = doc.lines[node.close];
   return { start: open2.offset, end: close.offset + close.text.length + close.eol.length, content: "" };
 }
-function appendChild(doc, parent, text) {
+function appendChild(doc, parent, text2) {
   const close = doc.lines[parent.close];
-  return { start: close.offset, end: close.offset, content: text };
+  return { start: close.offset, end: close.offset, content: text2 };
 }
 function readProperty(component, path7) {
   let value = component.props;
@@ -3375,7 +3371,96 @@ function readProperty(component, path7) {
   return value;
 }
 
+// packages/core/src/edit/context.ts
+var REPORTS = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
+var DELTA_QUERY_CHARS = 2e3;
+var DELTA_ENTRIES = 40;
+var text = (component, dotted) => {
+  const value = readProperty(component, dotted);
+  return typeof value === "string" && value ? value : void 0;
+};
+var compact = (value) => Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== void 0 && entry !== ""));
+function columnEntries(region) {
+  return region.children.filter((c) => c.type === "column").map(
+    (column) => compact({
+      target: `column:${region.id}.${column.id}`,
+      heading: text(column, "heading.heading"),
+      format: text(column, "appearance.formatMask"),
+      sequence: text(column, "layout.sequence")
+    })
+  );
+}
+function contextOf(source, file) {
+  const parsed = parseApexLang(source, file).find((c) => c.type === "page");
+  if (!parsed) throw new Fault("TARGET_NOT_FOUND", `No page in ${file}.`, 2);
+  return {
+    file,
+    digest: digestOf(source),
+    page: compact({ id: parsed.id, name: text(parsed, "name"), title: text(parsed, "title") }),
+    regions: parsed.children.filter((c) => c.type === "region").map(
+      (region) => compact({
+        target: `region:${region.id}`,
+        type: text(region, "type"),
+        title: text(region, "name"),
+        sequence: text(region, "layout.sequence"),
+        line: region.line,
+        query: REPORTS.has(String(text(region, "type"))) ? text(region, "source.sqlQuery") : void 0,
+        columns: columnEntries(region)
+      })
+    ),
+    items: parsed.children.filter((c) => c.type === "pageItem").map(
+      (item) => compact({
+        target: `item:${item.id}`,
+        type: text(item, "type"),
+        label: text(item, "label.label"),
+        line: item.line
+      })
+    ),
+    buttons: parsed.children.filter((c) => c.type === "button").map(
+      (button) => compact({ target: `button:${button.id}`, label: text(button, "label"), line: button.line })
+    ),
+    next: "Change titles, labels, headings, formats, sequences or a report query with project patch or edit and this digest."
+  };
+}
+function flatten(context) {
+  const entries = /* @__PURE__ */ new Map();
+  entries.set("page", { target: "page", ...context.page });
+  for (const { columns, ...region } of context.regions) {
+    entries.set(region.target, { ...region, columns: columns.map((c) => c.target) });
+    for (const column of columns) entries.set(column.target, column);
+  }
+  for (const item of context.items) entries.set(item.target, item);
+  for (const button of context.buttons) entries.set(button.target, button);
+  return entries;
+}
+var comparable = ({ line: _line, ...entry }) => JSON.stringify(entry);
+function contextDelta(before, after, file) {
+  const old = flatten(contextOf(before, file));
+  const now = flatten(contextOf(after, file));
+  const changed = [];
+  const inserted = [];
+  for (const [target, entry] of now) {
+    const previous = old.get(target);
+    if (!previous) inserted.push(entry);
+    else if (comparable(previous) !== comparable(entry)) changed.push(entry);
+  }
+  const removed = [...old.keys()].filter((target) => !now.has(target));
+  const bound = (entry) => typeof entry.query === "string" && entry.query.length > DELTA_QUERY_CHARS ? { ...entry, query: entry.query.slice(0, DELTA_QUERY_CHARS), queryTruncated: true } : entry;
+  const listed = [...changed, ...inserted].slice(0, DELTA_ENTRIES);
+  const omitted = changed.length + inserted.length - listed.length;
+  return {
+    digest: digestOf(after),
+    changed: changed.filter((entry) => listed.includes(entry)).map(bound),
+    inserted: inserted.filter((entry) => listed.includes(entry)).map(bound),
+    removed,
+    ...omitted ? { omitted } : {},
+    next: omitted ? "Delta is bounded; use project action:context for the whole page." : "Edit again with this digest and these targets."
+  };
+}
+
 // packages/core/src/edit/transaction.ts
+import path5 from "node:path";
+import { readFile as readFile4 } from "node:fs/promises";
 function combine(plans) {
   const edits = [];
   for (const plan of plans)
@@ -3420,6 +3505,13 @@ async function runPageTransaction(ctx, input, groups) {
     const source = await readFile4(file, "utf8");
     return { source, digest: digestOf(source), ...transformPage(source, pageId, groups(input.operations)) };
   };
+  const described = (source, result) => {
+    const mode = input.context ?? "delta";
+    if (mode === "none") return {};
+    return {
+      context: mode === "full" ? contextOf(result, relative) : contextDelta(source, result, relative)
+    };
+  };
   if (input.dryRun || !input.expectedDigest) {
     const planned = await plan();
     if (!input.dryRun)
@@ -3437,6 +3529,7 @@ async function runPageTransaction(ctx, input, groups) {
       afterDigest: digestOf(planned.result),
       written: false,
       operations: input.operations.length,
+      ...described(planned.source, planned.result),
       result: planned.result,
       targets: planned.targets,
       next: `Apply with expectedDigest ${planned.digest}.`
@@ -3463,6 +3556,7 @@ async function runPageTransaction(ctx, input, groups) {
       written: true,
       operations: input.operations.length,
       change: sourceChange(before, after, ctx.config.application.sourceDir),
+      ...described(planned.source, planned.result),
       result: planned.result,
       targets: planned.targets,
       next: "Source edited only. Validate or ship to check it with the compiler and import it."
@@ -3472,7 +3566,7 @@ async function runPageTransaction(ctx, input, groups) {
 
 // packages/core/src/edit/patch.ts
 var PATCH_PROPERTIES = ["title", "label", "heading", "format", "sequence", "query"];
-var REPORTS = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
+var REPORTS2 = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
 var DATA_TYPES = {
   varchar2: "STRING",
   number: "NUMBER",
@@ -3571,7 +3665,7 @@ function planSets(snapshot, operations) {
 }
 function queryEdits(doc, region, operation) {
   const type = doc.lines[region.open] && region.properties.get("type")?.value;
-  if (!REPORTS.has(String(type)))
+  if (!REPORTS2.has(String(type)))
     throw new Fault(
       "OPERATION_UNSUPPORTED",
       `query is supported on interactive and classic reports, not ${type}.`,
@@ -3626,49 +3720,7 @@ function queryEdits(doc, region, operation) {
 async function pageContext(ctx, page) {
   if (!/^\d{1,5}$/u.test(page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
   const file = await pageFile(ctx, String(Number(page)));
-  const source = await readFile5(file, "utf8");
-  const parsed = parseApexLang(source, path6.relative(ctx.root, file)).find((c) => c.type === "page");
-  if (!parsed) throw new Fault("TARGET_NOT_FOUND", `No page ${page} in its file.`, 2);
-  const text = (component, dotted) => {
-    const value = readProperty(component, dotted);
-    return typeof value === "string" && value ? value : void 0;
-  };
-  const compact = (value) => Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== void 0 && entry !== ""));
-  return {
-    file: path6.relative(ctx.root, file).split(path6.sep).join("/"),
-    digest: digestOf(source),
-    page: compact({ id: parsed.id, name: text(parsed, "name"), title: text(parsed, "title") }),
-    regions: parsed.children.filter((c) => c.type === "region").map(
-      (region) => compact({
-        target: `region:${region.id}`,
-        type: text(region, "type"),
-        title: text(region, "name"),
-        sequence: text(region, "layout.sequence"),
-        line: region.line,
-        query: REPORTS.has(String(text(region, "type"))) ? text(region, "source.sqlQuery") : void 0,
-        columns: region.children.filter((c) => c.type === "column").map(
-          (column) => compact({
-            target: `column:${region.id}.${column.id}`,
-            heading: text(column, "heading.heading"),
-            format: text(column, "appearance.formatMask"),
-            sequence: text(column, "layout.sequence")
-          })
-        )
-      })
-    ),
-    items: parsed.children.filter((c) => c.type === "pageItem").map(
-      (item) => compact({
-        target: `item:${item.id}`,
-        type: text(item, "type"),
-        label: text(item, "label.label"),
-        line: item.line
-      })
-    ),
-    buttons: parsed.children.filter((c) => c.type === "button").map(
-      (button) => compact({ target: `button:${button.id}`, label: text(button, "label"), line: button.line })
-    ),
-    next: "Change titles, labels, headings, formats, sequences or a report query with project patch and this digest."
-  };
+  return contextOf(await readFile5(file, "utf8"), path6.relative(ctx.root, file).split(path6.sep).join("/"));
 }
 async function patchPage(ctx, input) {
   const {

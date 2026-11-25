@@ -15,6 +15,7 @@ import {
   type TextEdit,
 } from './apexlang-edit.ts';
 import { pageFile } from './page-file.ts';
+import { contextDelta, contextOf, type ContextDelta, type PageContext } from './context.ts';
 
 /**
  * One source transaction for an existing page (`project action:edit`). Every operation is resolved
@@ -49,11 +50,14 @@ export interface PlannedEdit {
 /** Plans one group of operations of the same kind; throws a Fault for anything it cannot do. */
 export type Planner<T> = (snapshot: PageSnapshot, operations: T[]) => PlannedEdit;
 
+export type ContextMode = 'delta' | 'full' | 'none';
 export interface TransactionInput<T> {
   page: string;
   operations: T[];
   expectedDigest?: string | undefined;
   dryRun?: boolean | undefined;
+  /** What the result carries of the edited page: the delta (default), the whole context or none. */
+  context?: ContextMode | undefined;
 }
 
 export interface TransactionResult {
@@ -64,6 +68,8 @@ export interface TransactionResult {
   written: boolean;
   operations: number;
   change?: SourceChange;
+  /** Context of the exact edited bytes (the planned bytes for a dry run). */
+  context?: ContextDelta | PageContext;
   /** The edited text (internal: callers derive their compact results from it). */
   result: string;
   targets: string[];
@@ -137,6 +143,13 @@ export async function runPageTransaction<T>(
     const source = await readFile(file, 'utf8');
     return { source, digest: digestOf(source), ...transformPage(source, pageId, groups(input.operations)) };
   };
+  const described = (source: string, result: string) => {
+    const mode = input.context ?? 'delta';
+    if (mode === 'none') return {};
+    return {
+      context: mode === 'full' ? contextOf(result, relative) : contextDelta(source, result, relative),
+    };
+  };
   if (input.dryRun || !input.expectedDigest) {
     const planned = await plan();
     if (!input.dryRun)
@@ -154,6 +167,7 @@ export async function runPageTransaction<T>(
       afterDigest: digestOf(planned.result),
       written: false,
       operations: input.operations.length,
+      ...described(planned.source, planned.result),
       result: planned.result,
       targets: planned.targets,
       next: `Apply with expectedDigest ${planned.digest}.`,
@@ -180,6 +194,7 @@ export async function runPageTransaction<T>(
       written: true,
       operations: input.operations.length,
       change: sourceChange(before, after, ctx.config.application.sourceDir),
+      ...described(planned.source, planned.result),
       result: planned.result,
       targets: planned.targets,
       next: 'Source edited only. Validate or ship to check it with the compiler and import it.',

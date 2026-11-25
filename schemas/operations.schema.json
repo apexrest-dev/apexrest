@@ -622,6 +622,16 @@
       "dryRun": {
         "default": false,
         "type": "boolean"
+      },
+      "context": {
+        "default": "delta",
+        "description": "Edited page context in the result: changed/inserted/removed targets (default), whole, none",
+        "type": "string",
+        "enum": [
+          "delta",
+          "full",
+          "none"
+        ]
       }
     },
     "required": [
@@ -720,6 +730,16 @@
       "dryRun": {
         "default": false,
         "type": "boolean"
+      },
+      "context": {
+        "default": "delta",
+        "description": "Edited page context in the result: changed/inserted/removed targets (default), whole, none",
+        "type": "string",
+        "enum": [
+          "delta",
+          "full",
+          "none"
+        ]
       }
     },
     "required": [
@@ -849,6 +869,16 @@
       "dryRun": {
         "default": false,
         "type": "boolean"
+      },
+      "context": {
+        "default": "delta",
+        "description": "Edited page context in the result: changed/inserted/removed targets (default), whole, none",
+        "type": "string",
+        "enum": [
+          "delta",
+          "full",
+          "none"
+        ]
       }
     },
     "required": [
@@ -2081,7 +2111,7 @@
         "type": "string"
       },
       "operations": {
-        "description": "patch, insert, context: see the work skill patch guide",
+        "description": "patch/insert/edit: see patch guide",
         "type": "array",
         "items": {
           "type": "object",
@@ -2100,6 +2130,14 @@
       },
       "expectedDigest": {
         "type": "string"
+      },
+      "context": {
+        "type": "string",
+        "enum": [
+          "delta",
+          "full",
+          "none"
+        ]
       },
       "directory": {
         "description": "init: new or empty directory for the project",

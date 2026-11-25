@@ -4,7 +4,13 @@ import type { ApxComponent } from '../preview/apexlang.ts';
 import { renderPageBody, renderRegion } from '../scaffold-renderer.ts';
 import { scaffoldSchema, type ScaffoldPage } from '../scaffold-spec.ts';
 import { appendChild } from './apexlang-edit.ts';
-import { runPageTransaction, transformPage, type PageSnapshot, type PlannedEdit } from './transaction.ts';
+import {
+  runPageTransaction,
+  transformPage,
+  type ContextMode,
+  type PageSnapshot,
+  type PlannedEdit,
+} from './transaction.ts';
 
 /**
  * Adds scaffold-defined regions, items and refresh relationships to an existing page
@@ -20,6 +26,7 @@ export interface InsertInput {
   components: { regions?: unknown[]; items?: unknown[]; refreshes?: unknown[] };
   expectedDigest?: string | undefined;
   dryRun?: boolean | undefined;
+  context?: ContextMode | undefined;
 }
 
 type Components = InsertInput['components'];
@@ -145,6 +152,7 @@ export async function insertComponents(ctx: ProjectContext, input: InsertInput) 
     afterDigest: outcome.afterDigest,
     written: outcome.written,
     ...(outcome.change ? { change: outcome.change } : {}),
+    ...(outcome.context ? { context: outcome.context } : {}),
     ...(outcome.written ? { next: outcome.next } : {}),
   };
 }

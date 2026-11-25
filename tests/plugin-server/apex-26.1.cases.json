@@ -1545,7 +1545,7 @@
     {
       "id": "A261-072",
       "title": "Compound semantic page edit",
-      "acceptance": ["FASTDEV-A01"],
+      "acceptance": ["FASTDEV-A01", "FASTDEV-A02"],
       "execution": "harness",
       "surface": "stdio-MCP",
       "authorization": "read-only-or-local",
@@ -1556,7 +1556,8 @@
       ],
       "expected": [
         "One atomic write; every operation reads back; source change names only that page.",
-        "The invalid request writes nothing and the page stays byte-identical."
+        "The invalid request writes nothing and the page stays byte-identical.",
+        "The result context lists changed, inserted and removed targets and the digest of the written bytes; a follow-up edit with that digest applies."
       ],
       "evidence": ["sanitized result code", "page file digest before and after", "MCP call count"],
       "budgetMs": 5000

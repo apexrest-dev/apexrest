@@ -187,3 +187,70 @@ test('the MCP project action edit reaches the same transaction', async (t) => {
   assert.equal(applied.ok, true, JSON.stringify(applied.diagnostics));
   assert.notEqual(await readFile(file, 'utf8'), PAGE);
 });
+
+test('a successful edit returns the context delta of the bytes it wrote', async (t) => {
+  const { ctx, file } = await page(t);
+  const applied = await editPage(ctx, { page: '7', operations: compound, expectedDigest: digestOf(PAGE) });
+  const delta = applied.context as import('../../packages/core/src/edit/context.ts').ContextDelta;
+  assert.equal(delta.digest, digestOf(await readFile(file, 'utf8')));
+  assert.equal(delta.digest, applied.afterDigest);
+  // Changed and inserted targets carry their values; unchanged ones are left out; moved lines do not count.
+  assert.deepEqual(
+    delta.changed.map((entry) => entry.target),
+    ['page', 'region:orders'],
+  );
+  assert.equal(delta.changed[0]!.title, 'Open orders');
+  assert.match(String(delta.changed[1]!.query), /status = :P7_STATUS/u);
+  assert.deepEqual(
+    delta.inserted.map((entry) => entry.target),
+    ['column:orders.STATUS', 'region:filters', 'item:P7_STATUS'],
+  );
+  assert.deepEqual(delta.removed, []);
+  assert.ok(!delta.changed.some((entry) => entry.target === 'item:P7_SEARCH'));
+
+  // The returned digest and targets are directly usable for the next edit.
+  const next = await editPage(ctx, {
+    page: '7',
+    operations: [{ op: 'set', target: 'item:P7_STATUS', property: 'label', value: 'Order status' }],
+    expectedDigest: delta.digest,
+  });
+  assert.equal(next.written, true);
+  const second = next.context as typeof delta;
+  assert.deepEqual(
+    second.changed.map((entry) => [entry.target, entry.label]),
+    [['item:P7_STATUS', 'Order status']],
+  );
+  // An edit made by someone else in between is still a conflict.
+  await writeFile(file, (await readFile(file, 'utf8')) + '\n');
+  await assert.rejects(
+    editPage(ctx, {
+      page: '7',
+      operations: [{ op: 'set', target: 'page', property: 'title', value: 'x' }],
+      expectedDigest: second.digest,
+    }),
+    { code: 'TRANSFORM_CONFLICT' },
+  );
+});
+
+test('removed columns are listed; full and none context modes are available', async (t) => {
+  const { ctx } = await page(t);
+  const dropped = await editPage(ctx, {
+    page: '7',
+    dryRun: true,
+    operations: [
+      {
+        op: 'set',
+        target: 'region:orders',
+        property: 'query',
+        value: 'select id, status from orders',
+        columns: [{ name: 'STATUS' }],
+      },
+    ],
+  });
+  const delta = dropped.context as import('../../packages/core/src/edit/context.ts').ContextDelta;
+  assert.deepEqual(delta.removed, ['column:orders.AMOUNT']);
+  const full = await editPage(ctx, { page: '7', dryRun: true, operations: [compound[0]!], context: 'full' });
+  assert.equal((full.context as { page: { title: string } }).page.title, 'Open orders');
+  const none = await editPage(ctx, { page: '7', dryRun: true, operations: [compound[0]!], context: 'none' });
+  assert.equal(none.context, undefined);
+});

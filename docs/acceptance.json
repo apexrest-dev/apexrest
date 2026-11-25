@@ -1025,6 +1025,18 @@
         "tests/unit/source-insert.test.ts"
       ],
       "blocker": "Local repository tests only. Compiler, native import and browser evidence for compound edits are not claimed; see FASTDEV-V12 for the qualification scenarios."
+    },
+    {
+      "id": "FASTDEV-A02",
+      "criterion": "Every successful page edit returns a bounded context delta (new digest, changed and inserted targets with their editable values, removed targets) derived from the exact bytes written, with full and no-context options",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/edit/context.ts",
+        "packages/core/src/edit/transaction.ts",
+        "tests/unit/source-edit-transaction.test.ts"
+      ],
+      "blocker": "Local repository tests only. Output size is bounded to 40 entries and 2000 characters of query text per entry; larger changes point to project action:context."
     }
   ]
 }

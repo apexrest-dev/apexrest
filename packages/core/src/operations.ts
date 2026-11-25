@@ -191,6 +191,10 @@ export const schemas = {
       .regex(/^[a-f0-9]{64}$/u)
       .optional(),
     dryRun: z.boolean().default(false),
+    context: z
+      .enum(['delta', 'full', 'none'])
+      .default('delta')
+      .describe('Edited page context in the result: changed/inserted/removed targets (default), whole, none'),
   }),
   'project.patch': z.strictObject({
     ...base,
@@ -225,6 +229,10 @@ export const schemas = {
       .optional()
       .describe('Page file digest you read; required to write'),
     dryRun: z.boolean().default(false),
+    context: z
+      .enum(['delta', 'full', 'none'])
+      .default('delta')
+      .describe('Edited page context in the result: changed/inserted/removed targets (default), whole, none'),
   }),
   'project.edit': z.strictObject({
     ...base,
@@ -268,6 +276,10 @@ export const schemas = {
       .optional()
       .describe('Page file digest you read; required to write'),
     dryRun: z.boolean().default(false),
+    context: z
+      .enum(['delta', 'full', 'none'])
+      .default('delta')
+      .describe('Edited page context in the result: changed/inserted/removed targets (default), whole, none'),
   }),
   'project.scaffold': z.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
   'connection.add': z
@@ -481,9 +493,10 @@ export const schemas = {
     operations: z
       .array(z.record(z.string(), z.unknown()))
       .optional()
-      .describe('patch, insert, context: see the work skill patch guide'),
+      .describe('patch/insert/edit: see patch guide'),
     components: z.record(z.string(), z.unknown()).optional(),
     expectedDigest: z.string().optional(),
+    context: z.enum(['delta', 'full', 'none']).optional(),
     directory: z.string().min(1).optional().describe('init: new or empty directory for the project'),
     template: z.enum(['blank-app', 'customer-crm', 'existing-app']).optional(),
     alias: refName.optional(),

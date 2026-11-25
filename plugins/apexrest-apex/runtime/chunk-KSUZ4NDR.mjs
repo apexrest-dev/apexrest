@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-CPLKPPVJ.mjs";
+} from "./chunk-JSGVR7Z3.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -33,7 +33,7 @@ import {
   runPageTransaction,
   sourceInventory,
   sourceRevision
-} from "./chunk-5P7YH266.mjs";
+} from "./chunk-KJR5NSAZ.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -1844,6 +1844,7 @@ async function insertComponents(ctx, input) {
     afterDigest: outcome.afterDigest,
     written: outcome.written,
     ...outcome.change ? { change: outcome.change } : {},
+    ...outcome.context ? { context: outcome.context } : {},
     ...outcome.written ? { next: outcome.next } : {}
   };
 }
@@ -3508,19 +3509,19 @@ function routeProject(parsed) {
     case "insert":
       return {
         operation: "project.insert",
-        input: pick("project", "page", "components", "expectedDigest")
+        input: pick("project", "page", "components", "expectedDigest", "context")
       };
     case "context":
       return { operation: "project.context", input: pick("project", "page") };
     case "edit":
       return {
         operation: "project.edit",
-        input: pick("project", "page", "operations", "expectedDigest")
+        input: pick("project", "page", "operations", "expectedDigest", "context")
       };
     case "patch":
       return {
         operation: "project.patch",
-        input: pick("project", "page", "operations", "expectedDigest")
+        input: pick("project", "page", "operations", "expectedDigest", "context")
       };
     case "scaffold":
       return { operation: "project.scaffold", input: pick("project", "specFile", "env") };
@@ -3670,7 +3671,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-CISJCXK2.mjs");
+      const { previewDispatch } = await import("./chunk-HRKWMFXB.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -3712,17 +3713,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-KGHJN5BU.mjs");
+        const { setup } = await import("./chunk-NYDUWWUJ.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-KGHJN5BU.mjs");
+        const { validateNative } = await import("./chunk-NYDUWWUJ.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-KGHJN5BU.mjs");
+        const { uninstallNative } = await import("./chunk-NYDUWWUJ.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });

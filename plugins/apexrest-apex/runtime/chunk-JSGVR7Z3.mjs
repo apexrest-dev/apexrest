@@ -151,7 +151,8 @@ var schemas = {
     page: external_exports.string().regex(/^\d{1,5}$/u).describe("Page number"),
     components: external_exports.record(external_exports.string(), external_exports.unknown()).describe("JSON scaffold fragment: {regions, items?, refreshes?}; see the scaffold guide"),
     expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional(),
-    dryRun: external_exports.boolean().default(false)
+    dryRun: external_exports.boolean().default(false),
+    context: external_exports.enum(["delta", "full", "none"]).default("delta").describe("Edited page context in the result: changed/inserted/removed targets (default), whole, none")
   }),
   "project.patch": external_exports.strictObject({
     ...base,
@@ -171,7 +172,8 @@ var schemas = {
       })
     ).min(1).max(50).describe("JSON: [{target: page|region:ID|item:NAME|button:ID|column:REGION.COL, property, value}]"),
     expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional().describe("Page file digest you read; required to write"),
-    dryRun: external_exports.boolean().default(false)
+    dryRun: external_exports.boolean().default(false),
+    context: external_exports.enum(["delta", "full", "none"]).default("delta").describe("Edited page context in the result: changed/inserted/removed targets (default), whole, none")
   }),
   "project.edit": external_exports.strictObject({
     ...base,
@@ -198,7 +200,8 @@ var schemas = {
       ])
     ).min(1).max(50).describe("JSON: [{op:set, target, property, value} | {op:insert, components}] on one page snapshot"),
     expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional().describe("Page file digest you read; required to write"),
-    dryRun: external_exports.boolean().default(false)
+    dryRun: external_exports.boolean().default(false),
+    context: external_exports.enum(["delta", "full", "none"]).default("delta").describe("Edited page context in the result: changed/inserted/removed targets (default), whole, none")
   }),
   "project.scaffold": external_exports.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
   "connection.add": external_exports.strictObject({
@@ -362,9 +365,10 @@ var schemas = {
     ]),
     specFile: relativePath.optional().describe("scaffold: JSON spec; see work skill scaffold guide"),
     page: external_exports.string().optional(),
-    operations: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())).optional().describe("patch, insert, context: see the work skill patch guide"),
+    operations: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())).optional().describe("patch/insert/edit: see patch guide"),
     components: external_exports.record(external_exports.string(), external_exports.unknown()).optional(),
     expectedDigest: external_exports.string().optional(),
+    context: external_exports.enum(["delta", "full", "none"]).optional(),
     directory: external_exports.string().min(1).optional().describe("init: new or empty directory for the project"),
     template: external_exports.enum(["blank-app", "customer-crm", "existing-app"]).optional(),
     alias: refName.optional(),

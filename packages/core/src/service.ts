@@ -147,19 +147,19 @@ function routeProject(parsed: Record<string, unknown>) {
     case 'insert':
       return {
         operation: 'project.insert',
-        input: pick('project', 'page', 'components', 'expectedDigest'),
+        input: pick('project', 'page', 'components', 'expectedDigest', 'context'),
       };
     case 'context':
       return { operation: 'project.context', input: pick('project', 'page') };
     case 'edit':
       return {
         operation: 'project.edit',
-        input: pick('project', 'page', 'operations', 'expectedDigest'),
+        input: pick('project', 'page', 'operations', 'expectedDigest', 'context'),
       };
     case 'patch':
       return {
         operation: 'project.patch',
-        input: pick('project', 'page', 'operations', 'expectedDigest'),
+        input: pick('project', 'page', 'operations', 'expectedDigest', 'context'),
       };
     case 'scaffold':
       return { operation: 'project.scaffold', input: pick('project', 'specFile', 'env') };

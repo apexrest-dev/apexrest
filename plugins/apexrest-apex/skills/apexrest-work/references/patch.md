@@ -13,7 +13,8 @@ Use `apexrest_project action:patch` for small property changes on an existing pa
 0. `apexrest_project action:context page:"10"` returns the page's targets with their current values, report SQL and columns, and the `digest` to patch with. Read it instead of the whole page file.
 1. Without `expectedDigest` it changes nothing and returns the current page-file digest (`currentDigest`); `action:context` gives it too. (CLI: `--dry-run` shows the result without writing.)
 2. Call it again with `expectedDigest`. The digest is checked again under the project edit lock, right before the atomic replace. A changed file returns `TRANSFORM_CONFLICT`: read it again.
-3. A source edit is not a compiler or import result. Ship as usual.
+3. A successful `patch`, `insert` or `edit` returns `context`: the new `digest` and the `changed`, `inserted` and `removed` targets with their values, taken from the bytes written. Use them for the next edit instead of calling `action:context` again. `context:"full"` returns the whole page context; `context:"none"` leaves it out.
+4. A source edit is not a compiler or import result. Ship as usual.
 
 ```text
 apexrest_project action:patch project:/abs/project page:"10" expectedDigest:"<currentDigest>" operations:[{"target":"column:customers.EMAIL","property":"heading","value":"E-mail address"},{"target":"item:P10_SEARCH","property":"label","value":"Search"}]
