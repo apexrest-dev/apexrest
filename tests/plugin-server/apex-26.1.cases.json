@@ -1796,6 +1796,24 @@
         "screenshot of the change list"
       ],
       "budgetMs": 60000
+    },
+    {
+      "id": "A261-086",
+      "title": "Typed template and layout patches",
+      "acceptance": ["FASTDEV-V02"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Set a region template with options and a column span, an item span and a page template in one patch.",
+        "Reset them.",
+        "Validate."
+      ],
+      "expected": [
+        "Each value reads back with its APEXlang mapping; resets remove the properties; the compiler passes; invalid templates and options are refused before writing."
+      ],
+      "evidence": ["sanitized result code", "compiler diagnostics count"],
+      "budgetMs": 15000
     }
   ],
   "metrics": "quality-performance.json"

@@ -16,6 +16,8 @@ export interface ThemeIndex {
   /** template id -> apexlang slot name -> placeholder */
   slots: Map<string, Map<string, string>>;
   byId: Map<string, TemplateParams>;
+  /** Template options (`create_template_option`): CSS classes per template type and template. */
+  options: TemplateParams[];
 }
 
 const KIND_TO_MAP = {
@@ -42,10 +44,12 @@ export function indexTheme(calls: ThemeCall[]): ThemeIndex {
     styles: new Map(),
     slots: new Map(),
     byId: new Map(),
+    options: [],
   };
   for (const call of calls) {
     const params = call.params;
     if (call.kind === 'theme') index.theme = params;
+    if (call.kind === 'template_option') index.options.push(params);
     const target = KIND_TO_MAP[call.kind as keyof typeof KIND_TO_MAP];
     if (target && typeof params.static_id === 'string')
       index[target].set(params.static_id.toLowerCase(), params);

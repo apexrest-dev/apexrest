@@ -206,7 +206,20 @@ export const schemas = {
       .array(
         z.strictObject({
           target: z.string().min(1).max(300),
-          property: z.enum(['title', 'label', 'heading', 'format', 'sequence', 'query', 'visible']),
+          property: z.enum([
+            'title',
+            'label',
+            'heading',
+            'format',
+            'sequence',
+            'query',
+            'visible',
+            'template',
+            'templateOptions',
+            'column',
+            'columnSpan',
+            'startNewRow',
+          ]),
           value: z.string().max(100000),
           columns: z
             .array(
@@ -246,7 +259,20 @@ export const schemas = {
           z.strictObject({
             op: z.literal('set'),
             target: z.string().min(1).max(300),
-            property: z.enum(['title', 'label', 'heading', 'format', 'sequence', 'query', 'visible']),
+            property: z.enum([
+              'title',
+              'label',
+              'heading',
+              'format',
+              'sequence',
+              'query',
+              'visible',
+              'template',
+              'templateOptions',
+              'column',
+              'columnSpan',
+              'startNewRow',
+            ]),
             value: z.string().max(100000),
             columns: z
               .array(

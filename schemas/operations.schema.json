@@ -675,7 +675,12 @@
                 "format",
                 "sequence",
                 "query",
-                "visible"
+                "visible",
+                "template",
+                "templateOptions",
+                "column",
+                "columnSpan",
+                "startNewRow"
               ]
             },
             "value": {
@@ -790,7 +795,12 @@
                     "format",
                     "sequence",
                     "query",
-                    "visible"
+                    "visible",
+                    "template",
+                    "templateOptions",
+                    "column",
+                    "columnSpan",
+                    "startNewRow"
                   ]
                 },
                 "value": {

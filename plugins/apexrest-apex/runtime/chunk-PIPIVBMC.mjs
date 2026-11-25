@@ -4,10 +4,10 @@ import {
   patchPage,
   planSets,
   queryEdits
-} from "./chunk-TCCMWNKJ.mjs";
+} from "./chunk-5DRFTKLT.mjs";
 import {
   schemas
-} from "./chunk-ZO4TWOWZ.mjs";
+} from "./chunk-SWDIUDVJ.mjs";
 import {
   browserPreferences
 } from "./chunk-O7MNIZXK.mjs";
@@ -5162,7 +5162,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-DXKUJRXF.mjs");
+      const { previewDispatch } = await import("./chunk-6POF6RLV.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -5204,17 +5204,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-Y7WOWV7D.mjs");
+        const { setup } = await import("./chunk-VSDLBXWP.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-Y7WOWV7D.mjs");
+        const { validateNative } = await import("./chunk-VSDLBXWP.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-Y7WOWV7D.mjs");
+        const { uninstallNative } = await import("./chunk-VSDLBXWP.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });

@@ -4,6 +4,7 @@ import type { ProjectContext } from '../config.ts';
 import { Fault } from '../result.ts';
 import type { SourceChange } from '../revision.ts';
 import { pageFile } from './page-file.ts';
+import { isLayoutProperty, layoutEdit, LAYOUT_PROPERTIES, themeCatalog } from './layout.ts';
 import {
   afterColumns,
   checkNames,
@@ -30,6 +31,8 @@ import {
   parseApexLang,
   readProperty,
   setProperty,
+  setPropertyText,
+  scalarText,
   setFencedText,
   removeComponent,
   type ComponentNode,
@@ -52,6 +55,7 @@ export const PATCH_PROPERTIES = [
   'sequence',
   'query',
   'visible',
+  ...LAYOUT_PROPERTIES,
 ] as const;
 export type PatchProperty = (typeof PATCH_PROPERTIES)[number];
 export interface PatchOperation {
@@ -70,9 +74,28 @@ export interface QueryColumn {
 
 /** The supported APEXlang property path of each semantic property, by component kind. */
 const PATHS: Record<string, Partial<Record<PatchProperty, string>>> = {
-  page: { title: 'title' },
-  region: { title: 'name', sequence: 'layout.sequence', query: 'source.sqlQuery' },
-  pageItem: { label: 'label.label', sequence: 'layout.sequence' },
+  page: {
+    title: 'title',
+    template: 'appearance.pageTemplate',
+    templateOptions: 'appearance.templateOptions',
+  },
+  region: {
+    title: 'name',
+    sequence: 'layout.sequence',
+    query: 'source.sqlQuery',
+    template: 'appearance.template',
+    templateOptions: 'appearance.templateOptions',
+    column: 'layout.column',
+    columnSpan: 'layout.columnSpan',
+    startNewRow: 'layout.startNewRow',
+  },
+  pageItem: {
+    label: 'label.label',
+    sequence: 'layout.sequence',
+    column: 'layout.column',
+    columnSpan: 'layout.columnSpan',
+    startNewRow: 'layout.startNewRow',
+  },
   button: { label: 'label', sequence: 'layout.sequence' },
   column: {
     heading: 'heading.heading',
@@ -159,16 +182,63 @@ export function planSets(snapshot: PageSnapshot, operations: PatchOperation[]): 
   const edits: TextEdit[] = [];
   // Visibility changes of one report are planned together.
   const visibility = new Map<ComponentNode, { column: ComponentNode; visible: boolean }[]>();
+  // New properties of one missing group become one group, never several groups of the same name.
+  const grouped = new Map<string, { node: ComponentNode; group: string; lines: string[] }>();
+  const set = (node: ComponentNode, path: string, text: string) => {
+    const [group, key] = path.split('.');
+    if (key && !node.groups.has(group!) && !node.properties.has(path)) {
+      const id = `${node.open}:${group}`;
+      const entry = grouped.get(id) ?? { node, group: group!, lines: [] };
+      entry.lines.push(`${key}: ${text}`);
+      grouped.set(id, entry);
+    } else edits.push(setPropertyText(doc, node, path, text));
+  };
+  const catalog = resolved.some((entry) => isLayoutProperty(entry.operation.property))
+    ? themeCatalog()
+    : undefined;
   for (const entry of resolved) {
-    if (entry.operation.property === 'query')
-      edits.push(...queryEdits(doc, entry.node, entry.operation, snapshot.release));
-    else if (entry.operation.property === 'visible') {
+    const property = entry.operation.property;
+    if (property === 'query') edits.push(...queryEdits(doc, entry.node, entry.operation, snapshot.release));
+    else if (property === 'visible') {
       const region = entry.node.parent!;
       visibility.set(region, [
         ...(visibility.get(region) ?? []),
         { column: entry.node, visible: entry.operation.value === 'true' },
       ]);
-    } else edits.push(setProperty(doc, entry.node, entry.path, entry.operation.value));
+    } else if (isLayoutProperty(property)) {
+      // Template options are checked against the template the same batch sets, if any.
+      const template = resolved.find(
+        (other) =>
+          other.node === entry.node && other.operation.property === 'template' && other.operation.value,
+      )?.operation.value;
+      const change = layoutEdit(doc, entry.node, property, entry.operation.value, {
+        release: snapshot.release,
+        catalog: catalog!,
+        template,
+        grid: {
+          column: resolved.find((other) => other.node === entry.node && other.operation.property === 'column')
+            ?.operation.value,
+          columnSpan: resolved.find(
+            (other) => other.node === entry.node && other.operation.property === 'columnSpan',
+          )?.operation.value,
+        },
+      });
+      if ('edit' in change) {
+        if (change.edit) edits.push(change.edit);
+      } else set(entry.node, change.path, change.text);
+    } else set(entry.node, entry.path, scalarText(entry.operation.value));
+  }
+  for (const { node, group, lines } of grouped.values()) {
+    const indent = ' '.repeat(node.indent + 4);
+    const anchor = doc.lines[node.children[0]?.open ?? node.close]!;
+    const body = lines
+      .flatMap((line) => line.split(doc.eol))
+      .map((line, index) => (index === 0 || !line.startsWith(' ') ? `${indent}    ${line}` : line));
+    edits.push({
+      start: anchor.offset,
+      end: anchor.offset,
+      content: [`${indent}${group} {`, ...body, `${indent}}`].join(doc.eol) + doc.eol,
+    });
   }
   for (const [region, changes] of visibility) edits.push(...visibilityEdits(doc, region, changes));
   // Validation: every target reads the new value from the parsed result.
@@ -176,6 +246,27 @@ export function planSets(snapshot: PageSnapshot, operations: PatchOperation[]): 
     for (const entry of resolved) {
       const component = entry.find(parsedPage);
       const value = component && readProperty(component, entry.path);
+      if (isLayoutProperty(entry.operation.property)) {
+        const read = (raw: unknown): string =>
+          raw === undefined
+            ? ''
+            : Array.isArray(raw)
+              ? raw.map(String).join(' ')
+              : raw && typeof raw === 'object' && 'ref' in raw
+                ? String((raw as { ref: unknown }).ref).replace(/^\//u, '')
+                : String(raw);
+        const expected =
+          entry.operation.property === 'templateOptions'
+            ? [...new Set(entry.operation.value.split(/[\s,]+/u).filter(Boolean))].join(' ')
+            : entry.operation.value;
+        if (read(value) !== expected)
+          throw new Fault(
+            'TRANSFORM_INVALID',
+            `${entry.operation.target} ${entry.operation.property} did not read back.`,
+            5,
+          );
+        continue;
+      }
       if (entry.operation.property === 'visible') {
         const region = parsedPage.children.find(
           (c) => c.type === 'region' && c.id.toUpperCase() === entry.node.parent!.key.toUpperCase(),

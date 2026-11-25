@@ -7,10 +7,27 @@ import {
   unregisterPreview
 } from "./chunk-4SDMRO4L.mjs";
 import {
+  APEX_DOWNLOAD_URL,
+  APEX_FULL_VERSION,
   PATCH_PROPERTIES,
+  ZipReader,
+  applyEscape,
+  applyTemplate,
+  defaultAssetsDir,
+  defaultStaticId,
+  escapeHtml,
+  escapeJs,
+  escapeValue,
+  fill,
+  indexTheme,
+  loadAssets,
   pageContext,
-  patchPage
-} from "./chunk-TCCMWNKJ.mjs";
+  patchPage,
+  registerNamedTemplates,
+  setupAssets,
+  templateOptions,
+  text
+} from "./chunk-5DRFTKLT.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -64,8 +81,7 @@ import "./chunk-IIUPXDVT.mjs";
 import {
   environment,
   isProductionTarget,
-  loadProject,
-  managedHome
+  loadProject
 } from "./chunk-OZXHZF36.mjs";
 import "./chunk-VS4GLWTQ.mjs";
 import {
@@ -73,354 +89,8 @@ import {
 } from "./chunk-HRRL6FHO.mjs";
 
 // packages/core/src/preview/service.ts
-import fs16 from "node:fs";
-import path17 from "node:path";
-
-// packages/core/src/preview/assets.ts
-import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import zlib from "node:zlib";
-
-// packages/core/src/preview/theme-sql.ts
-var FUNCTIONS = {
-  "wwv_flow_string.join": (args) => Array.isArray(args[0]) ? args[0].map((item2) => item2 ?? "").join("\n") : args[0],
-  wwv_flow_t_varchar2: (args) => args,
-  "wwv_flow_imp.id": (args) => args[0] === void 0 || args[0] === null ? void 0 : String(args[0]),
-  nvl: (args) => args[0] ?? args[1]
-};
-var Parser = class {
-  #text;
-  #index = 0;
-  constructor(text12) {
-    this.#text = text12;
-  }
-  get done() {
-    return this.#index >= this.#text.length;
-  }
-  skipSpace() {
-    while (!this.done) {
-      const char = this.#text[this.#index];
-      if (/\s/u.test(char)) this.#index += 1;
-      else if (this.#text.startsWith("--", this.#index)) {
-        const end = this.#text.indexOf("\n", this.#index);
-        this.#index = end === -1 ? this.#text.length : end + 1;
-      } else break;
-    }
-  }
-  peek(token) {
-    this.skipSpace();
-    return this.#text.startsWith(token, this.#index);
-  }
-  take(token) {
-    if (!this.peek(token)) return false;
-    this.#index += token.length;
-    return true;
-  }
-  expect(token) {
-    if (!this.take(token)) throw new Error(`Expected "${token}" at offset ${this.#index}`);
-  }
-  identifier() {
-    this.skipSpace();
-    const match = /^[A-Za-z_][\w$#.]*/u.exec(this.#text.slice(this.#index, this.#index + 200));
-    if (!match) throw new Error(`Expected identifier at offset ${this.#index}`);
-    this.#index += match[0].length;
-    return match[0];
-  }
-  string() {
-    this.expect("'");
-    let value2 = "";
-    for (; ; ) {
-      const end = this.#text.indexOf("'", this.#index);
-      if (end === -1) throw new Error("Unterminated SQL string");
-      value2 += this.#text.slice(this.#index, end);
-      this.#index = end + 1;
-      if (this.#text[this.#index] === "'") {
-        value2 += "'";
-        this.#index += 1;
-      } else return value2;
-    }
-  }
-  primary() {
-    this.skipSpace();
-    if (this.peek("'")) return this.string();
-    const numberMatch = /^-?\d+(?:\.\d+)?/u.exec(this.#text.slice(this.#index, this.#index + 64));
-    if (numberMatch) {
-      this.#index += numberMatch[0].length;
-      const value2 = Number(numberMatch[0]);
-      return Number.isSafeInteger(value2) || numberMatch[0].includes(".") ? value2 : numberMatch[0];
-    }
-    if (this.take("(")) {
-      const value2 = this.expression();
-      this.expect(")");
-      return value2;
-    }
-    const name = this.identifier();
-    const lower2 = name.toLowerCase();
-    if (lower2 === "true") return true;
-    if (lower2 === "false") return false;
-    if (lower2 === "null") return null;
-    if (!this.take("(")) return void 0;
-    const args = [];
-    if (!this.take(")")) {
-      do {
-        if (/^\s*[A-Za-z_]\w*\s*=>/u.test(this.#text.slice(this.#index, this.#index + 80))) {
-          this.identifier();
-          this.expect("=>");
-        }
-        args.push(this.expression());
-      } while (this.take(","));
-      this.expect(")");
-    }
-    return FUNCTIONS[lower2]?.(args);
-  }
-  expression() {
-    let value2 = this.primary();
-    while (this.take("||")) {
-      const right = this.primary();
-      value2 = `${value2 ?? ""}${right ?? ""}`;
-    }
-    return value2;
-  }
-  /** `p_a=>expr, p_b=>expr )` */
-  namedArguments() {
-    const params2 = {};
-    if (this.take(")")) return params2;
-    do {
-      const name = this.identifier().toLowerCase().replace(/^p_/u, "");
-      this.expect("=>");
-      params2[name] = this.expression();
-    } while (this.take(","));
-    this.expect(")");
-    return params2;
-  }
-  seek(pattern) {
-    pattern.lastIndex = this.#index;
-    const match = pattern.exec(this.#text);
-    if (match) this.#index = match.index + match[0].length;
-    else this.#index = this.#text.length;
-    return match;
-  }
-};
-function parseThemeSql(sql) {
-  const parser = new Parser(sql);
-  const calls = [];
-  const start = /wwv_flow_imp_shared\.(create_\w+)\s*\(/gu;
-  for (; ; ) {
-    const match = parser.seek(start);
-    if (!match) break;
-    try {
-      calls.push({ kind: match[1].replace(/^create_/u, ""), params: parser.namedArguments() });
-    } catch {
-    }
-  }
-  return calls;
-}
-
-// packages/core/src/preview/assets.ts
-var APEX_VERSION = "26.2";
-var APEX_FULL_VERSION = "26.2.0";
-var APEX_DOWNLOAD_URL = `https://download.oracle.com/otn_software/apex/apex_${APEX_VERSION}_en.zip`;
-var APEX_ASSETS_ENV = "APEXREST_PREVIEW_ASSETS";
-var IMAGE_PREFIXES = [
-  "libraries/apex/",
-  "libraries/jquery/",
-  "libraries/jquery-ui/",
-  "libraries/jquery-migrate/",
-  "libraries/font-apex/",
-  "libraries/oracle-fonts/",
-  "libraries/apex-utility-css/",
-  "libraries/purify/",
-  "libraries/hammer/",
-  "libraries/fullcalendar/",
-  "libraries/markedjs/",
-  "libraries/cropperjs/",
-  "libraries/jointplus/",
-  "plugins/com.oracle.apex.carousel/",
-  `themes/theme_42/${APEX_VERSION}/`,
-  "app_ui/",
-  "css/"
-];
-var THEME_SQL = `apex/core/themes/f8842.${APEX_VERSION.replace(".", "")}.sql`;
-function defaultAssetsDir(environment2 = process.env) {
-  const configured2 = environment2[APEX_ASSETS_ENV];
-  return configured2 ? path.resolve(configured2) : path.join(managedHome(), "preview", APEX_VERSION);
-}
-var ZipReader = class {
-  #fd;
-  #buffer;
-  entries = [];
-  /** A zip file on disk, or an in-memory archive (an uploaded XLSX workbook). */
-  constructor(file) {
-    const label = typeof file === "string" ? file : "archive";
-    if (typeof file === "string") this.#fd = fs.openSync(file, "r");
-    else {
-      this.#fd = -1;
-      this.#buffer = Buffer.from(file.buffer, file.byteOffset, file.byteLength);
-    }
-    const size = this.#buffer ? this.#buffer.length : fs.fstatSync(this.#fd).size;
-    const tailSize = Math.min(size, 65557);
-    const tail = this.#read(size - tailSize, tailSize);
-    const eocd = tail.lastIndexOf(Buffer.from([80, 75, 5, 6]));
-    if (eocd === -1) throw new Error(`${label} is not a zip archive`);
-    const count = tail.readUInt16LE(eocd + 10);
-    const directorySize = tail.readUInt32LE(eocd + 12);
-    const directoryOffset = tail.readUInt32LE(eocd + 16);
-    if (directoryOffset === 4294967295 || count === 65535)
-      throw new Error("ZIP64 archives are not supported");
-    const directory = this.#read(directoryOffset, directorySize);
-    let offset = 0;
-    for (let index = 0; index < count; index += 1) {
-      if (directory.readUInt32LE(offset) !== 33639248) throw new Error("Corrupt zip central directory");
-      const nameLength = directory.readUInt16LE(offset + 28);
-      const extraLength = directory.readUInt16LE(offset + 30);
-      const commentLength = directory.readUInt16LE(offset + 32);
-      this.entries.push({
-        method: directory.readUInt16LE(offset + 10),
-        compressedSize: directory.readUInt32LE(offset + 20),
-        size: directory.readUInt32LE(offset + 24),
-        localHeaderOffset: directory.readUInt32LE(offset + 42),
-        name: directory.toString("utf8", offset + 46, offset + 46 + nameLength)
-      });
-      offset += 46 + nameLength + extraLength + commentLength;
-    }
-  }
-  #read(position2, length) {
-    if (this.#buffer) {
-      if (position2 < 0 || position2 + length > this.#buffer.length)
-        throw new Error("Unexpected end of zip archive");
-      return this.#buffer.subarray(position2, position2 + length);
-    }
-    const buffer = Buffer.alloc(length);
-    let done = 0;
-    while (done < length) {
-      const read = fs.readSync(this.#fd, buffer, done, length - done, position2 + done);
-      if (read === 0) throw new Error("Unexpected end of zip archive");
-      done += read;
-    }
-    return buffer;
-  }
-  read(entry) {
-    const header2 = this.#read(entry.localHeaderOffset, 30);
-    if (header2.readUInt32LE(0) !== 67324752) throw new Error(`Corrupt local header for ${entry.name}`);
-    const start = entry.localHeaderOffset + 30 + header2.readUInt16LE(26) + header2.readUInt16LE(28);
-    const data = this.#read(start, entry.compressedSize);
-    if (entry.method === 0) return data;
-    if (entry.method === 8) return zlib.inflateRawSync(data);
-    throw new Error(`Unsupported zip compression method ${entry.method} for ${entry.name}`);
-  }
-  close() {
-    if (this.#fd >= 0) fs.closeSync(this.#fd);
-  }
-};
-async function sha256(file) {
-  const hash = crypto.createHash("sha256");
-  await pipeline(fs.createReadStream(file), hash);
-  return hash.digest("hex");
-}
-async function download(url2, target3, onProgress) {
-  const response = await fetch(url2);
-  if (!response.ok || !response.body)
-    throw new Error(`Download failed: ${response.status} ${response.statusText} (${url2})`);
-  const total = Number(response.headers.get("content-length")) || 0;
-  let received = 0;
-  let reported = 0;
-  const body4 = Readable.fromWeb(response.body);
-  body4.on("data", (chunk) => {
-    received += chunk.length;
-    if (onProgress && received - reported > 25 * 1048576) {
-      reported = received;
-      onProgress(
-        `downloaded ${(received / 1048576).toFixed(0)}${total ? ` / ${(total / 1048576).toFixed(0)}` : ""} MB`
-      );
-    }
-  });
-  await pipeline(body4, fs.createWriteStream(target3, { mode: 384 }));
-}
-async function setupAssets(options3 = {}) {
-  const dir = path.resolve(options3.assetsDir ?? defaultAssetsDir());
-  const progress = options3.onProgress ?? (() => void 0);
-  fs.mkdirSync(dir, { recursive: true });
-  let zipPath = options3.zipPath ? path.resolve(options3.zipPath) : void 0;
-  let downloaded = false;
-  if (!zipPath) {
-    const url2 = options3.url ?? APEX_DOWNLOAD_URL;
-    zipPath = path.join(dir, `apex_${APEX_VERSION}.zip`);
-    if (!fs.existsSync(zipPath)) {
-      progress(`downloading ${url2}`);
-      const partial = `${zipPath}.part`;
-      await download(url2, partial, progress);
-      fs.renameSync(partial, zipPath);
-    }
-    downloaded = true;
-  }
-  const digest = await sha256(zipPath);
-  if (options3.expectedSha256 && digest !== options3.expectedSha256.toLowerCase()) {
-    throw new Error(`SHA-256 mismatch for ${zipPath}: ${digest}`);
-  }
-  const imagesDir = path.join(dir, "images");
-  const staging = `${imagesDir}.staging`;
-  fs.rmSync(staging, { recursive: true, force: true });
-  const zip2 = new ZipReader(zipPath);
-  let files = 0;
-  let themeSql;
-  try {
-    for (const entry of zip2.entries) {
-      if (entry.name.endsWith("/")) continue;
-      if (entry.name === THEME_SQL) {
-        themeSql = zip2.read(entry).toString("utf8");
-        continue;
-      }
-      if (!entry.name.startsWith("apex/images/") || entry.name.endsWith(".map")) continue;
-      const relative = entry.name.slice("apex/images/".length);
-      if (!IMAGE_PREFIXES.some((prefix) => relative.startsWith(prefix))) continue;
-      const target3 = path.resolve(staging, relative);
-      if (!target3.startsWith(`${staging}${path.sep}`)) throw new Error(`Unsafe zip entry ${entry.name}`);
-      fs.mkdirSync(path.dirname(target3), { recursive: true });
-      fs.writeFileSync(target3, zip2.read(entry));
-      files += 1;
-      if (files % 2e3 === 0) progress(`extracted ${files} files`);
-    }
-  } finally {
-    zip2.close();
-  }
-  if (!themeSql)
-    throw new Error(`${zipPath} does not contain ${THEME_SQL}; is it an APEX ${APEX_VERSION} distribution?`);
-  if (files === 0) throw new Error(`${zipPath} contains no apex/images runtime files`);
-  const theme = parseThemeSql(themeSql);
-  fs.writeFileSync(path.join(dir, "theme.json"), JSON.stringify(theme));
-  fs.rmSync(imagesDir, { recursive: true, force: true });
-  fs.renameSync(staging, imagesDir);
-  const manifest = {
-    apexVersion: APEX_FULL_VERSION,
-    source: options3.zipPath ? zipPath : options3.url ?? APEX_DOWNLOAD_URL,
-    sha256: digest,
-    extractedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    files
-  };
-  fs.writeFileSync(path.join(dir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}
-`);
-  if (downloaded && !options3.keepZip) fs.rmSync(zipPath, { force: true });
-  progress(`ready: ${files} files in ${imagesDir}`);
-  return { dir, imagesDir, manifest, theme };
-}
-function loadAssets(assetsDir = defaultAssetsDir()) {
-  const dir = path.resolve(assetsDir);
-  const manifestFile = path.join(dir, "manifest.json");
-  if (!fs.existsSync(manifestFile)) {
-    throw new Error(
-      `APEX ${APEX_VERSION} assets are not installed in ${dir}. Run: apexrest preview setup (or apexrest_preview action:setup).`
-    );
-  }
-  return {
-    dir,
-    imagesDir: path.join(dir, "images"),
-    manifest: JSON.parse(fs.readFileSync(manifestFile, "utf8")),
-    theme: JSON.parse(fs.readFileSync(path.join(dir, "theme.json"), "utf8"))
-  };
-}
+import fs15 from "node:fs";
+import path16 from "node:path";
 
 // packages/core/src/preview/gaps.ts
 var NOT_APPLIED = /* @__PURE__ */ new Set(["initJavaScriptFunction", "columnInitJavaScriptFunction"]);
@@ -468,8 +138,8 @@ function initFunction(region) {
 
 // packages/core/src/preview/review.ts
 import { randomBytes } from "node:crypto";
-import fs2 from "node:fs";
-import path2 from "node:path";
+import fs from "node:fs";
+import path from "node:path";
 var REVIEW_INTENTS = [
   "change",
   "rename",
@@ -497,13 +167,13 @@ var ReviewError = class extends Error {
   status;
 };
 function reviewFilePath(projectRoot) {
-  return path2.join(projectRoot, ".apexrest", "review", "comments.json");
+  return path.join(projectRoot, ".apexrest", "review", "comments.json");
 }
 function reviewSourceDir(file, sourceDir) {
-  const projectRoot = path2.resolve(path2.dirname(file), "..", "..");
-  const relative = path2.relative(projectRoot, sourceDir);
+  const projectRoot = path.resolve(path.dirname(file), "..", "..");
+  const relative = path.relative(projectRoot, sourceDir);
   if (!relative) return ".";
-  return relative.startsWith("..") || path2.isAbsolute(relative) ? sourceDir : relative.split(path2.sep).join("/");
+  return relative.startsWith("..") || path.isAbsolute(relative) ? sourceDir : relative.split(path.sep).join("/");
 }
 function emptyFile() {
   return { version: 1, comments: [] };
@@ -511,7 +181,7 @@ function emptyFile() {
 function readReview(file) {
   let text12;
   try {
-    text12 = fs2.readFileSync(file, "utf8");
+    text12 = fs.readFileSync(file, "utf8");
   } catch (error) {
     if (error.code === "ENOENT") return emptyFile();
     throw error;
@@ -532,14 +202,14 @@ function isComment(value2) {
   return !!entry && typeof entry.id === "string" && (entry.status === "open" || entry.status === "resolved") && typeof entry.text === "string" && !!entry.page && typeof entry.page.id === "string" && !!entry.target && REVIEW_TARGET_KINDS.includes(entry.target.kind);
 }
 function writeReview(file, content) {
-  fs2.mkdirSync(path2.dirname(file), { recursive: true });
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   const temporary = `${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
-  fs2.writeFileSync(temporary, `${JSON.stringify(content, null, 2)}
+  fs.writeFileSync(temporary, `${JSON.stringify(content, null, 2)}
 `, { mode: 384 });
   try {
-    fs2.renameSync(temporary, file);
+    fs.renameSync(temporary, file);
   } catch (error) {
-    fs2.rmSync(temporary, { force: true });
+    fs.rmSync(temporary, { force: true });
     throw error;
   }
 }
@@ -576,7 +246,7 @@ function target(value2) {
   if (id) result.id = id;
   if (region) result.region = region;
   if (label) result.label = label;
-  if (file && !path2.isAbsolute(file) && !file.split(/[\\/]/u).includes("..")) result.file = file;
+  if (file && !path.isAbsolute(file) && !file.split(/[\\/]/u).includes("..")) result.file = file;
   if (Number.isInteger(line) && line > 0) result.line = line;
   if (selector2) result.selector = selector2;
   if (text12) result.text = text12;
@@ -694,14 +364,14 @@ function describeReviewComment(comment) {
 }
 
 // packages/core/src/preview/oracle/connect.ts
-import fs5 from "node:fs";
+import fs4 from "node:fs";
 import os from "node:os";
-import path4 from "node:path";
+import path3 from "node:path";
 
 // packages/core/src/preview/database.ts
-import crypto2 from "node:crypto";
-import fs3 from "node:fs";
-import path3 from "node:path";
+import crypto from "node:crypto";
+import fs2 from "node:fs";
+import path2 from "node:path";
 import { constants as sqliteConstants, DatabaseSync } from "node:sqlite";
 
 // packages/core/src/preview/seed.ts
@@ -964,7 +634,7 @@ function matchParen(tokens, open3) {
   }
   throw new PlsqlSyntaxError("Unbalanced parentheses", tokens[open3]?.line ?? 0);
 }
-var Parser2 = class {
+var Parser = class {
   tokens;
   pos = 0;
   constructor(source) {
@@ -1458,7 +1128,7 @@ var Parser2 = class {
   }
 };
 function parseProgram(source) {
-  return new Parser2(source).program();
+  return new Parser(source).program();
 }
 function parseExpression(source) {
   return lex(source.trim().replace(/;\s*$/u, ""));
@@ -1680,7 +1350,7 @@ function applyTrigger(db2, source) {
   if (!db2.tableExists(header2.table)) return [`${label}: table ${header2.table} does not exist`];
   let block;
   try {
-    const parser = new Parser2(header2.body);
+    const parser = new Parser(header2.body);
     block = parser.block();
   } catch (error) {
     return [
@@ -1731,7 +1401,7 @@ function applyTrigger(db2, source) {
   return problems;
 }
 function lex2(text12) {
-  return new Parser2(text12).tokens;
+  return new Parser(text12).tokens;
 }
 function relaxColumns(db2, table, columns) {
   const row = db2.db.prepare("select name, sql from sqlite_master where type = 'table' and upper(name) = upper(?)").get(table);
@@ -2374,8 +2044,8 @@ function sqlArithmetic(left, operator, right) {
   if (a === void 0 || b === void 0) return null;
   return sqlNumber(operator === "-" ? a - b : a + b);
 }
-function parseJsonPath(path18) {
-  const text12 = path18.trim().replace(/^(?:lax|strict)\s+/iu, "");
+function parseJsonPath(path17) {
+  const text12 = path17.trim().replace(/^(?:lax|strict)\s+/iu, "");
   if (!text12.startsWith("$")) return void 0;
   const steps = [];
   let index = 1;
@@ -3168,12 +2838,12 @@ function rewriteJsonFunctions(text12) {
     if (args.length < 2) continue;
     const doc = args[0].replace(/\s+format\s+json\s*$/iu, "").trim();
     const rest = args.slice(1).join(",").trim();
-    const path18 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
-    if (!path18) continue;
-    const clauses = rest.slice(path18.length);
+    const path17 = /^(\u0000\d+\u0000|:\w+)/u.exec(rest)?.[1];
+    if (!path17) continue;
+    const clauses = rest.slice(path17.length);
     const kind = match[1].toLowerCase();
     const option = kind === "value" ? /\breturning\s+(number|integer|float|binary_double|date|timestamp)/iu.exec(clauses)?.[1]?.toLowerCase() ?? "" : kind === "query" && /\bwith\s+(?:(?:un)?conditional\s+)?(?:array\s+)?wrapper\b/iu.test(clauses) ? "wrapper" : "";
-    out += `${text12.slice(last, match.index)}json_${kind}(${doc}, ${path18}${option ? `, '${option}'` : ""})`;
+    out += `${text12.slice(last, match.index)}json_${kind}(${doc}, ${path17}${option ? `, '${option}'` : ""})`;
     last = close3 + 1;
     pattern.lastIndex = last;
   }
@@ -3345,7 +3015,7 @@ var LocalDatabase = class {
   #localFunctions = /* @__PURE__ */ new Map();
   constructor(file) {
     this.file = file;
-    if (file !== ":memory:") fs3.mkdirSync(path3.dirname(file), { recursive: true });
+    if (file !== ":memory:") fs2.mkdirSync(path2.dirname(file), { recursive: true });
     this.db = new DatabaseSync(file);
     this.#registerOracleFunctions();
     for (const setup of databaseSetups) setup(this);
@@ -3356,7 +3026,7 @@ var LocalDatabase = class {
    * restores the bytes. Recently seen BLOBs are kept in memory for that.
    */
   blobToken(bytes2) {
-    const key = crypto2.createHash("sha1").update(bytes2).digest("hex").slice(0, 16);
+    const key = crypto.createHash("sha1").update(bytes2).digest("hex").slice(0, 16);
     const token = `[blob ${bytes2.length} bytes #${key}]`;
     if (this.#blobs.has(token)) this.#blobs.delete(token);
     else this.#blobBytes += bytes2.length;
@@ -3416,7 +3086,7 @@ var LocalDatabase = class {
       if (typeof format2 === "string" && /^x+$/iu.test(format2) && /^[0-9a-f]+$/iu.test(String(value2))) {
         const hex = String(value2);
         if (hex.length <= 13) return Number.parseInt(hex, 16);
-        const digest = crypto2.createHash("sha256").update(hex.toUpperCase()).digest();
+        const digest = crypto.createHash("sha256").update(hex.toUpperCase()).digest();
         return Number(digest.readBigUInt64BE(0) & 0x1fffffffffffffn);
       }
       return Number(value2);
@@ -3619,10 +3289,10 @@ var LocalDatabase = class {
     });
     fn("apex_local_nextval", (name) => this.#nextval(String(name)));
     fn("apex_local_currval", (name) => this.#sequences.get(String(name))?.value ?? null);
-    fn("sys_guid", () => crypto2.randomUUID().replaceAll("-", "").toUpperCase());
+    fn("sys_guid", () => crypto.randomUUID().replaceAll("-", "").toUpperCase());
     fn("ora_hash", (value2, bucket, seed) => {
       if (value2 === null || value2 === void 0) return null;
-      const digest = crypto2.createHash("md5").update(`${String(seed ?? 0)}|${String(value2)}`).digest().readUInt32BE(0);
+      const digest = crypto.createHash("md5").update(`${String(seed ?? 0)}|${String(value2)}`).digest().readUInt32BE(0);
       const max = bucket === null || bucket === void 0 ? 4294967295 : Number(bucket);
       return digest % (max + 1);
     });
@@ -3954,7 +3624,7 @@ var LocalDatabase = class {
 var TX_BEFORE = "APEXREST_TX_BEFORE";
 var TX_AFTER = "APEXREST_TX_AFTER";
 var DDL = /^\s*(create|alter|drop|truncate|rename|comment|grant|revoke|flashback|purge|analyze)\b/iu;
-function text(value2) {
+function text2(value2) {
   return value2 === null || value2 === void 0 ? null : String(value2);
 }
 var OracleAppData = class {
@@ -4019,7 +3689,7 @@ end;` : dmlBlock(sql, true);
     const error = errors[0] ?? errors[1] ?? errors[2];
     if (error) throw error;
     const row = jsonRows(texts[2]).rows[0] ?? {};
-    return { changes: Number(row[ROWS_BIND] ?? 0), lastInsertRowid: text(row[ROWID_BIND]) ?? 0 };
+    return { changes: Number(row[ROWS_BIND] ?? 0), lastInsertRowid: text2(row[ROWID_BIND]) ?? 0 };
   }
   #owned(table) {
     const parts = table.replaceAll('"', "").toUpperCase().split(".");
@@ -4165,7 +3835,7 @@ end;`
     const read = errors.at(-1);
     if (read) throw read;
     const row = jsonRows(texts.at(-1)).rows[0] ?? {};
-    const values2 = Object.fromEntries(names.map((name) => [name, text(row[name])]));
+    const values2 = Object.fromEntries(names.map((name) => [name, text2(row[name])]));
     const ended = !this.commit && values2[TX_BEFORE] !== values2[TX_AFTER];
     delete values2[TX_BEFORE];
     delete values2[TX_AFTER];
@@ -4218,12 +3888,12 @@ end;`;
 }
 
 // packages/core/src/preview/oracle/bridge.ts
-import fs4 from "node:fs";
+import fs3 from "node:fs";
 import { fileURLToPath } from "node:url";
 import { MessageChannel, Worker, receiveMessageOnPort } from "node:worker_threads";
 function defaultWorker() {
   const source = new URL("./worker.ts", import.meta.url);
-  if (fs4.existsSync(fileURLToPath(source))) return source;
+  if (fs3.existsSync(fileURLToPath(source))) return source;
   return new URL("./preview-oracle-worker.mjs", import.meta.url);
 }
 var WorkerBridge = class {
@@ -4345,18 +4015,18 @@ function warmUp(data, apex) {
   return { ms: Math.round(performance.now() - started2), ...steps };
 }
 function savedConnectionProperties(name, home = os.homedir()) {
-  const store = path4.join(home, ".dbtools", "connections");
+  const store = path3.join(home, ".dbtools", "connections");
   let entries;
   try {
-    entries = fs5.readdirSync(store);
+    entries = fs4.readdirSync(store);
   } catch {
     return void 0;
   }
   for (const entry of entries) {
     try {
-      const text12 = fs5.readFileSync(path4.join(store, entry, "dbtools.properties"), "utf8");
+      const text12 = fs4.readFileSync(path3.join(store, entry, "dbtools.properties"), "utf8");
       if (text12.split(/\r?\n/u).some((line) => line.trim() === `name=${name}`))
-        return path4.join(store, entry, "ojdbc.properties");
+        return path3.join(store, entry, "ojdbc.properties");
     } catch {
     }
   }
@@ -4498,9 +4168,9 @@ async function connectOracle(root, name, link, options3 = {}) {
 
 // packages/core/src/preview/server.ts
 import { randomBytes as randomBytes2, randomUUID } from "node:crypto";
-import fs15 from "node:fs";
+import fs14 from "node:fs";
 import http from "node:http";
-import path16 from "node:path";
+import path15 from "node:path";
 
 // packages/core/src/preview/websocket.ts
 import { createHash } from "node:crypto";
@@ -5022,18 +4692,18 @@ window.apexLocal = (function ($) {
 `;
 
 // packages/core/src/preview/source-index.ts
-import fs6 from "node:fs";
-import path5 from "node:path";
+import fs5 from "node:fs";
+import path4 from "node:path";
 function apxSignatures(root) {
   const out = /* @__PURE__ */ new Map();
   const visit = (directory) => {
-    for (const entry of fs6.readdirSync(directory, { withFileTypes: true })) {
+    for (const entry of fs5.readdirSync(directory, { withFileTypes: true })) {
       if (entry.name.startsWith(".") || entry.name === "static-files") continue;
-      const full = path5.join(directory, entry.name);
+      const full = path4.join(directory, entry.name);
       if (entry.isDirectory()) visit(full);
       else if (entry.name.endsWith(".apx")) {
-        const info = fs6.statSync(full);
-        out.set(path5.relative(root, full).split(path5.sep).join("/"), `${info.size}:${info.mtimeMs}`);
+        const info = fs5.statSync(full);
+        out.set(path4.relative(root, full).split(path4.sep).join("/"), `${info.size}:${info.mtimeMs}`);
       }
     }
   };
@@ -5117,8 +4787,8 @@ function replaceableRegions(before, after, domId) {
 }
 
 // packages/core/src/preview/live.ts
-import fs7 from "node:fs";
-import path6 from "node:path";
+import fs6 from "node:fs";
+import path5 from "node:path";
 var internal = (table) => /^(?:SQLITE_|APEX_LOCAL_)/u.test(table);
 var LiveHub = class {
   #clients = /* @__PURE__ */ new Set();
@@ -5211,9 +4881,9 @@ var LiveHub = class {
   #watch() {
     if (this.#watcher) return;
     try {
-      this.#watcher = fs7.watch(this.#sourceDir, { recursive: true }, (_event, file) => {
+      this.#watcher = fs6.watch(this.#sourceDir, { recursive: true }, (_event, file) => {
         const name = String(file ?? "");
-        const parts = name.split(path6.sep);
+        const parts = name.split(path5.sep);
         const relevant = !name || name.endsWith(".apx") || parts.includes("static-files");
         if (!relevant || parts.some((part2) => part2.startsWith("."))) return;
         this.#onDirty();
@@ -5227,7 +4897,7 @@ var LiveHub = class {
   }
   #sourceChanged(file) {
     const message = this.#onSource(file);
-    if (message) this.broadcast({ file: file.split(path6.sep).join("/"), ...message });
+    if (message) this.broadcast({ file: file.split(path5.sep).join("/"), ...message });
   }
   #unwatch() {
     clearTimeout(this.#timer);
@@ -5331,35 +5001,35 @@ function references(props) {
     if (Array.isArray(value2)) return value2.flatMap(names);
     return [];
   };
-  const visit = (value2, key, path18) => {
+  const visit = (value2, key, path17) => {
     if (typeof value2 === "string") {
-      if (/help|comment/iu.test(path18)) return;
+      if (/help|comment/iu.test(path17)) return;
       if (/item/iu.test(key))
-        for (const name of names(value2)) found.push({ name, property: path18, how: "property" });
+        for (const name of names(value2)) found.push({ name, property: path17, how: "property" });
       for (const match of value2.matchAll(SUBSTITUTION))
-        found.push({ name: match[1], property: path18, how: "substitution" });
+        found.push({ name: match[1], property: path17, how: "substitution" });
       if (CODE_KEY.test(key) && !MARKUP_KEY.test(key)) {
         const code = stripSqlComments(value2);
-        for (const match of code.matchAll(BIND)) found.push({ name: match[1], property: path18, how: "bind" });
+        for (const match of code.matchAll(BIND)) found.push({ name: match[1], property: path17, how: "bind" });
         for (const match of code.matchAll(SESSION_STATE))
-          found.push({ name: match[1], property: path18, how: "bind" });
+          found.push({ name: match[1], property: path17, how: "bind" });
       }
       return;
     }
     if (isRef(value2)) {
       if (/item/iu.test(key))
-        for (const name of names(value2)) found.push({ name, property: path18, how: "property" });
+        for (const name of names(value2)) found.push({ name, property: path17, how: "property" });
       return;
     }
     if (Array.isArray(value2)) {
-      for (const entry of value2) visit(entry, key, path18);
+      for (const entry of value2) visit(entry, key, path17);
       return;
     }
     if (isObject(value2)) {
       for (const [name, entry] of Object.entries(value2)) {
         if (key === "items" && ITEM_NAME.test(name))
-          found.push({ name, property: `${path18}.${name}`, how: "property" });
-        visit(entry, name, path18 ? `${path18}.${name}` : name);
+          found.push({ name, property: `${path17}.${name}`, how: "property" });
+        visit(entry, name, path17 ? `${path17}.${name}` : name);
       }
     }
   };
@@ -5528,8 +5198,8 @@ function lintApplication(app, options3 = {}) {
 }
 
 // packages/core/src/preview/properties.ts
-import fs8 from "node:fs";
-import path7 from "node:path";
+import fs7 from "node:fs";
+import path6 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var CHECKED = {
   page: ["app"],
@@ -5583,15 +5253,15 @@ var TEMPLATE_COMPONENT = /^(?:themeTemplateComponent|appTemplateComponent|templa
 var OPEN_GROUPS = /* @__PURE__ */ new Set(["action"]);
 var cached;
 function catalogFile() {
-  const here = path7.dirname(fileURLToPath2(import.meta.url));
+  const here = path6.dirname(fileURLToPath2(import.meta.url));
   const candidates = [
     process.env.APEXREST_RESOURCES,
-    path7.resolve(here, "../resources"),
-    path7.resolve(here, "../../../../resources")
+    path6.resolve(here, "../resources"),
+    path6.resolve(here, "../../../../resources")
   ].filter((entry) => Boolean(entry));
   for (const root of candidates) {
-    const file = path7.join(root, "components", "source", "parameters.json");
-    if (fs8.existsSync(file)) return file;
+    const file = path6.join(root, "components", "source", "parameters.json");
+    if (fs7.existsSync(file)) return file;
   }
   return void 0;
 }
@@ -5698,7 +5368,7 @@ function loadCatalog() {
   if (cached !== void 0) return cached;
   const file = catalogFile();
   try {
-    cached = file ? buildCatalog(JSON.parse(fs8.readFileSync(file, "utf8"))) : null;
+    cached = file ? buildCatalog(JSON.parse(fs7.readFileSync(file, "utf8"))) : null;
   } catch {
     cached = null;
   }
@@ -5706,7 +5376,7 @@ function loadCatalog() {
 }
 function applicationMmdVersion(sourceDir) {
   try {
-    const json6 = JSON.parse(fs8.readFileSync(path7.join(sourceDir, ".apex", "apexlang.json"), "utf8"));
+    const json6 = JSON.parse(fs7.readFileSync(path6.join(sourceDir, ".apex", "apexlang.json"), "utf8"));
     return typeof json6.mmdVersion === "string" ? json6.mmdVersion : void 0;
   } catch {
     return void 0;
@@ -6136,7 +5806,7 @@ var SHARED_FOLDERS = [
 function checkSharedComponentFiles(root, files) {
   const findings = [];
   for (const file of files) {
-    const relative = path7.relative(root, file).split(path7.sep).join("/");
+    const relative = path6.relative(root, file).split(path6.sep).join("/");
     const match = /^shared-components\/(.+)-[^/-]+\.apx$/u.exec(relative);
     if (!match || match[1].includes("/")) continue;
     if (SHARED_FILES.includes(relative.slice("shared-components/".length, -".apx".length))) continue;
@@ -6439,8 +6109,8 @@ registerDatabaseSetup((db2) => createOracleDictionary(db2.db));
 
 // packages/core/src/preview/render.ts
 import { createHash as createHash5 } from "node:crypto";
-import fs14 from "node:fs";
-import path15 from "node:path";
+import fs13 from "node:fs";
+import path14 from "node:path";
 
 // packages/core/src/preview/extensions/app.ts
 var strings = (values2) => values2.map((value2) => typeof value2 === "string" ? value2 : String(value2));
@@ -6473,474 +6143,9 @@ var conditions = {
 };
 registerExtension({ name: "app", conditions });
 
-// packages/core/src/preview/extensions/components/directives.ts
-var FALSE_VALUES = /* @__PURE__ */ new Set(["FALSE", "F", "f", "N", "n", "0", "false"]);
-var TOKEN_RE = /#([_$A-Z0-9]+)(?:!([A-Z]+))?#|\{([iIcClLeEoOwWaA{!](?:[^/\r\n]|\/(?!\}))*)\/\}/gu;
-var DIRECTIVE_RE = /^(!|\w+(?:\s+|$))([\s\S]*)?$/u;
-var ARGUMENT_RE = /(?:^|\n)[ \t]*([_$A-Z0-9]+)[ \t]*:=/gu;
-var LOOP_VARIABLE_RE = /&(APEX\$I(?:TEM)?)(?:!([A-Z]+))?\./gu;
-var LOOP_ARG_RE = /^"([^"]+)"\s+(.+)$/u;
-var registry = /* @__PURE__ */ new Map();
-function registerNamedTemplates(templates) {
-  registry = templates;
-}
-var namedTemplate = (name) => registry.get(name);
-function escapeValue(value2, mode) {
-  switch ((mode ?? "HTML").toUpperCase()) {
-    case "RAW":
-      return value2;
-    case "ATTR":
-    case "HTML":
-      return value2.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#x27;");
-    case "STRIPHTML":
-      return escapeValue(value2.replace(/<[^>]*>/gu, "").replaceAll("&nbsp;", ""), "HTML");
-    case "JS":
-      return JSON.stringify(value2).slice(1, -1).replaceAll("<", "\\u003c").replaceAll("'", "\\u0027");
-    case "URL":
-      return encodeURIComponent(value2);
-    default:
-      return escapeValue(value2, "HTML");
-  }
-}
-function tokenize(template) {
-  const tokens = [];
-  let last = 0;
-  const push2 = (token) => {
-    const previous = tokens.at(-1);
-    if (token.type === "text" && previous?.type === "text") previous.text += token.text;
-    else tokens.push(token);
-  };
-  for (const match of template.matchAll(TOKEN_RE)) {
-    if (match.index > last) push2({ type: "text", text: template.slice(last, match.index) });
-    last = match.index + match[0].length;
-    if (match[0] === "{{/}") push2({ type: "text", text: "{" });
-    else if (match[1]) push2({ type: "ph", text: match[0], name: match[1], filter: match[2] });
-    else {
-      const directive = DIRECTIVE_RE.exec(match[3]);
-      if (directive)
-        push2({
-          type: "directive",
-          text: match[0],
-          name: directive[1].trim().toLowerCase(),
-          arg: (directive[2] ?? "").trim()
-        });
-      else push2({ type: "text", text: match[0] });
-    }
-  }
-  if (template.length > last) push2({ type: "text", text: template.slice(last) });
-  return tokens;
-}
-var IF_MATCH = { else: 1, elseif: 1, elsif: 1, endif: 1 };
-var Engine = class _Engine {
-  #tokens;
-  #options;
-  #scope;
-  #output = "";
-  #lastDirective = false;
-  #ifStack = [];
-  #caseStack = [];
-  #loopDepth = 0;
-  constructor(template, options3, scope2) {
-    this.#tokens = tokenize(template);
-    this.#options = options3;
-    this.#scope = scope2;
-  }
-  run() {
-    for (let index = 0; index < this.#tokens.length; ) index = this.#process(index);
-    if (this.#ifStack.length) this.#warn("'if' without 'endif'");
-    if (this.#caseStack.length) this.#warn("'case' without 'endcase'");
-    return this.#output;
-  }
-  #warn(message) {
-    this.#options.warn?.(`Template directive: ${message}`);
-  }
-  #lookup(name) {
-    for (let index = this.#scope.loop.length - 1; index >= 0; index -= 1) {
-      const local = this.#scope.loop[index];
-      if (Object.hasOwn(local, name)) return local[name];
-    }
-    if (this.#scope.args && Object.hasOwn(this.#scope.args, name)) return this.#scope.args[name];
-    return Object.hasOwn(this.#scope.values, name) ? this.#scope.values[name] : void 0;
-  }
-  #isLoopVariable(name) {
-    return this.#scope.loop.some((local) => Object.hasOwn(local, name));
-  }
-  /** A placeholder's output, or undefined to keep its text. */
-  #placeholder(name, filter) {
-    const resolve = this.#options.placeholders !== false || this.#isLoopVariable(name);
-    if (!resolve) return void 0;
-    const value2 = this.#lookup(name);
-    if (value2 === void 0) return this.#options.removeUnknown === false ? void 0 : "";
-    if (filter) return escapeValue(value2, filter);
-    if (this.#scope.args && Object.hasOwn(this.#scope.args, name)) {
-      const escape = this.#scope.argEscapes?.[name];
-      return escape ? escapeValue(value2, escape) : value2;
-    }
-    if (this.#options.defaultEscape === false || this.#options.placeholders === false) return value2;
-    return escapeValue(value2, this.#options.escapes?.[name] ?? this.#options.defaultEscape ?? "HTML");
-  }
-  #text(text12) {
-    if (!this.#scope.loop.length) return text12;
-    return text12.replace(LOOP_VARIABLE_RE, (whole, name, filter) => {
-      const value2 = this.#lookup(name);
-      if (value2 === void 0) return whole;
-      if (filter) return escapeValue(value2, filter);
-      const raw2 = this.#options.defaultEscape === false || this.#options.placeholders === false;
-      return raw2 ? value2 : escapeValue(value2, "HTML");
-    });
-  }
-  #process(index) {
-    const token = this.#tokens[index];
-    const next = index + 1;
-    if (token.type === "text") {
-      const text12 = this.#lastDirective ? token.text.replace(/^\s+/u, " ") : token.text;
-      this.#output += this.#text(text12);
-      this.#lastDirective = false;
-      return next;
-    }
-    if (token.type === "ph") {
-      const value2 = this.#placeholder(token.name, token.filter);
-      this.#output += value2 ?? token.text;
-      this.#lastDirective = false;
-      return next;
-    }
-    const handler = this.#directives[token.name];
-    if (!handler) {
-      this.#output += this.#text(token.text);
-      this.#lastDirective = false;
-      return next;
-    }
-    this.#lastDirective = true;
-    return handler(next, token.arg);
-  }
-  /** Index of the next directive in `match` at nesting level 0 (or the end). */
-  #lookAhead(index, match, open3, close3) {
-    let level = 0;
-    let position2 = index;
-    for (; position2 < this.#tokens.length; position2 += 1) {
-      const token = this.#tokens[position2];
-      if (token.type !== "directive") continue;
-      if (Object.hasOwn(match, token.name) && level === 0) break;
-      if (token.name === open3) level += 1;
-      else if (token.name === close3) level -= 1;
-      if (level < 0) break;
-    }
-    return position2;
-  }
-  #value(name, assigned) {
-    if (assigned && this.#scope.assigned?.has(name))
-      return this.#scope.assigned.get(name).trim().length > 0 ? "Y" : "";
-    return this.#lookup(name) ?? "";
-  }
-  #test(condition) {
-    let rest = condition.trim();
-    let not = false;
-    if (rest.startsWith("!")) {
-      not = true;
-      rest = rest.slice(1).trim();
-    }
-    let type = rest.slice(0, 1);
-    if (type === "?" || type === "=") rest = rest.slice(1).trim();
-    else type = null;
-    const assigned = /%assigned\s*$/iu.test(rest);
-    if (assigned) {
-      type = null;
-      rest = rest.replace(/%assigned\s*$/iu, "");
-    }
-    const name = rest.replace(/^"([^"]+)"$/u, "$1").trim();
-    const value2 = this.#value(name, assigned).trim();
-    let result = type === "?" ? value2 !== "" : type === "=" ? !FALSE_VALUES.has(value2) : value2 !== "" && !FALSE_VALUES.has(value2);
-    if (not) result = !result;
-    return result;
-  }
-  #directives = {
-    if: (index, arg) => {
-      const frame = { matched: false };
-      this.#ifStack.push(frame);
-      if (this.#test(arg)) {
-        frame.matched = true;
-        return index;
-      }
-      return this.#lookAhead(index, IF_MATCH, "if", "endif");
-    },
-    elseif: (index, arg) => this.#elseif(index, arg),
-    elsif: (index, arg) => this.#elseif(index, arg),
-    else: (index) => {
-      const frame = this.#ifStack.at(-1);
-      if (!frame) {
-        this.#warn("'else' without 'if'");
-        return index;
-      }
-      if (frame.hasElse) this.#warn("'if' must have only one 'else'");
-      frame.hasElse = true;
-      if (!frame.matched) {
-        frame.matched = true;
-        return index;
-      }
-      return this.#lookAhead(index, { endif: 1 }, "if", "endif");
-    },
-    endif: (index) => {
-      if (!this.#ifStack.pop()) this.#warn("'endif' without 'if'");
-      return index;
-    },
-    case: (index, arg) => {
-      let position2 = index;
-      const blank = this.#tokens[position2];
-      if (blank?.type === "text" && blank.text.trim() === "") position2 += 1;
-      const when = this.#tokens[position2];
-      if (when?.type !== "directive" || when.name !== "when") {
-        this.#warn("'case' must be followed by 'when'");
-        return position2;
-      }
-      this.#caseStack.push({
-        value: this.#value(arg.replace(/^"([^"]+)"$/u, "$1"), false).trim(),
-        matched: false
-      });
-      return position2;
-    },
-    when: (index, arg) => {
-      const frame = this.#caseStack.at(-1);
-      if (!frame) {
-        this.#warn("'when' without 'case'");
-        return index;
-      }
-      if (frame.hasOtherwise) this.#warn("'when' must come before 'otherwise'");
-      if (frame.matched) return this.#lookAhead(index, { endcase: 1 }, "case", "endcase");
-      if (frame.value === arg.trim()) {
-        frame.matched = true;
-        return index;
-      }
-      return this.#lookAhead(index, { when: 1, otherwise: 1, endcase: 1 }, "case", "endcase");
-    },
-    otherwise: (index) => {
-      const frame = this.#caseStack.at(-1);
-      if (!frame) {
-        this.#warn("'otherwise' without 'case'");
-        return index;
-      }
-      if (frame.hasOtherwise) this.#warn("'case' must have only one 'otherwise'");
-      frame.hasOtherwise = true;
-      if (frame.matched) return this.#lookAhead(index, { endcase: 1 }, "case", "endcase");
-      frame.matched = true;
-      return index;
-    },
-    endcase: (index) => {
-      if (!this.#caseStack.pop()) this.#warn("'endcase' without 'case'");
-      return index;
-    },
-    loop: (index, arg) => this.#loop(index, arg),
-    endloop: (index) => {
-      if (this.#loopDepth === 0) this.#warn("'endloop' without 'loop'");
-      return index;
-    },
-    with: (index) => this.#with(index),
-    apply: (index, arg) => {
-      this.#warn(`'apply ${arg}' without 'with'`);
-      return index;
-    },
-    "!": (index) => index
-  };
-  #elseif(index, arg) {
-    const frame = this.#ifStack.at(-1);
-    if (!frame) {
-      this.#warn("'elseif' without 'if'");
-      return index;
-    }
-    if (frame.hasElse) this.#warn("'elseif' must come before 'else'");
-    if (!frame.matched && this.#test(arg)) {
-      frame.matched = true;
-      return index;
-    }
-    return this.#lookAhead(index, frame.matched ? { endif: 1 } : IF_MATCH, "if", "endif");
-  }
-  #loop(index, arg) {
-    const end = this.#lookAhead(index, { endloop: 1 }, "loop", "endloop");
-    const parsed2 = LOOP_ARG_RE.exec(arg);
-    const separator2 = parsed2 ? parsed2[1] : ":";
-    const name = (parsed2 ? parsed2[2] : arg).trim();
-    const value2 = this.#lookup(name) ?? "";
-    const items = value2 === "" ? [] : value2.split(separator2.length > 1 ? new RegExp(separator2, "u") : separator2);
-    this.#loopDepth += 1;
-    items.forEach((item2, position2) => {
-      this.#scope.loop.push({ APEX$ITEM: item2, APEX$I: String(position2 + 1) });
-      this.#lastDirective = true;
-      for (let cursor = index; cursor < end; ) cursor = this.#process(cursor);
-      this.#scope.loop.pop();
-    });
-    this.#loopDepth -= 1;
-    this.#lastDirective = true;
-    return end < this.#tokens.length ? end + 1 : end;
-  }
-  #with(index) {
-    const end = this.#lookAhead(index, { apply: 1 }, "with", "apply");
-    const apply = this.#tokens[end];
-    if (apply?.type !== "directive" || apply.name !== "apply") {
-      this.#warn("'with' without 'apply'");
-      return end;
-    }
-    const source = this.#tokens.slice(index, end).map((token) => token.text).join("");
-    const argumentText = /* @__PURE__ */ new Map();
-    const matches3 = [...source.matchAll(ARGUMENT_RE)];
-    let depth = 0;
-    let current3;
-    for (let position2 = 0; position2 < matches3.length; position2 += 1) {
-      const match = matches3[position2];
-      if (depth === 0) current3 = { name: match[1], start: match.index + match[0].length };
-      const stop = matches3[position2 + 1]?.index ?? source.length;
-      const piece = source.slice(match.index + match[0].length, stop);
-      depth += (piece.match(/\{with/gu)?.length ?? 0) - (piece.match(/\{apply/gu)?.length ?? 0);
-      if (depth <= 0 && current3) {
-        argumentText.set(current3.name, source.slice(current3.start, stop).trim());
-        depth = 0;
-      }
-    }
-    this.#output += this.#apply(apply.arg, argumentText);
-    this.#lastDirective = true;
-    return end + 1;
-  }
-  #apply(name, argumentText) {
-    const definition = (this.#options.templates ?? namedTemplate)(name);
-    if (!definition) {
-      this.#warn(`'apply' unknown template ${name}`);
-      return "";
-    }
-    const args = { ...this.#scope.args };
-    const argEscapes = {};
-    for (const formal of definition.args) {
-      if (!argumentText.has(formal.name)) argumentText.set(formal.name, formal.default ?? "");
-      const escape = formal.escape ?? definition.defaultEscape;
-      if (escape && escape !== "RAW") argEscapes[formal.name] = escape;
-    }
-    for (const [argument, text12] of argumentText) {
-      const escaped2 = Object.hasOwn(argEscapes, argument);
-      args[argument] = /[#&{]|\/\}/u.test(text12) ? new _Engine(
-        text12,
-        {
-          ...this.#options,
-          placeholders: true,
-          ...escaped2 ? { defaultEscape: false } : {}
-        },
-        { ...this.#scope, argEscapes: void 0, loop: [...this.#scope.loop] }
-      ).run() : text12;
-    }
-    return new _Engine(
-      definition.template,
-      {
-        ...this.#options,
-        placeholders: true,
-        escapes: {},
-        defaultEscape: definition.defaultEscape ?? "HTML"
-      },
-      { values: this.#scope.values, args, assigned: new Map(argumentText), argEscapes, loop: [] }
-    ).run();
-  }
-};
-function applyTemplate(template, values2, options3 = {}) {
-  if (!/[#{&]/u.test(template)) return template;
-  return new Engine(template, options3, { values: values2, loop: [] }).run();
-}
-function processDirectives(template, values2) {
-  if (!template.includes("{")) return template;
-  return applyTemplate(template, values2, { placeholders: false, defaultEscape: false });
-}
-
-// packages/core/src/preview/theme.ts
-var KIND_TO_MAP = {
-  template: "pages",
-  plug_template: "regions",
-  field_template: "fields",
-  button_templates: "buttons",
-  list_template: "lists",
-  row_template: "reports",
-  menu_template: "breadcrumbs",
-  theme_style: "styles"
-};
-function indexTheme(calls) {
-  const index = {
-    theme: {},
-    pages: /* @__PURE__ */ new Map(),
-    regions: /* @__PURE__ */ new Map(),
-    fields: /* @__PURE__ */ new Map(),
-    buttons: /* @__PURE__ */ new Map(),
-    lists: /* @__PURE__ */ new Map(),
-    reports: /* @__PURE__ */ new Map(),
-    breadcrumbs: /* @__PURE__ */ new Map(),
-    styles: /* @__PURE__ */ new Map(),
-    slots: /* @__PURE__ */ new Map(),
-    byId: /* @__PURE__ */ new Map()
-  };
-  for (const call of calls) {
-    const params2 = call.params;
-    if (call.kind === "theme") index.theme = params2;
-    const target3 = KIND_TO_MAP[call.kind];
-    if (target3 && typeof params2.static_id === "string")
-      index[target3].set(params2.static_id.toLowerCase(), params2);
-    if (typeof params2.id === "string" && target3) index.byId.set(params2.id, params2);
-    if (call.kind === "page_tmpl_display_point" || call.kind === "plug_tmpl_display_point") {
-      const owner2 = String(params2.page_template_id ?? params2.plug_template_id ?? "");
-      const slots = index.slots.get(owner2) ?? /* @__PURE__ */ new Map();
-      if (typeof params2.apexlang_name === "string" && typeof params2.placeholder === "string") {
-        slots.set(params2.apexlang_name, params2.placeholder);
-      }
-      index.slots.set(owner2, slots);
-    }
-  }
-  return index;
-}
-function text2(params2, key) {
-  const value2 = params2?.[key];
-  return typeof value2 === "string" ? value2 : value2 === void 0 || value2 === null ? "" : String(value2);
-}
-function defaultStaticId(index, key, fallback) {
-  const id = index.theme[key];
-  const params2 = typeof id === "string" ? index.byId.get(id) : void 0;
-  return typeof params2?.static_id === "string" ? params2.static_id : fallback;
-}
-function escapeHtml(value2) {
-  return String(value2 ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#x27;");
-}
-function escapeJs(value2) {
-  return JSON.stringify(String(value2 ?? "")).slice(1, -1).replaceAll("<", "\\u003c").replaceAll("'", "\\u0027");
-}
-function applyEscape(value2, filter) {
-  switch ((filter ?? "").toUpperCase()) {
-    case "RAW":
-      return value2;
-    case "JS":
-      return escapeJs(value2);
-    case "STRIPHTML":
-      return value2.replace(/<[^>]*>/gu, "");
-    case "URL":
-      return encodeURIComponent(value2);
-    default:
-      return escapeHtml(value2);
-  }
-}
-function applyDirectives(template, values2) {
-  return processDirectives(template, values2);
-}
-function fill(template, values2, removeUnknown = true) {
-  const upper4 = Object.fromEntries(Object.entries(values2).map(([key, value2]) => [key.toUpperCase(), value2]));
-  return applyDirectives(template, upper4).replace(
-    /#([A-Z][A-Z0-9_$]*)(?:!([A-Z]+))?#/gu,
-    (whole, name, filter) => {
-      if (name in upper4) return filter ? applyEscape(upper4[name], filter) : upper4[name];
-      return removeUnknown ? "" : whole;
-    }
-  );
-}
-function templateOptions(options3, defaults) {
-  const classes2 = [];
-  for (const option of options3.length ? options3 : ["#DEFAULT#"]) {
-    if (option === "#DEFAULT#") classes2.push(...defaults.split(/[:\s]+/u).filter(Boolean));
-    else classes2.push(...option.split(/\s+/u).filter(Boolean));
-  }
-  return [...new Set(classes2)].join(" ");
-}
-
 // packages/core/src/preview/extensions/charts/calendar.ts
-import fs9 from "node:fs";
-import path8 from "node:path";
+import fs8 from "node:fs";
+import path7 from "node:path";
 
 // packages/core/src/preview/extensions/charts/format.ts
 var SCALES = [
@@ -7190,9 +6395,9 @@ function leafPaths(props, prefix = "") {
 }
 function reportUnsupported(renderer, ctx, owner2, component, groups, supported, label) {
   const ignored = leafPaths(component.props).filter(
-    (path18) => (groups.includes(path18.split(".")[0]) || !path18.includes(".")) && !supported.has(path18) && !/(^|\.)(font\w*|cssStyling)$/u.test(path18)
+    (path17) => (groups.includes(path17.split(".")[0]) || !path17.includes(".")) && !supported.has(path17) && !/(^|\.)(font\w*|cssStyling)$/u.test(path17)
   );
-  const own = ignored.filter((path18) => path18.includes(".") || label !== "Chart");
+  const own = ignored.filter((path17) => path17.includes(".") || label !== "Chart");
   if (own.length)
     renderer.diagnose(
       "info",
@@ -7602,9 +6807,9 @@ function initialDate(events, today = /* @__PURE__ */ new Date()) {
   return isoOf(upcoming ?? latest).iso.slice(0, 10);
 }
 function fullCalendarScript(renderer) {
-  const root = path8.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
+  const root = path7.join(renderer.assets.imagesDir, "libraries", "fullcalendar");
   try {
-    const versions = fs9.readdirSync(root).filter((entry) => fs9.existsSync(path8.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+    const versions = fs8.readdirSync(root).filter((entry) => fs8.existsSync(path7.join(root, entry, "dist", "index.global.min.js"))).sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
     const version = versions.at(-1);
     return version ? `#APEX_FILES#libraries/fullcalendar/${version}/dist/index.global.min.js` : void 0;
   } catch {
@@ -8371,7 +7576,7 @@ function cartesian(model, outer) {
     for (const segment of segments2) {
       const points = segment.filter((entry) => entry !== null);
       if (!points.length) continue;
-      const path18 = linePath(
+      const path17 = linePath(
         points.map((entry) => [entry.x, entry.y]),
         series.line.type,
         horizontal
@@ -8383,13 +7588,13 @@ function cartesian(model, outer) {
           "L"
         );
         parts.push(
-          `<path class="ajc-area" d="${path18} ${close3} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
+          `<path class="ajc-area" d="${path17} ${close3} Z" fill="${esc(color)}" fill-opacity="${series.type === "area" ? 0.85 : 0.2}"/>`
         );
       }
       if (series.type !== "area") {
         const dash = series.line.style === "dashed" ? ' stroke-dasharray="8 5"' : series.line.style === "dotted" ? ' stroke-dasharray="2 4"' : "";
         parts.push(
-          `<path class="ajc-line" d="${path18}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
+          `<path class="ajc-line" d="${path17}" fill="none" stroke="${esc(color)}" stroke-width="${series.line.width}" stroke-linejoin="round" stroke-linecap="round"${dash}/>`
         );
       }
     }
@@ -9066,10 +8271,10 @@ var DASHES = {
   dashDot: "6 3 1.5 3"
 };
 function rowStyle(props, row, layer, kind) {
-  const value2 = (path18) => rowSubstitute(str(props, path18), row).trim();
-  const number2 = (path18, fallback) => {
-    const parsed2 = Number(value2(path18));
-    return value2(path18) !== "" && Number.isFinite(parsed2) ? parsed2 : fallback;
+  const value2 = (path17) => rowSubstitute(str(props, path17), row).trim();
+  const number2 = (path17, fallback) => {
+    const parsed2 = Number(value2(path17));
+    return value2(path17) !== "" && Number.isFinite(parsed2) ? parsed2 : fallback;
   };
   const fill2 = value2("appearance.fillColor");
   const stroke = value2("appearance.strokeColor");
@@ -9603,8 +8808,8 @@ function configured(owner2, attribute3, component) {
     `plugin-${attribute3.group}.${attribute3.apexlangName}`,
     ...shadowed ? [] : [`settings.${attribute3.apexlangName}`]
   ] : [`settings.${attribute3.apexlangName}`];
-  for (const path18 of paths) {
-    const value2 = get(owner2.props, path18);
+  for (const path17 of paths) {
+    const value2 = get(owner2.props, path17);
     if (value2 !== void 0) return value2;
   }
   return void 0;
@@ -10156,21 +9361,21 @@ var hasStandardSelector = (renderer, ctx) => renderer.pageComponents(ctx, "regio
 function wrapRegion(renderer, ctx, region, parts) {
   const { template, values: values2, children: children2 } = parts;
   registerNamedTemplates(componentIndex(renderer.assets.theme).named);
-  for (const file of text2(template, "javascript_file_urls").split("\n").filter(Boolean))
+  for (const file of text(template, "javascript_file_urls").split("\n").filter(Boolean))
     ctx.jsFiles.add(file);
-  for (const file of text2(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
+  for (const file of text(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
   const type = str(region.props, "type");
   if (type.startsWith("themeTemplateComponent/")) {
     const html = wrapRegionOnly(renderer, ctx, region, values2, children2);
     if (html !== void 0) return html;
   }
-  const substitute = (path18, escape) => renderer.substitute(ctx.session, str(region.props, path18), ctx.page, escape);
+  const substitute = (path17, escape) => renderer.substitute(ctx.session, str(region.props, path17), ctx.page, escape);
   values2.REGION_IMAGE_ALT_TEXT ||= escapeHtml(substitute("image.accessibleDescription", "RAW"));
   values2.REGION_IMAGE_ATTRIBUTES ||= substitute("image.customAttributes", "RAW") || substitute("advanced.imageTagAttributes", "RAW");
   const advancedImage = substitute("advanced.regionImage", "RAW");
   if (!values2.REGION_IMAGE_URL && advancedImage) {
     values2.REGION_IMAGE_URL = escapeHtml(advancedImage);
-    values2.REGION_IMAGE = fill(text2(template, "image_template"), {
+    values2.REGION_IMAGE = fill(text(template, "image_template"), {
       REGION_IMAGE_URL: values2.REGION_IMAGE_URL
     });
   }
@@ -10181,7 +9386,7 @@ function wrapRegion(renderer, ctx, region, parts) {
   const body4 = bodies.get(region);
   if (body4 && str(region.props, "appearance.renderComponents") === "aboveContent" && values2.BODY?.startsWith(body4))
     values2.BODY = values2.BODY.slice(body4.length) + body4;
-  const sub = text2(template, "sub_plug_template");
+  const sub = text(template, "sub_plug_template");
   const own = children2.get("SUB_REGIONS");
   if (sub && children2.get("BODY")?.length)
     renderer.diagnose(
@@ -10203,7 +9408,7 @@ function wrapRegion(renderer, ctx, region, parts) {
       SUB_REGION: html
     })
   ).join("\n");
-  return fill(text2(template, "template"), values2);
+  return fill(text(template, "template"), values2);
 }
 var CLIENT = String.raw`
 (function ($) {
@@ -10794,12 +9999,12 @@ function graph(version) {
   const ids3 = activities.map((activity) => activity.id.toLowerCase());
   const level = /* @__PURE__ */ new Map();
   const start = activities.find((activity) => /start/iu.test(str(activity.props, "type"))) ?? activities[0];
-  const visit = (id, depth, path18) => {
-    if (path18.has(id) || (level.get(id) ?? -1) >= depth) return;
+  const visit = (id, depth, path17) => {
+    if (path17.has(id) || (level.get(id) ?? -1) >= depth) return;
     level.set(id, depth);
-    path18.add(id);
-    for (const edge of edges) if (edge.from === id && ids3.includes(edge.to)) visit(edge.to, depth + 1, path18);
-    path18.delete(id);
+    path17.add(id);
+    for (const edge of edges) if (edge.from === id && ids3.includes(edge.to)) visit(edge.to, depth + 1, path17);
+    path17.delete(id);
   };
   if (start) visit(start.id.toLowerCase(), 0, /* @__PURE__ */ new Set());
   let next = Math.max(-1, ...level.values()) + 1;
@@ -10850,9 +10055,9 @@ function svgFor(nodes, edges, title) {
     const x2 = to.x + NODE_W / 2;
     const y2 = to.y;
     const back = y2 <= y1;
-    const path18 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
+    const path17 = back ? `M${x1} ${y1} C${x1 + NODE_W * 0.75} ${y1 + 40}, ${x2 + NODE_W * 0.75} ${y2 - 40}, ${x2} ${y2}` : `M${x1} ${y1} C${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
     const label = edge.name && !/^(connection|normal)\b/iu.test(edge.name) ? `<text class="apex-local-wf-label" x="${(x1 + x2) / 2 + 6}" y="${(y1 + y2) / 2}">${escapeHtml(edge.name)}</text>` : "";
-    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path18}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
+    return `<path class="apex-local-wf-edge is-${escapeHtml(edge.type)}" d="${path17}" marker-end="url(#apexLocalWfArrow)"/>${label}`;
   }).join("");
   const boxes = nodes.map((node) => {
     const kind = ICONS[node.type] ?? node.type;
@@ -12592,8 +11797,8 @@ textarea.apex-item-textarea--autoHeight{overflow:hidden;resize:none}
 `;
 
 // packages/core/src/preview/extensions/items/common.ts
-import fs10 from "node:fs";
-import path9 from "node:path";
+import fs9 from "node:fs";
+import path8 from "node:path";
 var apexScript = (name) => `#APEX_FILES#libraries/apex/#MIN_DIRECTORY#${name}#MIN#.js?v=#APEX_VERSION#`;
 var LIBRARY_DEFAULTS = { markedjs: "18.0.11", purify: "3.4.14" };
 var libraryCache = /* @__PURE__ */ new Map();
@@ -12602,7 +11807,7 @@ function libraryVersion(renderer, library) {
   if (!libraryCache.has(key)) {
     let version = LIBRARY_DEFAULTS[library] ?? "";
     try {
-      const found = fs10.readdirSync(path9.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
+      const found = fs9.readdirSync(path8.join(renderer.assets.imagesDir, "libraries", library), { withFileTypes: true }).filter((entry) => entry.isDirectory() && /^\d/u.test(entry.name)).map((entry) => entry.name).sort();
       if (found.length) version = found.at(-1);
     } catch {
     }
@@ -13060,15 +12265,15 @@ function qrSvg(text12, options3 = {}) {
   const modules = qrMatrix(text12);
   const border = 4;
   const dimension = modules.length + border * 2;
-  const path18 = [];
+  const path17 = [];
   modules.forEach(
     (row, y) => row.forEach((dark, x) => {
-      if (dark) path18.push(`M${x + border},${y + border}h1v1h-1z`);
+      if (dark) path17.push(`M${x + border},${y + border}h1v1h-1z`);
     })
   );
   const size = options3.size ?? 160;
   const attr3 = (value2) => value2.replace(/[^#\w(),.% -]/gu, "");
-  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options3.background ?? "#ffffff")}"/><path fill="${attr3(options3.foreground ?? "#000000")}" d="${path18.join("")}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" width="${size}" height="${size}" viewBox="0 0 ${dimension} ${dimension}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="${attr3(options3.background ?? "#ffffff")}"/><path fill="${attr3(options3.foreground ?? "#000000")}" d="${path17.join("")}"/></svg>`;
 }
 
 // packages/core/src/preview/extensions/items/render.ts
@@ -14012,7 +13217,7 @@ var itemTemplate = (renderer, ctx, item2, values2) => {
   const optionsList = strings4(get(item2.props, "appearance.templateOptions"));
   const options3 = optionsList.length ? templateOptions(
     optionsList.flatMap((option) => option === "#DEFAULT#" ? [option] : option.split(/\s+/u)),
-    text2(field, "default_template_options")
+    text(field, "default_template_options")
   ) : "";
   const containerClasses = strings4(get(item2.props, "appearance.cssClasses"));
   const value2 = ctx.session.items[name] ?? "";
@@ -15037,7 +14242,7 @@ function afterHeader(parser) {
   parser.expectWord("is", "as");
 }
 function parsePackage(source, body4) {
-  const parser = new Parser2(unitBody(source));
+  const parser = new Parser(unitBody(source));
   afterHeader(parser);
   const decls = parser.declarations(true);
   let init;
@@ -15049,7 +14254,7 @@ function parsePackage(source, body4) {
   return { decls, ...init ? { init } : {} };
 }
 function parseStandalone(source, kind, name) {
-  const parser = new Parser2(`${kind} ${name} ${unitBody(source)}`);
+  const parser = new Parser(`${kind} ${name} ${unitBody(source)}`);
   parser.pos = 1;
   return parser.routine(kind === "function");
 }
@@ -15313,7 +14518,7 @@ function declarations(code) {
   let entry = declarationCache.get(code);
   if (!entry) {
     try {
-      entry = new Parser2(code).declarations();
+      entry = new Parser(code).declarations();
     } catch (error) {
       if (!(error instanceof PlsqlSyntaxError)) throw error;
       entry = error;
@@ -16207,11 +15412,11 @@ function runPlsql(renderer, ctx, code, mode, owner2) {
 }
 
 // packages/core/src/preview/extensions/files/blob.ts
-import zlib2 from "node:zlib";
+import zlib from "node:zlib";
 
 // packages/core/src/preview/extensions/files/store.ts
 import { randomInt } from "node:crypto";
-import path10 from "node:path";
+import path9 from "node:path";
 registerDatabaseSetup((db2) => {
   db2.db.exec(`create table if not exists apex_application_temp_files (
     id integer primary key,
@@ -16281,7 +15486,7 @@ function mimeType(bytes2, filename = "", stored2) {
     if (head.startsWith("<svg") || head.startsWith("<?xml") && head.includes("<svg"))
       return "image/svg+xml";
   }
-  return MIME[path10.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
+  return MIME[path9.extname(filename).toLowerCase()] ?? (typeof stored2 === "string" && stored2 ? stored2 : "application/octet-stream");
 }
 function tempName(filename) {
   return `${randomInt(1e9, 9e9)}${randomInt(1e5, 9e5)}/${filename}`;
@@ -16331,19 +15536,19 @@ function purgeRequestFiles(db2, names) {
 }
 var pending = /* @__PURE__ */ new WeakMap();
 var ready = /* @__PURE__ */ new WeakMap();
-function queueDownload(session, download3) {
-  pending.set(session, download3);
+function queueDownload(session, download2) {
+  pending.set(session, download2);
 }
 function takeDownload(session) {
-  const download3 = pending.get(session);
+  const download2 = pending.get(session);
   pending.delete(session);
-  return download3;
+  return download2;
 }
-function keepDownload(session, download3) {
+function keepDownload(session, download2) {
   let map = ready.get(session);
   if (!map) ready.set(session, map = /* @__PURE__ */ new Map());
   const id = String(randomInt(1e9, 9e9));
-  map.set(id, download3);
+  map.set(id, download2);
   for (const key of map.keys()) {
     if (map.size <= 10) break;
     map.delete(key);
@@ -16357,15 +15562,15 @@ function contentDisposition(filename, inline) {
   const ascii = filename.replace(/[^\x20-\x7e]|["\\]/gu, "_") || "download";
   return `${inline ? "inline" : "attachment"}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename || "download")}`;
 }
-function fileResponse(download3) {
+function fileResponse(download2) {
   return {
     type: "binary",
     body: "",
-    data: download3.bytes,
-    contentType: download3.mimeType,
+    data: download2.bytes,
+    contentType: download2.mimeType,
     headers: {
-      "content-disposition": contentDisposition(download3.filename, download3.inline),
-      "content-length": String(download3.bytes.length),
+      "content-disposition": contentDisposition(download2.filename, download2.inline),
+      "content-length": String(download2.bytes.length),
       "x-content-type-options": "nosniff",
       // uploaded SVG or HTML must not run script in the preview's origin
       "content-security-policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox"
@@ -16525,7 +15730,7 @@ function fileAttributes2(renderer, ctx, item2, value2) {
     const row = formBlob(renderer, ctx, item2);
     if (!row?.bytes?.length) return {};
     const inline = str(item2.props, "display.contentDisposition", "attachment") === "inline";
-    const download3 = route(renderer, "files.item", {
+    const download2 = route(renderer, "files.item", {
       page: ctx.pageId,
       item: name,
       inline: inline ? "Y" : void 0
@@ -16541,8 +15746,8 @@ function fileAttributes2(renderer, ctx, item2, value2) {
       filename: row.filename || (image ? void 0 : "file"),
       "file-size": String(row.bytes.length),
       "mime-type": mimeType(row.bytes, row.filename, row.mimeType),
-      link: image ? preview : linked2 ? download3 : void 0,
-      "download-link": linked2 ? download3 : void 0,
+      link: image ? preview : linked2 ? download2 : void 0,
+      "download-link": linked2 ? download2 : void 0,
       "download-text": linked2 ? str(item2.props, "display.downloadLinkText") || void 0 : void 0
     };
   }
@@ -16680,8 +15885,8 @@ var tempRoute = (renderer, session, request) => {
   return fileResponse({ bytes: file.bytes, filename: file.filename, mimeType: file.mimeType, inline: true });
 };
 var downloadRoute = (_renderer, session, request) => {
-  const download3 = keptDownload(session, request.params.get("id") ?? "");
-  return download3 ? fileResponse(download3) : notFound("The download has expired; run it again.");
+  const download2 = keptDownload(session, request.params.get("id") ?? "");
+  return download2 ? fileResponse(download2) : notFound("The download has expired; run it again.");
 };
 var CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
   let crc = index;
@@ -16703,7 +15908,7 @@ function zipFiles(files) {
     for (let index = 2; used.has(name); index += 1) name = file.name.replace(/(\.[^.]*)?$/u, ` (${index})$1`);
     used.add(name);
     const nameBytes = Buffer.from(name, "utf8");
-    const data = zlib2.deflateRawSync(file.bytes);
+    const data = zlib.deflateRawSync(file.bytes);
     const crc = crc32(file.bytes);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(67324752, 0);
@@ -16791,15 +15996,15 @@ function downloadFiles(renderer, ctx, props, owner2) {
   };
 }
 function downloadProcess(renderer, ctx, process2, point) {
-  const download3 = downloadFiles(renderer, ctx, process2.props, process2.id);
-  if (!download3) return { ran: false };
+  const download2 = downloadFiles(renderer, ctx, process2.props, process2.id);
+  if (!download2) return { ran: false };
   if (point === "beforeHeader") {
-    queueDownload(ctx.session, download3);
+    queueDownload(ctx.session, download2);
     return { ran: true };
   }
   return {
     ran: true,
-    redirectURL: route(renderer, "files.download", { id: keepDownload(ctx.session, download3) })
+    redirectURL: route(renderer, "files.download", { id: keepDownload(ctx.session, download2) })
   };
 }
 function dynamicActionChild(ctx, key) {
@@ -16810,9 +16015,9 @@ function dynamicActionChild(ctx, key) {
 
 // packages/core/src/preview/extensions/files/parse.ts
 import { createHash as createHash2 } from "node:crypto";
-import path11 from "node:path";
+import path10 from "node:path";
 function formatOf(filename, bytes2) {
-  const extension = path11.extname(filename ?? "").toLowerCase();
+  const extension = path10.extname(filename ?? "").toLowerCase();
   if (extension === ".xlsx" || extension === ".xlsm") return "xlsx";
   if (extension === ".json") return "json";
   if (extension === ".xml") return "xml";
@@ -17001,7 +16206,7 @@ function workbookSheets(zip2) {
     const name = xmlDecode(/\bname="([^"]*)"/u.exec(match[1])?.[1] ?? `Sheet${index + 1}`);
     const id = /\br:id="([^"]*)"/u.exec(match[1])?.[1] ?? "";
     const target3 = targets.get(id) ?? `worksheets/sheet${index + 1}.xml`;
-    return { sequence: index + 1, name, file: path11.posix.basename(target3), path: `xl/${target3}` };
+    return { sequence: index + 1, name, file: path10.posix.basename(target3), path: `xl/${target3}` };
   });
 }
 function xlsxWorksheets(bytes2) {
@@ -17906,7 +17111,7 @@ function filenameFromOutput(rt) {
   const line = rt.output.join("").match(/content-disposition:[^\n]*filename\*?=(?:UTF-8'')?"?([^";\n]+)"?/iu);
   return line?.[1] ? decodeURIComponent(line[1].trim()) : void 0;
 }
-function download2(rt, bytes2, mime, filename, inline = false) {
+function download(rt, bytes2, mime, filename, inline = false) {
   if (!rt || !bytes2) return null;
   const session = rt.ctx.session;
   const pending2 = headers.get(session);
@@ -17940,15 +17145,15 @@ api("wpg_docload.download_file", ["p_blob"], (args, rt) => {
   const value2 = args.p_blob;
   const db2 = dbOf(rt);
   const bytes2 = value2 instanceof Uint8Array ? value2 : db2?.blob(value2);
-  if (bytes2) return download2(rt, bytes2);
+  if (bytes2) return download(rt, bytes2);
   const name = text5(value2);
   const row = name ? db2?.db.prepare("select blob_content, mime_type, filename from apex_application_files where name = ?").get(name) : void 0;
-  return row ? download2(rt, row.blob_content, row.mime_type, row.filename) : download2(rt, bytesOf(value2, db2));
+  return row ? download(rt, row.blob_content, row.mime_type, row.filename) : download(rt, bytesOf(value2, db2));
 });
 api(
   "apex_http.download",
   ["p_blob", "p_content_type", "p_filename", "p_is_inline", "p_clob"],
-  (args, rt) => download2(
+  (args, rt) => download(
     rt,
     bytesOf(args.p_blob ?? args.p_clob, dbOf(rt)),
     text5(args.p_content_type),
@@ -18348,13 +17553,13 @@ var actionRoute = (renderer, session, request) => {
         inline: true
       })
     };
-  const download3 = downloadFiles(renderer, ctx, action.props, action.id);
-  if (!download3) return { type: "json", body: JSON.stringify({ error: "The query returned no file." }) };
+  const download2 = downloadFiles(renderer, ctx, action.props, action.id);
+  if (!download2) return { type: "json", body: JSON.stringify({ error: "The query returned no file." }) };
   return {
     type: "json",
     body: JSON.stringify({
-      url: route(renderer, "files.download", { id: keepDownload(session, download3) }),
-      inline: download3.inline
+      url: route(renderer, "files.download", { id: keepDownload(session, download2) }),
+      inline: download2.inline
     })
   };
 };
@@ -18460,15 +17665,15 @@ registerExtension({
     }
     return (result) => {
       purgeRequestFiles(renderer.db, requestFiles);
-      const download3 = takeDownload(session);
-      if (download3 && !result.errors?.length)
-        return { redirectURL: route(renderer, "files.download", { id: keepDownload(session, download3) }) };
+      const download2 = takeDownload(session);
+      if (download2 && !result.errors?.length)
+        return { redirectURL: route(renderer, "files.download", { id: keepDownload(session, download2) }) };
       return result;
     };
   },
   respond: (_renderer, ctx) => {
-    const download3 = takeDownload(ctx.session);
-    return download3 ? fileResponse(download3) : void 0;
+    const download2 = takeDownload(ctx.session);
+    return download2 ? fileResponse(download2) : void 0;
   }
 });
 
@@ -19295,7 +18500,7 @@ function themeStyles(renderer) {
   return [...renderer.theme.styles.entries()].map(([key, style2]) => ({
     id: key,
     key,
-    name: text2(style2, "name") || key,
+    name: text(style2, "name") || key,
     isPublic: true
   }));
 }
@@ -21073,23 +20278,23 @@ ${row.mail_body ? `<pre>${cell(row.mail_body)}</pre>` : ""}</details>`
 }
 
 // packages/core/src/preview/extensions/platform/rest.ts
-import fs11 from "node:fs";
-import path12 from "node:path";
-var restDir = (renderer) => path12.join(renderer.app.root, ".apex-local", "rest");
+import fs10 from "node:fs";
+import path11 from "node:path";
+var restDir = (renderer) => path11.join(renderer.app.root, ".apex-local", "rest");
 var safe = (name) => name.replace(/[^\w.-]+/gu, "_");
 function readFixture(renderer, candidates) {
   const dir = restDir(renderer);
   for (const candidate of candidates.filter(Boolean)) {
-    const file = path12.join(dir, `${safe(candidate)}.json`);
-    if (!fs11.existsSync(file)) continue;
-    const source = fs11.readFileSync(file, "utf8");
+    const file = path11.join(dir, `${safe(candidate)}.json`);
+    if (!fs10.existsSync(file)) continue;
+    const source = fs10.readFileSync(file, "utf8");
     let parsed2;
     try {
       parsed2 = JSON.parse(source);
     } catch (error) {
       renderer.diagnose(
         "warning",
-        `REST fixture ${path12.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
+        `REST fixture ${path11.relative(renderer.app.root, file)} is not valid JSON: ${error.message}`
       );
       return { file, status: 200, headers: {}, body: source, text: source };
     }
@@ -21116,7 +20321,7 @@ function logCall(renderer, ctx, entry) {
     source: entry.source,
     method: entry.method.toUpperCase(),
     url: entry.url,
-    fixture: entry.fixture ? path12.relative(renderer.app.root, entry.fixture.file) : null,
+    fixture: entry.fixture ? path11.relative(renderer.app.root, entry.fixture.file) : null,
     status_code: entry.fixture?.status ?? 404,
     request_body: entry.body ?? null,
     response_body: entry.fixture ? entry.fixture.text.slice(0, 4e3) : null,
@@ -22377,16 +21582,16 @@ function pagination(template, type, pager) {
   const last = first + shown - 1;
   const pages2 = Math.max(1, Math.ceil(total / perPage));
   const link = (target3) => `javascript:apexLocalReports.paginate('${escapeHtml(domId)}',${target3})`;
-  const textTemplate = text2(template, "pagination_template") || '<span class="t-Report-paginationText">#TEXT#</span>';
+  const textTemplate = text(template, "pagination_template") || '<span class="t-Report-paginationText">#TEXT#</span>';
   const ofTotal = /OfZ/u.test(type) ? ` of ${total}` : "";
   const range = fill(textTemplate, { TEXT: `${first} - ${last}${ofTotal}` });
   if (/NoPagination$/u.test(type)) return `<tr><td colspan="99"${align}>${range}</td></tr>`;
   const previous = page2 > 1 ? fill(
-    text2(template, "previous_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--prev">#PAGINATION_PREVIOUS#</a>',
+    text(template, "previous_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--prev">#PAGINATION_PREVIOUS#</a>',
     { LINK: link(page2 - 1), PAGINATION_PREVIOUS: "Previous" }
   ) : "";
   const next = last < total ? fill(
-    text2(template, "next_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--next">#PAGINATION_NEXT#</a>',
+    text(template, "next_page_template") || '<a href="#LINK#" class="t-Report-paginationLink t-Report-paginationLink--next">#PAGINATION_NEXT#</a>',
     { LINK: link(page2 + 1), PAGINATION_NEXT: "Next" }
   ) : "";
   if (type === "nextAndPreviousLinks") return `<tr><td colspan="99"${align}>${previous}${next}</td></tr>`;
@@ -22460,7 +21665,7 @@ function classicReport(renderer, ctx, region) {
     );
   const cssClasses = templateOptions(
     stringList(list(region.props, "componentAppearance.templateOptions")),
-    text2(template, "preset_template_options").replaceAll(":", " ")
+    text(template, "preset_template_options").replaceAll(":", " ")
   );
   const pager = pagination(template, type, {
     domId,
@@ -22509,16 +21714,16 @@ function classicReport(renderer, ctx, region) {
     const column2 = byName.get(name);
     return column2 ? display2(column2, row, index) : escapeHtml(row[name] ?? "");
   });
-  if (text2(template, "row_template_type") === "NAMED_COLUMNS") {
+  if (text(template, "row_template_type") === "NAMED_COLUMNS") {
     const rowHtml = visible.map(
-      (row, index) => fill(positional(text2(template, "row_template1"), row, index), {
+      (row, index) => fill(positional(text(template, "row_template1"), row, index), {
         ...Object.fromEntries(Object.keys(row).map((name) => [name, escapeHtml(row[name] ?? "")])),
         ...Object.fromEntries(all2.map((column2) => [column2.id.toUpperCase(), display2(column2, row, index)])),
         ROWNUM: String((page2 - 1) * perPage + index + 1),
         COLCOUNT: String(columns.length)
       })
     ).join("\n");
-    return fill(text2(template, "row_template_before_rows"), shared3) + rowHtml + fill(text2(template, "row_template_after_rows"), shared3) + moreMessage;
+    return fill(text(template, "row_template_before_rows"), shared3) + rowHtml + fill(text(template, "row_template_after_rows"), shared3) + moreMessage;
   }
   const sorted2 = new Map(state3.sort.slice(0, 1).map((entry) => [entry.column, entry.direction]));
   const showHeadings = str(region.props, "heading.type") !== "none";
@@ -22529,7 +21734,7 @@ function classicReport(renderer, ctx, region) {
     const direction = sorted2.get(name);
     const header2 = sortable ? `<a class="u-Report-sort" href="#" data-apex-local-sort="${escapeHtml(name)}" data-region="${escapeHtml(domId)}" title="Sort by this column"><span class="u-Report-sortHeading">${label}</span>${direction ? `<span class="u-Report-sortIcon a-Icon icon-rpt-sort-${direction}" aria-hidden="true"></span>` : ""}</a>` : label;
     const alignment = headingAlignment(renderer, column2, visible[0]?.[name]);
-    return fill(text2(template, "column_heading_template"), {
+    return fill(text(template, "column_heading_template"), {
       COLUMN_HEADER: header2,
       COLUMN_HEADER_NAME: escapeHtml(name),
       ALIGNMENT: `align="${alignment === "u-tR" ? "right" : alignment === "u-tC" ? "center" : "left"}"`,
@@ -22539,20 +21744,20 @@ function classicReport(renderer, ctx, region) {
     });
   }).join("") : "";
   const body4 = visible.map(
-    (row, index) => fill(positional(text2(template, "row_template_before_first"), row, index), {
+    (row, index) => fill(positional(text(template, "row_template_before_first"), row, index), {
       ROWNUM: String(index + 1)
     }) + columns.map((column2) => {
       const alignment = renderer.alignment(column2, row[column2.id.toUpperCase()]);
-      return fill(text2(template, "row_template1"), {
+      return fill(text(template, "row_template1"), {
         COLUMN_VALUE: display2(column2, row, index),
         ALIGNMENT: `align="${alignment === "u-tR" ? "right" : alignment === "u-tC" ? "center" : "left"}"`,
         ACCESSIBLE_HEADERS: `headers="${escapeHtml(column2.id.toUpperCase())}"`,
         COLUMN_HEADER: cells.heading(column2),
         COLUMN_NUM: String(columns.indexOf(column2) + 1)
       });
-    }).join("") + positional(text2(template, "row_template_after_last"), row, index)
+    }).join("") + positional(text(template, "row_template_after_last"), row, index)
   ).join("\n");
-  return fill(text2(template, "row_template_before_rows"), shared3) + (showHeadings ? text2(template, "before_column_heading") + headings2 + text2(template, "after_column_heading") : "<tbody>") + body4 + fill(text2(template, "row_template_after_rows"), shared3) + moreMessage;
+  return fill(text(template, "row_template_before_rows"), shared3) + (showHeadings ? text(template, "before_column_heading") + headings2 + text(template, "after_column_heading") : "<tbody>") + body4 + fill(text(template, "row_template_after_rows"), shared3) + moreMessage;
 }
 function diagnoseClassic(renderer, ctx, region) {
   const note2 = (message) => renderer.diagnose("info", message, ctx.pageId, region.id);
@@ -26811,8 +26016,8 @@ apex.jQuery(function () { apexLocalReports.init(); });`,
 
 // packages/core/src/preview/extensions/review.ts
 import { createHash as createHash4 } from "node:crypto";
-import fs12 from "node:fs";
-import path13 from "node:path";
+import fs11 from "node:fs";
+import path12 from "node:path";
 
 // packages/core/src/preview/extensions/review/client.ts
 var REVIEW_CSS = `
@@ -27356,9 +26561,9 @@ function values(kind, component) {
     ])
   );
 }
-var sha2562 = (file) => {
+var sha256 = (file) => {
   try {
-    return createHash4("sha256").update(fs12.readFileSync(file, "utf8"), "utf8").digest("hex");
+    return createHash4("sha256").update(fs11.readFileSync(file, "utf8"), "utf8").digest("hex");
   } catch {
     return void 0;
   }
@@ -27448,7 +26653,7 @@ function bindTarget(renderer, page2, input) {
     (candidate) => candidate.kind === kind && candidate.id === target3.id && (kind !== "column" || candidate.region === target3.region)
   );
   if (!entry) return target3;
-  const digest = sha2562(path13.join(renderer.app.root, entry.file));
+  const digest = sha256(path12.join(renderer.app.root, entry.file));
   return {
     ...target3,
     file: entry.file,
@@ -27487,7 +26692,7 @@ async function patchRoute(file, input) {
   }
   let ctx;
   try {
-    ctx = await loadProject(path13.resolve(path13.dirname(file), "..", ".."));
+    ctx = await loadProject(path12.resolve(path12.dirname(file), "..", ".."));
     const result = await patchPage(ctx, { page: page2, operations: operations2, expectedDigest: digest });
     return json5({ ok: true, result });
   } catch (error) {
@@ -27613,7 +26818,7 @@ function digestsFor(renderer, page2) {
   );
   return Object.fromEntries(
     files.flatMap((file) => {
-      const digest = sha2562(path13.join(renderer.app.root, file));
+      const digest = sha256(path12.join(renderer.app.root, file));
       return digest ? [[file, digest]] : [];
     })
   );
@@ -27914,8 +27119,8 @@ registerRendererSetup((renderer) => {
 });
 
 // packages/core/src/preview/extensions/server/plugins.ts
-import fs13 from "node:fs";
-import path14 from "node:path";
+import fs12 from "node:fs";
+import path13 from "node:path";
 var indexes = /* @__PURE__ */ new WeakMap();
 function fileUrls(component, property2) {
   const value2 = get(component.props, property2);
@@ -27929,7 +27134,7 @@ function pluginIndex(renderer) {
   const attributesByDir = /* @__PURE__ */ new Map();
   for (const component of renderer.app.shared) {
     if (component.type !== "customAttribute") continue;
-    const dir = path14.dirname(component.file);
+    const dir = path13.dirname(component.file);
     const entries = attributesByDir.get(dir) ?? [];
     entries.push({
       number: Number(str(component.props, "attribute", component.id.replace(/\D/gu, ""))) || 0,
@@ -27943,7 +27148,7 @@ function pluginIndex(renderer) {
     if (component.type !== "plugin") continue;
     const code = str(component.props, "source.plsqlCode");
     const kind = str(component.props, "type");
-    const relative = path14.relative(renderer.app.root, path14.dirname(component.file)).split(path14.sep);
+    const relative = path13.relative(renderer.app.root, path13.dirname(component.file)).split(path13.sep);
     index.set(component.id, {
       component,
       name: component.id,
@@ -27953,9 +27158,9 @@ function pluginIndex(renderer) {
       render: str(component.props, "callbacks.renderProcedureName"),
       ajax: str(component.props, "callbacks.ajaxProcedureName"),
       substitute: str(component.props, "advanced.substituteAttributeValues", "true") !== "false",
-      attributes: attributesByDir.get(path14.dirname(component.file)) ?? [],
+      attributes: attributesByDir.get(path13.dirname(component.file)) ?? [],
       filePrefix: `${renderer.baseUrl}/files/plugin/${relative.at(-2) ?? kind}/${relative.at(-1) ?? component.id}/`,
-      filesDir: path14.join(path14.dirname(component.file), "static-files"),
+      filesDir: path13.join(path13.dirname(component.file), "static-files"),
       cssFiles: fileUrls(component, "css.fileUrls"),
       jsFiles: fileUrls(component, "javaScript.fileUrls")
     });
@@ -28049,7 +27254,7 @@ function loadDeclaredFiles(renderer, ctx, plugin) {
     let resolved = url2.replaceAll("#PLUGIN_FILES#", plugin.filePrefix);
     if (resolved.includes("#MIN#")) {
       const plain2 = url2.replace("#PLUGIN_FILES#", "").replaceAll("#MIN#", "");
-      const useMin = local && !fs13.existsSync(path14.join(plugin.filesDir, plain2));
+      const useMin = local && !fs12.existsSync(path13.join(plugin.filesDir, plain2));
       resolved = resolved.replaceAll("#MIN#", useMin ? ".min" : "");
     }
     return renderer.urls(resolved);
@@ -30223,8 +29428,8 @@ function treeRoute(renderer, session, params2, items) {
 
 // packages/core/src/preview/extensions/structure/wizard.ts
 function attribute2(props, key) {
-  for (const path18 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
-    const value2 = get(props, path18);
+  for (const path17 of [`target.${key}`, `source.${key}`, `settings.${key}`, `resetPagination.${key}`, key]) {
+    const value2 = get(props, path17);
     if (value2 !== void 0 && value2 !== null && !isObject(value2))
       return Array.isArray(value2) ? value2.map(String).join(",") : String(value2);
   }
@@ -30847,7 +30052,7 @@ var ApexRenderer = class {
   /** Folder of the current theme's own files (`#THEME_DB_IMAGES#`), next to its theme.apx. */
   themeFilesDir() {
     const theme = this.themeComponent();
-    return theme ? path15.join(path15.dirname(path15.resolve(this.app.root, theme.file)), "static-files") : void 0;
+    return theme ? path14.join(path14.dirname(path14.resolve(this.app.root, theme.file)), "static-files") : void 0;
   }
   /**
    * Theme styles the application offers, keyed by lower-case static ID: the theme's own `style`
@@ -30866,9 +30071,9 @@ var ApexRenderer = class {
       styles.set(style2.id.toLowerCase(), {
         ...base,
         static_id: style2.id,
-        name: str(style2.props, "name", text2(base, "name") || style2.id),
-        css_file_urls: css.length ? css.join("\n") : text2(base, "css_file_urls"),
-        theme_roller_output_file_url: output || text2(base, "theme_roller_output_file_url")
+        name: str(style2.props, "name", text(base, "name") || style2.id),
+        css_file_urls: css.length ? css.join("\n") : text(base, "css_file_urls"),
+        theme_roller_output_file_url: output || text(base, "theme_roller_output_file_url")
       });
       if (master && !styles.has(master.toLowerCase()))
         styles.set(master.toLowerCase(), styles.get(style2.id.toLowerCase()));
@@ -31141,14 +30346,14 @@ var ApexRenderer = class {
     if (get(page2.props, "dialog.chained") !== void 0)
       attributes2.push(`chained:${bool(page2.props, "dialog.chained", true)}`);
     const literal2 = (value2) => `'${escapeJs(value2)}'`;
-    const code = text2(template, "dialog_js_init_code") || "apex.navigation.dialog(#PAGE_URL#,{title:#TITLE#,height:#DIALOG_HEIGHT#,width:#DIALOG_WIDTH#,maxWidth:#DIALOG_MAX_WIDTH#,modal:#IS_MODAL#,dialog:#DIALOG#,#DIALOG_ATTRIBUTES#},#PAGE_CSS_CLASSES#,#TRIGGERING_ELEMENT#)";
+    const code = text(template, "dialog_js_init_code") || "apex.navigation.dialog(#PAGE_URL#,{title:#TITLE#,height:#DIALOG_HEIGHT#,width:#DIALOG_WIDTH#,maxWidth:#DIALOG_MAX_WIDTH#,modal:#IS_MODAL#,dialog:#DIALOG#,#DIALOG_ATTRIBUTES#},#PAGE_CSS_CLASSES#,#TRIGGERING_ELEMENT#)";
     return fill(code, {
       PAGE_URL: literal2(url2),
       TITLE: literal2(str(page2.props, "title", str(page2.props, "name"))),
-      DIALOG_HEIGHT: literal2(str(page2.props, "dialog.height", text2(template, "dialog_height") || "auto")),
-      DIALOG_WIDTH: literal2(str(page2.props, "dialog.width", text2(template, "dialog_width") || "720")),
+      DIALOG_HEIGHT: literal2(str(page2.props, "dialog.height", text(template, "dialog_height") || "auto")),
+      DIALOG_WIDTH: literal2(str(page2.props, "dialog.width", text(template, "dialog_width") || "720")),
       DIALOG_MAX_WIDTH: literal2(
-        str(page2.props, "dialog.maxWidth", text2(template, "dialog_max_width") || "960")
+        str(page2.props, "dialog.maxWidth", text(template, "dialog_max_width") || "960")
       ),
       IS_MODAL: String(str(page2.props, "appearance.pageMode") !== "nonModalDialog"),
       DIALOG: "null",
@@ -32151,7 +31356,7 @@ end;`,
     const template = this.theme.pages.get(templateId) ?? this.theme.pages.get("standard");
     if (!this.theme.pages.has(templateId))
       this.diagnose("warning", `Page template @/${templateId} not found; used Standard`, ctx.pageId);
-    const slots = this.theme.slots.get(text2(template, "id")) ?? /* @__PURE__ */ new Map();
+    const slots = this.theme.slots.get(text(template, "id")) ?? /* @__PURE__ */ new Map();
     const placeholder3 = (slot2) => {
       if (slots.has(slot2)) return slots.get(slot2);
       if (PAGE_DEFAULT_SLOTS.has(slot2)) return "BODY";
@@ -32179,7 +31384,7 @@ end;`,
     );
     const gridless = new Set(
       this.assets.theme.filter(
-        (call) => call.kind === "page_tmpl_display_point" && String(call.params.page_template_id) === text2(template, "id") && (call.params.has_grid_support === false || call.params.has_grid_support === "N")
+        (call) => call.kind === "page_tmpl_display_point" && String(call.params.page_template_id) === text(template, "id") && (call.params.has_grid_support === false || call.params.has_grid_support === "N")
       ).map((call) => String(call.params.placeholder))
     );
     const values2 = {};
@@ -32201,7 +31406,7 @@ end;`,
     if (pageItems.length) values2.BODY = (values2.BODY ?? "") + this.itemsGrid(ctx, template, pageItems);
     const pageOptions = templateOptions(
       strings6(list(page2.props, "appearance.templateOptions")),
-      text2(template, "default_template_options")
+      text(template, "default_template_options")
     );
     const themeComponent = this.themeComponent();
     const styleId = (ctx.session.themeStyle ?? ref(themeComponent?.props ?? {}, "style.currentThemeStyle") ?? defaultStaticId(this.theme, "current_theme_style_id", "vita")).toLowerCase();
@@ -32216,16 +31421,16 @@ end;`,
       `${IMAGE_PREFIX}libraries/font-apex/2.5.1/css/font-apex.min.css?v=${APEX_FULL_VERSION}`
     ];
     const themeCss = strings6(list(themeComponent?.props ?? {}, "css.fileUrls"));
-    const themeFiles = themeCss.length ? themeCss : text2(this.theme.theme, "css_file_urls").split("\n").filter(Boolean);
+    const themeFiles = themeCss.length ? themeCss : text(this.theme.theme, "css_file_urls").split("\n").filter(Boolean);
     const styleCss = [
-      ...text2(style2, "css_file_urls").split("\n"),
-      text2(style2, "theme_roller_output_file_url")
+      ...text(style2, "css_file_urls").split("\n"),
+      text(style2, "theme_roller_output_file_url")
     ].filter(Boolean);
     const appCss = strings6(list(this.app.app.props, "css.fileUrls"));
     const pageCss = strings6(list(page2.props, "css.fileUrls"));
     const inlineCss = [str(this.app.app.props, "css.inline"), str(page2.props, "css.inline")].filter(Boolean);
     const themeJs = strings6(list(themeComponent?.props ?? {}, "javaScript.fileUrls"));
-    const themeJsFiles = themeJs.length ? themeJs : text2(this.theme.theme, "javascript_file_urls").split("\n").filter(Boolean);
+    const themeJsFiles = themeJs.length ? themeJs : text(this.theme.theme, "javascript_file_urls").split("\n").filter(Boolean);
     const appJs = strings6(list(this.app.app.props, "javaScript.fileUrls"));
     const pageJs = strings6(list(page2.props, "javaScript.fileUrls"));
     this.navigation(ctx, values2, template);
@@ -32253,12 +31458,12 @@ end;`,
       regionItems[region.id] = names;
     }
     if (Object.keys(regionItems).length) ctx.clientConfig.regionItems = regionItems;
-    const pageTemplate = text2(template, "id");
-    ctx.messageTemplates[`${pageTemplate}_S`] = text2(template, "success_message");
-    ctx.messageTemplates[`${pageTemplate}_E`] = text2(template, "notification_message");
+    const pageTemplate = text(template, "id");
+    ctx.messageTemplates[`${pageTemplate}_S`] = text(template, "success_message");
+    ctx.messageTemplates[`${pageTemplate}_E`] = text(template, "notification_message");
     const onload2 = [
       `apex.message.registerTemplates(${JSON.stringify(Object.fromEntries(Object.entries(ctx.messageTemplates).map(([id, markup2]) => [id, this.substitute(ctx.session, markup2, page2, "HTML")]))).replaceAll("<", "\\u003c")});`,
-      text2(template, "javascript_code_onload"),
+      text(template, "javascript_code_onload"),
       ...ctx.onload,
       `apexLocal.init(${JSON.stringify(ctx.clientConfig).replaceAll("<", "\\u003c")});`,
       this.substitute(ctx.session, str(this.app.app.props, "javaScript.executeWhenPageLoads"), page2, "RAW"),
@@ -32342,12 +31547,12 @@ ${onload2.join("\n")}
 });
 </script>`,
       // apex.message finds these placeholders and the registered sub-templates by ID.
-      SUCCESS_MESSAGE: `<span id="APEX_SUCCESS_MESSAGE" data-template-id="${pageTemplate}_S" class="apex-page-success${success ? "" : " u-hidden"}">${success ? fill(text2(template, "success_message"), {
+      SUCCESS_MESSAGE: `<span id="APEX_SUCCESS_MESSAGE" data-template-id="${pageTemplate}_S" class="apex-page-success${success ? "" : " u-hidden"}">${success ? fill(text(template, "success_message"), {
         SUCCESS_MESSAGE: escapeHtml(success),
         SUCCESS_MESSAGE_HEADING: "Success",
         CLOSE_NOTIFICATION: "Close"
       }) : ""}</span>`,
-      NOTIFICATION_MESSAGE: `<span id="APEX_ERROR_MESSAGE" data-template-id="${pageTemplate}_E" class="apex-page-error${errors?.length ? "" : " u-hidden"}">${errors?.length ? fill(text2(template, "notification_message"), {
+      NOTIFICATION_MESSAGE: `<span id="APEX_ERROR_MESSAGE" data-template-id="${pageTemplate}_E" class="apex-page-error${errors?.length ? "" : " u-hidden"}">${errors?.length ? fill(text(template, "notification_message"), {
         MESSAGE: errors.map((error) => escapeHtml(error.message)).join("<br>"),
         ERROR_MESSAGE_HEADING: "Error",
         CLOSE_NOTIFICATION: "Close"
@@ -32362,7 +31567,7 @@ ${onload2.join("\n")}
       ...values2
     };
     const html = fill(
-      `${text2(template, "header_template")}${text2(template, "box")}${text2(template, "footer_template")}`,
+      `${text(template, "header_template")}${text(template, "box")}${text(template, "footer_template")}`,
       builtins
     );
     this.trace(ctx, { type: "end", name: ctx.denied ? "Access denied" : "Page rendered" });
@@ -32374,8 +31579,8 @@ ${onload2.join("\n")}
   }
   favicons() {
     const icon3 = this.app.files.length ? `${this.baseUrl}/files/static/v1/icons/app-icon-32.png` : "";
-    const exists2 = fs14.existsSync(
-      path15.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
+    const exists2 = fs13.existsSync(
+      path14.join(this.app.root, "shared-components", "static-files", "icons", "app-icon-32.png")
     );
     return icon3 && exists2 ? `<link rel="icon" sizes="32x32" href="${icon3}">` : "";
   }
@@ -32403,8 +31608,8 @@ ${onload2.join("\n")}
     ).join("");
     const current3 = (ctx.session.themeStyle ?? "").toLowerCase();
     const ownStyles = this.themeComponent()?.children.filter((child) => child.type === "style") ?? [];
-    const styles = [...this.themeStyles().entries()].filter(([id, style2]) => !ownStyles.length || text2(style2, "static_id").toLowerCase() === id).map(
-      ([id, style2]) => `<option value="${escapeHtml(id)}"${id === current3 ? " selected" : ""}>${escapeHtml(text2(style2, "name") || id)}</option>`
+    const styles = [...this.themeStyles().entries()].filter(([id, style2]) => !ownStyles.length || text(style2, "static_id").toLowerCase() === id).map(
+      ([id, style2]) => `<option value="${escapeHtml(id)}"${id === current3 ? " selected" : ""}>${escapeHtml(text(style2, "name") || id)}</option>`
     ).join("");
     const picker = `<label class="apex-local-style" title="Theme style"><span class="fa fa-paint-brush" aria-hidden="true"></span><span class="apex-local-tb-label">Theme style</span> <select onchange="location.search='apex_theme_style='+encodeURIComponent(this.value)"><option value="">Application default</option>${styles}</select></label>`;
     const tools = extensions.map((extension) => extension.toolbar?.(this, ctx) ?? "").join("");
@@ -32419,7 +31624,7 @@ ${onload2.join("\n")}
   }
   navigation(ctx, values2, template) {
     const app = this.app.app.props;
-    const box = `${text2(template, "header_template")}${text2(template, "box")}`;
+    const box = `${text(template, "header_template")}${text(template, "box")}`;
     const nav = bool(ctx.page.props, "navigationMenu.overrideUserInterfaceLevel", false) ? ctx.page.props : app;
     const menu = this.shared("list", ref(nav, "navigationMenu.list"));
     if (menu && (box.includes("#SIDE_GLOBAL_NAVIGATION_LIST#") || box.includes("#TOP_GLOBAL_NAVIGATION_LIST#"))) {
@@ -32469,11 +31674,11 @@ ${onload2.join("\n")}
       else if (!bool(props, "layout.newColumn", true)) rows.at(-1).at(-1).push(cell);
       else rows.at(-1).push([cell]);
     }
-    const max = Number(text2(template, "grid_max_columns")) || 12;
-    const containerTemplate = text2(template, "grid_template") || '<div class="container">#ROWS#</div>';
-    const rowTemplate2 = text2(template, "grid_row_template") || '<div class="row #CSS_CLASSES#">#COLUMNS#</div>';
-    const columnTemplate = text2(template, "grid_column_template") || '<div class="col col-#COLUMN_SPAN_NUMBER# #CSS_CLASSES#" #ATTRIBUTES#>#CONTENT#</div>';
-    const emitLeading = text2(template, "grid_emit_empty_leading_cols") !== "false";
+    const max = Number(text(template, "grid_max_columns")) || 12;
+    const containerTemplate = text(template, "grid_template") || '<div class="container">#ROWS#</div>';
+    const rowTemplate2 = text(template, "grid_row_template") || '<div class="row #CSS_CLASSES#">#COLUMNS#</div>';
+    const columnTemplate = text(template, "grid_column_template") || '<div class="col col-#COLUMN_SPAN_NUMBER# #CSS_CLASSES#" #ATTRIBUTES#>#CONTENT#</div>';
+    const emitLeading = text(template, "grid_emit_empty_leading_cols") !== "false";
     const html = rows.map((row) => {
       const placed = layoutGridRow(
         row.map((column2) => ({
@@ -32508,8 +31713,8 @@ ${onload2.join("\n")}
           COLUMN_SPAN_NUMBER: String(column2.span),
           CSS_CLASSES: column2.classes,
           FIRST_LAST_COLUMN_ATTRIBUTES: [
-            index === 0 ? text2(template, "grid_first_column_attributes") : "",
-            index === columns.length - 1 ? text2(template, "grid_last_column_attributes") : ""
+            index === 0 ? text(template, "grid_first_column_attributes") : "",
+            index === columns.length - 1 ? text(template, "grid_last_column_attributes") : ""
           ].filter(Boolean).join(" "),
           ATTRIBUTES: column2.attributes,
           CONTENT: column2.content
@@ -32563,7 +31768,7 @@ ${onload2.join("\n")}
     const templateId = this.regionTemplateId(region);
     const template = this.theme.regions.get(templateId);
     if (!template) return void 0;
-    return { template: templateId, slots: [...this.theme.slots.get(text2(template, "id"))?.keys() ?? []] };
+    return { template: templateId, slots: [...this.theme.slots.get(text(template, "id"))?.keys() ?? []] };
   }
   regionDomId(region) {
     return str(region.props, "advanced.htmlDomId") || str(region.props, "advanced.staticId") || slug(region.id);
@@ -32582,7 +31787,7 @@ ${onload2.join("\n")}
         ctx.pageId,
         region.id
       );
-    const slots = this.theme.slots.get(text2(template, "id")) ?? /* @__PURE__ */ new Map();
+    const slots = this.theme.slots.get(text(template, "id")) ?? /* @__PURE__ */ new Map();
     const domId = this.regionDomId(region);
     const values2 = {};
     const append = (slot2, html) => {
@@ -32626,7 +31831,7 @@ ${onload2.join("\n")}
     }
     const options3 = templateOptions(
       strings6(list(region.props, "appearance.templateOptions")),
-      text2(template, "default_template_options")
+      text(template, "default_template_options")
     );
     const icon3 = iconClasses2(
       str(region.props, "appearance.icon") || str(region.props, "icon.iconCssClasses")
@@ -32654,7 +31859,7 @@ ${onload2.join("\n")}
       ),
       REGION_LANDMARK_ATTRIBUTES: `role="region" aria-labelledby="${domId}_heading"`,
       ICON_CSS_CLASSES: icon3,
-      REGION_IMAGE: image ? fill(text2(template, "image_template"), {
+      REGION_IMAGE: image ? fill(text(template, "image_template"), {
         REGION_IMAGE_URL: escapeHtml(this.substitute(ctx.session, image, ctx.page, "RAW"))
       }) : "",
       REGION_IMAGE_URL: escapeHtml(this.substitute(ctx.session, image, ctx.page, "RAW"))
@@ -32667,7 +31872,7 @@ ${onload2.join("\n")}
       });
       if (html !== void 0) return html;
     }
-    return fill(text2(template, "template"), filled);
+    return fill(text(template, "template"), filled);
   }
   regionBody(ctx, region, slots) {
     const type = str(region.props, "type", "staticContent");
@@ -32833,7 +32038,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     const template = this.theme.reports.get(templateId) ?? this.theme.reports.get("standard");
     const cssClasses = templateOptions(
       strings6(list(region.props, "componentAppearance.templateOptions")),
-      text2(template, "preset_template_options").replaceAll(":", " ")
+      text(template, "preset_template_options").replaceAll(":", " ")
     );
     const shared3 = {
       DOM_ID: domId,
@@ -32844,9 +32049,9 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       PAGINATION: pagination2
     };
     if (!rows.length) return `<div class="t-Report-wrap"><span class="nodatafound">${noData}</span></div>`;
-    if (text2(template, "row_template_type") === "NAMED_COLUMNS") {
+    if (text(template, "row_template_type") === "NAMED_COLUMNS") {
       const rowHtml = rows.map(
-        (row, index) => fill(text2(template, "row_template1"), {
+        (row, index) => fill(text(template, "row_template1"), {
           ...Object.fromEntries(Object.keys(row).map((key) => [key, escapeHtml(row[key] ?? "")])),
           ...Object.fromEntries(
             columns.map((column2) => [column2.id.toUpperCase(), this.cell(ctx, region, column2, row)])
@@ -32854,10 +32059,10 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
           ROWNUM: String(index + 1)
         })
       ).join("\n");
-      return fill(text2(template, "row_template_before_rows"), shared3) + rowHtml + fill(text2(template, "row_template_after_rows"), shared3);
+      return fill(text(template, "row_template_before_rows"), shared3) + rowHtml + fill(text(template, "row_template_after_rows"), shared3);
     }
     const headings2 = columns.map(
-      (column2) => fill(text2(template, "column_heading_template"), {
+      (column2) => fill(text(template, "column_heading_template"), {
         COLUMN_HEADER: this.substitute(
           ctx.session,
           str(column2.props, "heading.heading", heading2(column2.id)),
@@ -32871,15 +32076,15 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       })
     ).join("");
     const body4 = rows.map(
-      (row) => text2(template, "row_template_before_first") + columns.map(
-        (column2) => fill(text2(template, "row_template1"), {
+      (row) => text(template, "row_template_before_first") + columns.map(
+        (column2) => fill(text(template, "row_template1"), {
           COLUMN_VALUE: this.cell(ctx, region, column2, row),
           ALIGNMENT: `align="${this.alignment(column2, row[column2.id.toUpperCase()]) === "u-tR" ? "right" : "left"}"`,
           ACCESSIBLE_HEADERS: `headers="${escapeHtml(column2.id.toUpperCase())}"`
         })
-      ).join("") + text2(template, "row_template_after_last")
+      ).join("") + text(template, "row_template_after_last")
     ).join("\n");
-    return fill(text2(template, "row_template_before_rows"), shared3) + text2(template, "before_column_heading") + headings2 + text2(template, "after_column_heading") + body4 + fill(text2(template, "row_template_after_rows"), shared3);
+    return fill(text(template, "row_template_before_rows"), shared3) + text(template, "before_column_heading") + headings2 + text(template, "after_column_heading") + body4 + fill(text(template, "row_template_after_rows"), shared3);
   }
   cards(ctx, region) {
     const sql = this.regionSql(ctx, region);
@@ -32941,9 +32146,9 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     for (let entry = current3; entry && !chain.includes(entry); entry = entries.find((candidate) => candidate.id === ref(entry.props, "layout.parentEntry")))
       chain.unshift(entry);
     const options3 = templateOptions(strings6(list(region.props, "componentAppearance.templateOptions")), "");
-    return fill(text2(template, "before_first"), { COMPONENT_CSS_CLASSES: options3 }) + chain.map(
+    return fill(text(template, "before_first"), { COMPONENT_CSS_CLASSES: options3 }) + chain.map(
       (entry) => fill(
-        entry === current3 ? text2(template, "current_page_option") : text2(template, "non_current_page_option"),
+        entry === current3 ? text(template, "current_page_option") : text(template, "non_current_page_option"),
         {
           NAME: escapeHtml(
             this.substitute(ctx.session, str(entry.props, "name", entry.id), ctx.page, "RAW")
@@ -32951,7 +32156,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
           LINK: escapeHtml(this.link(ctx, get(entry.props, "link.target")))
         }
       )
-    ).join("") + text2(template, "after_last");
+    ).join("") + text(template, "after_last");
   }
   listRegion(ctx, region) {
     const listComponent = this.shared("list", ref(region.props, "source.list"));
@@ -32976,9 +32181,9 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       this.diagnose("warning", `List template @/${templateId} not found`, ctx.pageId, listComponent.id);
       return "";
     }
-    for (const file of text2(template, "javascript_file_urls").split("\n").filter(Boolean))
+    for (const file of text(template, "javascript_file_urls").split("\n").filter(Boolean))
       ctx.jsFiles.add(file);
-    for (const file of text2(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
+    for (const file of text(template, "css_file_urls").split("\n").filter(Boolean)) ctx.cssFiles.add(file);
     const nodes = this.listNodes(ctx, listComponent);
     const isCurrent = (node) => node.current || node.children.some(isCurrent);
     const render = (node, level) => {
@@ -33001,23 +32206,23 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       const sub = level > 1;
       const field = kids.length ? sub ? current3 ? "sub_templ_curr_w_child" : "sub_templ_noncurr_w_child" : current3 ? "item_templ_curr_w_child" : "item_templ_noncurr_w_child" : sub ? current3 ? "sub_list_item_current" : "sub_list_item_noncurrent" : current3 ? "list_template_current" : "list_template_noncurrent";
       let html = fill(
-        text2(template, field) || text2(template, current3 ? "list_template_current" : "list_template_noncurrent"),
+        text(template, field) || text(template, current3 ? "list_template_current" : "list_template_noncurrent"),
         values2
       );
       if (kids.length) {
-        html += fill(text2(template, "before_sub_list"), values2) + kids.map((kid) => render(kid, level + 1)).join("") + fill(text2(template, "after_sub_list"), values2);
+        html += fill(text(template, "before_sub_list"), values2) + kids.map((kid) => render(kid, level + 1)).join("") + fill(text(template, "after_sub_list"), values2);
       }
       return html;
     };
     const shared3 = {
       LIST_ID: listId,
       PARENT_STATIC_ID: parentId,
-      COMPONENT_CSS_CLASSES: templateOptions(options3, text2(template, "default_template_options")),
+      COMPONENT_CSS_CLASSES: templateOptions(options3, text(template, "default_template_options")),
       APEX_CSP_NONCE_ATTRIBUTE: ""
     };
-    if (text2(template, "javascript_code_onload"))
-      ctx.onload.push(fill(text2(template, "javascript_code_onload"), shared3, false));
-    return fill(text2(template, "list_template_before_rows"), shared3) + nodes.map((node) => render(node, 1)).join("") + fill(text2(template, "list_template_after_rows"), shared3);
+    if (text(template, "javascript_code_onload"))
+      ctx.onload.push(fill(text(template, "javascript_code_onload"), shared3, false));
+    return fill(text(template, "list_template_before_rows"), shared3) + nodes.map((node) => render(node, 1)).join("") + fill(text(template, "list_template_after_rows"), shared3);
   }
   /** Top-level entries of a list as a tree: static entries, or the rows of a dynamic list query. */
   listNodes(ctx, listComponent) {
@@ -33224,12 +32429,12 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
     }
     const options3 = templateOptions(
       strings6(list(button2.props, "appearance.templateOptions")),
-      text2(template, "default_template_options")
+      text(template, "default_template_options")
     );
     const icon3 = iconClasses2(
       str(button2.props, "appearance.icon") || str(button2.props, "icon.iconCssClasses")
     );
-    return fill(text2(template, hot && text2(template, "hot_template") ? "hot_template" : "template"), {
+    return fill(text(template, hot && text(template, "hot_template") ? "hot_template" : "template"), {
       DOM_ID: domId,
       BUTTON_ID: domId,
       BUTTON_NAME: name,
@@ -33239,7 +32444,7 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       BUTTON_CSS_CLASSES: [
         options3,
         str(button2.props, "appearance.cssClasses"),
-        hot && !text2(template, "hot_template") ? "t-Button--hot" : ""
+        hot && !text(template, "hot_template") ? "t-Button--hot" : ""
       ].filter(Boolean).join(" "),
       ICON_CSS_CLASSES: icon3,
       BUTTON_ATTRIBUTES: this.substitute(
@@ -33295,21 +32500,21 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       ...this.labelColumns(ctx, item2, span)
     };
     for (const extension of extensions) extension.itemTemplate?.(this, ctx, item2, values2);
-    values2.ITEM_PRE_TEXT = values2.CURRENT_ITEM_PRE_TEXT ? fill(text2(template, "item_pre_text"), values2) : "";
-    values2.ITEM_POST_TEXT = values2.CURRENT_ITEM_POST_TEXT ? fill(text2(template, "item_post_text"), values2) : "";
-    values2.HELP_TEMPLATE = str(item2.props, "help.helpText") ? fill(text2(template, "help_link"), values2) : "";
-    values2.INLINE_HELP_TEMPLATE = values2.CURRENT_ITEM_INLINE_HELP_TEXT ? fill(text2(template, "inline_help_text"), values2) : "";
-    const errorTemplate = `${text2(template, "id")}_ET`;
-    ctx.messageTemplates[errorTemplate] = text2(template, "error_template");
-    values2.ERROR_TEMPLATE = `<span id="${name}_error_placeholder" class="a-Form-error${error ? "" : " u-hidden"}" data-template-id="${errorTemplate}">${error ? fill(text2(template, "error_template"), values2) : ""}</span>`;
-    const labelHtml = singleCheckbox ? "" : `${fill(text2(template, "template_body1"), values2)}${label}${fill(text2(template, "template_body2"), values2)}`;
-    return `${fill(text2(template, "before_item"), values2)}${labelHtml}${fill(text2(template, "before_element"), values2)}${element}${fill(text2(template, "after_element"), values2)}${fill(text2(template, "after_item"), values2)}`;
+    values2.ITEM_PRE_TEXT = values2.CURRENT_ITEM_PRE_TEXT ? fill(text(template, "item_pre_text"), values2) : "";
+    values2.ITEM_POST_TEXT = values2.CURRENT_ITEM_POST_TEXT ? fill(text(template, "item_post_text"), values2) : "";
+    values2.HELP_TEMPLATE = str(item2.props, "help.helpText") ? fill(text(template, "help_link"), values2) : "";
+    values2.INLINE_HELP_TEMPLATE = values2.CURRENT_ITEM_INLINE_HELP_TEXT ? fill(text(template, "inline_help_text"), values2) : "";
+    const errorTemplate = `${text(template, "id")}_ET`;
+    ctx.messageTemplates[errorTemplate] = text(template, "error_template");
+    values2.ERROR_TEMPLATE = `<span id="${name}_error_placeholder" class="a-Form-error${error ? "" : " u-hidden"}" data-template-id="${errorTemplate}">${error ? fill(text(template, "error_template"), values2) : ""}</span>`;
+    const labelHtml = singleCheckbox ? "" : `${fill(text(template, "template_body1"), values2)}${label}${fill(text(template, "template_body2"), values2)}`;
+    return `${fill(text(template, "before_item"), values2)}${labelHtml}${fill(text(template, "before_element"), values2)}${element}${fill(text(template, "after_element"), values2)}${fill(text(template, "after_item"), values2)}`;
   }
   /** Label/input column spans of left-aligned label templates: the label takes Label Column Span
    * (page template default 2) of the item's grid span and the input the rest. */
   labelColumns(ctx, item2, span) {
     if (span === void 0) return { LABEL_COLUMN_SPAN_NUMBER: "null", ITEM_COLUMN_SPAN_NUMBER: "null" };
-    const fallback = Number(text2(this.pageTemplate(ctx), "grid_default_label_col_span") || 2);
+    const fallback = Number(text(this.pageTemplate(ctx), "grid_default_label_col_span") || 2);
     const label = Math.max(
       0,
       Math.min(span, num(item2.props, "layout.labelColumnSpan", Number.isFinite(fallback) ? fallback : 2))
@@ -33455,10 +32660,10 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       };
     } else return void 0;
     const ref2 = createHash5("sha256").update(JSON.stringify(entry)).digest("hex").slice(0, 32);
-    const registry2 = ctx.session.serverActions ??= /* @__PURE__ */ new Map();
-    registry2.delete(ref2);
-    registry2.set(ref2, entry);
-    while (registry2.size > SERVER_ACTION_LIMIT) registry2.delete(registry2.keys().next().value);
+    const registry = ctx.session.serverActions ??= /* @__PURE__ */ new Map();
+    registry.delete(ref2);
+    registry.set(ref2, entry);
+    while (registry.size > SERVER_ACTION_LIMIT) registry.delete(registry.keys().next().value);
     return ref2;
   }
   /** The registered server code for a reference, if this session rendered it. */
@@ -33546,38 +32751,38 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
    * then its `.apex-local`), else `<appRoot>/.apex-local/*.sql`, else supporting-object scripts.
    */
   static seed(db2, appRoot, seedDirs = []) {
-    const sqlFiles = (dir) => fs14.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => path15.join(dir, name));
+    const sqlFiles = (dir) => fs13.readdirSync(dir).filter((name) => name.endsWith(".sql")).sort().map((name) => path14.join(dir, name));
     if (seedDirs.length)
-      return seedDirs.filter((dir) => fs14.existsSync(dir)).flatMap(sqlFiles).flatMap(
+      return seedDirs.filter((dir) => fs13.existsSync(dir)).flatMap(sqlFiles).flatMap(
         (script) => db2.runScript(
-          fs14.readFileSync(script, "utf8"),
-          path15.basename(path15.dirname(script)) + "/" + path15.basename(script)
+          fs13.readFileSync(script, "utf8"),
+          path14.basename(path14.dirname(script)) + "/" + path14.basename(script)
         )
       );
-    const local = path15.join(appRoot, ".apex-local");
-    const scripts = fs14.existsSync(local) ? fs14.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path15.join(local, name)) : [];
+    const local = path14.join(appRoot, ".apex-local");
+    const scripts = fs13.existsSync(local) ? fs13.readdirSync(local).filter((name) => name.endsWith(".sql")).sort().map((name) => path14.join(local, name)) : [];
     if (!scripts.length) scripts.push(...installScripts(appRoot));
     return scripts.flatMap(
-      (script) => db2.runScript(fs14.readFileSync(script, "utf8"), path15.relative(appRoot, script))
+      (script) => db2.runScript(fs13.readFileSync(script, "utf8"), path14.relative(appRoot, script))
     );
   }
 };
 function installScripts(appRoot) {
-  const supporting = path15.join(appRoot, "supporting-objects");
-  if (!fs14.existsSync(supporting)) return [];
-  const declared = path15.join(supporting, "install-scripts.apx");
-  if (fs14.existsSync(declared)) {
+  const supporting = path14.join(appRoot, "supporting-objects");
+  if (!fs13.existsSync(supporting)) return [];
+  const declared = path14.join(supporting, "install-scripts.apx");
+  if (fs13.existsSync(declared)) {
     try {
-      const ordered = parseApexLang(fs14.readFileSync(declared, "utf8"), declared).filter((component) => component.type === "installScript").map((component, index) => ({
+      const ordered = parseApexLang(fs13.readFileSync(declared, "utf8"), declared).filter((component) => component.type === "installScript").map((component, index) => ({
         sequence: Number(str(component.props, "execution.sequence", String((index + 1) * 10))),
         index,
         file: str(component.props, "script.contentFile")
-      })).filter((entry) => entry.file).sort((a, b) => a.sequence - b.sequence || a.index - b.index).map((entry) => path15.join(supporting, "install-scripts", entry.file)).filter((file) => fs14.existsSync(file));
+      })).filter((entry) => entry.file).sort((a, b) => a.sequence - b.sequence || a.index - b.index).map((entry) => path14.join(supporting, "install-scripts", entry.file)).filter((file) => fs13.existsSync(file));
       if (ordered.length) return ordered;
     } catch {
     }
   }
-  return fs14.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path15.join(supporting, name));
+  return fs13.readdirSync(supporting, { recursive: true, encoding: "utf8" }).filter((name) => name.endsWith(".sql") && !/deinstall|upgrade/iu.test(name)).sort().map((name) => path14.join(supporting, name));
 }
 
 // packages/core/src/preview/server.ts
@@ -33664,14 +32869,14 @@ var PreviewServer = class {
   #lastScan = 0;
   #loadError;
   constructor(options3) {
-    this.options = { ...options3, sourceDir: path16.resolve(options3.sourceDir) };
+    this.options = { ...options3, sourceDir: path15.resolve(options3.sourceDir) };
     let db2;
     try {
       this.assets = loadAssets(options3.assetsDir);
-      const file = options3.database ?? (options3.oracle ? ":memory:" : path16.join(this.options.sourceDir, ".apex-local", "preview.sqlite"));
+      const file = options3.database ?? (options3.oracle ? ":memory:" : path15.join(this.options.sourceDir, ".apex-local", "preview.sqlite"));
       if (options3.reset && file !== ":memory:")
-        for (const suffix of ["", "-wal", "-shm"]) fs15.rmSync(file + suffix, { force: true });
-      const fresh = file === ":memory:" || !fs15.existsSync(file);
+        for (const suffix of ["", "-wal", "-shm"]) fs14.rmSync(file + suffix, { force: true });
+      const fresh = file === ":memory:" || !fs14.existsSync(file);
       this.db = db2 = new LocalDatabase(file);
       this.seedProblems = fresh && !options3.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options3.seedDirs) : [];
       const startedAt = (/* @__PURE__ */ new Date()).toISOString();
@@ -33775,7 +32980,7 @@ var PreviewServer = class {
     if (this.#loadError)
       return { type: "source-error", message: this.#loadError, revision: this.#revision, stale: true };
     if (result) return { type: "reload", revision: this.#revision, ...result };
-    const parts = file.split(path16.sep);
+    const parts = file.split(path15.sep);
     const index = parts.indexOf("static-files");
     if (index >= 0 && file.endsWith(".css"))
       return { type: "stylesheet", file: parts.slice(index + 1).join("/"), revision: this.#revision };
@@ -33948,16 +33153,16 @@ var PreviewServer = class {
     }
   }
   #static(response, root, relative, cache3) {
-    const target3 = path16.resolve(root, decodeURIComponent(relative));
-    if (!target3.startsWith(root + path16.sep) || !fs15.existsSync(target3) || !fs15.statSync(target3).isFile()) {
+    const target3 = path15.resolve(root, decodeURIComponent(relative));
+    if (!target3.startsWith(root + path15.sep) || !fs14.existsSync(target3) || !fs14.statSync(target3).isFile()) {
       response.writeHead(404, { "content-type": "text/plain" }).end("Not found");
       return;
     }
     response.writeHead(200, {
-      "content-type": TYPES[path16.extname(target3).toLowerCase()] ?? "application/octet-stream",
+      "content-type": TYPES[path15.extname(target3).toLowerCase()] ?? "application/octet-stream",
       "cache-control": cache3 ? "public, max-age=86400" : "no-cache"
     });
-    fs15.createReadStream(target3).pipe(response);
+    fs14.createReadStream(target3).pipe(response);
   }
   #send(response, status, type, content) {
     response.writeHead(status, { "content-type": type, "cache-control": "no-store" }).end(content);
@@ -33986,7 +33191,7 @@ var PreviewServer = class {
     const url2 = new URL(request.url ?? "/", "http://localhost");
     const pathname = url2.pathname;
     if (pathname.startsWith("/i/"))
-      return this.#static(response, path16.resolve(this.assets.imagesDir), pathname.slice(3), true);
+      return this.#static(response, path15.resolve(this.assets.imagesDir), pathname.slice(3), true);
     const marker3 = pathname.indexOf(`${LOCAL_PREFIX}/`);
     if (marker3 >= 0) {
       const name = pathname.slice(marker3 + LOCAL_PREFIX.length + 1);
@@ -34030,7 +33235,7 @@ var PreviewServer = class {
     if (rest.startsWith("files/static/v1/"))
       return this.#static(
         response,
-        path16.join(this.options.sourceDir, "shared-components", "static-files"),
+        path15.join(this.options.sourceDir, "shared-components", "static-files"),
         rest.slice(16),
         false
       );
@@ -34043,7 +33248,7 @@ var PreviewServer = class {
     if (pluginFiles)
       return this.#static(
         response,
-        path16.join(
+        path15.join(
           this.options.sourceDir,
           "shared-components",
           "plugins",
@@ -34057,7 +33262,7 @@ var PreviewServer = class {
     if (rest.startsWith("files/workspace/"))
       return this.#static(
         response,
-        path16.join(this.options.sourceDir, "workspace-components", "static-files"),
+        path15.join(this.options.sourceDir, "workspace-components", "static-files"),
         rest.slice(16),
         false
       );
@@ -34288,36 +33493,36 @@ onPreviewShutdown(async () => {
 });
 var DIAGNOSTICS_LIMIT = 60;
 async function resolveSource(root, explicit) {
-  let source = explicit ? path17.resolve(root, explicit) : void 0;
+  let source = explicit ? path16.resolve(root, explicit) : void 0;
   if (!source) {
     try {
       const ctx = await loadProject(root);
-      source = path17.resolve(ctx.root, ctx.config.application.sourceDir);
+      source = path16.resolve(ctx.root, ctx.config.application.sourceDir);
     } catch {
-      source = path17.resolve(root);
+      source = path16.resolve(root);
     }
   }
-  if (!fs16.existsSync(path17.join(source, "application.apx")))
+  if (!fs15.existsSync(path16.join(source, "application.apx")))
     throw new Fault(
       "PREVIEW_SOURCE_MISSING",
       `${source} has no application.apx. Pass sourceDir with the APEXlang application folder.`,
       2
     );
-  return fs16.realpathSync(source);
+  return fs15.realpathSync(source);
 }
 async function projectData(root, sourceDir) {
-  if (fs16.existsSync(path17.join(sourceDir, ".apex-local"))) return {};
+  if (fs15.existsSync(path16.join(sourceDir, ".apex-local"))) return {};
   let ctx;
   try {
     ctx = await loadProject(root);
   } catch {
     return {};
   }
-  const appDir = path17.resolve(ctx.root, ctx.config.application.sourceDir);
-  if (!fs16.existsSync(appDir) || fs16.realpathSync(appDir) !== sourceDir) return {};
+  const appDir = path16.resolve(ctx.root, ctx.config.application.sourceDir);
+  if (!fs15.existsSync(appDir) || fs15.realpathSync(appDir) !== sourceDir) return {};
   return {
-    database: path17.join(ctx.root, ".apexrest", "preview", "preview.sqlite"),
-    seedDirs: [path17.resolve(ctx.root, ctx.config.database.migrationsDir), path17.join(ctx.root, ".apex-local")]
+    database: path16.join(ctx.root, ".apexrest", "preview", "preview.sqlite"),
+    seedDirs: [path16.resolve(ctx.root, ctx.config.database.migrationsDir), path16.join(ctx.root, ".apex-local")]
   };
 }
 function summarize(diagnostics) {
@@ -34424,8 +33629,8 @@ async function previewRevisionRecorder(root, sourceDir) {
   } catch {
     return void 0;
   }
-  const appDir = path17.resolve(ctx.root, ctx.config.application.sourceDir);
-  if (!fs16.existsSync(appDir) || fs16.realpathSync(appDir) !== fs16.realpathSync(sourceDir)) return void 0;
+  const appDir = path16.resolve(ctx.root, ctx.config.application.sourceDir);
+  if (!fs15.existsSync(appDir) || fs15.realpathSync(appDir) !== fs15.realpathSync(sourceDir)) return void 0;
   const project2 = ctx;
   return (startedAt) => {
     void (async () => {
@@ -34499,12 +33704,12 @@ async function selector(root, input, fallback) {
   } else if (input.project !== void 0) {
     let projectRoot;
     try {
-      projectRoot = fs16.realpathSync(path17.resolve(input.project));
+      projectRoot = fs15.realpathSync(path16.resolve(input.project));
     } catch {
       throw new Fault("INVALID_INPUT", `Project directory ${input.project} does not exist.`, 2);
     }
     tests.push(
-      (entry) => entry.sourceDir === projectRoot || entry.sourceDir.startsWith(projectRoot + path17.sep)
+      (entry) => entry.sourceDir === projectRoot || entry.sourceDir.startsWith(projectRoot + path16.sep)
     );
     described.push(`project ${projectRoot}`);
   }
@@ -34586,7 +33791,7 @@ async function previewStatus(root = process.cwd(), input = {}) {
   const filter = await selector(root, input, "all");
   return {
     assetsDir: defaultAssetsDir(),
-    assetsInstalled: fs16.existsSync(path17.join(defaultAssetsDir(), "manifest.json")),
+    assetsInstalled: fs15.existsSync(path16.join(defaultAssetsDir(), "manifest.json")),
     download: APEX_DOWNLOAD_URL,
     running: (await listPreviews()).filter(filter.match).map(summaryOf)
   };
@@ -34611,7 +33816,7 @@ async function reviewFileFor(root) {
   try {
     return reviewFilePath((await loadProject(root)).root);
   } catch {
-    return reviewFilePath(path17.resolve(root));
+    return reviewFilePath(path16.resolve(root));
   }
 }
 async function previewComments(root, input) {

@@ -160,7 +160,20 @@ var schemas = {
     operations: external_exports.array(
       external_exports.strictObject({
         target: external_exports.string().min(1).max(300),
-        property: external_exports.enum(["title", "label", "heading", "format", "sequence", "query", "visible"]),
+        property: external_exports.enum([
+          "title",
+          "label",
+          "heading",
+          "format",
+          "sequence",
+          "query",
+          "visible",
+          "template",
+          "templateOptions",
+          "column",
+          "columnSpan",
+          "startNewRow"
+        ]),
         value: external_exports.string().max(1e5),
         columns: external_exports.array(
           external_exports.strictObject({
@@ -183,7 +196,20 @@ var schemas = {
         external_exports.strictObject({
           op: external_exports.literal("set"),
           target: external_exports.string().min(1).max(300),
-          property: external_exports.enum(["title", "label", "heading", "format", "sequence", "query", "visible"]),
+          property: external_exports.enum([
+            "title",
+            "label",
+            "heading",
+            "format",
+            "sequence",
+            "query",
+            "visible",
+            "template",
+            "templateOptions",
+            "column",
+            "columnSpan",
+            "startNewRow"
+          ]),
           value: external_exports.string().max(1e5),
           columns: external_exports.array(
             external_exports.strictObject({

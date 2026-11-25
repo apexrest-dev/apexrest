@@ -85,3 +85,14 @@ Bind an existing list item to a shared LOV in `action:edit`: `{"op":"bindLov", "
 ## Show or hide report columns
 
 `{"target":"column:orders.AMOUNT","property":"visible","value":"false"}` (or `"true"`) changes whether a column shows by default; context lists `visible` for every column. Interactive reports: the column joins or leaves the default saved report's displayed columns (a shown column takes its place by column order); the column and the query are unchanged, and users can still add it. Classic reports: `type` switches between `plainText` and `hidden`. Refused: an interactive-report column declared `type: hidden`, a report without a default saved report, and hiding a classic link or LOV column. Several visibility, heading, format and sequence changes combine in one patch or edit.
+
+## Templates and grid layout (26.2)
+
+| Property               | Targets          | Value                                                  | `""` resets to        |
+| ---------------------- | ---------------- | ------------------------------------------------------ | --------------------- |
+| `template`             | `page`, `region` | a Universal Theme template id, such as `content-block` | the theme default     |
+| `templateOptions`      | `page`, `region` | `#DEFAULT#` and option CSS classes, space-separated    | the template defaults |
+| `column`, `columnSpan` | `region`, `item` | `1`-`12`; column and span must fit 12 columns          | automatic             |
+| `startNewRow`          | `region`, `item` | `true` or `false`                                      | `true`                |
+
+Template ids are checked against the installed theme (after `apexrest_preview action:setup`) or the templates Oracle's Universal Theme 26.2 Reference app uses; `interactive-report` and `cards-container` fit only their region types. Template options need the installed theme: each class must belong to the template, at most one per option group. Set `template` and `templateOptions` in the same patch to change both.

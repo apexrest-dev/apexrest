@@ -1193,6 +1193,20 @@
         "docs/local-preview.md"
       ],
       "blocker": "Route-level repository tests pass and the embedded client script parses. The composer interaction has not been observed in a browser."
+    },
+    {
+      "id": "FASTDEV-V02",
+      "criterion": "Typed template, template-option and grid-placement patch properties have explicit 26.2 source mappings and resets, are validated against the installed Universal Theme or the reviewed reference templates, and fail before writing for unsupported combinations, unknown or incompatible templates and invalid options or grid values",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/edit/layout.ts",
+        "packages/core/src/edit/patch.ts",
+        "packages/core/src/preview/theme.ts",
+        "tests/unit/source-edit-layout.test.ts",
+        "docs/evidence/fast-dev/layout-compiler-2026-11-25.json"
+      ],
+      "blocker": "Repository tests and the offline Oracle compiler (26.2 with the installed theme) pass. Template options need the installed theme; rendered layout and native import are not yet observed."
     }
   ]
 }
