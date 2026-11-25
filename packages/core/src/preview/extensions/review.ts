@@ -201,30 +201,79 @@ function bindTarget(renderer: ApexRenderer, page: ApxComponent, input: unknown):
   };
 }
 
-/** Applies one visual property edit through the shared, digest-bound patch service. */
+/** Properties the visual form edits; report SQL stays in source editing. */
+const VISUAL_PROPERTIES: readonly PatchProperty[] = PATCH_PROPERTIES.filter(
+  (property) => property !== 'query',
+);
+const MAX_BATCH = 50;
+
+/**
+ * Applies visual property edits through the shared, digest-bound patch service: one operation
+ * (`target`, `property`, `value`) or a batch (`operations: [...]`) of one declaring page file, as
+ * one atomic replacement. Any invalid, duplicate or conflicting operation rejects the batch with
+ * nothing written; the response names the first operation that fails on its own (`operation`).
+ */
 async function patchRoute(file: string, input: Record<string, unknown>): Promise<RouteResponse> {
-  const property = String(input.property ?? '') as PatchProperty;
-  if (!PATCH_PROPERTIES.includes(property) || property === 'query')
-    return json({ error: 'property must be title, label, heading, format or sequence' }, 400);
   const page = String(input.page ?? '');
-  const target = String(input.target ?? '');
   const digest = String(input.digest ?? '');
-  if (!/^\d{1,5}$/u.test(page) || !target || !/^[0-9a-f]{64}$/u.test(digest))
+  const raw = Array.isArray(input.operations)
+    ? (input.operations as Record<string, unknown>[])
+    : [{ target: input.target, property: input.property, value: input.value }];
+  if (!/^\d{1,5}$/u.test(page) || !/^[0-9a-f]{64}$/u.test(digest))
     return json({ error: 'patch needs page, target, property, value and the file digest' }, 400);
-  const value = typeof input.value === 'string' ? input.value : '';
-  if (value.length > 4000) return json({ error: 'value is longer than 4000 characters' }, 400);
+  if (!raw.length || raw.length > MAX_BATCH) return json({ error: `Give 1-${MAX_BATCH} operations.` }, 400);
+  const operations: { target: string; property: PatchProperty; value: string }[] = [];
+  for (const [index, entry] of raw.entries()) {
+    const property = String(entry?.property ?? '') as PatchProperty;
+    const target = String(entry?.target ?? '');
+    const value = typeof entry?.value === 'string' ? entry.value : '';
+    if (!VISUAL_PROPERTIES.includes(property))
+      return json({ error: `property must be ${VISUAL_PROPERTIES.join(', ')}`, operation: index }, 400);
+    if (!target)
+      return json(
+        { error: 'patch needs page, target, property, value and the file digest', operation: index },
+        400,
+      );
+    if (value.length > 4000)
+      return json({ error: 'value is longer than 4000 characters', operation: index }, 400);
+    operations.push({ target, property, value });
+  }
+  let ctx;
   try {
-    const ctx = await loadProject(path.resolve(path.dirname(file), '..', '..'));
-    const result = await patchPage(ctx, {
-      page,
-      operations: [{ target, property, value }],
-      expectedDigest: digest,
-    });
+    ctx = await loadProject(path.resolve(path.dirname(file), '..', '..'));
+    const result = await patchPage(ctx, { page, operations, expectedDigest: digest });
     return json({ ok: true, result });
   } catch (error) {
     if (error instanceof Fault) {
-      const status = error.code === 'TRANSFORM_CONFLICT' ? 409 : error.exitCode === 2 ? 400 : 422;
-      return json({ error: error.message, code: error.code, ...(error.details ?? {}) }, status);
+      const status =
+        error.code === 'TRANSFORM_CONFLICT' && error.status === 'conflict'
+          ? 409
+          : error.exitCode === 2
+            ? 400
+            : 422;
+      // Point at the operation that fails by itself (a dry run writes nothing); a pair that
+      // only conflicts together has no single culprit.
+      let operation: number | undefined;
+      if (ctx && status !== 409 && operations.length > 1)
+        for (const [index, entry] of operations.entries()) {
+          const alone = await patchPage(ctx, { page, operations: [entry], dryRun: true }).then(
+            () => undefined,
+            () => index,
+          );
+          if (alone !== undefined) {
+            operation = alone;
+            break;
+          }
+        }
+      return json(
+        {
+          error: error.message,
+          code: error.code,
+          ...(error.details ?? {}),
+          ...(operation !== undefined ? { operation } : {}),
+        },
+        status,
+      );
     }
     return json({ error: (error as Error).message }, 500);
   }
@@ -233,7 +282,7 @@ async function patchRoute(file: string, input: Record<string, unknown>): Promise
 /**
  * `GET ?page=<id>[&status=open|resolved|all][&format=text]` lists comments.
  * `POST { op: add | edit | resolve | reopen | delete, ... }` changes them;
- * `POST { op: patch, page, target, property, value, digest }` edits the source (see patchRoute).
+ * `POST { op: patch, page, digest, target, property, value | operations: [...] }` edits the source (see patchRoute).
  */
 function reviewRoute(
   renderer: ApexRenderer,

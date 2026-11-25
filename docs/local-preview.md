@@ -107,7 +107,7 @@ Comments are stored in `<project>/.apexrest/review/comments.json`, Git-ignored l
 
 The preview binds each selection to its source revision. It records the component's `project patch` target (for example `region:orders` or `column:orders.TITLE`), the page whose file declares it (0 for the global page) and the SHA-256 of that file at selection time. The preview never edits source or data for a comment.
 
-**Edit** in the same form changes one property in the source instead of leaving a comment:
+**Edit** in the same form changes properties in the source instead of leaving a comment:
 
 | Component     | Properties                |
 | ------------- | ------------------------- |
@@ -119,8 +119,10 @@ The preview binds each selection to its source revision. It records the componen
 
 The edit goes through the same digest-bound patch service as `project patch` and `apexrest_project action:patch`:
 
-- It changes only that value in the page file, and the preview reloads with it.
-- If the file changed after the page loaded, nothing is written and the form asks you to reload.
+- **Add to changes** collects a change and lets you pick another component or property of the same page file; the list shows every proposed change before you save. **Save** writes them all, with the field you are editing, as one atomic change.
+- It changes only those values in the page file, and the preview reloads once with them.
+- If any change is invalid, nothing is written and the failing change is marked in the list.
+- If the file changed after the page loaded, nothing is written; your proposed changes stay in the form so you can reload and save them on the newer version.
 - While the form is open, a source change from elsewhere shows a **Reload** notice instead of discarding your draft.
 
 The preview never writes APEX metadata: an edit is an ordinary source change for Git, validation and ship. Edits are available only in the developer preview with a project.

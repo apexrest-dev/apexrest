@@ -26850,6 +26850,9 @@ html.apex-local-review-picking,html.apex-local-review-picking *{cursor:crosshair
 .apex-local-review-composer input[name="value"]{box-sizing:border-box;width:100%;margin:0 0 8px;padding:5px 7px;border:1px solid rgba(255,255,255,.22);border-radius:4px;background:rgba(0,0,0,.35);color:#fff;font:inherit}
 .apex-local-review-composer [data-mode-pane][hidden]{display:none}
 .apex-local-review-composer .apex-local-review-ok{margin:0 0 8px;color:#9be7a8;font-size:12px}
+.apex-local-review-batch{margin:4px 0 8px;padding-left:18px;font-size:12px}
+.apex-local-review-batch li.is-error{color:#ffb4a8}
+.apex-local-review-batch button{margin-left:6px;font-size:11px}
 .apex-local-review-banner{position:fixed;z-index:2147483000;top:8px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:16px;background:#7c4dff;color:#fff;font:600 12px/16px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none}
 `;
 var REVIEW_JS = String.raw`
@@ -27050,7 +27053,8 @@ var REVIEW_JS = String.raw`
       (existing ? "" : '<div class="apex-local-review-modes"><button type="button" class="is-on" data-mode="comment">Comment</button><button type="button" data-mode="edit" title="Change a property in the source file">Edit</button></div>') +
       '<div data-mode-pane="comment"><select name="intent" aria-label="Kind of change">' + intents + "</select>" +
       '<textarea name="text" maxlength="4000" placeholder="What should change? e.g. Rename this column to “Amount, EUR” and move it after Status">' + esc(existing ? existing.text : "") + "</textarea></div>" +
-      '<div data-mode-pane="edit" hidden><select name="property" aria-label="Property"></select><input name="value" aria-label="New value" maxlength="4000"><p class="apex-local-review-where" data-edit-where></p></div>' +
+      '<div data-mode-pane="edit" hidden><select name="property" aria-label="Property"></select><input name="value" aria-label="New value" maxlength="4000"><p class="apex-local-review-where" data-edit-where></p>' +
+      '<button type="button" class="apex-local-action" data-batch-add title="Collect this change and pick another component or property">Add to changes</button><ol class="apex-local-review-batch" data-batch aria-label="Proposed changes"></ol></div>' +
       '<p class="apex-local-review-error" hidden></p><p class="apex-local-review-ok" hidden></p>' +
       '<div class="apex-local-review-row"><span>Ctrl+Enter to save</span><button type="button" class="apex-local-action" data-cancel>Cancel</button><button type="submit" class="apex-local-action is-primary">Save</button></div>';
     document.body.appendChild(composer);
@@ -27087,6 +27091,38 @@ var REVIEW_JS = String.raw`
       composer.querySelectorAll("[data-mode-pane]").forEach(function (pane) { pane.hidden = pane.getAttribute("data-mode-pane") !== mode; });
       (mode === "edit" ? valueInput : area).focus();
     }
+    // Proposed changes of one page file, saved together as one atomic source replacement.
+    var batch = [], batchList = composer.querySelector("[data-batch]");
+    function proposal() {
+      var editable = current();
+      if (!editable || !propertySelect.value) return null;
+      return { editable: editable, target: editable.patch, property: propertySelect.value, value: valueInput.value };
+    }
+    function renderBatch(failed) {
+      batchList.innerHTML = batch.map(function (entry, index) {
+        return '<li' + (index === failed ? ' class="is-error"' : "") + ">" + esc(entry.target + " · " + entry.property + " → " + entry.value) +
+          '<button type="button" class="apex-local-action" data-batch-remove="' + index + '" aria-label="Remove this change">×</button></li>';
+      }).join("");
+    }
+    function addToBatch() {
+      var next = proposal(), message = composer.querySelector(".apex-local-review-error");
+      if (!next) return false;
+      if (batch.length && batch[0].editable.file !== next.editable.file) {
+        message.hidden = false; message.textContent = "Changes are saved per page file; save these first.";
+        return false;
+      }
+      batch = batch.filter(function (entry) { return !(entry.target === next.target && entry.property === next.property); });
+      batch.push(next);
+      renderBatch();
+      return true;
+    }
+    batchList.addEventListener("click", function (event) {
+      var remove = event.target.closest("[data-batch-remove]");
+      if (!remove) return;
+      batch.splice(Number(remove.getAttribute("data-batch-remove")), 1);
+      renderBatch();
+    });
+    composer.querySelector("[data-batch-add]").addEventListener("click", function () { addToBatch(); });
     if (!existing) {
       composer.querySelectorAll("[data-mode]").forEach(function (button) { button.addEventListener("click", function () { setMode(button.getAttribute("data-mode")); }); });
       if (targetSelect) targetSelect.addEventListener("change", fillProperties);
@@ -27102,19 +27138,32 @@ var REVIEW_JS = String.raw`
       var message = composer.querySelector(".apex-local-review-error"), ok = composer.querySelector(".apex-local-review-ok");
       message.hidden = true; ok.hidden = true;
       if (mode === "edit") {
-        var editable = current(), digest = editable && (config.digests || {})[editable.file];
-        if (!editable || !digest) { message.hidden = false; message.textContent = "This component has no editable source file."; return; }
+        // The field being edited joins the proposed changes when it differs from the source value.
+        var pending = proposal();
+        if (pending && (pending.editable.values[pending.property] || "") !== pending.value) addToBatch();
+        if (!batch.length) { message.hidden = false; message.textContent = "Nothing changed yet."; return; }
+        var file = batch[0].editable.file, digest = (config.digests || {})[file];
+        if (!digest) { message.hidden = false; message.textContent = "This component has no editable source file."; return; }
         saving = true;
-        return send({ op: "patch", page: editable.page, target: editable.patch, property: propertySelect.value, value: valueInput.value, digest: digest }).then(function (data) {
+        return send({ op: "patch", page: batch[0].editable.page, digest: digest, operations: batch.map(function (entry) {
+          return { target: entry.target, property: entry.property, value: entry.value };
+        }) }).then(function (data) {
           // Stays "saving" until the composer closes, so the preview's reload with the change goes through.
-          config.digests[editable.file] = data.result.afterDigest;
-          editable.values[propertySelect.value] = valueInput.value;
+          config.digests[file] = data.result.afterDigest;
+          batch.forEach(function (entry) { entry.editable.values[entry.property] = entry.value; });
           ok.hidden = false;
-          ok.textContent = "Saved to " + data.result.file + ". The preview reloads with the change; validate or ship to deploy it.";
+          ok.textContent = "Saved " + batch.length + (batch.length === 1 ? " change" : " changes") + " to " + data.result.file +
+            " in one edit. The preview reloads with the change; validate or ship to deploy it.";
+          batch = [];
+          renderBatch();
         }, function (error) {
+          // The proposed changes stay for reconciliation; a failing one is marked.
           saving = false;
+          renderBatch(typeof error.operation === "number" ? error.operation : undefined);
           message.hidden = false;
-          message.textContent = error.status === 409 ? "The source file changed since this page loaded. Reload the page and edit the newer version." : error.message;
+          message.textContent = error.status === 409
+            ? "The source file changed since this page loaded. Your changes are kept: reload the page and save them on the newer version."
+            : error.message;
         });
       }
       if (!area.value.trim()) { message.hidden = false; message.textContent = "Write what should change."; return; }
@@ -27139,7 +27188,7 @@ var REVIEW_JS = String.raw`
   // ------------------------------------------------------------- data
   function send(body) {
     return fetch(route, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body) })
-      .then(function (response) { return response.json().then(function (data) { if (!response.ok || data.error) { var error = new Error(data.error || response.statusText); error.status = response.status; throw error; } return data; }); });
+      .then(function (response) { return response.json().then(function (data) { if (!response.ok || data.error) { var error = new Error(data.error || response.statusText); error.status = response.status; error.operation = data.operation; throw error; } return data; }); });
   }
 
   function load() {
@@ -27409,29 +27458,62 @@ function bindTarget(renderer, page2, input) {
     ...digest ? { digest } : {}
   };
 }
+var VISUAL_PROPERTIES = PATCH_PROPERTIES.filter(
+  (property2) => property2 !== "query"
+);
+var MAX_BATCH = 50;
 async function patchRoute(file, input) {
-  const property2 = String(input.property ?? "");
-  if (!PATCH_PROPERTIES.includes(property2) || property2 === "query")
-    return json5({ error: "property must be title, label, heading, format or sequence" }, 400);
   const page2 = String(input.page ?? "");
-  const target3 = String(input.target ?? "");
   const digest = String(input.digest ?? "");
-  if (!/^\d{1,5}$/u.test(page2) || !target3 || !/^[0-9a-f]{64}$/u.test(digest))
+  const raw2 = Array.isArray(input.operations) ? input.operations : [{ target: input.target, property: input.property, value: input.value }];
+  if (!/^\d{1,5}$/u.test(page2) || !/^[0-9a-f]{64}$/u.test(digest))
     return json5({ error: "patch needs page, target, property, value and the file digest" }, 400);
-  const value2 = typeof input.value === "string" ? input.value : "";
-  if (value2.length > 4e3) return json5({ error: "value is longer than 4000 characters" }, 400);
+  if (!raw2.length || raw2.length > MAX_BATCH) return json5({ error: `Give 1-${MAX_BATCH} operations.` }, 400);
+  const operations2 = [];
+  for (const [index, entry] of raw2.entries()) {
+    const property2 = String(entry?.property ?? "");
+    const target3 = String(entry?.target ?? "");
+    const value2 = typeof entry?.value === "string" ? entry.value : "";
+    if (!VISUAL_PROPERTIES.includes(property2))
+      return json5({ error: `property must be ${VISUAL_PROPERTIES.join(", ")}`, operation: index }, 400);
+    if (!target3)
+      return json5(
+        { error: "patch needs page, target, property, value and the file digest", operation: index },
+        400
+      );
+    if (value2.length > 4e3)
+      return json5({ error: "value is longer than 4000 characters", operation: index }, 400);
+    operations2.push({ target: target3, property: property2, value: value2 });
+  }
+  let ctx;
   try {
-    const ctx = await loadProject(path13.resolve(path13.dirname(file), "..", ".."));
-    const result = await patchPage(ctx, {
-      page: page2,
-      operations: [{ target: target3, property: property2, value: value2 }],
-      expectedDigest: digest
-    });
+    ctx = await loadProject(path13.resolve(path13.dirname(file), "..", ".."));
+    const result = await patchPage(ctx, { page: page2, operations: operations2, expectedDigest: digest });
     return json5({ ok: true, result });
   } catch (error) {
     if (error instanceof Fault) {
-      const status = error.code === "TRANSFORM_CONFLICT" ? 409 : error.exitCode === 2 ? 400 : 422;
-      return json5({ error: error.message, code: error.code, ...error.details ?? {} }, status);
+      const status = error.code === "TRANSFORM_CONFLICT" && error.status === "conflict" ? 409 : error.exitCode === 2 ? 400 : 422;
+      let operation2;
+      if (ctx && status !== 409 && operations2.length > 1)
+        for (const [index, entry] of operations2.entries()) {
+          const alone = await patchPage(ctx, { page: page2, operations: [entry], dryRun: true }).then(
+            () => void 0,
+            () => index
+          );
+          if (alone !== void 0) {
+            operation2 = alone;
+            break;
+          }
+        }
+      return json5(
+        {
+          error: error.message,
+          code: error.code,
+          ...error.details ?? {},
+          ...operation2 !== void 0 ? { operation: operation2 } : {}
+        },
+        status
+      );
     }
     return json5({ error: error.message }, 500);
   }

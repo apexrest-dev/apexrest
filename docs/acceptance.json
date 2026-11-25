@@ -1180,6 +1180,19 @@
         "tests/unit/reference-recipes262.test.ts"
       ],
       "blocker": "Local repository tests. Recipe qualification is compiler-only (FASTDEV-A12); host-session use of the returned examples is not yet measured."
+    },
+    {
+      "id": "FASTDEV-V01",
+      "criterion": "The visual editor saves several property changes across components of one page file in one request and one atomic source replacement, rejects the whole batch for any invalid or conflicting change while naming it, and keeps the proposed changes after a stale-digest conflict",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/preview/extensions/review.ts",
+        "packages/core/src/preview/extensions/review/client.ts",
+        "tests/unit/preview-review.test.ts",
+        "docs/local-preview.md"
+      ],
+      "blocker": "Route-level repository tests pass and the embedded client script parses. The composer interaction has not been observed in a browser."
     }
   ]
 }

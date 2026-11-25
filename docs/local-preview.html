@@ -131,7 +131,7 @@ apexrest preview stop --port 8765           # or select by --source-dir, --port;
 </ol>
 <p>Comments are stored in <code>&lt;project&gt;/.apexrest/review/comments.json</code>, Git-ignored local state. Each comment names the page, the APEXlang component, the source folder, file and line, the selected element and your text.</p>
 <p>The preview binds each selection to its source revision. It records the component&#39;s <code>project patch</code> target (for example <code>region:orders</code> or <code>column:orders.TITLE</code>), the page whose file declares it (0 for the global page) and the SHA-256 of that file at selection time. The preview never edits source or data for a comment.</p>
-<p><strong>Edit</strong> in the same form changes one property in the source instead of leaving a comment:</p>
+<p><strong>Edit</strong> in the same form changes properties in the source instead of leaving a comment:</p>
 <div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
 <thead>
 <tr>
@@ -163,8 +163,10 @@ apexrest preview stop --port 8765           # or select by --source-dir, --port;
 </div>
 <p>The edit goes through the same digest-bound patch service as <code>project patch</code> and <code>apexrest_project action:patch</code>:</p>
 <ul>
-<li>It changes only that value in the page file, and the preview reloads with it.</li>
-<li>If the file changed after the page loaded, nothing is written and the form asks you to reload.</li>
+<li><strong>Add to changes</strong> collects a change and lets you pick another component or property of the same page file; the list shows every proposed change before you save. <strong>Save</strong> writes them all, with the field you are editing, as one atomic change.</li>
+<li>It changes only those values in the page file, and the preview reloads once with them.</li>
+<li>If any change is invalid, nothing is written and the failing change is marked in the list.</li>
+<li>If the file changed after the page loaded, nothing is written; your proposed changes stay in the form so you can reload and save them on the newer version.</li>
 <li>While the form is open, a source change from elsewhere shows a <strong>Reload</strong> notice instead of discarding your draft.</li>
 </ul>
 <p>The preview never writes APEX metadata: an edit is an ordinary source change for Git, validation and ship. Edits are available only in the developer preview with a project.</p>

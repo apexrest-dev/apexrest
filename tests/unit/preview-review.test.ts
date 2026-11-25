@@ -498,3 +498,67 @@ test('a project preview records the source revision it rendered, separately from
   record(new Date().toISOString());
   assert.equal((await settled((value) => value.preview?.current === true)).preview?.current, true);
 });
+
+test('preview edits save a batch of properties across components as one atomic change', async (t) => {
+  const { post, pageFile } = await project(t);
+  const before = await readFile(pageFile, 'utf8');
+  const operations = [
+    { target: 'column:orders.TITLE', property: 'heading', value: 'Task title' },
+    { target: 'column:orders.TITLE', property: 'format', value: 'UPPER' },
+    { target: 'region:orders', property: 'title', value: 'Open tasks' },
+  ];
+  const applied = await post({ op: 'patch', page: '3', digest: sha(before), operations });
+  assert.equal(applied.status, 200);
+  const result = (await applied.json()).result;
+  assert.equal(result.operations, 3);
+  const after = await readFile(pageFile, 'utf8');
+  assert.equal(result.afterDigest, sha(after));
+  assert.match(after, /heading: Task title/u);
+  assert.match(after, /formatMask: UPPER/u);
+  assert.match(after, /region orders \(\n {8}name: Open tasks/u);
+  // Unrelated bytes and ids stay: the button and item are unchanged.
+  assert.ok(after.includes(before.slice(before.indexOf('    pageItem P3_SEARCH ('))));
+  assert.match(String(result.next), /Source edited only/u);
+
+  // One invalid operation rejects the batch and is named; nothing is written.
+  const invalid = await post({
+    op: 'patch',
+    page: '3',
+    digest: sha(after),
+    operations: [
+      { target: 'region:orders', property: 'title', value: 'Again' },
+      { target: 'button:refresh', property: 'heading', value: 'x' },
+    ],
+  });
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).operation, 1);
+  const refused = await post({
+    op: 'patch',
+    page: '3',
+    digest: sha(after),
+    operations: [{ target: 'region:orders', property: 'query', value: 'select 1 from dual' }],
+  });
+  assert.equal(refused.status, 400);
+  assert.equal((await refused.json()).operation, 0);
+  // Two operations setting the same property conflict together: no single culprit is named.
+  const duplicate = await post({
+    op: 'patch',
+    page: '3',
+    digest: sha(after),
+    operations: [
+      { target: 'region:orders', property: 'title', value: 'A' },
+      { target: 'region:orders', property: 'title', value: 'B' },
+    ],
+  });
+  assert.equal(duplicate.status, 422);
+  assert.equal((await duplicate.json()).operation, undefined);
+  // A stale digest is the usual conflict.
+  const stale = await post({
+    op: 'patch',
+    page: '3',
+    digest: sha(before),
+    operations: operations.slice(0, 1),
+  });
+  assert.equal(stale.status, 409);
+  assert.equal(await readFile(pageFile, 'utf8'), after);
+});

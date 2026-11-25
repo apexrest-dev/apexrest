@@ -1774,6 +1774,28 @@
       ],
       "evidence": ["sanitized result code", "response bytes", "recipe digest"],
       "budgetMs": 10000
+    },
+    {
+      "id": "A261-085",
+      "title": "Batched visual property edits",
+      "acceptance": ["FASTDEV-V01"],
+      "execution": "manual",
+      "surface": "browser",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "In review mode, change a column heading and format and the region title with Add to changes.",
+        "Save; then make one change invalid and save again; then edit the file elsewhere and save."
+      ],
+      "expected": [
+        "One write and one reload apply all three changes.",
+        "An invalid change is marked and nothing is written; after an external edit the proposed changes stay."
+      ],
+      "evidence": [
+        "page file digest before and after",
+        "observed reload count",
+        "screenshot of the change list"
+      ],
+      "budgetMs": 60000
     }
   ],
   "metrics": "quality-performance.json"
