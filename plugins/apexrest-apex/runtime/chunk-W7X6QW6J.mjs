@@ -5,26 +5,26 @@ import {
   prewarmCompiler,
   shutdownOracle,
   waitsForCompilerPrewarm
-} from "./chunk-LUARGUNP.mjs";
+} from "./chunk-PNVN64LK.mjs";
 import "./chunk-SIHBA2TI.mjs";
-import "./chunk-Q2XACWE7.mjs";
+import "./chunk-MXVSS6BM.mjs";
 import "./chunk-BBZ43UIE.mjs";
 import {
   schemas,
   toolCatalog
-} from "./chunk-FRVV5G6V.mjs";
+} from "./chunk-35W6PSBY.mjs";
 import "./chunk-S4NYTED6.mjs";
 import "./chunk-6DN7RAI6.mjs";
-import "./chunk-SNXCRPR5.mjs";
-import "./chunk-QRRLQA7X.mjs";
+import "./chunk-BA27RM6L.mjs";
+import "./chunk-WOTS34EX.mjs";
 import {
   JobService,
   jobToolResult,
   settleInlineJobs
-} from "./chunk-YBGRY5OB.mjs";
-import "./chunk-RNNNWNIB.mjs";
-import "./chunk-DN4KP646.mjs";
-import "./chunk-K3MFNBA3.mjs";
+} from "./chunk-C34O3ZFO.mjs";
+import "./chunk-GVY42Y3Q.mjs";
+import "./chunk-GGQUNOC5.mjs";
+import "./chunk-NCCQWHXP.mjs";
 import {
   ArtifactService
 } from "./chunk-DOWWSLS6.mjs";
@@ -60,6 +60,7 @@ import {
   safeParse,
   serializeMessage
 } from "./chunk-7SGTFDEC.mjs";
+import "./chunk-V3NFRVGE.mjs";
 import "./chunk-KUKVCAPO.mjs";
 import {
   VERSION
@@ -1121,7 +1122,7 @@ async function startMcp() {
         const jobs = new JobService(await loadProject(String(input.project)));
         if (tool.operation === "ship" && input.mode === "apply" && typeof input.plan !== "string") {
           const { waitSeconds } = input;
-          const { captureShipIntent } = await import("./chunk-ZXMWA245.mjs");
+          const { captureShipIntent } = await import("./chunk-JE5QIAM6.mjs");
           const ctx = await loadProject(String(input.project));
           const intent = await captureShipIntent(ctx, {
             env: String(input.env),

@@ -7,13 +7,13 @@ import {
   insertComponents,
   pageContext,
   patchPage
-} from "./chunk-Q2XACWE7.mjs";
+} from "./chunk-MXVSS6BM.mjs";
 import {
   scaffoldSchema
 } from "./chunk-BBZ43UIE.mjs";
 import {
   schemas
-} from "./chunk-FRVV5G6V.mjs";
+} from "./chunk-35W6PSBY.mjs";
 import {
   browserPreferences
 } from "./chunk-S4NYTED6.mjs";
@@ -29,36 +29,32 @@ import {
   shipPlan,
   validateApplication,
   validationSource
-} from "./chunk-SNXCRPR5.mjs";
+} from "./chunk-BA27RM6L.mjs";
 import {
   brokerStatus,
   startBroker,
   stopBroker
-} from "./chunk-QRRLQA7X.mjs";
+} from "./chunk-WOTS34EX.mjs";
 import {
   JobService,
   jobToolResult
-} from "./chunk-YBGRY5OB.mjs";
+} from "./chunk-C34O3ZFO.mjs";
 import {
   lovContext,
   lovEdit,
   lovFile
-} from "./chunk-RNNNWNIB.mjs";
+} from "./chunk-GVY42Y3Q.mjs";
 import {
   editHistory,
   redoEdit,
   undoEdit
-} from "./chunk-DN4KP646.mjs";
+} from "./chunk-GGQUNOC5.mjs";
 import {
   DeploymentService,
   deployPlanSchema,
   planDigest,
-  recordRevision,
-  revisionOf,
-  revisionStatus,
-  sourceInventory,
-  sourceRevision
-} from "./chunk-K3MFNBA3.mjs";
+  sourceInventory
+} from "./chunk-NCCQWHXP.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -118,6 +114,12 @@ import {
   sqlclTimings,
   withSqlclTimings
 } from "./chunk-7SGTFDEC.mjs";
+import {
+  recordRevision,
+  revisionOf,
+  revisionStatus,
+  sourceRevision
+} from "./chunk-V3NFRVGE.mjs";
 import {
   traceReport,
   withTrace
@@ -3989,7 +3991,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-GJPJZ5RZ.mjs");
+      const { previewDispatch } = await import("./chunk-NFPZO4RC.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4031,17 +4033,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-3AGDLQ7G.mjs");
+        const { setup } = await import("./chunk-VFJLNQMT.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-3AGDLQ7G.mjs");
+        const { validateNative } = await import("./chunk-VFJLNQMT.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-3AGDLQ7G.mjs");
+        const { uninstallNative } = await import("./chunk-VFJLNQMT.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -4363,7 +4365,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "ship.intent": {
-            const { runShipIntent } = await import("./chunk-ZXMWA245.mjs");
+            const { runShipIntent } = await import("./chunk-JE5QIAM6.mjs");
             data = await runShipIntent(ctx, text2("intent"), deployment, parseDiagnostics, signal, progress);
             break;
           }

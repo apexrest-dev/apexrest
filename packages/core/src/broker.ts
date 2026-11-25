@@ -5,6 +5,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import type { ProjectContext } from './config.ts';
+import { coverage, pendingShip, type Coverage } from './coalesce.ts';
 import { contained, exists, readJson, withLock, writeJson } from './fs.ts';
 import { claimJob, executeJob, failQueuedJob, type JobExecutor } from './jobs.ts';
 import { Fault } from './result.ts';
@@ -185,7 +186,12 @@ export async function stopBroker(ctx: ProjectContext, waitSeconds = 30) {
 }
 
 /** The broker process (`apexrest --broker <root>`). */
-export async function runBroker(ctx: ProjectContext, execute: JobExecutor): Promise<void> {
+export async function runBroker(
+  ctx: ProjectContext,
+  execute: JobExecutor,
+  /** Ends the broker process; tests run the broker in-process and pass their own. */
+  exit: () => void = () => process.exit(0),
+): Promise<void> {
   const token = randomBytes(32).toString('hex');
   const endpoint = brokerEndpoint(ctx.root);
   const running = new Set<string>();
@@ -203,7 +209,7 @@ export async function runBroker(ctx: ProjectContext, execute: JobExecutor): Prom
     const record = await readRecord(ctx.root);
     if (record?.pid === process.pid) await rm(recordFile(ctx.root), { force: true });
     if (process.platform !== 'win32') await rm(endpoint, { force: true });
-    process.exit(0);
+    exit();
   };
   const touch = () => {
     clearTimeout(idle);
@@ -237,22 +243,23 @@ export async function runBroker(ctx: ProjectContext, execute: JobExecutor): Prom
       for (;;) {
         const queue = waiting.get(env) ?? [];
         if (!queue.length) break;
-        // Coalesce: the newest waiting apply runs; an older one that never started is superseded
-        // only when the newest plan was made no earlier than its own, so it covers its sources.
-        // Otherwise the oldest runs first and the rest wait.
+        // Coalesce (coalesce.ts): an older waiting ship that the newest one provably contains
+        // (same target, configuration and authorization; a containing scope; a later source
+        // state) never starts and records its successor. Every other ship still runs, oldest
+        // first; a ship that already started is never touched.
         const newest = queue.at(-1)!;
-        const newestAt = await planCreated(ctx, newest);
-        const covered = queue.slice(0, -1);
-        const coverable =
-          newestAt !== undefined &&
-          (await Promise.all(covered.map((id) => planCreated(ctx, id)))).every(
-            (at) => at !== undefined && at <= newestAt,
-          );
-        if (coverable) {
-          queue.splice(0);
-          for (const older of covered) await supersede(ctx, older, newest);
-          await run(newest);
-        } else await run(queue.shift()!);
+        const latest = await pendingShip(ctx, newest);
+        const decisions = await Promise.all(
+          queue
+            .slice(0, -1)
+            .map(async (id) => ({ id, decision: coverage(await pendingShip(ctx, id), latest) })),
+        );
+        for (const { id, decision } of decisions)
+          if (decision.covered) {
+            queue.splice(queue.indexOf(id), 1);
+            await supersede(ctx, id, newest, decision);
+          }
+        await run(queue.shift()!);
       }
     } finally {
       busy.delete(env);
@@ -345,29 +352,8 @@ export async function runBroker(ctx: ProjectContext, execute: JobExecutor): Prom
     });
 }
 
-/** Creation time of the plan a queued ship.apply job applies (milliseconds), if readable. */
-async function planCreated(ctx: ProjectContext, id: string): Promise<number | undefined> {
-  try {
-    const request = (await readJson(
-      path.join(await contained(ctx.root, '.apexrest/jobs/' + id), 'request.json'),
-    )) as { operation?: string; input?: { plan?: unknown; intent?: unknown } };
-    // An intent is ordered by its capture time, as a plan by its creation.
-    if (request.operation === 'ship.intent') {
-      const { intentCreated } = await import('./ship-intent.ts');
-      return await intentCreated(ctx, String(request.input?.intent ?? ''));
-    }
-    const plan = (await readJson(await contained(ctx.root, String(request.input?.plan ?? '')))) as {
-      createdAt?: string;
-    };
-    const at = Date.parse(String(plan.createdAt ?? ''));
-    return Number.isFinite(at) ? at : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 /** Records an apply that never started because a newer apply of the same environment replaced it. */
-async function supersede(ctx: ProjectContext, id: string, by: string) {
+async function supersede(ctx: ProjectContext, id: string, by: string, covered?: Coverage) {
   const root = await contained(ctx.root, '.apexrest/jobs/' + id);
   // The claim keeps a detached worker from starting it after it was superseded.
   if (!(await claimJob(root, 'broker-superseded'))) return;
@@ -382,6 +368,16 @@ async function supersede(ctx: ProjectContext, id: string, by: string) {
     operation: state.operation ?? 'ship.apply',
     status: 'superseded',
     supersededBy: by,
+    ...(covered?.covered
+      ? {
+          coverage: {
+            successorRevision: covered.successorRevision,
+            coveredRevision: covered.coveredRevision,
+            scope: covered.scope,
+            overriddenFiles: covered.overriddenFiles,
+          },
+        }
+      : {}),
     nextAction: `This apply never started. Job ${by}, prepared from newer sources of the same environment, applies the changes.`,
     updatedAt: new Date().toISOString(),
   });

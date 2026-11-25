@@ -1981,6 +1981,22 @@
       ],
       "evidence": ["job status", "intent status"],
       "budgetMs": 60000
+    },
+    {
+      "id": "A261-097",
+      "title": "Coalescing by proven coverage",
+      "acceptance": ["FASTDEV-D03"],
+      "execution": "harness",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Queue ship intents for an edit of page A, then page B, then a revert of an edit, through the development broker."
+      ],
+      "expected": [
+        "Only the newest compatible intent is prepared; superseded records name their successor, revisions, scope and overridden edits; incompatible targets, configuration, confirmations and selections stay separate; started work is never replaced."
+      ],
+      "evidence": ["job state records"],
+      "budgetMs": 30000
     }
   ],
   "metrics": "quality-performance.json"

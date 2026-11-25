@@ -3,7 +3,10 @@ import {
   claimJob,
   executeJob,
   failQueuedJob
-} from "./chunk-YBGRY5OB.mjs";
+} from "./chunk-C34O3ZFO.mjs";
+import {
+  revisionOf
+} from "./chunk-V3NFRVGE.mjs";
 import {
   VERSION
 } from "./chunk-IIUPXDVT.mjs";
@@ -20,16 +23,90 @@ import {
 
 // packages/core/src/broker.ts
 import net from "node:net";
-import path from "node:path";
+import path2 from "node:path";
 import { spawn } from "node:child_process";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+
+// packages/core/src/coalesce.ts
+import path from "node:path";
+async function pendingShip(ctx, jobId) {
+  try {
+    const request2 = await readJson(
+      path.join(await contained(ctx.root, ".apexrest/jobs/" + jobId), "request.json")
+    );
+    const input = request2.input ?? {};
+    if (request2.operation === "ship.intent") {
+      const { readShipIntent } = await import("./chunk-JE5QIAM6.mjs");
+      const intent = await readShipIntent(ctx, String(input.intent ?? ""));
+      return {
+        jobId,
+        kind: "intent",
+        env: intent.env,
+        targetDigest: intent.targetDigest,
+        configuration: intent.configuration,
+        requested: intent.importMode === "none" ? "full" : intent.importMode,
+        files: intent.files ?? [],
+        inventory: intent.inventory,
+        ...intent.changedFiles ? { changedFiles: intent.changedFiles } : {},
+        revision: intent.revision,
+        createdAt: Date.parse(intent.createdAt),
+        confirmed: false
+      };
+    }
+    if (request2.operation !== "ship.apply") return void 0;
+    const plan = await readJson(await contained(ctx.root, String(input.plan ?? "")));
+    const requested = plan.importSelection?.requestedMode;
+    const createdAt = Date.parse(String(plan.createdAt ?? ""));
+    if (!plan.targetDigest || !plan.configurationDigest || !plan.sources || !Number.isFinite(createdAt))
+      return void 0;
+    return {
+      jobId,
+      kind: "plan",
+      env: String(plan.environment ?? input.env ?? ""),
+      targetDigest: plan.targetDigest,
+      configuration: plan.configurationDigest,
+      requested: requested === "auto" || requested === "files" ? requested : "full",
+      files: requested === "files" ? plan.importSelection?.files ?? [] : [],
+      inventory: plan.sources,
+      revision: plan.sourceDigest ?? revisionOf(plan.sources),
+      createdAt,
+      // A separately confirmed risky plan is authorized for itself only.
+      confirmed: input.confirmation !== void 0 || (plan.risks?.length ?? 0) > 0
+    };
+  } catch {
+    return void 0;
+  }
+}
+function coverage(older, newer) {
+  if (!older || !newer) return { covered: false, reason: "unreadable pending ship" };
+  if (older.env !== newer.env) return { covered: false, reason: "different environment" };
+  if (older.targetDigest !== newer.targetDigest) return { covered: false, reason: "different target" };
+  if (older.configuration !== newer.configuration)
+    return { covered: false, reason: "different configuration" };
+  if (older.confirmed || newer.confirmed)
+    return { covered: false, reason: "separately confirmed authorization" };
+  if (newer.createdAt < older.createdAt) return { covered: false, reason: "captured earlier" };
+  const scope = newer.requested === "full" || newer.requested === "auto" && older.requested === "auto" || newer.requested === "files" && older.requested === "files" && older.files.every((file) => newer.files.includes(file));
+  if (!scope) return { covered: false, reason: "the newer scope does not contain the older scope" };
+  const overriddenFiles = (older.changedFiles ?? Object.keys(older.inventory)).filter((file) => newer.inventory[file] !== older.inventory[file]).sort();
+  return {
+    covered: true,
+    successor: newer.jobId,
+    successorRevision: newer.revision,
+    coveredRevision: older.revision,
+    scope: { requested: older.requested, ...older.requested === "files" ? { files: older.files } : {} },
+    overriddenFiles
+  };
+}
+
+// packages/core/src/broker.ts
 var IDLE_MS = () => Math.max(6e4, Number(process.env.APEXREST_BROKER_IDLE_MINUTES ?? 30) * 6e4);
-var recordFile = (root) => path.join(root, ".apexrest", "broker", "broker.json");
+var recordFile = (root) => path2.join(root, ".apexrest", "broker", "broker.json");
 function brokerEndpoint(root) {
   const id = createHash("sha256").update(root).digest("hex").slice(0, 20);
-  return process.platform === "win32" ? `\\\\.\\pipe\\apexrest-${id}` : path.join(tmpdir(), `apexrest-${id}.sock`);
+  return process.platform === "win32" ? `\\\\.\\pipe\\apexrest-${id}` : path2.join(tmpdir(), `apexrest-${id}.sock`);
 }
 function request(record, body, timeoutMs) {
   return new Promise((resolve, reject) => {
@@ -86,7 +163,7 @@ async function submitToBroker(root, jobId) {
   }
 }
 async function startBroker(ctx, runtime) {
-  return withLock(path.join(ctx.root, ".apexrest", "broker", "start.lock"), async () => {
+  return withLock(path2.join(ctx.root, ".apexrest", "broker", "start.lock"), async () => {
     const running = await liveBroker(ctx.root);
     if (running) return { status: "running", reused: true, ...summary(running.record, running.status) };
     const child = spawn(process.execPath, [runtime, "--broker", ctx.root], {
@@ -144,7 +221,7 @@ async function stopBroker(ctx, waitSeconds = 30) {
     nextAction: "Running jobs keep their heartbeats; check them with apexrest_job action:status."
   };
 }
-async function runBroker(ctx, execute) {
+async function runBroker(ctx, execute, exit = () => process.exit(0)) {
   const token = randomBytes(32).toString("hex");
   const endpoint = brokerEndpoint(ctx.root);
   const running = /* @__PURE__ */ new Set();
@@ -160,7 +237,7 @@ async function runBroker(ctx, execute) {
     const record = await readRecord(ctx.root);
     if (record?.pid === process.pid) await rm(recordFile(ctx.root), { force: true });
     if (process.platform !== "win32") await rm(endpoint, { force: true });
-    process.exit(0);
+    exit();
   };
   const touch = () => {
     clearTimeout(idle);
@@ -193,16 +270,16 @@ async function runBroker(ctx, execute) {
         const queue = waiting.get(env) ?? [];
         if (!queue.length) break;
         const newest = queue.at(-1);
-        const newestAt = await planCreated(ctx, newest);
-        const covered = queue.slice(0, -1);
-        const coverable = newestAt !== void 0 && (await Promise.all(covered.map((id) => planCreated(ctx, id)))).every(
-          (at) => at !== void 0 && at <= newestAt
+        const latest = await pendingShip(ctx, newest);
+        const decisions = await Promise.all(
+          queue.slice(0, -1).map(async (id) => ({ id, decision: coverage(await pendingShip(ctx, id), latest) }))
         );
-        if (coverable) {
-          queue.splice(0);
-          for (const older of covered) await supersede(ctx, older, newest);
-          await run(newest);
-        } else await run(queue.shift());
+        for (const { id, decision } of decisions)
+          if (decision.covered) {
+            queue.splice(queue.indexOf(id), 1);
+            await supersede(ctx, id, newest, decision);
+          }
+        await run(queue.shift());
       }
     } finally {
       busy.delete(env);
@@ -210,9 +287,9 @@ async function runBroker(ctx, execute) {
   };
   const accept = async (jobId) => {
     const root = await contained(ctx.root, ".apexrest/jobs/" + jobId);
-    const state = await readJson(path.join(root, "state.json"));
-    if (state.status !== "queued" || await exists(path.join(root, "claim.json"))) return false;
-    const requested = await readJson(path.join(root, "request.json"));
+    const state = await readJson(path2.join(root, "state.json"));
+    if (state.status !== "queued" || await exists(path2.join(root, "claim.json"))) return false;
+    const requested = await readJson(path2.join(root, "request.json"));
     if (requested.operation === "ship.apply" || requested.operation === "ship.intent") {
       const env = String(requested.input.env ?? "");
       waiting.set(env, [...waiting.get(env) ?? [], jobId]);
@@ -278,36 +355,28 @@ async function runBroker(ctx, execute) {
       settle();
     });
 }
-async function planCreated(ctx, id) {
-  try {
-    const request2 = await readJson(
-      path.join(await contained(ctx.root, ".apexrest/jobs/" + id), "request.json")
-    );
-    if (request2.operation === "ship.intent") {
-      const { intentCreated } = await import("./chunk-ZXMWA245.mjs");
-      return await intentCreated(ctx, String(request2.input?.intent ?? ""));
-    }
-    const plan = await readJson(await contained(ctx.root, String(request2.input?.plan ?? "")));
-    const at = Date.parse(String(plan.createdAt ?? ""));
-    return Number.isFinite(at) ? at : void 0;
-  } catch {
-    return void 0;
-  }
-}
-async function supersede(ctx, id, by) {
+async function supersede(ctx, id, by, covered) {
   const root = await contained(ctx.root, ".apexrest/jobs/" + id);
   if (!await claimJob(root, "broker-superseded")) return;
-  const state = await readJson(path.join(root, "state.json"));
+  const state = await readJson(path2.join(root, "state.json"));
   if (state.operation === "ship.intent") {
-    const request2 = await readJson(path.join(root, "request.json"));
-    const { markIntentSuperseded } = await import("./chunk-ZXMWA245.mjs");
+    const request2 = await readJson(path2.join(root, "request.json"));
+    const { markIntentSuperseded } = await import("./chunk-JE5QIAM6.mjs");
     await markIntentSuperseded(ctx, String(request2.input?.intent ?? ""), by).catch(() => void 0);
   }
-  await writeJson(path.join(root, "state.json"), {
+  await writeJson(path2.join(root, "state.json"), {
     id,
     operation: state.operation ?? "ship.apply",
     status: "superseded",
     supersededBy: by,
+    ...covered?.covered ? {
+      coverage: {
+        successorRevision: covered.successorRevision,
+        coveredRevision: covered.coveredRevision,
+        scope: covered.scope,
+        overriddenFiles: covered.overriddenFiles
+      }
+    } : {},
     nextAction: `This apply never started. Job ${by}, prepared from newer sources of the same environment, applies the changes.`,
     updatedAt: (/* @__PURE__ */ new Date()).toISOString()
   });

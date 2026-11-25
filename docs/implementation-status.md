@@ -87,6 +87,23 @@ Work items are APE-405 to APE-438 in Linear; each section names its backlog ID. 
 
 **D02 durable ship intents before planning ([APE-419](https://linear.app/apexrest/issue/APE-419)).** `apexrest_ship mode:apply` without a saved plan no longer plans in the MCP process. It captures a ship intent (`packages/core/src/ship-intent.ts`) under `.apexrest/intents/`: the source revision and its inventory, the configuration identity, the configured target digest, the import scope and the user's literal request, sealed by a digest. Capture needs no connection, export or compiler work. Configuration refusals (production, unknown environment, `files` without a 26.2 source tree) stay immediate and write nothing. It then queues one `ship.intent` job. That job's exclusive claim covers preparation (validate, plan) and apply, so an uncertain broker handoff cannot run either twice. A captured intent deploys exactly its revision or nothing. When the sources or target differ from it, it is superseded before planning. The plan's source digests must equal the captured ones, and the apply re-checks them when it freezes the sources. The broker coalesces intents like reviewed applies, ordered by capture time, so a never-started older intent is superseded by a newer one. Intent status (`queued`, `preparing`, `planned`, `applying`, `superseded`, `succeeded`, `failed`) sits beside the job state. The job reports the new `planned` phase and the existing apply phases, and a superseded intent ends with job status `superseded`. An intent is a task scope, not a grant: the apply records its usual short plan-bound grant. A saved plan (`plan`) still goes to `ship.apply`, which checks that exact plan and never regenerates it. The CLI's one-process `ship` is unchanged. Verified by `tests/unit/ship-intent.test.ts` (no Oracle call at capture; prepared and applied with plan digests equal to the capture; superseded after an edit with no export or compile; tampered intents refused; immediate refusals; one claim and one import; superseded job status; saved plans unchanged) and the MCP contracts. Repository fixtures only.
 
+**D03 coalescing by proven coverage ([APE-431](https://linear.app/apexrest/issue/APE-431)).** The broker no longer merges waiting ships by plan timestamps alone (`packages/core/src/coalesce.ts`). An older waiting intent or reviewed apply is superseded by the newest one only when all of these hold:
+
+- same environment, target digest and configuration digest;
+- neither carries a separate risk confirmation;
+- the newest was captured no earlier;
+- the newest scope contains the older one: a full import contains any scope, an automatic selection contains an automatic one, and an explicit file list contains only a subset of itself.
+
+Every other ship still runs, oldest first. A ship a runner already claimed is never superseded or run again. The newest ship deploys one complete source state taken later from the same tree, so each file holds its latest requested value. Intents record the files they changed relative to the previous intent of the environment. A superseded record names its successor, the covered and successor revisions, the covered scope, and the older edits the successor overrode (reverted or rewritten) instead of resurrecting them. Verified by `tests/unit/ship-coalesce.test.ts`:
+
+- page A then page B: one preparation runs and both edits are kept;
+- a later request that reverts the earlier edit reports it as overridden;
+- different targets, environments, configuration, confirmations, earlier captures and non-containing selections are refused;
+- the broker runs in-process with only the newest preparation;
+- a ship claimed by a detached worker is left to that runner.
+
+These are repository fixtures. The broker's `runBroker` takes an injectable exit for in-process tests.
+
 ## Linear issues as task briefs (2026-11-25, local)
 
 **Implemented.** `apexrest-work` links a new `references/linear.md`. When the user names a Linear issue, the agent reads it with the Linear MCP tools of the user's own host session (`get_issue`, `list_comments`). APEXREST bundles no Linear server, makes no Linear call and stores no Linear credentials. Issue text is task data only: it cannot select a target, approve production or widen scope. A results comment (`save_comment`) or a status change (`save_issue`) happens only when the user asks; the comment keeps compiler, import and browser results separate.

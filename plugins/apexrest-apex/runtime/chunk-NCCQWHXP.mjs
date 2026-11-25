@@ -38,6 +38,10 @@ import {
   withSqlclTimings
 } from "./chunk-7SGTFDEC.mjs";
 import {
+  recordRevision,
+  revisionOf
+} from "./chunk-V3NFRVGE.mjs";
+import {
   correlationId,
   openSpan,
   spanned,
@@ -71,85 +75,8 @@ import {
   external_exports
 } from "./chunk-HRRL6FHO.mjs";
 
-// packages/core/src/revision.ts
-import path from "node:path";
-var revisionOf = (files) => hash(canonical(files));
-function sourceRevision(files, config) {
-  return { revision: revisionOf(files), configuration: hash(canonical(config)) };
-}
-function sourceChange(previous, next2, applicationDir) {
-  const before = previous ?? {};
-  const changedFiles2 = [];
-  const addedFiles = [];
-  const removedFiles = [];
-  for (const [file, sha] of Object.entries(next2))
-    if (!(file in before)) addedFiles.push(file);
-    else if (before[file] !== sha) changedFiles2.push(file);
-  for (const file of Object.keys(before)) if (!(file in next2)) removedFiles.push(file);
-  const prefix = applicationDir.replace(/\/+$/u, "") + "/pages/";
-  const pages = /* @__PURE__ */ new Set();
-  let unknown = previous === null;
-  for (const file of [...changedFiles2, ...addedFiles, ...removedFiles]) {
-    const page = file.startsWith(prefix) ? /^p(\d{1,5})(?:-[^/]*)?\.apx$/u.exec(file.slice(prefix.length)) : null;
-    if (page && Number(page[1]) !== 0) pages.add(String(Number(page[1])));
-    else unknown = true;
-  }
-  return {
-    revision: revisionOf(next2),
-    previousRevision: previous ? revisionOf(previous) : null,
-    changedFiles: changedFiles2.sort(),
-    addedFiles: addedFiles.sort(),
-    removedFiles: removedFiles.sort(),
-    affectedPages: unknown ? "unknown" : [...pages].sort((a, b) => Number(a) - Number(b))
-  };
-}
-var fileOf = (root) => path.join(root, ".apexrest", "revisions.json");
-async function read(root) {
-  const file = fileOf(root);
-  if (!await exists(file)) return { version: 1, importing: {}, deployed: {}, failed: {} };
-  const value = await readJson(file);
-  if (value?.version !== 1) return { version: 1, importing: {}, deployed: {}, failed: {} };
-  return { version: 1, importing: {}, deployed: {}, failed: {}, ...value };
-}
-var newer = (record, existing) => !existing || Date.parse(record.startedAt) >= Date.parse(existing.startedAt);
-async function recordRevision(root, kind, record) {
-  const file = fileOf(root);
-  return withLock(file + ".lock", async () => {
-    const state = await read(root);
-    let applied = false;
-    if (kind === "validated" || kind === "preview") {
-      if (newer(record, state[kind])) {
-        state[kind] = record;
-        applied = true;
-      }
-    } else {
-      const env = record.environment ?? "default";
-      const table = state[kind];
-      if (newer(record, table[env])) {
-        table[env] = record;
-        applied = true;
-      }
-      if (kind !== "importing" && state.importing[env]?.runId === record.runId) delete state.importing[env];
-    }
-    if (applied || kind !== "importing") await writeJson(file, state);
-    return applied;
-  });
-}
-async function revisionStatus(root, latestLocal) {
-  const state = await read(root);
-  const mark = (record) => record ? { ...record, current: record.revision === latestLocal.revision } : null;
-  return {
-    latestLocal,
-    validated: mark(state.validated),
-    preview: mark(state.preview),
-    importing: state.importing,
-    deployed: Object.fromEntries(Object.entries(state.deployed).map(([env, record]) => [env, mark(record)])),
-    failed: state.failed
-  };
-}
-
 // packages/core/src/deploy.ts
-import path3 from "node:path";
+import path2 from "node:path";
 import { readFile as readFile2, mkdir, cp, open, readdir, rename, rm, rmdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
@@ -522,7 +449,7 @@ function inspectSql(sql, depth = 0) {
 }
 
 // packages/core/src/sync-normalization.ts
-import path2 from "node:path";
+import path from "node:path";
 import { readFile } from "node:fs/promises";
 function sourceDifferences(local, expected) {
   return [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(expected)])].filter((file) => local[file] !== expected[file]).sort().map((file) => ({
@@ -553,14 +480,14 @@ function withoutAppId(value) {
 }
 async function generatedSourceNormalizations(localRoot, serverRoot, local, server, applicationId) {
   const differing = [.../* @__PURE__ */ new Set([...Object.keys(local), ...Object.keys(server)])].filter((file) => local[file] !== server[file]).sort();
-  const read2 = async (root, file) => readFile(await contained(root, file), "utf8");
+  const read = async (root, file) => readFile(await contained(root, file), "utf8");
   const result = [];
   const explained = /* @__PURE__ */ new Set();
   if (differing.includes(DEPLOYMENT_FILE) && local[DEPLOYMENT_FILE] && server[DEPLOYMENT_FILE]) {
     let localJson, serverJson;
     try {
-      localJson = JSON.parse(await read2(localRoot, DEPLOYMENT_FILE));
-      serverJson = JSON.parse(await read2(serverRoot, DEPLOYMENT_FILE));
+      localJson = JSON.parse(await read(localRoot, DEPLOYMENT_FILE));
+      serverJson = JSON.parse(await read(serverRoot, DEPLOYMENT_FILE));
     } catch {
       return void 0;
     }
@@ -573,14 +500,14 @@ async function generatedSourceNormalizations(localRoot, serverRoot, local, serve
     explained.add(DEPLOYMENT_FILE);
   }
   if (differing.includes(SUPPORTING_OBJECTS) && local[SUPPORTING_OBJECTS] && server[SUPPORTING_OBJECTS]) {
-    const localText = await read2(localRoot, SUPPORTING_OBJECTS);
+    const localText = await read(localRoot, SUPPORTING_OBJECTS);
     const match = DEINSTALL_BLOCK.exec(localText);
     if (!match) return void 0;
-    const script = path2.posix.normalize(path2.posix.join(path2.posix.dirname(SUPPORTING_OBJECTS), match[2]));
+    const script = path.posix.normalize(path.posix.join(path.posix.dirname(SUPPORTING_OBJECTS), match[2]));
     if (script.startsWith("..") || !local[script] || server[script]) return void 0;
-    if ((await read2(localRoot, script)).trim() !== "") return void 0;
+    if ((await read(localRoot, script)).trim() !== "") return void 0;
     const stripped = localText.slice(0, match.index) + localText.slice(match.index + match[0].length);
-    if (stripped !== await read2(serverRoot, SUPPORTING_OBJECTS)) return void 0;
+    if (stripped !== await read(serverRoot, SUPPORTING_OBJECTS)) return void 0;
     result.push(
       { file: SUPPORTING_OBJECTS, rule: "empty-deinstall-script", action: "replaced" },
       { file: script, rule: "empty-deinstall-script", action: "removed" }
@@ -887,11 +814,11 @@ function securityAttributes(text) {
   return out;
 }
 async function securityChanged(local, server) {
-  const read2 = async (root, files, file) => files[file] === void 0 ? [] : securityAttributes(await readFile2(await contained(root, file), "utf8"));
+  const read = async (root, files, file) => files[file] === void 0 ? [] : securityAttributes(await readFile2(await contained(root, file), "utf8"));
   for (const file of /* @__PURE__ */ new Set([...Object.keys(server.files), ...Object.keys(local.files)])) {
     if (local.files[file] === server.files[file]) continue;
     if (/authenticat|authoriz/i.test(file)) return true;
-    if (canonical(await read2(local.root, local.files, file)) !== canonical(await read2(server.root, server.files, file)))
+    if (canonical(await read(local.root, local.files, file)) !== canonical(await read(server.root, server.files, file)))
       return true;
   }
   return false;
@@ -931,7 +858,7 @@ async function authorizePlan(ctx, plan, env, local = false) {
     );
 }
 var migrationName = /^(\d{4,})__[A-Za-z0-9_-]+\.sql$/;
-var migrationVersion = (file) => BigInt(migrationName.exec(path3.basename(file))?.[1] ?? "-1");
+var migrationVersion = (file) => BigInt(migrationName.exec(path2.basename(file))?.[1] ?? "-1");
 function operationOrder(a, b) {
   const kind = (a.kind === "migration" ? 0 : 1) - (b.kind === "migration" ? 0 : 1);
   if (kind) return kind;
@@ -1015,19 +942,19 @@ async function sourceInventory(ctx) {
       for (const [file, sha] of Object.entries(await inventory(dir))) files[relative + "/" + file] = sha;
   }
   for (const relative of ["package.json", "package-lock.json"])
-    if (await exists(path3.join(ctx.root, relative)))
+    if (await exists(path2.join(ctx.root, relative)))
       files[relative] = hash(await readFile2(await contained(ctx.root, relative)));
   return Object.fromEntries(Object.entries(files).sort());
 }
 async function appendJournal(runDir, event) {
-  const journal = await open(path3.join(runDir, "journal.jsonl"), "a", 384);
+  const journal = await open(path2.join(runDir, "journal.jsonl"), "a", 384);
   try {
     await journal.writeFile(JSON.stringify(event) + "\n");
     await journal.sync();
   } finally {
     await journal.close();
   }
-  await writeJson(path3.join(runDir, "state.json"), event);
+  await writeJson(path2.join(runDir, "state.json"), event);
 }
 var postImportSchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
@@ -1045,18 +972,18 @@ var postImportSchema = external_exports.strictObject({
 });
 var POST_IMPORT_FILE = "post-import.json";
 async function lastImportProof(ctx, name, env, local, current) {
-  const runs = path3.join(ctx.root, ".apexrest/deployments");
+  const runs = path2.join(ctx.root, ".apexrest/deployments");
   let refused = "no-recorded-import";
   let proof = null;
   const entries = await exists(runs) ? await readdir(runs, { withFileTypes: true }) : [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    const runDir = path3.join(runs, entry.name);
+    const runDir = path2.join(runs, entry.name);
     try {
-      if (!await exists(path3.join(runDir, POST_IMPORT_FILE))) continue;
-      const record = postImportSchema.parse(await readJson(path3.join(runDir, POST_IMPORT_FILE)));
-      const plan = deployPlanSchema.parse(await readJson(path3.join(runDir, "plan.json")));
-      const state = await readJson(path3.join(runDir, "state.json"));
+      if (!await exists(path2.join(runDir, POST_IMPORT_FILE))) continue;
+      const record = postImportSchema.parse(await readJson(path2.join(runDir, POST_IMPORT_FILE)));
+      const plan = deployPlanSchema.parse(await readJson(path2.join(runDir, "plan.json")));
+      const state = await readJson(path2.join(runDir, "state.json"));
       const files = applicationFiles(ctx, plan.sources);
       if (record.runId !== entry.name || state.runId !== record.runId || state.state !== "succeeded" || plan.digest !== planDigest(plan) || record.planDigest !== plan.digest || plan.restore || plan.scope !== "full-application-import" || plan.schemaVersion === 4 && plan.importSelection.resolvedMode === "files" || plan.projectId !== ctx.config.projectId || record.projectId !== ctx.config.projectId || plan.projectRoot !== ctx.root || record.projectRoot !== ctx.root || plan.environment !== name || record.environment !== name || plan.targetDigest !== targetDigest(env) || record.targetDigest !== targetDigest(env) || record.sourceDir !== ctx.config.application.sourceDir || record.applicationDigest !== hash(canonical(files)))
         continue;
@@ -1339,13 +1266,13 @@ var DeploymentService = class {
         const syncId = randomUUID(), backupId = randomUUID();
         const baselineDir = ".apexrest/sync/" + targetDigest(env) + "/baselines/" + syncId + "/application";
         const baselineRoot = await syncPath(ctx, baselineDir), backupRoot = await syncPath(ctx, ".apexrest/backups/" + backupId);
-        await mkdir(path3.dirname(baselineRoot), { recursive: true, mode: 448 });
+        await mkdir(path2.dirname(baselineRoot), { recursive: true, mode: 448 });
         await privateCopy(exported.directory, baselineRoot);
         const baseline = { directory: baselineDir, files: exported.files, digest: exported.digest };
         await checkSnapshot(ctx, baseline);
         await mkdir(backupRoot, { recursive: true, mode: 448 });
-        await privateCopy(exported.directory, path3.join(backupRoot, "application"));
-        await writeJson(path3.join(backupRoot, "backup.json"), {
+        await privateCopy(exported.directory, path2.join(backupRoot, "application"));
+        await writeJson(path2.join(backupRoot, "backup.json"), {
           schemaVersion: 1,
           backupId,
           targetDigest: targetDigest(env),
@@ -1419,7 +1346,7 @@ var DeploymentService = class {
               const target2 = await contained(source, change.file);
               if (change.action === "removed") await rm(target2);
               else {
-                await mkdir(path3.dirname(target2), { recursive: true });
+                await mkdir(path2.dirname(target2), { recursive: true });
                 await cp(await contained(baselineRoot, change.file), target2, { force: true });
               }
             }
@@ -1448,7 +1375,7 @@ var DeploymentService = class {
             }
           }
         } else {
-          await mkdir(path3.dirname(source), { recursive: true });
+          await mkdir(path2.dirname(source), { recursive: true });
           const replacement = await syncPath(
             ctx,
             ".apexrest/sync/" + targetDigest(env) + "/baselines/" + syncId + "/new-working-copy"
@@ -1521,7 +1448,7 @@ var DeploymentService = class {
           let pending = false;
           for (const [file, sha] of Object.entries(sources)) {
             if (file.startsWith(ctx.config.database.migrationsDir + "/")) {
-              const previous = applied.get(path3.basename(file));
+              const previous = applied.get(path2.basename(file));
               if (previous && previous !== sha)
                 throw new Fault("MIGRATION_HISTORY_CONFLICT", "Applied migration changed.", 5);
               if (!previous) pending = true;
@@ -1653,7 +1580,7 @@ var DeploymentService = class {
           continue;
         }
         if (file.startsWith(ctx.config.database.migrationsDir + "/")) {
-          const old = history.get(path3.basename(file));
+          const old = history.get(path2.basename(file));
           if (!old) return fallback(["database-operations-require-full-import"]);
           if (old.checksum !== sha)
             throw new Fault("MIGRATION_HISTORY_CONFLICT", "Applied migration changed.", 5);
@@ -1838,10 +1765,10 @@ var DeploymentService = class {
       if (!file.endsWith(".sql"))
         throw new Fault("UNSUPPORTED_DB_SOURCE", "Database execution directories accept .sql files only.", 3);
       const sql = await readFile2(await contained(ctx.root, file), "utf8");
-      const runs = migration ? !history.has(path3.basename(file)) : packageHistory[file] !== sha256;
+      const runs = migration ? !history.has(path2.basename(file)) : packageHistory[file] !== sha256;
       if (runs) risks.push(...migrationRisk(sql).map((r) => `${r}:${file}`));
       if (migration) {
-        const version = path3.basename(file);
+        const version = path2.basename(file);
         if (!/^\d{4,}__[A-Za-z0-9_-]+\.sql$/.test(version))
           throw new Fault(
             "INVALID_MIGRATION_NAME",
@@ -1866,11 +1793,11 @@ var DeploymentService = class {
             root: await contained(ctx.root, ctx.config.application.sourceDir),
             files: applicationFiles(ctx, sources)
           },
-          { root: path3.resolve(ctx.root, current.exported.directory), files: current.exported.files }
+          { root: path2.resolve(ctx.root, current.exported.directory), files: current.exported.files }
         ))
           risks.push("authentication-or-authorization-change");
         if (!working || fresh)
-          await this.keepPlanObservation(ctx, id, path3.resolve(ctx.root, current.exported.directory));
+          await this.keepPlanObservation(ctx, id, path2.resolve(ctx.root, current.exported.directory));
       } finally {
         if (!working || fresh)
           await this.oracle.discardStage?.(current.exported.stage);
@@ -1991,7 +1918,7 @@ var DeploymentService = class {
         if (!kind) continue;
         if (!file.endsWith(".sql"))
           throw new Fault("UNSUPPORTED_DB_SOURCE", "Database sources must be SQL files.", 5);
-        const previous = history.get(path3.basename(file));
+        const previous = history.get(path2.basename(file));
         if (kind === "migration" && previous && (previous.checksum !== sha256 || previous.status !== "succeeded"))
           throw new Fault("MIGRATION_HISTORY_CONFLICT", "Migration requires reconciliation.", 5);
         const runs = kind === "migration" ? !previous : plan.packageHistory?.[file] !== sha256;
@@ -2115,8 +2042,8 @@ var DeploymentService = class {
     let working = await this.checkWorkingPlan(ctx, plan);
     const syncStore = new SyncStore(ctx, env, plan.environment);
     const prepare = !plan.restore && plan.scope !== "database-only" && !!this.oracle.prepareImport;
-    const runDir = path3.join(ctx.root, ".apexrest/deployments", runId);
-    const importDirectory = prepare && selection ? path3.join(runDir, "snapshot", ctx.config.application.sourceDir) : void 0;
+    const runDir = path2.join(ctx.root, ".apexrest/deployments", runId);
+    const importDirectory = prepare && selection ? path2.join(runDir, "snapshot", ctx.config.application.sourceDir) : void 0;
     if (importDirectory) await mkdir(importDirectory, { recursive: true, mode: 448 });
     const preparing = prepare ? openSpan("compilerPreparation", void 0, { background: true }) : void 0;
     const warmImport = prepare ? await this.oracle.prepareImport(
@@ -2149,7 +2076,7 @@ var DeploymentService = class {
     } finally {
       await warmImport?.close().catch(() => {
       });
-      for (let directory = importDirectory; directory && directory.startsWith(runDir); directory = path3.dirname(directory)) {
+      for (let directory = importDirectory; directory && directory.startsWith(runDir); directory = path2.dirname(directory)) {
         try {
           await rmdir(directory);
         } catch {
@@ -2234,7 +2161,7 @@ var DeploymentService = class {
     }
     if (signal?.aborted)
       throw new Fault("CANCELLED", "Deployment cancelled before lease acquisition.", 6, "cancelled");
-    const runs = path3.join(ctx.root, ".apexrest/deployments"), runDir = path3.join(runs, runId);
+    const runs = path2.join(ctx.root, ".apexrest/deployments"), runDir = path2.join(runs, runId);
     await mkdir(runDir, { recursive: true, mode: 448 });
     let state = "planned", writeStarted = false, importConfirmed = false, importRejected = false, syncMarked = false, syncSucceeded = false;
     let freshBackupId = null;
@@ -2296,7 +2223,7 @@ var DeploymentService = class {
       await appendJournal(runDir, event);
       await recordRunRevision(nextState, details);
     };
-    await writeJson(path3.join(runDir, "plan.json"), plan);
+    await writeJson(path2.join(runDir, "plan.json"), plan);
     await record("approved");
     await this.lease(env, runId, false);
     try {
@@ -2317,14 +2244,14 @@ var DeploymentService = class {
         );
         const copying = openSpan("backupCopyHash", void 0, { parent: backingUp.id });
         try {
-          const backupId = randomUUID(), directory = path3.join(ctx.root, ".apexrest/backups", backupId);
+          const backupId = randomUUID(), directory = path2.join(ctx.root, ".apexrest/backups", backupId);
           await mkdir(directory, { recursive: true, mode: 448 });
           const backupPath = backup.directory.startsWith(".apexrest/") ? await syncPath(ctx, backup.directory) : backup.directory;
-          await privateCopy(backupPath, path3.join(directory, "application"));
-          const files = await inventory(path3.join(directory, "application"));
+          await privateCopy(backupPath, path2.join(directory, "application"));
+          const files = await inventory(path2.join(directory, "application"));
           if (!scoped && !Object.keys(files).length || hash(canonical(files)) !== backup.digest)
             throw new Fault("BACKUP_INVALID", "Backup copy failed checksum verification.", 1);
-          await writeJson(path3.join(directory, "backup.json"), {
+          await writeJson(path2.join(directory, "backup.json"), {
             schemaVersion: 1,
             backupId,
             runId,
@@ -2340,7 +2267,7 @@ var DeploymentService = class {
             restoreProcedure: "Reviewed APEXlang import in the recorded scope; newly created components have no previous source to restore. Schema/data recovery is separate."
           });
           freshBackupId = backupId;
-          await writeJson(path3.join(runDir, "backup.json"), {
+          await writeJson(path2.join(runDir, "backup.json"), {
             backupId,
             checksum: backup.digest,
             targetDigest: plan.targetDigest
@@ -2364,21 +2291,21 @@ var DeploymentService = class {
           await this.oracle.discardStage?.(after.exported?.stage);
         }
       }
-      const snapshot = path3.join(runDir, "snapshot");
+      const snapshot = path2.join(runDir, "snapshot");
       const freezing = openSpan("sourceFreeze", { files: Object.keys(plan.sources).length });
       await mkdir(snapshot, { recursive: true, mode: 448 });
       for (const [file, sha] of Object.entries(plan.sources)) {
         const source = await contained(ctx.root, file), destination = await contained(snapshot, file);
-        await mkdir(path3.dirname(destination), { recursive: true });
+        await mkdir(path2.dirname(destination), { recursive: true });
         await cp(source, destination);
         if (hash(await readFile2(destination)) !== sha)
           throw new Fault("SOURCE_DRIFT", "Source changed while freezing deployment.", 5);
       }
       if (selection) {
         await checkSnapshot(ctx, selection.effective);
-        const application = path3.join(snapshot, ctx.config.application.sourceDir);
+        const application = path2.join(snapshot, ctx.config.application.sourceDir);
         for (const entry of await readdir(application))
-          await rm(path3.join(application, entry), { recursive: true });
+          await rm(path2.join(application, entry), { recursive: true });
         await privateCopy(await syncPath(ctx, selection.effective.directory), application);
         if (canonical(await inventory(application)) !== canonical(selection.effective.files))
           throw new Fault("SOURCE_DRIFT", "Selected source changed while freezing deployment.", 5);
@@ -2444,7 +2371,7 @@ var DeploymentService = class {
           if (operation.kind === "migration")
             await new LocalDeploymentControl(env).migration(
               runId,
-              path3.basename(file),
+              path2.basename(file),
               operation.sha256,
               "started"
             );
@@ -2466,7 +2393,7 @@ prompt ${marker}`,
           if (!scriptCompleted(executed?.output, marker))
             throw new Fault(
               "SCRIPT_INCOMPLETE",
-              `SQLcl did not confirm that ${path3.basename(file)} ran to completion.`,
+              `SQLcl did not confirm that ${path2.basename(file)} ran to completion.`,
               6,
               "outcome_unknown"
             );
@@ -2480,12 +2407,12 @@ prompt ${marker}`,
           if (operation.kind === "migration") {
             await new LocalDeploymentControl(env).migration(
               runId,
-              path3.basename(file),
+              path2.basename(file),
               operation.sha256,
               "succeeded"
             );
             completedMigrations.push({
-              version: path3.basename(file),
+              version: path2.basename(file),
               checksum: operation.sha256,
               status: "succeeded",
               run_id: runId
@@ -2514,7 +2441,7 @@ prompt ${marker}`,
           ".apexrest/backups/" + plan.restore.backupId + "/application"
         );
         const { file, bytes } = await readLegacyRestore(backupRoot, plan.restore.checksum);
-        await atomicWrite(path3.join(runDir, "restore", file), bytes);
+        await atomicWrite(path2.join(runDir, "restore", file), bytes);
         const restoredSync = await syncStore.read();
         if (restoredSync && restoredSync.status !== "invalidated")
           await syncStore.lock(
@@ -2538,13 +2465,13 @@ prompt ${marker}`,
           )
         ) !== plan.restore.checksum)
           throw new Fault("BACKUP_INVALID", "Restore source changed after approval.", 5);
-        if (selection && canonical(await inventory(path3.join(snapshot, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
+        if (selection && canonical(await inventory(path2.join(snapshot, ctx.config.application.sourceDir))) !== canonical(selection.effective.files))
           throw new Fault("SOURCE_DRIFT", "Frozen selected source changed before import.", 5);
         if (controller.signal.aborted)
           throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
-        let importSource = path3.join(snapshot, ctx.config.application.sourceDir);
+        let importSource = path2.join(snapshot, ctx.config.application.sourceDir);
         if (plan.restore && !selection) {
-          const frozen = path3.join(runDir, "restore");
+          const frozen = path2.join(runDir, "restore");
           await privateCopy(
             await syncPath(ctx, ".apexrest/backups/" + plan.restore.backupId + "/application"),
             frozen
@@ -2686,7 +2613,7 @@ ${error.message}`,
               policy: "exact-bytes",
               normalizations: []
             };
-            await writeJson(path3.join(runDir, "readback-verification.json"), {
+            await writeJson(path2.join(runDir, "readback-verification.json"), {
               ...comparison,
               scope: scoped ? "selected" : "full",
               sourceObservationScope: selection.exportScope ?? "full",
@@ -2743,7 +2670,7 @@ ${error.message}`,
         try {
           const files = applicationFiles(ctx, plan.sources);
           await writeJson(
-            path3.join(runDir, POST_IMPORT_FILE),
+            path2.join(runDir, POST_IMPORT_FILE),
             postImportSchema.parse({
               schemaVersion: 1,
               runId,
@@ -2858,13 +2785,13 @@ ${error.message}`,
   async recoveryRead(ctx, runId, requestedEnvironment) {
     parse(external_exports.uuid(), runId);
     const directory = await contained(ctx.root, ".apexrest/deployments/" + runId);
-    if (!await exists(path3.join(directory, "plan.json")))
+    if (!await exists(path2.join(directory, "plan.json")))
       throw new Fault(
         "DEPLOYMENT_RUN_NOT_FOUND",
         `No deployment run ${runId} exists in this project. Pass the deploymentRunId from the failed apexrest_ship result (data.deploymentRunId), not the result's runId or a jobId.`,
         2
       );
-    const plan = parse(deployPlanSchema, await readJson(path3.join(directory, "plan.json")));
+    const plan = parse(deployPlanSchema, await readJson(path2.join(directory, "plan.json")));
     if (requestedEnvironment !== void 0 && requestedEnvironment !== plan.environment)
       throw new Fault(
         "PLAN_ENVIRONMENT_MISMATCH",
@@ -2896,7 +2823,7 @@ ${error.message}`,
         "The actual server/application identity changed before reconciliation.",
         5
       );
-    const state = await readJson(path3.join(directory, "state.json"));
+    const state = await readJson(path2.join(directory, "state.json"));
     const expectedDirectory = selection?.effective?.directory ?? ".apexrest/deployments/" + runId + "/snapshot/" + ctx.config.application.sourceDir;
     const expectedInventory = selection?.effective?.files ?? applicationFiles(ctx, plan.sources);
     const expectedFiles = scoped ? pickFiles(expectedInventory, selection.files) : expectedInventory;
@@ -3119,7 +3046,7 @@ ${error.message}`,
       const context = await syncPath(ctx, ".apexrest/restore-context/" + randomUUID());
       await overlaySelection(
         await syncPath(ctx, ctx.config.application.sourceDir),
-        path3.join(directory, "application"),
+        path2.join(directory, "application"),
         backup.selectedFiles,
         context
       );
@@ -3137,7 +3064,7 @@ ${error.message}`,
         await rm(context, { recursive: true, force: true });
       }
     } else {
-      if (backup.format === "APEXLANG") await this.oracle.validate(path3.join(directory, "application"));
+      if (backup.format === "APEXLANG") await this.oracle.validate(path2.join(directory, "application"));
       plan = await withConnectedReads(
         () => this.legacyPlan(ctx, backup.environment, true, false, void 0, backupAlias)
       );
@@ -3168,11 +3095,6 @@ ${error.message}`,
 };
 
 export {
-  revisionOf,
-  sourceRevision,
-  sourceChange,
-  recordRevision,
-  revisionStatus,
   deployPlanSchema,
   planDigest,
   sourceInventory,

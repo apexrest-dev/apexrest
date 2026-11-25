@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { environment, refuseProductionDeployment, targetDigest, type ProjectContext } from './config.ts';
 import { atomicWrite, canonical, contained, exists, hash, readJson } from './fs.ts';
 import { Fault } from './result.ts';
@@ -30,6 +30,11 @@ export interface ShipIntent {
   inventory: Record<string, string>;
   importMode: NonNullable<ImportOptions['importMode']>;
   files?: string[];
+  /**
+   * Files this intent changed relative to the previous intent of the same environment (absent for
+   * the first one): the edits that coalescing must carry or report as overridden.
+   */
+  changedFiles?: string[];
   userRequest: string;
   digest: string;
 }
@@ -69,6 +74,12 @@ export async function captureShipIntent(
   });
   const inventory = await sourceInventory(ctx);
   const { revision, configuration } = sourceRevision(inventory, ctx.config);
+  const previous = await latestIntent(ctx, input.env);
+  const changedFiles = previous
+    ? [...new Set([...Object.keys(previous.inventory), ...Object.keys(inventory)])]
+        .filter((file) => previous.inventory[file] !== inventory[file])
+        .sort()
+    : undefined;
   const body = {
     schemaVersion: 1 as const,
     id: randomUUID(),
@@ -80,12 +91,26 @@ export async function captureShipIntent(
     inventory,
     importMode: requested.importMode,
     ...(input.files ? { files: [...input.files] } : {}),
+    ...(changedFiles ? { changedFiles } : {}),
     userRequest: input.userRequest,
   };
   const intent: ShipIntent = { ...body, digest: hash(canonical(body)) };
   await atomicWrite(await intentPath(ctx, intent.id), JSON.stringify(intent) + '\n');
   await setIntentStatus(ctx, intent.id, 'queued');
   return intent;
+}
+
+/** The most recently captured readable intent of an environment. */
+async function latestIntent(ctx: ProjectContext, env: string): Promise<ShipIntent | undefined> {
+  const dir = await contained(ctx.root, '.apexrest/intents');
+  if (!(await exists(dir))) return undefined;
+  let latest: ShipIntent | undefined;
+  for (const name of await readdir(dir)) {
+    if (!name.endsWith('.json') || name.endsWith('.state.json')) continue;
+    const intent = await readShipIntent(ctx, name.slice(0, -5)).catch(() => undefined);
+    if (intent?.env === env && (!latest || intent.createdAt > latest.createdAt)) latest = intent;
+  }
+  return latest;
 }
 
 export async function readShipIntent(ctx: ProjectContext, id: string): Promise<ShipIntent> {

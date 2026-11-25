@@ -1345,6 +1345,19 @@
         "tests/unit/ship-intent.test.ts"
       ],
       "blocker": "Repository fixtures. Native broker timing with real exports is part of the D-series measurements."
+    },
+    {
+      "id": "FASTDEV-D03",
+      "criterion": "The broker supersedes a waiting ship only when the newest one provably contains it (same target, configuration and authorization, containing scope, later source state), keeps latest requested values, never replaces started work, and records the successor, revisions, scope and overridden edits",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/coalesce.ts",
+        "packages/core/src/broker.ts",
+        "packages/core/src/ship-intent.ts",
+        "tests/unit/ship-coalesce.test.ts"
+      ],
+      "blocker": "Repository fixtures with an in-process broker."
     }
   ]
 }

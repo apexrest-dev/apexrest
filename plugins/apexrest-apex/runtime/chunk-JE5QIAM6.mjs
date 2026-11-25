@@ -2,11 +2,10 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   shipApply,
   shipPlan
-} from "./chunk-SNXCRPR5.mjs";
+} from "./chunk-BA27RM6L.mjs";
 import {
-  sourceInventory,
-  sourceRevision
-} from "./chunk-K3MFNBA3.mjs";
+  sourceInventory
+} from "./chunk-NCCQWHXP.mjs";
 import "./chunk-DOWWSLS6.mjs";
 import "./chunk-C66KGFY2.mjs";
 import {
@@ -15,6 +14,9 @@ import {
 } from "./chunk-JI42DR2Q.mjs";
 import "./chunk-QLJHOYUI.mjs";
 import "./chunk-7SGTFDEC.mjs";
+import {
+  sourceRevision
+} from "./chunk-V3NFRVGE.mjs";
 import "./chunk-KUKVCAPO.mjs";
 import "./chunk-IIUPXDVT.mjs";
 import {
@@ -37,7 +39,7 @@ import {
 // packages/core/src/ship-intent.ts
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 var intentPath = (ctx, id) => contained(ctx.root, `.apexrest/intents/${id}.json`);
 var statePath = (ctx, id) => contained(ctx.root, `.apexrest/intents/${id}.state.json`);
 async function checkShipRequest(ctx, name, options) {
@@ -62,6 +64,8 @@ async function captureShipIntent(ctx, input) {
   });
   const inventory = await sourceInventory(ctx);
   const { revision, configuration } = sourceRevision(inventory, ctx.config);
+  const previous = await latestIntent(ctx, input.env);
+  const changedFiles = previous ? [.../* @__PURE__ */ new Set([...Object.keys(previous.inventory), ...Object.keys(inventory)])].filter((file) => previous.inventory[file] !== inventory[file]).sort() : void 0;
   const body = {
     schemaVersion: 1,
     id: randomUUID(),
@@ -73,12 +77,24 @@ async function captureShipIntent(ctx, input) {
     inventory,
     importMode: requested.importMode,
     ...input.files ? { files: [...input.files] } : {},
+    ...changedFiles ? { changedFiles } : {},
     userRequest: input.userRequest
   };
   const intent = { ...body, digest: hash(canonical(body)) };
   await atomicWrite(await intentPath(ctx, intent.id), JSON.stringify(intent) + "\n");
   await setIntentStatus(ctx, intent.id, "queued");
   return intent;
+}
+async function latestIntent(ctx, env) {
+  const dir = await contained(ctx.root, ".apexrest/intents");
+  if (!await exists(dir)) return void 0;
+  let latest;
+  for (const name of await readdir(dir)) {
+    if (!name.endsWith(".json") || name.endsWith(".state.json")) continue;
+    const intent = await readShipIntent(ctx, name.slice(0, -5)).catch(() => void 0);
+    if (intent?.env === env && (!latest || intent.createdAt > latest.createdAt)) latest = intent;
+  }
+  return latest;
 }
 async function readShipIntent(ctx, id) {
   const file = await intentPath(ctx, id);
