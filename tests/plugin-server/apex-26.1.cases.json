@@ -1598,6 +1598,23 @@
       ],
       "evidence": ["sanitized result code", "compiler diagnostics count", "column and displayColumn order"],
       "budgetMs": 15000
+    },
+    {
+      "id": "A261-075",
+      "title": "Dialog action on an existing page",
+      "acceptance": ["FASTDEV-A05"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Add a row link and a create button to an existing modal page with addDialogAction.",
+        "Validate."
+      ],
+      "expected": [
+        "Links and button target the modal page with the mapped items; one dialog-closed refresh per trigger; existing refreshes reused; the compiler passes."
+      ],
+      "evidence": ["sanitized result code", "compiler diagnostics count", "dynamic action count"],
+      "budgetMs": 15000
     }
   ],
   "metrics": "quality-performance.json"

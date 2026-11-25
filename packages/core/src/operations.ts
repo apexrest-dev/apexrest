@@ -260,6 +260,33 @@ export const schemas = {
               .optional(),
           }),
           z.strictObject({
+            op: z.literal('addDialogAction'),
+            target: z.strictObject({
+              page: z.number().int().min(1).max(99999),
+              items: z.record(z.string().min(1).max(128), z.string().max(4000)).optional(),
+              clearCache: z.array(z.number().int().min(1).max(99999)).max(30).optional(),
+            }),
+            button: z
+              .strictObject({
+                id: z.string().min(1).max(255),
+                label: z.string().min(1).max(4000),
+                region: z.string().min(1).max(255),
+              })
+              .optional(),
+            link: z
+              .strictObject({
+                region: z.string().min(1).max(255),
+                column: z.string().min(1).max(128).optional(),
+                linkText: z.string().max(4000).optional(),
+              })
+              .optional(),
+            refresh: z.string().min(1).max(255).optional(),
+            expectedTargetDigest: z
+              .string()
+              .regex(/^[a-f0-9]{64}$/u)
+              .optional(),
+          }),
+          z.strictObject({
             op: z.literal('addColumn'),
             region: z.string().min(1).max(255),
             sql: z.string().max(100000).describe('Complete SQL naming every column'),

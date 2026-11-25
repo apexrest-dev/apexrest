@@ -41,6 +41,13 @@ export interface PageSnapshot {
   node: ComponentNode;
   /** The parsed `page` component (values). */
   parsed: ApxComponent;
+  /** Other source files an operation depends on, read in the same transaction (`page:N`). */
+  related: Map<string, Related>;
+}
+export interface Related {
+  file: string;
+  digest: string;
+  parsed: ApxComponent;
 }
 
 /** A planned operation: text edits against the snapshot and a check of the parsed result. */
@@ -49,6 +56,8 @@ export interface PlannedEdit {
   verify: (page: ApxComponent) => void;
   /** Targets the operation changed or created, for the result's context delta. */
   targets?: string[];
+  /** Things the operation deliberately did not change but the caller should review. */
+  warnings?: string[];
 }
 
 /** Plans one group of operations of the same kind; throws a Fault for anything it cannot do. */
@@ -77,6 +86,7 @@ export interface TransactionResult {
   /** The edited text (internal: callers derive their compact results from it). */
   result: string;
   targets: string[];
+  warnings?: string[];
   next?: string;
 }
 
@@ -97,12 +107,17 @@ function combine(plans: PlannedEdit[]): TextEdit[] {
   return edits;
 }
 
-export function snapshotOf(source: string, pageId: string, release: Release = '26.2'): PageSnapshot {
+export function snapshotOf(
+  source: string,
+  pageId: string,
+  release: Release = '26.2',
+  related: Map<string, Related> = new Map(),
+): PageSnapshot {
   const doc = new ApexLangDocument(source);
   const node = ApexLangDocument.one(doc.roots, 'page', pageId, 'The file');
   const parsed = parseApexLang(source, 'page').find((c) => c.type === 'page' && c.id === node.key);
   if (!parsed) throw new Fault('TARGET_NOT_FOUND', `No page ${pageId} in its file.`, 2);
-  return { source, pageId, release, doc, node, parsed };
+  return { source, pageId, release, doc, node, parsed, related };
 }
 
 /** Plans, applies and validates a group sequence in memory; nothing is written. */
@@ -111,8 +126,9 @@ export function transformPage(
   pageId: string,
   groups: ((snapshot: PageSnapshot) => PlannedEdit)[],
   release: Release = '26.2',
-): { result: string; edits: number; targets: string[] } {
-  const snapshot = snapshotOf(source, pageId, release);
+  related: Map<string, Related> = new Map(),
+): { result: string; edits: number; targets: string[]; warnings: string[] } {
+  const snapshot = snapshotOf(source, pageId, release, related);
   const plans = groups.map((plan) => plan(snapshot));
   const edits = combine(plans);
   const result = applyEdits(source, edits);
@@ -126,7 +142,12 @@ export function transformPage(
   new ApexLangDocument(result);
   if (!after) throw new Fault('TRANSFORM_INVALID', `Page ${pageId} did not read back.`, 5);
   for (const plan of plans) plan.verify(after);
-  return { result, edits: edits.length, targets: [...new Set(plans.flatMap((plan) => plan.targets ?? []))] };
+  return {
+    result,
+    edits: edits.length,
+    targets: [...new Set(plans.flatMap((plan) => plan.targets ?? []))],
+    warnings: [...new Set(plans.flatMap((plan) => plan.warnings ?? []))],
+  };
 }
 
 /**
@@ -137,6 +158,8 @@ export async function runPageTransaction<T>(
   ctx: ProjectContext,
   input: TransactionInput<T>,
   groups: (operations: T[]) => ((snapshot: PageSnapshot) => PlannedEdit)[],
+  /** Other pages the operations read (a dialog's modal page); read with the page, under the same lock. */
+  dependencies: (operations: T[]) => number[] = () => [],
 ): Promise<TransactionResult> {
   if (!/^\d{1,5}$/u.test(input.page)) throw new Fault('INVALID_INPUT', 'page is a page number.', 2);
   if (!input.operations.length || input.operations.length > 50)
@@ -148,10 +171,23 @@ export async function runPageTransaction<T>(
   const release: Release = found === '26.1' ? '26.1' : '26.2';
   const plan = async () => {
     const source = await readFile(file, 'utf8');
+    const related = new Map<string, Related>();
+    for (const page of new Set(dependencies(input.operations))) {
+      const other = await pageFile(ctx, String(page)).catch(() => undefined);
+      if (!other) continue;
+      const text = await readFile(other, 'utf8');
+      const parsed = parseApexLang(text, 'related').find((c) => c.type === 'page');
+      if (parsed)
+        related.set(`page:${page}`, {
+          file: path.relative(ctx.root, other).split(path.sep).join('/'),
+          digest: digestOf(text),
+          parsed,
+        });
+    }
     return {
       source,
       digest: digestOf(source),
-      ...transformPage(source, pageId, groups(input.operations), release),
+      ...transformPage(source, pageId, groups(input.operations), release, related),
     };
   };
   const described = (source: string, result: string) => {
@@ -181,6 +217,7 @@ export async function runPageTransaction<T>(
       ...described(planned.source, planned.result),
       result: planned.result,
       targets: planned.targets,
+      ...(planned.warnings.length ? { warnings: planned.warnings } : {}),
       next: `Apply with expectedDigest ${planned.digest}.`,
     };
   }
@@ -208,6 +245,7 @@ export async function runPageTransaction<T>(
       ...described(planned.source, planned.result),
       result: planned.result,
       targets: planned.targets,
+      ...(planned.warnings.length ? { warnings: planned.warnings } : {}),
       next: 'Source edited only. Validate or ship to check it with the compiler and import it.',
     };
   });

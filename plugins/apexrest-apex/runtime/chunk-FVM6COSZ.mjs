@@ -3728,15 +3728,15 @@ function combine(plans) {
     }
   return edits;
 }
-function snapshotOf(source, pageId, release = "26.2") {
+function snapshotOf(source, pageId, release = "26.2", related = /* @__PURE__ */ new Map()) {
   const doc = new ApexLangDocument(source);
   const node = ApexLangDocument.one(doc.roots, "page", pageId, "The file");
   const parsed = parseApexLang(source, "page").find((c) => c.type === "page" && c.id === node.key);
   if (!parsed) throw new Fault("TARGET_NOT_FOUND", `No page ${pageId} in its file.`, 2);
-  return { source, pageId, release, doc, node, parsed };
+  return { source, pageId, release, doc, node, parsed, related };
 }
-function transformPage(source, pageId, groups, release = "26.2") {
-  const snapshot = snapshotOf(source, pageId, release);
+function transformPage(source, pageId, groups, release = "26.2", related = /* @__PURE__ */ new Map()) {
+  const snapshot = snapshotOf(source, pageId, release, related);
   const plans = groups.map((plan) => plan(snapshot));
   const edits = combine(plans);
   const result = applyEdits(source, edits);
@@ -3749,9 +3749,14 @@ function transformPage(source, pageId, groups, release = "26.2") {
   new ApexLangDocument(result);
   if (!after) throw new Fault("TRANSFORM_INVALID", `Page ${pageId} did not read back.`, 5);
   for (const plan of plans) plan.verify(after);
-  return { result, edits: edits.length, targets: [...new Set(plans.flatMap((plan) => plan.targets ?? []))] };
+  return {
+    result,
+    edits: edits.length,
+    targets: [...new Set(plans.flatMap((plan) => plan.targets ?? []))],
+    warnings: [...new Set(plans.flatMap((plan) => plan.warnings ?? []))]
+  };
 }
-async function runPageTransaction(ctx, input, groups) {
+async function runPageTransaction(ctx, input, groups, dependencies = () => []) {
   if (!/^\d{1,5}$/u.test(input.page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
   if (!input.operations.length || input.operations.length > 50)
     throw new Fault("INVALID_INPUT", "Give 1-50 operations.", 2);
@@ -3762,10 +3767,23 @@ async function runPageTransaction(ctx, input, groups) {
   const release = found === "26.1" ? "26.1" : "26.2";
   const plan = async () => {
     const source = await readFile4(file, "utf8");
+    const related = /* @__PURE__ */ new Map();
+    for (const page of new Set(dependencies(input.operations))) {
+      const other = await pageFile(ctx, String(page)).catch(() => void 0);
+      if (!other) continue;
+      const text2 = await readFile4(other, "utf8");
+      const parsed = parseApexLang(text2, "related").find((c) => c.type === "page");
+      if (parsed)
+        related.set(`page:${page}`, {
+          file: path5.relative(ctx.root, other).split(path5.sep).join("/"),
+          digest: digestOf(text2),
+          parsed
+        });
+    }
     return {
       source,
       digest: digestOf(source),
-      ...transformPage(source, pageId, groups(input.operations), release)
+      ...transformPage(source, pageId, groups(input.operations), release, related)
     };
   };
   const described = (source, result) => {
@@ -3795,6 +3813,7 @@ async function runPageTransaction(ctx, input, groups) {
       ...described(planned.source, planned.result),
       result: planned.result,
       targets: planned.targets,
+      ...planned.warnings.length ? { warnings: planned.warnings } : {},
       next: `Apply with expectedDigest ${planned.digest}.`
     };
   }
@@ -3822,6 +3841,7 @@ async function runPageTransaction(ctx, input, groups) {
       ...described(planned.source, planned.result),
       result: planned.result,
       targets: planned.targets,
+      ...planned.warnings.length ? { warnings: planned.warnings } : {},
       next: "Source edited only. Validate or ship to check it with the compiler and import it."
     };
   });
@@ -3984,10 +4004,12 @@ export {
   sourceInventory,
   DeploymentService,
   ApexLangDocument,
+  scalarText,
   setProperty,
   setFencedText,
   appendChild,
   readProperty,
+  reportRegion,
   planColumns,
   runPageTransaction,
   PATCH_PROPERTIES,

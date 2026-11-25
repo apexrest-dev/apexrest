@@ -1062,6 +1062,19 @@
         "docs/evidence/fast-dev/columns-compiler-2026-11-25.json"
       ],
       "blocker": "Repository tests and the offline Oracle compiler (26.2 profile) pass. Native import and browser display are not yet observed; 26.1 compilation of the new operations is not run."
+    },
+    {
+      "id": "FASTDEV-A05",
+      "criterion": "An addDialogAction edit connects an existing page to an explicitly identified existing modal page through a row link, column link or button with item mappings and clear-cache pages, adding or reusing the native dialog-closed refresh, validating the modal page read in the same transaction and never changing authorization",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/edit/dialog.ts",
+        "packages/core/src/edit/transaction.ts",
+        "tests/unit/source-edit-dialog.test.ts",
+        "docs/evidence/fast-dev/dialog-compiler-2026-11-25.json"
+      ],
+      "blocker": "Repository tests and the offline Oracle compiler (26.2 profile) pass. Native import and dialog open/close behaviour in a browser are not yet observed."
     }
   ]
 }

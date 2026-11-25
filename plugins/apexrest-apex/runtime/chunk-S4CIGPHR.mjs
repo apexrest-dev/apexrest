@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-G62AN6YY.mjs";
+} from "./chunk-IQ4G5BJZ.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -32,14 +32,16 @@ import {
   queryEdits,
   readProperty,
   recordRevision,
+  reportRegion,
   revisionOf,
   revisionStatus,
   runPageTransaction,
+  scalarText,
   setFencedText,
   setProperty,
   sourceInventory,
   sourceRevision
-} from "./chunk-SPL42ZBO.mjs";
+} from "./chunk-FVM6COSZ.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -48,6 +50,12 @@ import {
   composePlan,
   metadataRead
 } from "./chunk-Y2XCPATG.mjs";
+import {
+  group,
+  indent,
+  node,
+  refreshAction
+} from "./chunk-J7SOVXCF.mjs";
 import {
   batchCommand,
   locateCommand,
@@ -775,7 +783,7 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
   const propertyFacets = /* @__PURE__ */ new Map();
   const propertyOwners = /* @__PURE__ */ new Map();
   const ownerReachability = /* @__PURE__ */ new Map();
-  const ownsGroup = (owner, group) => {
+  const ownsGroup = (owner, group2) => {
     if (!ownerReachability.has(owner)) {
       const seen = /* @__PURE__ */ new Set([owner]);
       const queue = [owner];
@@ -796,7 +804,7 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
       }
       ownerReachability.set(owner, bounded ? seen : null);
     }
-    return ownerReachability.get(owner)?.has(group) ?? false;
+    return ownerReachability.get(owner)?.has(group2) ?? false;
   };
   for (const [position, { reference }] of searchable.entries()) {
     if (reference.kind !== "grammar") continue;
@@ -804,12 +812,12 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
     if (!symbol) continue;
     const groupId = bySymbol.get(symbol);
     if (!groupId) continue;
-    const group = byId.get(groupId);
-    const label = group?.text.match(/^<[^>\n]+>\s*::=\s*<indent>\s*"([A-Za-z][\w]*)"/)?.[1];
-    if (!group || !label || !group.text.includes('"{"')) continue;
+    const group2 = byId.get(groupId);
+    const label = group2?.text.match(/^<[^>\n]+>\s*::=\s*<indent>\s*"([A-Za-z][\w]*)"/)?.[1];
+    if (!group2 || !label || !group2.text.includes('"{"')) continue;
     const propertyLineId = bySymbol.get(symbol + "-property-line");
     const propertyLine = propertyLineId ? byId.get(propertyLineId) : void 0;
-    const groupSymbols = grammarSymbols(group.text);
+    const groupSymbols = grammarSymbols(group2.text);
     if (!groupSymbols.includes(symbol + "-property") && !(groupSymbols.includes(symbol + "-property-line") && propertyLine && grammarSymbols(propertyLine.text).includes(symbol + "-property")))
       continue;
     const suffix = "-" + referenceWords(label).join("-");
@@ -856,8 +864,8 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
       stemWords = /* @__PURE__ */ new Map();
       for (const word of Object.keys(lists)) {
         const key = referenceStem(word);
-        const group = stemWords.get(key);
-        if (group) group.push(word);
+        const group2 = stemWords.get(key);
+        if (group2) group2.push(word);
         else stemWords.set(key, [word]);
       }
     }
@@ -1267,41 +1275,41 @@ async function hydrate261Recipes(results, request, profile, size, signal) {
     const context = await componentRecipeGroups(hit.id, profile);
     check(signal);
     if (!compatible(context.selected, hit)) continue;
-    for (const group of context.groups) {
-      if (owned.has(group.root.id)) continue;
-      owned.add(group.root.id);
-      const explicit = group.recipes.filter(named2);
-      const recipes = explicit.length ? explicit.slice(0, 4) : [group.recipes.find((recipe) => canonicalReference(recipe.id)) ?? group.recipes[0]];
-      groups.push({ owner: hit, root: group.root, recipes });
+    for (const group2 of context.groups) {
+      if (owned.has(group2.root.id)) continue;
+      owned.add(group2.root.id);
+      const explicit = group2.recipes.filter(named2);
+      const recipes = explicit.length ? explicit.slice(0, 4) : [group2.recipes.find((recipe) => canonicalReference(recipe.id)) ?? group2.recipes[0]];
+      groups.push({ owner: hit, root: group2.root, recipes });
     }
   }
   if (!groups.length) return;
   for (const hit of working)
-    if (groups.some((group) => group.root.id === hit.id || group.root.requires.includes(hit.id))) {
+    if (groups.some((group2) => group2.root.id === hit.id || group2.root.requires.includes(hit.id))) {
       delete hit.text;
       delete hit.code;
     }
   if (size(working) > BUDGET) return;
   const accepted = [];
-  for (const group of groups)
-    for (const recipe of group.recipes) {
+  for (const group2 of groups)
+    for (const recipe of group2.recipes) {
       const document = await componentRead(recipe.id, 0, 8192, profile);
       check(signal);
-      if (document.sha256 !== recipe.sha256 || !compatible(document, group.owner))
+      if (document.sha256 !== recipe.sha256 || !compatible(document, group2.owner))
         throw new Fault(
           "COMPONENT_CATALOG_INVALID",
           "Ready recipe metadata changed while hydrating selection.",
           3
         );
-      const previousLinks = group.owner.recipes ?? [];
+      const previousLinks = group2.owner.recipes ?? [];
       if (previousLinks.some((link) => link.id === recipe.id)) continue;
-      group.owner.recipes = [...previousLinks, { id: recipe.id, title: recipe.title, kind: recipe.kind }];
+      group2.owner.recipes = [...previousLinks, { id: recipe.id, title: recipe.title, kind: recipe.kind }];
       if (size(working) > BUDGET) {
-        if (previousLinks.length) group.owner.recipes = previousLinks;
-        else delete group.owner.recipes;
+        if (previousLinks.length) group2.owner.recipes = previousLinks;
+        else delete group2.owner.recipes;
         continue;
       }
-      accepted.push({ owner: group.owner, recipe, document });
+      accepted.push({ owner: group2.owner, recipe, document });
     }
   for (const { owner, recipe, document } of accepted) {
     if (owner.code) continue;
@@ -1751,7 +1759,7 @@ function merged(list) {
   };
 }
 function planInsert(snapshot, list) {
-  const { doc, node, parsed, pageId, release } = snapshot;
+  const { doc, node: node2, parsed, pageId, release } = snapshot;
   const components = merged(list);
   const spec = scaffoldSchema.safeParse({
     applicationName: "insert",
@@ -1824,7 +1832,7 @@ function planInsert(snapshot, list) {
         throw new Fault("TRANSFORM_INVALID", `Item ${item.name} did not read back.`, 5);
   };
   return {
-    edits: [appendChild(doc, node, lines)],
+    edits: [appendChild(doc, node2, lines)],
     verify,
     targets: [
       ...page.regions.map((region) => `region:${region.id}`),
@@ -1883,8 +1891,8 @@ function submitEdit(doc, owner, item) {
     if (trimmed === "]") {
       if (elements.some((name) => name.toUpperCase() === item)) return void 0;
       const first = doc.lines[property.line + 1];
-      const indent = index > property.line + 1 ? first.text.slice(0, first.text.length - first.text.trimStart().length) : line.text.slice(0, line.text.length - line.text.trimStart().length) + "    ";
-      return { start: line.offset, end: line.offset, content: `${indent}${item}${doc.eol}` };
+      const indent2 = index > property.line + 1 ? first.text.slice(0, first.text.length - first.text.trimStart().length) : line.text.slice(0, line.text.length - line.text.trimStart().length) + "    ";
+      return { start: line.offset, end: line.offset, content: `${indent2}${item}${doc.eol}` };
     }
     if (!/^[A-Za-z0-9_$#]+,?$/u.test(trimmed))
       throw new Fault(
@@ -1996,15 +2004,205 @@ function planFilters(snapshot, operations) {
     targets: operations.flatMap((operation) => operation.targets.map((target) => `region:${target.region}`))
   };
 }
-function fenced(doc, node) {
-  const property = node.properties.get("source.sqlQuery");
+function fenced(doc, node2) {
+  const property = node2.properties.get("source.sqlQuery");
   if (!property?.fence || property.fence.close < 0)
     throw new Fault(
       "OPERATION_UNSUPPORTED",
-      `${node.kind} ${node.key} has no SQL query literal; pass complete replacement SQL.`,
+      `${node2.kind} ${node2.key} has no SQL query literal; pass complete replacement SQL.`,
       2
     );
   return doc.lines.slice(property.fence.open + 1, property.fence.close).map((line) => line.text).join("\n");
+}
+
+// packages/core/src/edit/dialog.ts
+var ID = /^[a-z][a-z0-9_-]{0,254}$/iu;
+var ITEM = /^P\d{1,5}_[A-Z0-9_$#]{1,120}$/iu;
+var DML = /formAutomaticRowProcessing|nativeFormDml|formDml|interactiveGridAutomaticRowProcessing|plsqlCode|executeCode/u;
+var refOf = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : String(value ?? "").replace(/^@/u, "");
+var dialogDependencies = (operations) => operations.map((operation) => operation.target.page);
+function targetText(target) {
+  const items = Object.entries(target.items ?? {});
+  return group(
+    "target:",
+    [
+      `page: ${target.page}`,
+      items.length ? group(
+        "items:",
+        items.map(([key, value]) => `${key.toUpperCase()}: ${JSON.stringify(value)}`).join("\n")
+      ) : "",
+      target.clearCache?.length ? `clearCache: ${target.clearCache.join(",")}` : ""
+    ].filter(Boolean).join("\n")
+  );
+}
+function replaceGroup(doc, owner, name, text) {
+  const existing = owner.groups.get(name);
+  const body = indent(text, owner.indent + 4).split("\n").join(doc.eol) + doc.eol;
+  if (existing) {
+    const open2 = doc.lines[existing.open];
+    const close = doc.lines[existing.close];
+    return { start: open2.offset, end: close.offset + close.text.length + close.eol.length, content: body };
+  }
+  const before = doc.lines[owner.children[0]?.open ?? owner.close];
+  return { start: before.offset, end: before.offset, content: body };
+}
+function planDialogs(snapshot, operations) {
+  const { doc, node: page, parsed, release, related } = snapshot;
+  const edits = [];
+  const warnings = [];
+  const checks = [];
+  const targets = [];
+  const buttons = new Set(page.children.filter((c) => c.kind === "button").map((c) => c.key.toUpperCase()));
+  const actions = new Set(
+    page.children.filter((c) => c.kind === "dynamicAction").map((c) => c.key.toUpperCase())
+  );
+  let appended = "";
+  for (const operation of operations) {
+    if (Boolean(operation.button) === Boolean(operation.link))
+      throw new Fault("INVALID_INPUT", "addDialogAction needs either button or link.", 2);
+    const modal = related.get(`page:${operation.target.page}`);
+    if (!modal)
+      throw new Fault("TARGET_NOT_FOUND", `No page file declares page ${operation.target.page}.`, 2);
+    if (operation.expectedTargetDigest && operation.expectedTargetDigest !== modal.digest)
+      throw new Fault(
+        "TRANSFORM_CONFLICT",
+        `${modal.file} changed since it was read; read it again and retry.`,
+        5,
+        "conflict",
+        {
+          file: modal.file,
+          currentDigest: modal.digest
+        }
+      );
+    if (readProperty(modal.parsed, "appearance.pageMode") !== "modalDialog")
+      throw new Fault("TARGET_NOT_MODAL", `Page ${operation.target.page} is not a modal dialog page.`, 2);
+    const modalItems = new Set(
+      modal.parsed.children.filter((c) => c.type === "pageItem").map((c) => c.id.toUpperCase())
+    );
+    for (const name of Object.keys(operation.target.items ?? {})) {
+      if (!ITEM.test(name)) throw new Fault("INVALID_INPUT", `${name} is not a page item name.`, 2);
+      if (!modalItems.has(name.toUpperCase()))
+        throw new Fault("TARGET_NOT_FOUND", `Page ${operation.target.page} has no item ${name}.`, 2);
+    }
+    if (!readProperty(modal.parsed, "security.authorizationScheme") && modal.parsed.children.some(
+      (c) => c.type === "process" && DML.test(String(readProperty(c, "type") ?? ""))
+    ))
+      warnings.push(
+        `Page ${operation.target.page} runs processes without a page authorization scheme; review its authorization (none was added).`
+      );
+    const target = targetText(operation.target);
+    let refreshRegion = operation.refresh;
+    let when;
+    if (operation.button) {
+      const button = operation.button;
+      if (!ID.test(button.id)) throw new Fault("INVALID_INPUT", `${button.id} is not a valid button id.`, 2);
+      if (buttons.has(button.id.toUpperCase()))
+        throw new Fault("TARGET_EXISTS", `Button ${button.id} already exists.`, 5);
+      buttons.add(button.id.toUpperCase());
+      ApexLangDocument.one(page.children, "region", button.region, `Page ${page.key}`);
+      if (!refreshRegion)
+        throw new Fault("INVALID_INPUT", "A dialog button needs refresh: the region to update.", 2);
+      const sequence = Math.max(
+        0,
+        ...parsed.children.filter((c) => c.type === "button" && refOf(readProperty(c, "layout.region")) === button.region).map((c) => Number(readProperty(c, "layout.sequence")) || 0)
+      ) + 10;
+      appended += node("button", button.id, [
+        `buttonName: ${button.id.replaceAll("-", "_").toUpperCase()}`,
+        `label: ${scalarText(button.label)}`,
+        group(
+          "layout",
+          `sequence: ${sequence}
+region: @${button.region}
+slot: ${release === "26.1" ? "next" : "NEXT"}`
+        ),
+        group("appearance", "buttonTemplate: @/text\ntemplateOptions: #DEFAULT#"),
+        group("behavior", `action: redirectThisApp
+${target}`)
+      ]);
+      when = `event: apexafterclosedialog
+selectionType: button
+button: @${button.id}`;
+      targets.push(`button:${button.id}`);
+      checks.push((after) => {
+        if (!after.children.some((c) => c.type === "button" && c.id === button.id))
+          throw new Fault("TRANSFORM_INVALID", `Button ${button.id} did not read back.`, 5);
+      });
+    } else {
+      const link = operation.link;
+      const region = ApexLangDocument.one(page.children, "region", link.region, `Page ${page.key}`);
+      const type = reportRegion(region, "A row link");
+      const rowColumns = new Set(
+        region.children.filter((c) => c.kind === "column").map((c) => c.key.toUpperCase())
+      );
+      for (const value of Object.values(operation.target.items ?? {}))
+        for (const [, column] of value.matchAll(/#([A-Z0-9_$]+)#/giu))
+          if (!rowColumns.has(column.toUpperCase()))
+            throw new Fault("TARGET_NOT_FOUND", `${region.key} has no column ${column} for #${column}#.`, 2);
+      if (type === "interactiveReport") {
+        if (link.column)
+          throw new Fault("INVALID_INPUT", "Interactive reports link the whole row; omit column.", 2);
+        edits.push(replaceGroup(doc, region, "link", group("link", `linkColumn: customTarget
+${target}`)));
+      } else {
+        if (!link.column)
+          throw new Fault("INVALID_INPUT", "Classic report links need the column to link.", 2);
+        const column = ApexLangDocument.one(region.children, "column", link.column, `Region ${region.key}`);
+        edits.push(setProperty(doc, column, "type", "link"));
+        edits.push(
+          replaceGroup(
+            doc,
+            column,
+            "link",
+            group(
+              "link",
+              `linkText: ${scalarText(link.linkText ?? `#${column.key.toUpperCase()}#`)}
+${target}`
+            )
+          )
+        );
+      }
+      refreshRegion ??= region.key;
+      when = `event: apexafterclosedialog
+selectionType: region
+region: @${region.key}`;
+      targets.push(`region:${region.key}`);
+      checks.push((after) => {
+        const parsedRegion = after.children.find((c) => c.type === "region" && c.id === region.key);
+        const owner = type === "interactiveReport" ? parsedRegion : parsedRegion?.children.find(
+          (c) => c.type === "column" && c.id.toUpperCase() === link.column.toUpperCase()
+        );
+        const page2 = owner && readProperty(owner, "link.target")?.page;
+        if (String(page2) !== String(operation.target.page))
+          throw new Fault("TRANSFORM_INVALID", `${link.region} link did not read back.`, 5);
+      });
+    }
+    ApexLangDocument.one(page.children, "region", refreshRegion, `Page ${page.key}`);
+    const reused = parsed.children.some(
+      (c) => c.type === "dynamicAction" && readProperty(c, "when.event") === "apexafterclosedialog" && (operation.button ? refOf(readProperty(c, "when.button")) === operation.button.id : refOf(readProperty(c, "when.region")) === operation.link.region) && c.children.some(
+        (action) => readProperty(action, "action") === "refresh" && readProperty(action, "affectedElements.region")?.ref === refreshRegion
+      )
+    );
+    if (!reused) {
+      let name = `dialog-closed-${refreshRegion}`;
+      for (let n = 2; actions.has(name.toUpperCase()); n++) name = `dialog-closed-${refreshRegion}-${n}`;
+      actions.add(name.toUpperCase());
+      appended += node("dynamicAction", name, [
+        `name: ${JSON.stringify(`Refresh ${refreshRegion} after dialog`)}`,
+        group("execution", "sequence: 10"),
+        group("when", when),
+        refreshAction("refresh", refreshRegion, 10)
+      ]);
+      targets.push(`dynamicAction:${name}`);
+    }
+  }
+  if (appended)
+    edits.push(appendChild(doc, page, indent(appended.trimEnd()).split("\n").join(doc.eol) + doc.eol));
+  return {
+    edits,
+    verify: (after) => checks.forEach((check2) => check2(after)),
+    targets,
+    warnings: [...new Set(warnings)]
+  };
 }
 
 // packages/core/src/edit/page-edit.ts
@@ -2013,7 +2211,12 @@ function editGroups(operations) {
   const inserts = [];
   const filters = [];
   const columns = [];
+  const dialogs = [];
   for (const operation of operations) {
+    if (operation.op === "addDialogAction") {
+      dialogs.push(operation);
+      continue;
+    }
     if (operation.op === "addColumn" || operation.op === "orderColumns") {
       columns.push(operation);
       continue;
@@ -2034,10 +2237,20 @@ function editGroups(operations) {
   if (inserts.length) groups.push((snapshot) => planInsert(snapshot, inserts));
   if (filters.length) groups.push((snapshot) => planFilters(snapshot, filters));
   if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
+  if (dialogs.length) groups.push((snapshot) => planDialogs(snapshot, dialogs));
   return groups;
 }
 async function editPage(ctx, input) {
-  const { result: _text, ...outcome } = await runPageTransaction(ctx, input, editGroups);
+  const { result: _text, ...outcome } = await runPageTransaction(
+    ctx,
+    input,
+    editGroups,
+    (operations) => dialogDependencies(
+      operations.filter(
+        (operation) => operation.op === "addDialogAction"
+      )
+    )
+  );
   return outcome;
 }
 
@@ -3842,7 +4055,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-GU4X4XCK.mjs");
+      const { previewDispatch } = await import("./chunk-A4JO3N46.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -3884,17 +4097,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-4GZFZ4RP.mjs");
+        const { setup } = await import("./chunk-2OGYZKDQ.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-4GZFZ4RP.mjs");
+        const { validateNative } = await import("./chunk-2OGYZKDQ.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-4GZFZ4RP.mjs");
+        const { uninstallNative } = await import("./chunk-2OGYZKDQ.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });

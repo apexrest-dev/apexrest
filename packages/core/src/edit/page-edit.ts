@@ -4,6 +4,7 @@ import { planSets, type PatchOperation } from './patch.ts';
 import { planInsert, type InsertInput } from './insert.ts';
 import { filterFragment, planFilters, type AddFilterOperation } from './filter.ts';
 import { planColumns, type AddColumnOperation, type OrderColumnsOperation } from './columns.ts';
+import { dialogDependencies, planDialogs, type AddDialogActionOperation } from './dialog.ts';
 import {
   runPageTransaction,
   type ContextMode,
@@ -19,6 +20,7 @@ import {
  */
 
 export type EditOperation =
+  | AddDialogActionOperation
   | AddFilterOperation
   | AddColumnOperation
   | OrderColumnsOperation
@@ -41,7 +43,12 @@ export function editGroups(operations: EditOperation[]): Group[] {
   const inserts: InsertInput['components'][] = [];
   const filters: AddFilterOperation[] = [];
   const columns: (AddColumnOperation | OrderColumnsOperation)[] = [];
+  const dialogs: AddDialogActionOperation[] = [];
   for (const operation of operations) {
+    if (operation.op === 'addDialogAction') {
+      dialogs.push(operation);
+      continue;
+    }
     if (operation.op === 'addColumn' || operation.op === 'orderColumns') {
       columns.push(operation);
       continue;
@@ -63,10 +70,21 @@ export function editGroups(operations: EditOperation[]): Group[] {
   if (inserts.length) groups.push((snapshot) => planInsert(snapshot, inserts));
   if (filters.length) groups.push((snapshot) => planFilters(snapshot, filters));
   if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
+  if (dialogs.length) groups.push((snapshot) => planDialogs(snapshot, dialogs));
   return groups;
 }
 
 export async function editPage(ctx: ProjectContext, input: EditInput) {
-  const { result: _text, ...outcome }: TransactionResult = await runPageTransaction(ctx, input, editGroups);
+  const { result: _text, ...outcome }: TransactionResult = await runPageTransaction(
+    ctx,
+    input,
+    editGroups,
+    (operations) =>
+      dialogDependencies(
+        operations.filter(
+          (operation): operation is AddDialogActionOperation => operation.op === 'addDialogAction',
+        ),
+      ),
+  );
   return outcome;
 }

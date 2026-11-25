@@ -58,3 +58,11 @@ apexrest_project action:edit page:"10" expectedDigest:"<digest>" operations:[{"o
 - `{"op":"addColumn", "region", "sql", "column":{name, heading?, dataType?, format?}, "after"?|"before"?}` adds one column at its place. `sql` is the complete query and names every column. Existing columns keep their bytes unless a renumbering is needed to make room. An interactive report's default saved report shows the new column at the same place.
 - `{"op":"orderColumns", "region", "order":[every column]}` changes the display order (`layout.sequence` and the default report's `displayColumn` order). The SQL is not touched.
 - A `query` patch also keeps interactive-report saved reports consistent: dropped columns leave them, new ones are shown at the end. Dropping a column a saved-report sort, filter or highlight still uses returns `COLUMN_REFERENCED`; change that in source first.
+
+## Open an existing modal page
+
+`{"op":"addDialogAction", "target":{page, items?, clearCache?}, "link":{region, column?, linkText?} | "button":{id, label, region}, "refresh"?, "expectedTargetDigest"?}` adds a row link (interactive report: whole row; classic report: one `column`) or a button that opens an existing modal page, plus the dialog-closed refresh of `refresh` (default: the linked region; required for a button). An existing equivalent refresh is reused.
+
+- `items` maps modal page items to `#COLUMN#` (a column of the linked report), `&ITEM.` or a literal; unknown items or columns are refused.
+- The target must be a modal dialog page (`TARGET_NOT_MODAL`). Pass its file digest as `expectedTargetDigest` to bind the edit to the modal page you read.
+- Authorization is never added: a modal page that runs processes without a page authorization scheme returns a warning. Create a new modal page with scaffold.

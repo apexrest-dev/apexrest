@@ -194,6 +194,26 @@ var schemas = {
           ).max(200).optional()
         }),
         external_exports.strictObject({
+          op: external_exports.literal("addDialogAction"),
+          target: external_exports.strictObject({
+            page: external_exports.number().int().min(1).max(99999),
+            items: external_exports.record(external_exports.string().min(1).max(128), external_exports.string().max(4e3)).optional(),
+            clearCache: external_exports.array(external_exports.number().int().min(1).max(99999)).max(30).optional()
+          }),
+          button: external_exports.strictObject({
+            id: external_exports.string().min(1).max(255),
+            label: external_exports.string().min(1).max(4e3),
+            region: external_exports.string().min(1).max(255)
+          }).optional(),
+          link: external_exports.strictObject({
+            region: external_exports.string().min(1).max(255),
+            column: external_exports.string().min(1).max(128).optional(),
+            linkText: external_exports.string().max(4e3).optional()
+          }).optional(),
+          refresh: external_exports.string().min(1).max(255).optional(),
+          expectedTargetDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional()
+        }),
+        external_exports.strictObject({
           op: external_exports.literal("addColumn"),
           region: external_exports.string().min(1).max(255),
           sql: external_exports.string().max(1e5).describe("Complete SQL naming every column"),
