@@ -1381,6 +1381,14 @@
         "tests/unit/ship-resident.test.ts"
       ],
       "blocker": "Repository fixtures with an in-process broker. Native cold versus resident CLI timing remains open."
+    },
+    {
+      "id": "FASTDEV-D06",
+      "criterion": "An experimental, default-off switch runs a ship intent's contiguous plan and apply in one connected read scope with fresh reset reads, isolated writes and a scope that ends with the run; the default path is retained until native qualification",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": ["packages/core/src/ship-intent.ts", "tests/unit/ship-shared-reads.test.ts"],
+      "blocker": "Promotion requires authorized native session/reset qualification and a measured benefit; not run."
     }
   ]
 }

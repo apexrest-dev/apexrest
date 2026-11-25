@@ -181,6 +181,32 @@ export async function runShipIntent(
   signal?: AbortSignal,
   progress?: (phase: JobPhase) => void,
 ) {
+  // Experimental (D06, off by default): one connected read server for this intent's contiguous
+  // plan and apply. Every observation is still a fresh query on a reset session, writes keep their
+  // own processes, and the scope closes when the run ends, fails or is cancelled, so no other
+  // operation inherits it. An intent never pauses for confirmation inside the scope.
+  if (sharedShipReads()) {
+    const { withConnectedReads, currentReadScope } = await import('./sqlcl-read-scope.ts');
+    return withConnectedReads(async () => {
+      const result = await prepareAndApply(ctx, id, deployment, parseDiagnostics, signal, progress);
+      return {
+        ...result,
+        intent: { ...result.intent, readScope: currentReadScope() ? 'shared' : 'per-phase' },
+      };
+    });
+  }
+  return prepareAndApply(ctx, id, deployment, parseDiagnostics, signal, progress);
+}
+export const sharedShipReads = () => /^(?:1|true|on)$/i.test(process.env.APEXREST_SHIP_SHARED_READS ?? '');
+
+async function prepareAndApply(
+  ctx: ProjectContext,
+  id: string,
+  deployment: DeploymentService,
+  parseDiagnostics: DiagnosticParser,
+  signal?: AbortSignal,
+  progress?: (phase: JobPhase) => void,
+) {
   const intent = await readShipIntent(ctx, id);
   const env = environment(ctx, intent.env);
   try {

@@ -2,39 +2,40 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   dispatch
-} from "./chunk-GPUDL6NM.mjs";
-import "./chunk-G2XY4RBN.mjs";
-import "./chunk-PPBHHBQE.mjs";
+} from "./chunk-ZPM2TREX.mjs";
+import "./chunk-IXLX3HFY.mjs";
+import "./chunk-QT3K4QO2.mjs";
+import "./chunk-HPK2KDX2.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-DZ4T74MO.mjs";
+} from "./chunk-OKGQSWFK.mjs";
 import "./chunk-JY4RDLCW.mjs";
 import {
   executeJob,
   failQueuedJob
-} from "./chunk-44C6ROEJ.mjs";
-import "./chunk-LUWWMFTV.mjs";
-import "./chunk-MBAQ72HJ.mjs";
+} from "./chunk-RMNRI5VB.mjs";
+import "./chunk-CLQYKDEX.mjs";
+import "./chunk-BPPDVYWU.mjs";
 import {
   setPreviewOwner
 } from "./chunk-T4L6A35M.mjs";
-import "./chunk-HOLI56NF.mjs";
-import "./chunk-3PFNITAD.mjs";
-import "./chunk-55N4ZQFI.mjs";
+import "./chunk-DB53X4BI.mjs";
+import "./chunk-UNMHXRBU.mjs";
+import "./chunk-QZJ4XFSS.mjs";
 import "./chunk-PCV5YPHF.mjs";
-import "./chunk-N6DM4DZ3.mjs";
+import "./chunk-HLUA2IXO.mjs";
 import "./chunk-MPDF637Z.mjs";
 import "./chunk-LEQBIOA6.mjs";
 import "./chunk-OA3W7BIM.mjs";
-import "./chunk-L5FXZTIT.mjs";
-import "./chunk-CVR5OUUL.mjs";
+import "./chunk-2DFWP5Y4.mjs";
 import "./chunk-4GRGGAQV.mjs";
 import "./chunk-73QQA3SD.mjs";
 import {
   loadProject
 } from "./chunk-FMCSJH7I.mjs";
+import "./chunk-CJQOFEXF.mjs";
 import "./chunk-5OZJQ7M6.mjs";
 import "./chunk-4S6ZNCT6.mjs";
 import "./chunk-RW7D7AJD.mjs";
@@ -324,12 +325,12 @@ try {
     }
   } else if (argv[0] === "--broker") {
     if (argv.length !== 2) throw new Fault("INVALID_INPUT", "Invalid internal broker request.", 2);
-    const { runBroker } = await import("./chunk-TT5QPKW4.mjs");
+    const { runBroker } = await import("./chunk-Q4RCY7EW.mjs");
     await runBroker(await loadProject(argv[1]), dispatch);
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-HHSBEOSC.mjs");
+    const { startMcp } = await import("./chunk-X6ZMXIYB.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -376,7 +377,7 @@ try {
       }
     }
     if (selectedOp.op === "preview.start") setPreviewOwner("cli");
-    let result = selectedOp.op === "ship" ? await (await import("./chunk-QPUGRTRK.mjs")).shipThroughBroker(input, dispatch) : void 0;
+    let result = selectedOp.op === "ship" ? await (await import("./chunk-YZ6GTNAU.mjs")).shipThroughBroker(input, dispatch) : void 0;
     if (!result) {
       result = await dispatch(selectedOp.op, input);
       if (selectedOp.op === "ship" && input.mode === "apply" && result.data && typeof result.data === "object")

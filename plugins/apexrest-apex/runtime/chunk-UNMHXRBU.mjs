@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   sourceInventory
-} from "./chunk-55N4ZQFI.mjs";
+} from "./chunk-QZJ4XFSS.mjs";
 import {
   sourceChange
 } from "./chunk-PCV5YPHF.mjs";
@@ -10,7 +10,7 @@ import {
 } from "./chunk-OA3W7BIM.mjs";
 import {
   sourceRelease
-} from "./chunk-CVR5OUUL.mjs";
+} from "./chunk-2DFWP5Y4.mjs";
 import {
   atomicWrite,
   contained,
@@ -1040,7 +1040,7 @@ async function loadRelated(ctx, key) {
   const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   let file;
   if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
-  else if (kind === "lov") file = await (await import("./chunk-RVXDYSJV.mjs")).lovFile(ctx, id).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-JSI5GWZX.mjs")).lovFile(ctx, id).catch(() => void 0);
   if (!file) return void 0;
   const text2 = await readFile3(file, "utf8");
   const parsed = parseApexLang(text2, "related").find(

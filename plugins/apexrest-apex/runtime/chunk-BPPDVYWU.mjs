@@ -15,7 +15,7 @@ import {
 import {
   resourceRoot,
   sourceRelease
-} from "./chunk-CVR5OUUL.mjs";
+} from "./chunk-2DFWP5Y4.mjs";
 import {
   environment,
   parse

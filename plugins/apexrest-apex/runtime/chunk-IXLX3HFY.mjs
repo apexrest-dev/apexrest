@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   resourceRoot
-} from "./chunk-CVR5OUUL.mjs";
+} from "./chunk-2DFWP5Y4.mjs";
 import {
   loadProject,
   managedHome,

@@ -5,33 +5,33 @@ import {
   prewarmCompiler,
   shutdownOracle,
   waitsForCompilerPrewarm
-} from "./chunk-GPUDL6NM.mjs";
-import "./chunk-G2XY4RBN.mjs";
-import "./chunk-PPBHHBQE.mjs";
+} from "./chunk-ZPM2TREX.mjs";
+import "./chunk-IXLX3HFY.mjs";
+import "./chunk-QT3K4QO2.mjs";
+import "./chunk-HPK2KDX2.mjs";
 import {
   schemas,
   toolCatalog
-} from "./chunk-DZ4T74MO.mjs";
+} from "./chunk-OKGQSWFK.mjs";
 import "./chunk-JY4RDLCW.mjs";
 import {
   JobService,
   jobToolResult,
   settleInlineJobs
-} from "./chunk-44C6ROEJ.mjs";
-import "./chunk-LUWWMFTV.mjs";
-import "./chunk-MBAQ72HJ.mjs";
-import "./chunk-HOLI56NF.mjs";
-import "./chunk-3PFNITAD.mjs";
-import "./chunk-55N4ZQFI.mjs";
+} from "./chunk-RMNRI5VB.mjs";
+import "./chunk-CLQYKDEX.mjs";
+import "./chunk-BPPDVYWU.mjs";
+import "./chunk-DB53X4BI.mjs";
+import "./chunk-UNMHXRBU.mjs";
+import "./chunk-QZJ4XFSS.mjs";
 import "./chunk-PCV5YPHF.mjs";
 import {
   ArtifactService
-} from "./chunk-N6DM4DZ3.mjs";
+} from "./chunk-HLUA2IXO.mjs";
 import "./chunk-MPDF637Z.mjs";
 import "./chunk-LEQBIOA6.mjs";
 import "./chunk-OA3W7BIM.mjs";
-import "./chunk-L5FXZTIT.mjs";
-import "./chunk-CVR5OUUL.mjs";
+import "./chunk-2DFWP5Y4.mjs";
 import {
   VERSION
 } from "./chunk-4GRGGAQV.mjs";
@@ -40,6 +40,7 @@ import {
   loadProject,
   parse
 } from "./chunk-FMCSJH7I.mjs";
+import "./chunk-CJQOFEXF.mjs";
 import "./chunk-5OZJQ7M6.mjs";
 import {
   AjvJsonSchemaValidator,
@@ -1122,11 +1123,11 @@ async function startMcp() {
       if (project && waitsForCompilerPrewarm(tool.operation, input)) await compilerPrewarmed(project);
       if (tool.long && !inProcess) {
         const jobs = new JobService(await loadProject(String(input.project)));
-        const { liveBroker } = await import("./chunk-TT5QPKW4.mjs");
+        const { liveBroker } = await import("./chunk-Q4RCY7EW.mjs");
         const resident = tool.operation === "ship" && input.mode === "apply" && typeof input.plan !== "string" && !!await liveBroker((await loadProject(String(input.project))).root);
         if (resident) {
           const { waitSeconds } = input;
-          const { captureShipIntent } = await import("./chunk-QPUGRTRK.mjs");
+          const { captureShipIntent } = await import("./chunk-YZ6GTNAU.mjs");
           const ctx = await loadProject(String(input.project));
           const intent = await captureShipIntent(ctx, {
             env: String(input.env),

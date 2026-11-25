@@ -6,7 +6,7 @@ import {
 import {
   deploymentBinding,
   verifyDeploymentPredicates
-} from "./chunk-N6DM4DZ3.mjs";
+} from "./chunk-HLUA2IXO.mjs";
 import {
   correlationId,
   openSpan,
@@ -40,9 +40,8 @@ import {
   sqlclToken,
   stageSelection,
   supportedFile,
-  syncPath,
-  withConnectedReads
-} from "./chunk-CVR5OUUL.mjs";
+  syncPath
+} from "./chunk-2DFWP5Y4.mjs";
 import {
   VERSION
 } from "./chunk-4GRGGAQV.mjs";
@@ -55,6 +54,9 @@ import {
   refuseProductionDeployment,
   targetDigest
 } from "./chunk-FMCSJH7I.mjs";
+import {
+  withConnectedReads
+} from "./chunk-CJQOFEXF.mjs";
 import {
   sqlclTimings,
   withSqlclTimings

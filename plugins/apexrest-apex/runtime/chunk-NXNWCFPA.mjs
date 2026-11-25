@@ -1,22 +1,22 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
-  toolCatalog
-} from "./chunk-DZ4T74MO.mjs";
-import "./chunk-JY4RDLCW.mjs";
-import "./chunk-44C6ROEJ.mjs";
-import "./chunk-N6DM4DZ3.mjs";
-import "./chunk-MPDF637Z.mjs";
-import "./chunk-OA3W7BIM.mjs";
-import {
   ToolchainService,
   canonicalHome,
   renameWithRetry,
   runCommand,
   runtimeState
-} from "./chunk-L5FXZTIT.mjs";
+} from "./chunk-IXLX3HFY.mjs";
+import {
+  toolCatalog
+} from "./chunk-OKGQSWFK.mjs";
+import "./chunk-JY4RDLCW.mjs";
+import "./chunk-RMNRI5VB.mjs";
+import "./chunk-HLUA2IXO.mjs";
+import "./chunk-MPDF637Z.mjs";
+import "./chunk-OA3W7BIM.mjs";
 import {
   resourceRoot
-} from "./chunk-CVR5OUUL.mjs";
+} from "./chunk-2DFWP5Y4.mjs";
 import {
   VERSION
 } from "./chunk-4GRGGAQV.mjs";
@@ -24,6 +24,7 @@ import "./chunk-73QQA3SD.mjs";
 import {
   managedHome
 } from "./chunk-FMCSJH7I.mjs";
+import "./chunk-CJQOFEXF.mjs";
 import "./chunk-5OZJQ7M6.mjs";
 import {
   Client,

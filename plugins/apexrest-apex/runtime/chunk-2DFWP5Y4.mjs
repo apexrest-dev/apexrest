@@ -15,7 +15,9 @@ import {
   targetDigest
 } from "./chunk-FMCSJH7I.mjs";
 import {
-  closeSqlclReadScope,
+  currentReadScope
+} from "./chunk-CJQOFEXF.mjs";
+import {
   runPooledSqlcl
 } from "./chunk-5OZJQ7M6.mjs";
 import {
@@ -2487,28 +2489,8 @@ async function contractSkeleton(id) {
 // packages/core/src/oracle.ts
 import { performance as performance2 } from "node:perf_hooks";
 import path13 from "node:path";
-import { randomUUID as randomUUID2 } from "node:crypto";
-import { cp as cp3, mkdir as mkdir5, mkdtemp, readFile as readFile8, readdir as readdir5, realpath as realpath5, rename as rename3, rm as rm5, stat as stat4 } from "node:fs/promises";
-
-// packages/core/src/sqlcl-read-scope.ts
-import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
-var storage = new AsyncLocalStorage();
-function connectedReadsDisabled() {
-  return /^(?:0|false|off)$/i.test(process.env.APEXREST_CONNECTED_READS ?? "");
-}
-async function withConnectedReads(action) {
-  if (storage.getStore() || connectedReadsDisabled()) return action();
-  const scope = { id: randomUUID() };
-  try {
-    return await storage.run(scope, action);
-  } finally {
-    await closeSqlclReadScope(scope.id);
-  }
-}
-function currentReadScope() {
-  return storage.getStore()?.id;
-}
+import { cp as cp3, mkdir as mkdir5, mkdtemp, readFile as readFile8, readdir as readdir5, realpath as realpath5, rename as rename3, rm as rm5, stat as stat4 } from "node:fs/promises";
 
 // packages/core/src/sqlcl-warm.ts
 import { performance } from "node:perf_hooks";
@@ -3409,7 +3391,7 @@ var OracleAdapter = class {
     const connect = selected?.ords ? `set history filter default connect
 connect -orest -user "${selected.ords.username}" -password "${selected.ords.password}" -url "${selected.ords.url}"
 ` : "";
-    const marker = `APEXREST_COMPLETE_${randomUUID2().replaceAll("-", "")}`;
+    const marker = `APEXREST_COMPLETE_${randomUUID().replaceAll("-", "")}`;
     let timingRecorded = false;
     const request = {
       mutation,
@@ -4086,7 +4068,7 @@ prompt ${marker}
     );
   }
   async savedConnections(signal) {
-    const marker = `APEXREST_CONNECTIONS_${randomUUID2().replaceAll("-", "")}`;
+    const marker = `APEXREST_CONNECTIONS_${randomUUID().replaceAll("-", "")}`;
     const result = await this.session(
       `prompt ${marker}_BEGIN
 connmgr list -flat
@@ -4166,7 +4148,7 @@ ${sql};`,
   async jsonQueryBatch(queries, connection, signal, label = "metadata-batch", debugTimings = false) {
     if (!queries.length) return [];
     const ords = (await this.settings()).databaseTransport === "ords";
-    const token = `APEXREST_ROWS_${randomUUID2().replaceAll("-", "")}`;
+    const token = `APEXREST_ROWS_${randomUUID().replaceAll("-", "")}`;
     const input = queries.map(
       (query, index) => `${this.bindPreamble(query.bindings ?? {}, ords)}
 set sqlformat json
@@ -4990,7 +4972,6 @@ export {
   componentNote,
   exampleValues,
   contractSkeleton,
-  withConnectedReads,
   APEX_262_PROFILE,
   databaseMeetsApex262Minimum,
   auditUpgradeSource,

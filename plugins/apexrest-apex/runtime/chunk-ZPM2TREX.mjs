@@ -1,52 +1,57 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  batchCommand,
+  locateCommand,
+  runtimeState
+} from "./chunk-IXLX3HFY.mjs";
+import {
   fallbackCompilerDiagnostics,
   planPreview,
   shipApply,
   shipPlan,
   validateApplication,
   validationSource
-} from "./chunk-G2XY4RBN.mjs";
+} from "./chunk-QT3K4QO2.mjs";
 import {
   brokerStatus,
   startBroker,
   stopBroker
-} from "./chunk-PPBHHBQE.mjs";
+} from "./chunk-HPK2KDX2.mjs";
 import {
   schemas
-} from "./chunk-DZ4T74MO.mjs";
+} from "./chunk-OKGQSWFK.mjs";
 import {
   browserPreferences
 } from "./chunk-JY4RDLCW.mjs";
 import {
   JobService,
   jobToolResult
-} from "./chunk-44C6ROEJ.mjs";
+} from "./chunk-RMNRI5VB.mjs";
 import {
   lovContext,
   lovEdit,
   lovFile
-} from "./chunk-LUWWMFTV.mjs";
+} from "./chunk-CLQYKDEX.mjs";
 import {
   scaffoldSpec
-} from "./chunk-MBAQ72HJ.mjs";
+} from "./chunk-BPPDVYWU.mjs";
 import {
   editPage,
   insertComponents,
   pageContext,
   patchPage
-} from "./chunk-HOLI56NF.mjs";
+} from "./chunk-DB53X4BI.mjs";
 import {
   editHistory,
   redoEdit,
   undoEdit
-} from "./chunk-3PFNITAD.mjs";
+} from "./chunk-UNMHXRBU.mjs";
 import {
   DeploymentService,
   deployPlanSchema,
   planDigest,
   sourceInventory
-} from "./chunk-55N4ZQFI.mjs";
+} from "./chunk-QZJ4XFSS.mjs";
 import {
   recordRevision,
   revisionOf,
@@ -62,7 +67,7 @@ import {
   metadataRead,
   oracleType,
   readMetadataBatch
-} from "./chunk-N6DM4DZ3.mjs";
+} from "./chunk-HLUA2IXO.mjs";
 import {
   traceReport,
   withTrace
@@ -70,11 +75,6 @@ import {
 import {
   scaffoldSchema
 } from "./chunk-LEQBIOA6.mjs";
-import {
-  batchCommand,
-  locateCommand,
-  runtimeState
-} from "./chunk-L5FXZTIT.mjs";
 import {
   CODE_LIMIT,
   LocalDeploymentControl,
@@ -116,7 +116,7 @@ import {
   routingReference,
   scoreReference,
   stemmedReference
-} from "./chunk-CVR5OUUL.mjs";
+} from "./chunk-2DFWP5Y4.mjs";
 import {
   VERSION
 } from "./chunk-4GRGGAQV.mjs";
@@ -3993,7 +3993,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-GX6DUXPE.mjs");
+      const { previewDispatch } = await import("./chunk-KWLCLZJO.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4023,29 +4023,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-EM3XXIJG.mjs");
+        const { ToolchainService } = await import("./chunk-6C63ADCA.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-QLBH742M.mjs");
+        const { uninstallTools } = await import("./chunk-G4RJQGWQ.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-FRK7WZ6X.mjs");
+        const { setup } = await import("./chunk-NXNWCFPA.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-FRK7WZ6X.mjs");
+        const { validateNative } = await import("./chunk-NXNWCFPA.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-FRK7WZ6X.mjs");
+        const { uninstallNative } = await import("./chunk-NXNWCFPA.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -4059,7 +4059,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-DLWJH42J.mjs");
+        const { scaffold } = await import("./chunk-P52QR4CT.mjs");
         data = await scaffold(await loadProject(root), text2("specFile"), text2("env"));
         break;
       }
@@ -4367,7 +4367,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "ship.intent": {
-            const { runShipIntent } = await import("./chunk-QPUGRTRK.mjs");
+            const { runShipIntent } = await import("./chunk-YZ6GTNAU.mjs");
             data = await runShipIntent(ctx, text2("intent"), deployment, parseDiagnostics, signal, progress);
             break;
           }

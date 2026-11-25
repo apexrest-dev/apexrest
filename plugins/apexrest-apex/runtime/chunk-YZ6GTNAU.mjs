@@ -2,21 +2,21 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   shipApply,
   shipPlan
-} from "./chunk-G2XY4RBN.mjs";
+} from "./chunk-QT3K4QO2.mjs";
 import {
   sourceInventory
-} from "./chunk-55N4ZQFI.mjs";
+} from "./chunk-QZJ4XFSS.mjs";
 import {
   sourceRevision
 } from "./chunk-PCV5YPHF.mjs";
-import "./chunk-N6DM4DZ3.mjs";
+import "./chunk-HLUA2IXO.mjs";
 import "./chunk-MPDF637Z.mjs";
 import "./chunk-OA3W7BIM.mjs";
 import {
   LocalDeploymentControl,
   importOptions,
   sourceRelease
-} from "./chunk-CVR5OUUL.mjs";
+} from "./chunk-2DFWP5Y4.mjs";
 import "./chunk-4GRGGAQV.mjs";
 import "./chunk-73QQA3SD.mjs";
 import {
@@ -24,6 +24,7 @@ import {
   refuseProductionDeployment,
   targetDigest
 } from "./chunk-FMCSJH7I.mjs";
+import "./chunk-CJQOFEXF.mjs";
 import "./chunk-5OZJQ7M6.mjs";
 import "./chunk-4S6ZNCT6.mjs";
 import {
@@ -140,6 +141,20 @@ var superseded = (intent, detail) => new Fault(
   { intentId: intent.id, revision: intent.revision }
 );
 async function runShipIntent(ctx, id, deployment, parseDiagnostics, signal, progress) {
+  if (sharedShipReads()) {
+    const { withConnectedReads, currentReadScope } = await import("./chunk-IBJH7V3K.mjs");
+    return withConnectedReads(async () => {
+      const result = await prepareAndApply(ctx, id, deployment, parseDiagnostics, signal, progress);
+      return {
+        ...result,
+        intent: { ...result.intent, readScope: currentReadScope() ? "shared" : "per-phase" }
+      };
+    });
+  }
+  return prepareAndApply(ctx, id, deployment, parseDiagnostics, signal, progress);
+}
+var sharedShipReads = () => /^(?:1|true|on)$/i.test(process.env.APEXREST_SHIP_SHARED_READS ?? "");
+async function prepareAndApply(ctx, id, deployment, parseDiagnostics, signal, progress) {
   const intent = await readShipIntent(ctx, id);
   const env = environment(ctx, intent.env);
   try {
@@ -254,14 +269,14 @@ async function intentCreated(ctx, id) {
 }
 var intentFile = (id) => path.posix.join(".apexrest/intents", `${id}.json`);
 async function shipThroughBroker(raw, execute) {
-  const { schemas } = await import("./chunk-RZ7OYEPJ.mjs");
+  const { schemas } = await import("./chunk-YOXJMXJY.mjs");
   const { parse } = await import("./chunk-Y3KEXPBW.mjs");
   const input = parse(schemas.ship, raw);
   if (input.mode !== "apply" || typeof input.plan === "string" || input.confirmation !== void 0)
     return void 0;
   const { loadProject } = await import("./chunk-Y3KEXPBW.mjs");
   const ctx = await loadProject(typeof input.project === "string" ? input.project : process.cwd());
-  const { liveBroker } = await import("./chunk-TT5QPKW4.mjs");
+  const { liveBroker } = await import("./chunk-Q4RCY7EW.mjs");
   if (!await liveBroker(ctx.root)) return void 0;
   const intent = await captureShipIntent(ctx, {
     env: String(input.env),
@@ -270,7 +285,7 @@ async function shipThroughBroker(raw, execute) {
     ...Array.isArray(input.files) ? { files: input.files } : {},
     client: "cli"
   });
-  const { JobService } = await import("./chunk-QVEUUY5N.mjs");
+  const { JobService } = await import("./chunk-PDYPCGBD.mjs");
   const jobs = new JobService(ctx);
   const { jobId, runner } = await jobs.submit(
     "ship.intent",
@@ -281,7 +296,7 @@ async function shipThroughBroker(raw, execute) {
   while (state.status === "queued" || state.status === "running") state = await jobs.status(jobId, 30);
   const provenance = runner === "broker" ? "resident-cli" : "cold-cli";
   const nested = state.result;
-  const { jobToolResult } = await import("./chunk-QVEUUY5N.mjs");
+  const { jobToolResult } = await import("./chunk-PDYPCGBD.mjs");
   const result = nested && typeof nested === "object" && "ok" in nested ? nested : jobToolResult("ship.intent", state);
   return {
     ...result,
@@ -304,6 +319,7 @@ export {
   markIntentSuperseded,
   readShipIntent,
   runShipIntent,
+  sharedShipReads,
   shipIntentStatus,
   shipThroughBroker,
   toolchainIdentity

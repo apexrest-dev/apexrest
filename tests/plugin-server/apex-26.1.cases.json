@@ -2029,6 +2029,20 @@
       ],
       "evidence": ["ship results", "operation spans"],
       "budgetMs": 60000
+    },
+    {
+      "id": "A261-100",
+      "title": "Experimental shared ship read scope",
+      "acceptance": ["FASTDEV-D06"],
+      "execution": "harness",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": ["Ship an intent with APEXREST_SHIP_SHARED_READS=1 and without it; make one run fail."],
+      "expected": [
+        "With the switch plan and apply reads share one scope; by default they do not; a failed run's scope ends with it and the next run gets a fresh one."
+      ],
+      "evidence": ["read scope observations"],
+      "budgetMs": 30000
     }
   ],
   "metrics": "quality-performance.json"

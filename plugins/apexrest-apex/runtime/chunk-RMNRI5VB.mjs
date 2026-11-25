@@ -91,7 +91,7 @@ var JobService = class {
    */
   async submit(operation, input, execute) {
     const id = await this.enqueue(operation, input);
-    const { submitToBroker } = await import("./chunk-TT5QPKW4.mjs");
+    const { submitToBroker } = await import("./chunk-Q4RCY7EW.mjs");
     if (await submitToBroker(this.ctx.root, id).catch(() => false))
       return { jobId: id, runner: "broker" };
     try {
@@ -106,7 +106,7 @@ var JobService = class {
   }
   async start(operation, input, runtime) {
     const id = await this.enqueue(operation, input);
-    const { submitToBroker } = await import("./chunk-TT5QPKW4.mjs");
+    const { submitToBroker } = await import("./chunk-Q4RCY7EW.mjs");
     if (await submitToBroker(this.ctx.root, id).catch(() => false))
       return {
         jobId: id,

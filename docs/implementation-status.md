@@ -121,6 +121,22 @@ These are repository fixtures.
 
 No speed claim is made: native qualification of resident against cold CLI is open in [next actions](next-actions.md).
 
+**D06 one read scope across plan and apply, experimental ([APE-438](https://linear.app/apexrest/issue/APE-438)).** Optional spike, off by default. With `APEXREST_SHIP_SHARED_READS=1`, a ship intent's contiguous preparation and apply run inside one outer connected read scope (`withConnectedReads`). The plan and apply reads therefore use one connected read server instead of one per phase. Nothing else changes:
+
+- every identity, history and content observation is still a new query on a session the adapter resets (rollback, package state, current schema) before each batch;
+- the post-freeze prewrite observation and the plan-bound backup are unchanged;
+- imports and scripts keep their own restricted processes;
+- the scope ends with the run (success, failure or cancellation), and an intent never pauses for confirmation inside it;
+- a target change supersedes the intent before planning, and the server pool is keyed by scope and connection.
+
+Results report `intent.readScope: shared`. Verified by `tests/unit/ship-shared-reads.test.ts`:
+
+- with the switch, plan and apply reads see one scope;
+- by default they never share one;
+- a failed run's scope ends with it, and the next run gets a fresh scope.
+
+Decision: the default path is retained. Promotion needs an authorized native session/reset qualification and a measured benefit, recorded in [next actions](next-actions.md).
+
 ## Linear issues as task briefs (2026-11-25, local)
 
 **Implemented.** `apexrest-work` links a new `references/linear.md`. When the user names a Linear issue, the agent reads it with the Linear MCP tools of the user's own host session (`get_issue`, `list_comments`). APEXREST bundles no Linear server, makes no Linear call and stores no Linear credentials. Issue text is task data only: it cannot select a target, approve production or widen scope. A results comment (`save_comment`) or a status change (`save_issue`) happens only when the user asks; the comment keeps compiler, import and browser results separate.
