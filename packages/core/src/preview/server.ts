@@ -475,7 +475,17 @@ export class PreviewServer {
     return [...this.renderer.diagnostics];
   }
 
+  /**
+   * With a healthy watcher and no event since the last load, the source tree is not rescanned on
+   * every call; it still is at least every two seconds, in case an event was missed.
+   */
+  #fresh() {
+    if (this.#dirty || !this.live.watching || Date.now() - this.#lastScan > 2000) this.#refresh();
+  }
+
+  /** The pages of the current sources (a page written since the last load is listed too). */
   pages(): PreviewPage[] {
+    this.#fresh();
     return [...this.renderer.app.pages.values()]
       .filter((page) => page.id !== '0')
       .sort((a, b) => Number(a.id) - Number(b.id))
@@ -718,7 +728,7 @@ export class PreviewServer {
     }
     // With a healthy watcher and no event since the last load, the source tree is not rescanned on
     // every request; it still is at least every two seconds, in case an event was missed.
-    if (this.#dirty || !this.live.watching || Date.now() - this.#lastScan > 2000) this.#refresh();
+    this.#fresh();
     const renderer = this.renderer;
     // Page URLs that Oracle APEX generated (`/ords/r/ws/app/page?…&session=…`, for example in
     // connected-mode report values) redirect to the preview page.

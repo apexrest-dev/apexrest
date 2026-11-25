@@ -33588,7 +33588,16 @@ var PreviewServer = class {
   diagnostics() {
     return [...this.renderer.diagnostics];
   }
+  /**
+   * With a healthy watcher and no event since the last load, the source tree is not rescanned on
+   * every call; it still is at least every two seconds, in case an event was missed.
+   */
+  #fresh() {
+    if (this.#dirty || !this.live.watching || Date.now() - this.#lastScan > 2e3) this.#refresh();
+  }
+  /** The pages of the current sources (a page written since the last load is listed too). */
   pages() {
+    this.#fresh();
     return [...this.renderer.app.pages.values()].filter((page2) => page2.id !== "0").sort((a, b) => Number(a.id) - Number(b.id)).map((page2) => ({
       id: page2.id,
       name: str(page2.props, "name", page2.id),
@@ -33791,7 +33800,7 @@ var PreviewServer = class {
       if (name === "diagnostics")
         return this.#send(response, 200, TYPES[".json"], JSON.stringify(this.diagnostics(), null, 2));
     }
-    if (this.#dirty || !this.live.watching || Date.now() - this.#lastScan > 2e3) this.#refresh();
+    this.#fresh();
     const renderer = this.renderer;
     if (/^(?:\/[^/]+)*?\/r\/[^/]+\/[^/]+\/[^/]+$/u.test(pathname)) {
       const location = renderer.localUrl(`${pathname}${url2.search}`);

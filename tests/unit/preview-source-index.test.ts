@@ -245,3 +245,21 @@ test('reused property findings and the shared theme index give the diagnostics o
   // Both servers render with one theme index: the same loaded theme calls.
   assert.equal(typeof cached.loadTimings?.totalMs, 'number');
 });
+
+test('the page list includes a page written since the last load', async (t) => {
+  const { app, assets } = await workspace(t, { 'shared-components/lovs/statuses.apx': LOV });
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await server.start();
+  t.after(() => server.stop());
+  assert.equal(
+    server.pages().some((page) => page.id === '77'),
+    false,
+  );
+  await writeFile(path.join(app, 'pages/p00077-new.apx'), 'page 77 (\n    name: Newly written\n)\n');
+  let listed = false;
+  for (let i = 0; i < 300 && !listed; i++) {
+    listed = server.pages().some((page) => page.id === '77');
+    if (!listed) await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.ok(listed, 'listed without any page request');
+});

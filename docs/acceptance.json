@@ -1419,6 +1419,21 @@
         "docs/evidence/fast-dev/visible-change-2026-11-25.json"
       ],
       "blocker": "Browser and host stages were not observed: browser verification was not requested. Local preview stages measured on one dataset and host."
+    },
+    {
+      "id": "FASTDEV-V12",
+      "criterion": "A manually invoked scenario pack measures recipe page creation from a declared state, a functional filter whose value and clear change the region's rows, a compound change and large-application edits with repetitions, failures, success rate, median, p95 and cold runs, and assesses the proposed targets against preview readiness",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "scripts/bench/scenarios.ts",
+        "scripts/bench/lib/scenario-stats.ts",
+        "packages/core/src/preview/server.ts",
+        "tests/unit/scenario-stats.test.ts",
+        "tests/unit/preview-source-index.test.ts",
+        "docs/evidence/fast-dev/scenarios-2026-11-25.json"
+      ],
+      "blocker": "Preview readiness only: browser paint (V11 browser stages) and native APEX were not measured."
     }
   ]
 }

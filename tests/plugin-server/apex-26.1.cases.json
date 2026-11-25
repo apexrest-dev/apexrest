@@ -2075,6 +2075,22 @@
       ],
       "evidence": ["trace report"],
       "budgetMs": 300000
+    },
+    {
+      "id": "A261-103",
+      "title": "Fast-development scenario pack",
+      "acceptance": ["FASTDEV-V12"],
+      "execution": "manual",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run node scripts/bench/run.mjs scripts/bench/scenarios.ts --project <26.2 customer-crm project> --out <file>."
+      ],
+      "expected": [
+        "Recipe page creation, a functional filter (value and clear), a compound change and large-application edits report repetitions, failures with reasons, success rate, median, p95 and cold runs; targets are assessed against preview readiness only."
+      ],
+      "evidence": ["scenario report"],
+      "budgetMs": 600000
     }
   ],
   "metrics": "quality-performance.json"

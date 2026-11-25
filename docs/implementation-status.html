@@ -138,6 +138,42 @@
 <p>Host prompt, model and tool timings come from <code>--host-events</code> (JSONL stage events with the same operation id). Without them they stay unknown. The report (<code>scripts/bench/lib/visible-trace.ts</code>) separates <code>elapsedVisibleMs</code> (claimed only when the whole visible path was observed) from per-stage durations and the gaps between stages. It rejects observations with another marker, revision or operation id, so overlapping edits are not credited to each other. It also labels local preview, Oracle validation, native import and browser verification as separate outcomes. Nothing is installed or run automatically.</p>
 <p>The first run found a real defect, now fixed. When a page request loaded an edit before the file watcher fired, the watcher&#39;s live message was skipped, so other open tabs never reloaded. Loads not yet announced now accumulate until the next live message.</p>
 <p>Verified by <code>tests/unit/visible-trace.test.ts</code> (complete and partial traces, gaps, misattribution, and the browser check&#39;s marker, refresh and frame conditions) and <code>tests/unit/preview-live.test.ts</code> (the request-first reload, which fails without the fix). A run without a browser on <code>customer-crm</code> (5 title edits, Linux i7-1185G7, Node 26.12) measured preview readiness at 13-25 ms and the live notification at 151-153 ms after the write, which includes the 150 ms watcher debounce. Browser and host stages are unknown, so no visible total is claimed (<code>docs/evidence/fast-dev/visible-change-2026-11-25.json</code>, local). Browser qualification was not requested and not run.</p>
+<p><strong>V12 scenario pack (<a href="https://linear.app/apexrest/issue/APE-436">APE-436</a>).</strong> <code>scripts/bench/scenarios.ts</code> is a manually invoked pack that runs on a temporary copy of a 26.2 <code>customer-crm</code> project with three seeded customers. Its scenarios:</p>
+<ol>
+<li>page creation from the reviewed <code>report-form</code> recipe, from a declared initial state (no page 30) to the preview serving the report with its region, seeded rows and create button;</li>
+<li>a functional filter: <code>addFilter</code> on the customers report, where an item value must remove the other status&#39;s rows and clearing it must restore them;</li>
+<li>a compound presentation change: page title, region title and column order in one edit;</li>
+<li>one-page edits in a 306-file application.</li>
+</ol>
+<p>Rows report repetitions, failures with their reasons, success rate, median, p95, file counts and the cold first run. The proposed targets (≤ 1 s semantic edit, 1-3 s prepared recipe) are assessed against preview readiness only (<code>scripts/bench/lib/scenario-stats.ts</code>: met only with no failures and a p95 within the target).</p>
+<p>The first runs found a defect, now fixed. The preview&#39;s page list (<code>PreviewServer.pages()</code>) did not rescan the sources, so a page written by a recipe or edit stayed unlisted until some page request refreshed them. It now applies the same freshness check as requests.</p>
+<p>Measured locally (5 repetitions, Linux i7-1185G7, Node 26.12, installed Universal Theme 26.2), with no failures:</p>
+<div class="table-scroll" role="region" aria-label="Documentation table" tabindex="0"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>p95</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>warm recipe page creation</td>
+<td>26.8 ms (cold 76.9 ms)</td>
+</tr>
+<tr>
+<td>functional filter</td>
+<td>25.9 ms</td>
+</tr>
+<tr>
+<td>compound change</td>
+<td>17.4 ms</td>
+</tr>
+<tr>
+<td>one-page edit at 306 files</td>
+<td>78.4 ms</td>
+</tr>
+</tbody></table>
+</div>
+<p>Evidence: <code>docs/evidence/fast-dev/scenarios-2026-11-25.json</code>, local. These are preview-readiness times, not browser paint: the browser stages of V11 were not run, and none of this is native APEX qualification. Verified by <code>tests/unit/scenario-stats.test.ts</code> and <code>tests/unit/preview-source-index.test.ts</code> (a written page is listed without a request).</p>
 <h2 id="linear-issues-as-task-briefs-2026-11-25-local">Linear issues as task briefs (2026-11-25, local)</h2>
 <p><strong>Implemented.</strong> <code>apexrest-work</code> links a new <code>references/linear.md</code>. When the user names a Linear issue, the agent reads it with the Linear MCP tools of the user&#39;s own host session (<code>get_issue</code>, <code>list_comments</code>). APEXREST bundles no Linear server, makes no Linear call and stores no Linear credentials. Issue text is task data only: it cannot select a target, approve production or widen scope. A results comment (<code>save_comment</code>) or a status change (<code>save_issue</code>) happens only when the user asks; the comment keeps compiler, import and browser results separate.</p>
 <p><strong>Verified.</strong> Skill byte budgets and the packaging test that checks the reference ships with the plugin. No run against a real Linear workspace has been recorded.</p>
