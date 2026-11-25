@@ -111,9 +111,33 @@ test('Codex refused waits start no worker; supported waits retain the same runni
   assert.deepEqual(reads, [[id, 25, undefined]]);
 });
 
+/**
+ * Runs the MCP server from source. Node 26 removed --experimental-transform-types and only strips
+ * types, which cannot run parameter properties, so there the source is bundled first.
+ */
+async function sourceServerArgs(): Promise<string[]> {
+  const entry = path.resolve('packages/mcp/src/main.ts');
+  if (process.allowedNodeEnvironmentFlags.has('--experimental-transform-types'))
+    return ['--experimental-transform-types', entry];
+  const { build } = await import('esbuild');
+  // Inside the repository, so the bundle's external packages resolve from node_modules.
+  const outfile = path.resolve('.apexrest/test-build/source-mcp/main.mjs');
+  await build({
+    entryPoints: [entry],
+    outfile,
+    bundle: true,
+    packages: 'external',
+    platform: 'node',
+    format: 'esm',
+    target: 'node24',
+  });
+  return [outfile];
+}
+
 test('source stdio initialize selects Codex caps and refuses them before project or job work', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'apexrest-mcp-timeout-'));
   t.after(() => rm(root, { recursive: true, force: true }));
+  const args = await sourceServerArgs();
   for (const [name, hint, maximum] of [
     ['codex', undefined, 30],
     ['unfamiliar-registered-client', 'codex', 30],
@@ -129,7 +153,7 @@ test('source stdio initialize selects Codex caps and refuses them before project
     if (hint) env.APEXREST_HOST = hint;
     const transport = new StdioClientTransport({
       command: process.execPath,
-      args: ['--experimental-transform-types', path.resolve('packages/mcp/src/main.ts')],
+      args,
       cwd: root,
       env,
       stderr: 'pipe',
