@@ -145,6 +145,19 @@ Decision: the default path is retained. Promotion needs an authorized native ses
 
 Verified by `tests/unit/export-strategy.test.ts` (selection by cost, every fallback cause, required full observation for shared components, extraction equal to per-page export semantics, no unrelated files) and `tests/unit/partial-import.test.ts` (a profile switches only the observation, the import file set is unchanged, and removing the profile after review does not change the applied plan). The speed benefit still needs the authorized native workload qualification listed in [next actions](next-actions.md).
 
+**V11 prompt-to-visible-change trace ([APE-412](https://linear.app/apexrest/issue/APE-412)).** `scripts/bench/visible-change.ts` is a manually invoked harness, run as `node scripts/bench/run.mjs scripts/bench/visible-change.ts --app <APEXlang folder>`. It gives every edit an operation id and a unique marker on a temporary copy, and records:
+
+- the source mutation, with the content revision;
+- preview readiness, when the server's source revision rendered the marker;
+- the live notification an open page client receives;
+- with `--browser-cdp <endpoint>` only, the DOM update and the visible frame in an explicitly given, already running browser (Chrome DevTools protocol). The page check (`BROWSER_WAIT`) requires the marker, no running region refresh, and two rendered animation frames. It retries across the reload the live client performs.
+
+Host prompt, model and tool timings come from `--host-events` (JSONL stage events with the same operation id). Without them they stay unknown. The report (`scripts/bench/lib/visible-trace.ts`) separates `elapsedVisibleMs` (claimed only when the whole visible path was observed) from per-stage durations and the gaps between stages. It rejects observations with another marker, revision or operation id, so overlapping edits are not credited to each other. It also labels local preview, Oracle validation, native import and browser verification as separate outcomes. Nothing is installed or run automatically.
+
+The first run found a real defect, now fixed. When a page request loaded an edit before the file watcher fired, the watcher's live message was skipped, so other open tabs never reloaded. Loads not yet announced now accumulate until the next live message.
+
+Verified by `tests/unit/visible-trace.test.ts` (complete and partial traces, gaps, misattribution, and the browser check's marker, refresh and frame conditions) and `tests/unit/preview-live.test.ts` (the request-first reload, which fails without the fix). A run without a browser on `customer-crm` (5 title edits, Linux i7-1185G7, Node 26.12) measured preview readiness at 13-25 ms and the live notification at 151-153 ms after the write, which includes the 150 ms watcher debounce. Browser and host stages are unknown, so no visible total is claimed (`docs/evidence/fast-dev/visible-change-2026-11-25.json`, local). Browser qualification was not requested and not run.
+
 ## Linear issues as task briefs (2026-11-25, local)
 
 **Implemented.** `apexrest-work` links a new `references/linear.md`. When the user names a Linear issue, the agent reads it with the Linear MCP tools of the user's own host session (`get_issue`, `list_comments`). APEXREST bundles no Linear server, makes no Linear call and stores no Linear credentials. Issue text is task data only: it cannot select a target, approve production or widen scope. A results comment (`save_comment`) or a status change (`save_issue`) happens only when the user asks; the comment keeps compiler, import and browser results separate.

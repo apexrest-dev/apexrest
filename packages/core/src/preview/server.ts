@@ -217,6 +217,8 @@ export class PreviewServer {
   /** Set by the watcher before its debounce; a request then re-reads the sources. */
   #dirty = false;
   #lastScan = 0;
+  /** Source loads since the last live message (see `#refresh`). */
+  #unnotified: { files: string[]; pages: string[] | 'all'; regions?: string[] } | undefined;
   /** Live reload/stylesheet event sequence (see `#sourceMessage`). */
   #sequence = 0;
   /** Phase timings of the last successful load. */
@@ -396,7 +398,18 @@ export class PreviewServer {
               (region) => this.renderer.regionDomId(region),
             )
           : undefined;
-      return { files, pages, ...(regions ? { regions } : {}) };
+      const change = { files, pages, ...(regions ? { regions } : {}) };
+      // Loads not yet announced to open tabs accumulate until the next live message: a request
+      // that loaded the edit first must not swallow the reload the other tabs need.
+      const pending = this.#unnotified;
+      this.#unnotified = pending
+        ? {
+            files: [...new Set([...pending.files, ...files])],
+            pages:
+              pending.pages === 'all' || pages === 'all' ? 'all' : [...new Set([...pending.pages, ...pages])],
+          }
+        : change;
+      return change;
     } catch (error) {
       // A source that changed while it was read: keep the last good renderer and its revision and
       // scan again on the next request instead of rendering or recording a mixed state.
@@ -420,7 +433,9 @@ export class PreviewServer {
    * to the browser, while a repeated or older event is ignored.
    */
   #sourceMessage(file: string): Record<string, unknown> | undefined {
-    const result = this.#refresh();
+    this.#refresh();
+    const result = this.#unnotified;
+    this.#unnotified = undefined;
     if (this.#loadError)
       return { type: 'source-error', message: this.#loadError, revision: this.#revision, stale: true };
     if (result) return { type: 'reload', revision: this.#revision, sequence: ++this.#sequence, ...result };

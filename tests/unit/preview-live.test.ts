@@ -496,3 +496,33 @@ test('a tab that reconnects converges on missed asset changes; unsaved work is p
   legacy.send({ type: 'reload', revision: 2, pages: 'all' });
   assert.equal(legacy.reloads(), 1);
 });
+
+test('a request that loads an edit first does not swallow the reload other tabs need', async (t) => {
+  const { app, assets } = await workspace(t, { 'pages/p00007-board.apx': withActions(PAGE, ADD_TASK) });
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await server.start();
+  t.after(() => server.stop());
+  const first = await fetch(`${server.url}/r/demo/board`);
+  const cookie = first.headers.get('set-cookie')!.split(';')[0]!;
+  await first.text();
+  const other = socket(`${server.url.replace('http', 'ws')}/r/demo/__apex/live?page=7`, cookie, server.url);
+  await other.next('hello');
+  await writeFile(
+    path.join(app, 'pages', 'p00007-board.apx'),
+    withActions(PAGE, ADD_TASK).replace('Open tasks', 'Loaded by a request'),
+  );
+  // One tab requests the page at once: its request loads the new revision before the watcher fires.
+  for (let i = 0; i < 50; i++) {
+    if (
+      /Loaded by a request/u.test(
+        await (await fetch(`${server.url}/r/demo/board`, { headers: { cookie } })).text(),
+      )
+    )
+      break;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  const reload = await other.next('reload', 5000);
+  assert.equal(reload.revision, 1);
+  assert.deepEqual(reload.pages, ['7']);
+  other.ws.close();
+});

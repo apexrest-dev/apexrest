@@ -33363,6 +33363,8 @@ var PreviewServer = class {
   /** Set by the watcher before its debounce; a request then re-reads the sources. */
   #dirty = false;
   #lastScan = 0;
+  /** Source loads since the last live message (see `#refresh`). */
+  #unnotified;
   /** Live reload/stylesheet event sequence (see `#sourceMessage`). */
   #sequence = 0;
   /** Phase timings of the last successful load. */
@@ -33522,7 +33524,13 @@ var PreviewServer = class {
         this.renderer.app.pages.get(pages2[0]),
         (region) => this.renderer.regionDomId(region)
       ) : void 0;
-      return { files, pages: pages2, ...regions ? { regions } : {} };
+      const change = { files, pages: pages2, ...regions ? { regions } : {} };
+      const pending2 = this.#unnotified;
+      this.#unnotified = pending2 ? {
+        files: [.../* @__PURE__ */ new Set([...pending2.files, ...files])],
+        pages: pending2.pages === "all" || pages2 === "all" ? "all" : [.../* @__PURE__ */ new Set([...pending2.pages, ...pages2])]
+      } : change;
+      return change;
     } catch (error) {
       if (error instanceof IncoherentLoad) {
         this.#dirty = true;
@@ -33542,7 +33550,9 @@ var PreviewServer = class {
    * to the browser, while a repeated or older event is ignored.
    */
   #sourceMessage(file) {
-    const result = this.#refresh();
+    this.#refresh();
+    const result = this.#unnotified;
+    this.#unnotified = void 0;
     if (this.#loadError)
       return { type: "source-error", message: this.#loadError, revision: this.#revision, stale: true };
     if (result) return { type: "reload", revision: this.#revision, sequence: ++this.#sequence, ...result };

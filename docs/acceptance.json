@@ -1404,6 +1404,21 @@
         "tests/unit/partial-import.test.ts"
       ],
       "blocker": "Repository fixtures. Performance promotion needs an authorized native workload profile."
+    },
+    {
+      "id": "FASTDEV-V11",
+      "criterion": "A manually invoked trace links each edit's host, source, preview, live-notification and browser stages to one operation id, marker and revision, separates visible elapsed time from stage durations and gaps, requires the marker after refresh and a rendered frame, and labels missing stages unknown",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "scripts/bench/visible-change.ts",
+        "scripts/bench/lib/visible-trace.ts",
+        "packages/core/src/preview/server.ts",
+        "tests/unit/visible-trace.test.ts",
+        "tests/unit/preview-live.test.ts",
+        "docs/evidence/fast-dev/visible-change-2026-11-25.json"
+      ],
+      "blocker": "Browser and host stages were not observed: browser verification was not requested. Local preview stages measured on one dataset and host."
     }
   ]
 }

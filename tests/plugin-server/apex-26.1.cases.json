@@ -2059,6 +2059,22 @@
       ],
       "evidence": ["plan importSelection.observation"],
       "budgetMs": 30000
+    },
+    {
+      "id": "A261-102",
+      "title": "Prompt-to-visible-change trace",
+      "acceptance": ["FASTDEV-V11"],
+      "execution": "manual",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run node scripts/bench/run.mjs scripts/bench/visible-change.ts --app <APEXlang folder> --out <file>; optionally add --browser-cdp <endpoint> and --host-events <file>."
+      ],
+      "expected": [
+        "Each edit has an operation id linking its stages to its own marker and revision; stage durations, gaps and the visible total are separate; unobserved stages are unknown and no total is claimed without the browser stages."
+      ],
+      "evidence": ["trace report"],
+      "budgetMs": 300000
     }
   ],
   "metrics": "quality-performance.json"
