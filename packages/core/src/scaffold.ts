@@ -18,7 +18,7 @@ import { Fault } from './result.ts';
 import { sourceRelease } from './partial-import.ts';
 import { get, parseApexLang } from './preview/apexlang.ts';
 import { scaffoldObservationsSql } from './scaffold-observations.ts';
-import { scaffoldSchema } from './scaffold-spec.ts';
+import { scaffoldSchema, type ScaffoldSpec } from './scaffold-spec.ts';
 import {
   renderRegion,
   renderPageBody,
@@ -59,7 +59,29 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
   } catch {
     throw new Fault('INVALID_INPUT', 'specFile must contain valid JSON.', 2);
   }
-  const spec = parse(scaffoldSchema, input);
+  const specDigest = hash(raw);
+  return scaffoldSpec(ctx, parse(scaffoldSchema, input), raw, name, async () => {
+    if (hash(await readFile(file, 'utf8')) !== specDigest)
+      throw new Fault(
+        'SOURCE_DRIFT',
+        'The scaffold specification changed before writing; the staged exact input is retained.',
+        5,
+      );
+  });
+}
+
+/**
+ * Generates a parsed specification from a file or an expanded recipe. `raw` is the exact input
+ * text (staged and digested); `recheck` runs right before the write and throws when an input the
+ * specification came from changed.
+ */
+export async function scaffoldSpec(
+  ctx: ProjectContext,
+  spec: ScaffoldSpec,
+  raw: string,
+  name: string | undefined,
+  recheck: () => Promise<void>,
+) {
   const specDigest = hash(raw);
   const target = name ? environment(ctx, name) : undefined;
   validateSpec(spec);
@@ -407,12 +429,7 @@ export async function scaffold(ctx: ProjectContext, specFile: string, name?: str
     }
     if (canonical(await inventory(root)) !== canonical(before))
       throw new Fault('SOURCE_DRIFT', 'Source changed during scaffolding; staged outputs retained.', 5);
-    if (hash(await readFile(file, 'utf8')) !== specDigest)
-      throw new Fault(
-        'SOURCE_DRIFT',
-        'The scaffold specification changed before writing; the staged exact input is retained.',
-        5,
-      );
+    await recheck();
     for (const [name, value] of Object.entries(writes)) {
       const target = await contained(root, name);
       const current = (await exists(target)) ? hash(await readFile(target)) : undefined;

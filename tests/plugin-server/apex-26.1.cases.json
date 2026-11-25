@@ -1722,6 +1722,24 @@
       ],
       "evidence": ["sanitized result code", "metadata query count", "diagnostic codes"],
       "budgetMs": 20000
+    },
+    {
+      "id": "A261-082",
+      "title": "Pages from a recipe and an entity contract",
+      "acceptance": ["FASTDEV-A11"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Add a reviewed entity contract.",
+        "Send project action:recipe for report-form and filtered-dashboard.",
+        "Validate; repeat one recipe."
+      ],
+      "expected": [
+        "The expanded specification is returned; the compiler passes; repeating gives the same specification digest and bytes."
+      ],
+      "evidence": ["sanitized result code", "specification digest", "compiler diagnostics count"],
+      "budgetMs": 30000
     }
   ],
   "metrics": "quality-performance.json"

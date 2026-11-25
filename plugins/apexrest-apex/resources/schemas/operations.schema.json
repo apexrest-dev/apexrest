@@ -1368,6 +1368,37 @@
     },
     "additionalProperties": false
   },
+  "project.recipe": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "request": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {},
+        "description": "JSON: {recipe: report-form|filtered-dashboard, entity, entityDigest?, pages, overrides?}"
+      },
+      "env": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+      },
+      "dryRun": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "request"
+    ],
+    "additionalProperties": false
+  },
   "entity.check": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -2713,6 +2744,7 @@
           "lov_edit",
           "entities",
           "entity_check",
+          "recipe",
           "connection_add",
           "connection_list",
           "connection_test"
@@ -2728,7 +2760,6 @@
         "type": "string"
       },
       "operations": {
-        "description": "patch/insert/edit: see patch guide",
         "type": "array",
         "items": {}
       },
@@ -2750,6 +2781,7 @@
       "entity": {
         "type": "string"
       },
+      "request": {},
       "entries": {},
       "query": {},
       "directory": {

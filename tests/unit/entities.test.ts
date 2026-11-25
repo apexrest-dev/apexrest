@@ -24,7 +24,7 @@ export const CUSTOMER = {
     STATUS: { type: 'varchar2', label: 'Status', lov: { shared: 'STATUS' } },
     ROW_VERSION: { type: 'number', label: 'Version', readOnly: true },
   },
-  authorization: { read: { scheme: 'CRM Reader' }, write: { scheme: 'CRM Editor' } },
+  authorization: { read: { scheme: 'crm-reader' }, write: { scheme: 'crm-editor' } },
   write: { table: 'CUSTOMERS', operations: ['insert', 'update'], lostUpdate: { rowVersion: 'ROW_VERSION' } },
   provenance: 'Reviewed with the CRM owner.',
 };
@@ -71,7 +71,7 @@ test('security and write behavior are explicit and checked before any generation
     true,
   );
   const issues = (value: object) => checkEntity(entityContractSchema.parse(value)).map((d) => d.code);
-  assert.deepEqual(issues({ ...CUSTOMER, authorization: { read: { scheme: 'CRM Reader' } } }), [
+  assert.deepEqual(issues({ ...CUSTOMER, authorization: { read: { scheme: 'crm-reader' } } }), [
     'ENTITY_WRITE_INCOMPLETE',
   ]);
   assert.deepEqual(

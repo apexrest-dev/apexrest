@@ -22,7 +22,7 @@ const CONTRACT = {
     STATUS: { type: 'varchar2', label: 'Status', lov: { shared: 'STATUS' } },
     ROW_VERSION: { type: 'number', label: 'Version', readOnly: true },
   },
-  authorization: { read: { scheme: 'CRM Reader' }, write: { scheme: 'CRM Editor' } },
+  authorization: { read: { scheme: 'crm-reader' }, write: { scheme: 'crm-editor' } },
   write: { table: 'CUSTOMERS', operations: ['update'], lostUpdate: { rowVersion: 'ROW_VERSION' } },
 };
 const env = { parsingSchema: 'CRM', workspace: 'CRM_WS', applicationId: 100 } as Environment;
@@ -87,7 +87,7 @@ test('offline validation makes no database call and lists what it cannot verify'
     ['ENTITY_LOV_MISSING'],
   );
   assert.ok(result.assumptions.some((a) => /CUSTOMERS exists/u.test(a)));
-  assert.ok(result.assumptions.some((a) => /CRM Editor/u.test(a)));
+  assert.ok(result.assumptions.some((a) => /crm-editor/u.test(a)));
 });
 
 test('connected validation reads each table once, verifies the target and binds digest and target', async (t) => {

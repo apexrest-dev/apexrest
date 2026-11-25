@@ -395,6 +395,14 @@ export const schemas = {
       .describe('Edited page context in the result: changed/inserted/removed targets (default), whole, none'),
   }),
   'entity.list': z.strictObject({ ...base }),
+  'project.recipe': z.strictObject({
+    ...base,
+    request: z
+      .record(z.string(), z.unknown())
+      .describe('JSON: {recipe: report-form|filtered-dashboard, entity, entityDigest?, pages, overrides?}'),
+    env: env.optional(),
+    dryRun: z.boolean().default(false),
+  }),
   'entity.check': z.strictObject({
     ...base,
     entity: z
@@ -643,18 +651,20 @@ export const schemas = {
       'lov_edit',
       'entities',
       'entity_check',
+      'recipe',
       'connection_add',
       'connection_list',
       'connection_test',
     ]),
     specFile: relativePath.optional().describe('scaffold: JSON spec; see work skill scaffold guide'),
     page: z.string().optional(),
-    operations: z.array(z.unknown()).optional().describe('patch/insert/edit: see patch guide'),
+    operations: z.array(z.unknown()).optional(),
     components: z.unknown().optional(),
     expectedDigest: z.string().optional(),
     context: z.enum(['delta', 'full', 'none']).optional(),
     lov: z.string().optional(),
     entity: z.string().optional(),
+    request: z.unknown().optional(),
     // Validated by the routed operation's own schema (lov.edit); kept untyped here for catalog size.
     entries: z.unknown().optional(),
     query: z.unknown().optional(),

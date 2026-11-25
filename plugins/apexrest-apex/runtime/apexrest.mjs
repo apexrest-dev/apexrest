@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  setPreviewOwner
+} from "./chunk-4SDMRO4L.mjs";
+import {
   dispatch
-} from "./chunk-MBVTUB3N.mjs";
+} from "./chunk-HJJ2TRZJ.mjs";
+import "./chunk-TCCMWNKJ.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-H36VSCTJ.mjs";
-import "./chunk-2ZCBZPPJ.mjs";
+} from "./chunk-ZO4TWOWZ.mjs";
 import "./chunk-O7MNIZXK.mjs";
 import "./chunk-WYPBTRB6.mjs";
 import "./chunk-YSSNVOMD.mjs";
@@ -17,12 +20,9 @@ import {
   failQueuedJob
 } from "./chunk-NOTPADGV.mjs";
 import "./chunk-22GQ5JVK.mjs";
-import {
-  setPreviewOwner
-} from "./chunk-4SDMRO4L.mjs";
-import "./chunk-TCCMWNKJ.mjs";
 import "./chunk-33ZG6DXL.mjs";
 import "./chunk-VN3PQCGH.mjs";
+import "./chunk-JRP3DTWQ.mjs";
 import "./chunk-J7SOVXCF.mjs";
 import "./chunk-WEBUXBUI.mjs";
 import "./chunk-NMTEJGHC.mjs";
@@ -108,7 +108,7 @@ var isFlag = (name, field) => booleans.has(name) || field !== void 0 && unwrap(f
 var optionColumn = 32;
 function optionLine(name, field) {
   const { def, description } = unwrap(field);
-  const value = isFlag(name, field) ? "" : def.type === "enum" && def.entries ? " " + Object.values(def.entries).join("|") : numbers.has(name) ? " N" : name === "confirmation" || name === "requests" || name === "operations" || name === "statements" || name === "components" || name === "entries" || name === "query" && def.type !== "string" ? " JSON" : def.type === "array" ? " VALUE..." : name === "project" || /(?:Dir|File)$/.test(name) ? " PATH" : " VALUE";
+  const value = isFlag(name, field) ? "" : def.type === "enum" && def.entries ? " " + Object.values(def.entries).join("|") : numbers.has(name) ? " N" : name === "confirmation" || name === "requests" || name === "operations" || name === "statements" || name === "components" || name === "entries" || name === "request" && def.type !== "string" || name === "query" && def.type !== "string" ? " JSON" : def.type === "array" ? " VALUE..." : name === "project" || /(?:Dir|File)$/.test(name) ? " PATH" : " VALUE";
   const text = "  " + flag(name) + value;
   return description ? text.padEnd(optionColumn) + " " + description : text;
 }
@@ -322,7 +322,7 @@ try {
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-45AFYI6I.mjs");
+    const { startMcp } = await import("./chunk-MFGMR65H.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -346,7 +346,7 @@ try {
             const files = [value];
             while (argv[i + 1] && !argv[i + 1].startsWith("--")) files.push(argv[++i]);
             input[name] = files;
-          } else if (name === "confirmation" || name === "requests" || name === "operations" || name === "statements" || name === "components" || name === "entries" || name === "query" && selectedOp.op === "lov.edit") {
+          } else if (name === "confirmation" || name === "requests" || name === "operations" || name === "statements" || name === "components" || name === "entries" || name === "request" && selectedOp.op === "project.recipe" || name === "query" && selectedOp.op === "lov.edit") {
             try {
               input[name] = JSON.parse(value);
             } catch {

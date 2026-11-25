@@ -286,6 +286,12 @@ var schemas = {
     context: external_exports.enum(["delta", "full", "none"]).default("delta").describe("Edited page context in the result: changed/inserted/removed targets (default), whole, none")
   }),
   "entity.list": external_exports.strictObject({ ...base }),
+  "project.recipe": external_exports.strictObject({
+    ...base,
+    request: external_exports.record(external_exports.string(), external_exports.unknown()).describe("JSON: {recipe: report-form|filtered-dashboard, entity, entityDigest?, pages, overrides?}"),
+    env: env.optional(),
+    dryRun: external_exports.boolean().default(false)
+  }),
   "entity.check": external_exports.strictObject({
     ...base,
     entity: external_exports.string().regex(/^[a-z][a-z0-9-]{0,62}$/u).describe("Entity id (entities/<id>.json)"),
@@ -468,18 +474,20 @@ var schemas = {
       "lov_edit",
       "entities",
       "entity_check",
+      "recipe",
       "connection_add",
       "connection_list",
       "connection_test"
     ]),
     specFile: relativePath.optional().describe("scaffold: JSON spec; see work skill scaffold guide"),
     page: external_exports.string().optional(),
-    operations: external_exports.array(external_exports.unknown()).optional().describe("patch/insert/edit: see patch guide"),
+    operations: external_exports.array(external_exports.unknown()).optional(),
     components: external_exports.unknown().optional(),
     expectedDigest: external_exports.string().optional(),
     context: external_exports.enum(["delta", "full", "none"]).optional(),
     lov: external_exports.string().optional(),
     entity: external_exports.string().optional(),
+    request: external_exports.unknown().optional(),
     // Validated by the routed operation's own schema (lov.edit); kept untyped here for catalog size.
     entries: external_exports.unknown().optional(),
     query: external_exports.unknown().optional(),

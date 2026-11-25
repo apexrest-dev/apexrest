@@ -108,6 +108,7 @@ function optionLine(name: string, field: Field) {
             name === 'statements' ||
             name === 'components' ||
             name === 'entries' ||
+            (name === 'request' && def.type !== 'string') ||
             (name === 'query' && def.type !== 'string')
           ? ' JSON'
           : def.type === 'array'
@@ -374,6 +375,7 @@ try {
             name === 'statements' ||
             name === 'components' ||
             name === 'entries' ||
+            (name === 'request' && selectedOp.op === 'project.recipe') ||
             (name === 'query' && selectedOp.op === 'lov.edit')
           ) {
             try {

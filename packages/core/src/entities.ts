@@ -30,7 +30,8 @@ const sql = z
     (value) => !value.includes('```') && !/[\x00\r]/u.test(value),
     'No fence delimiters or control characters',
   );
-const scheme = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 _.-]{0,254}$/u, 'Authorization scheme name');
+/** An authorization scheme's component id, as pages and regions reference it (`@id`). */
+const scheme = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,127}$/u, 'Authorization scheme component id');
 
 export const entityFieldSchema = z.strictObject({
   type: z.enum(['varchar2', 'number', 'date', 'timestamp']),

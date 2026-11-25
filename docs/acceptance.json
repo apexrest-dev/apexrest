@@ -1141,6 +1141,19 @@
       "verification": "partial",
       "evidence": ["packages/core/src/entity-check.ts", "tests/unit/entity-check.test.ts"],
       "blocker": "Repository tests use a local adapter fixture, not Oracle. A connected check against a real DEV/QA/TEST target is not yet run. Entity contracts reference no PL/SQL APIs, so signature checks do not apply."
+    },
+    {
+      "id": "FASTDEV-A11",
+      "criterion": "A compact recipe, entity-contract and bounded-override request expands deterministically into the existing scaffold specification and emitter, validating the contract and refusing unsupported overrides before any source change and returning the expanded specification",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/recipes.ts",
+        "packages/core/src/scaffold.ts",
+        "tests/unit/recipes.test.ts",
+        "docs/evidence/fast-dev/recipes-compiler-2026-11-25.json"
+      ],
+      "blocker": "Repository tests and the offline Oracle compiler (26.2) pass for report-form and filtered-dashboard; repetition is byte-stable. Native import and browser behaviour are not yet observed."
     }
   ]
 }

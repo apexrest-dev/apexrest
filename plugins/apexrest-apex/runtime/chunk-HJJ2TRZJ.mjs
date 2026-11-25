@@ -1,12 +1,13 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
-  schemas
-} from "./chunk-H36VSCTJ.mjs";
+  pageContext,
+  patchPage,
+  planSets,
+  queryEdits
+} from "./chunk-TCCMWNKJ.mjs";
 import {
-  renderPageBody,
-  renderRegion,
-  scaffoldSchema
-} from "./chunk-2ZCBZPPJ.mjs";
+  schemas
+} from "./chunk-ZO4TWOWZ.mjs";
 import {
   browserPreferences
 } from "./chunk-O7MNIZXK.mjs";
@@ -29,12 +30,6 @@ import {
   lovEdit,
   lovFile
 } from "./chunk-22GQ5JVK.mjs";
-import {
-  pageContext,
-  patchPage,
-  planSets,
-  queryEdits
-} from "./chunk-TCCMWNKJ.mjs";
 import {
   ApexLangDocument,
   DeploymentService,
@@ -67,6 +62,12 @@ import {
   oracleType,
   readMetadataBatch
 } from "./chunk-VN3PQCGH.mjs";
+import {
+  renderPageBody,
+  renderRegion,
+  scaffoldSchema,
+  scaffoldSpec
+} from "./chunk-JRP3DTWQ.mjs";
 import {
   group,
   indent,
@@ -825,19 +826,19 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
     const groupId = bySymbol.get(symbol);
     if (!groupId) continue;
     const group2 = byId.get(groupId);
-    const label = group2?.text.match(/^<[^>\n]+>\s*::=\s*<indent>\s*"([A-Za-z][\w]*)"/)?.[1];
-    if (!group2 || !label || !group2.text.includes('"{"')) continue;
+    const label2 = group2?.text.match(/^<[^>\n]+>\s*::=\s*<indent>\s*"([A-Za-z][\w]*)"/)?.[1];
+    if (!group2 || !label2 || !group2.text.includes('"{"')) continue;
     const propertyLineId = bySymbol.get(symbol + "-property-line");
     const propertyLine = propertyLineId ? byId.get(propertyLineId) : void 0;
     const groupSymbols = grammarSymbols(group2.text);
     if (!groupSymbols.includes(symbol + "-property") && !(groupSymbols.includes(symbol + "-property-line") && propertyLine && grammarSymbols(propertyLine.text).includes(symbol + "-property")))
       continue;
-    const suffix = "-" + referenceWords(label).join("-");
+    const suffix = "-" + referenceWords(label2).join("-");
     if (!symbol.endsWith(suffix)) continue;
     const ownerSymbol = symbol.slice(0, -suffix.length);
     const ownerId = bySymbol.get(ownerSymbol);
     if (!ownerId || !ownsGroup(ownerSymbol, symbol)) continue;
-    const terms = referenceStems(label);
+    const terms = referenceStems(label2);
     const context = referenceStems(ownerSymbol).filter((term) => term.length > 1 && !terms.includes(term));
     if (!terms.length || !context.length) continue;
     propertyFacets.set(position, { terms, context });
@@ -1157,7 +1158,7 @@ async function referenceSearch(query, version, options = {}) {
       };
     })
   );
-  return fitResults(results, Math.min(16e3, 2500 * limit), (page) => JSON.stringify(page).length);
+  return fitResults(results, Math.min(16e3, 2500 * limit), (page2) => JSON.stringify(page2).length);
 }
 async function referenceCandidates(request, version) {
   if (version.split("@")[0] === "26.2") {
@@ -1213,7 +1214,7 @@ async function referenceRead(id2, offset, limit, project, version) {
   ];
   const link = index.link;
   const requires = item.requires ?? [];
-  const page = {
+  const page2 = {
     id: item.id,
     title: index.link(item.id).title ?? item.id,
     version: item.version,
@@ -1233,7 +1234,7 @@ async function referenceRead(id2, offset, limit, project, version) {
     relatedOmittedCount: Math.max(0, related.length - 16),
     classification: "vendor-reference-data"
   };
-  return item.document ? verifiedVendorReferencePage(page) : page;
+  return item.document ? verifiedVendorReferencePage(page2) : page2;
 }
 async function referenceSync(version, dryRun) {
   const entries = (await referenceIndex(version)).upstream.filter((r) => versionMatches(r.version, version));
@@ -1736,21 +1737,21 @@ async function referenceSelect(input, signal, fetcher = fetch) {
   const pages = String(
     version
   ).startsWith("26.2") ? await pageExamples(input.request) : [];
-  for (const page of pages) {
-    const note = /^\s*process \S+ \($/mu.test(page.text) ? noteOnce("process") : void 0;
-    const values = await exampleValues(page.text);
-    if (note) Object.assign(page, { note });
+  for (const page2 of pages) {
+    const note = /^\s*process \S+ \($/mu.test(page2.text) ? noteOnce("process") : void 0;
+    const values = await exampleValues(page2.text);
+    if (note) Object.assign(page2, { note });
     const kinds = /* @__PURE__ */ new Map();
     for (const entry of Object.entries(values ?? {})) {
       const kind = entry[0].split(".")[0];
       kinds.set(kind, [...kinds.get(kind) ?? [], entry]);
     }
-    for (const lists of kinds.values()) wanting.push({ target: page, kind: "page", lists, nested: true });
+    for (const lists of kinds.values()) wanting.push({ target: page2, kind: "page", lists, nested: true });
   }
   const budget = results.some((result) => "example" in result) || pages.length ? 3e4 : 7e3;
-  const size = (page) => Buffer.byteLength(
+  const size = (page2) => Buffer.byteLength(
     JSON.stringify(
-      sanitized({ selection, results: page, ...pages.length ? { pageExamples: pages } : {} })
+      sanitized({ selection, results: page2, ...pages.length ? { pageExamples: pages } : {} })
     ),
     "utf8"
   );
@@ -1791,19 +1792,19 @@ function planInsert(snapshot, list) {
       `Invalid components: ${spec.error.issues[0]?.path.join(".")} ${spec.error.issues[0]?.message}`,
       2
     );
-  const page = spec.data.pages[0];
-  if (!page.regions.length && !page.items?.length && !page.refreshes?.length)
+  const page2 = spec.data.pages[0];
+  if (!page2.regions.length && !page2.items?.length && !page2.refreshes?.length)
     throw new Fault("INVALID_INPUT", "Give regions, items or refreshes to insert.", 2);
   const existing = (type) => new Set(parsed.children.filter((c) => c.type === type).map((c) => c.id.toUpperCase()));
   const regions = existing("region");
-  for (const region of page.regions) {
+  for (const region of page2.regions) {
     if (!region.id) throw new Fault("INVALID_INPUT", "Inserted regions need an explicit id.", 2);
     if (regions.has(region.id.toUpperCase()))
       throw new Fault("TARGET_EXISTS", `Region ${region.id} already exists.`, 5);
     regions.add(region.id.toUpperCase());
   }
   const items = existing("pageItem");
-  for (const item of page.items ?? []) {
+  for (const item of page2.items ?? []) {
     if (!new RegExp(`^P${pageId}_`, "u").test(item.name.toUpperCase()))
       throw new Fault("INVALID_INPUT", `Item ${item.name} must start with P${pageId}_.`, 2);
     if (items.has(item.name.toUpperCase()))
@@ -1812,7 +1813,7 @@ function planInsert(snapshot, list) {
       throw new Fault("TARGET_NOT_FOUND", `No region ${item.region} for ${item.name}.`, 2);
     items.add(item.name.toUpperCase());
   }
-  for (const refresh of page.refreshes ?? []) {
+  for (const refresh of page2.refreshes ?? []) {
     for (const item of refresh.items)
       if (!items.has(item.toUpperCase()))
         throw new Fault("TARGET_NOT_FOUND", `Refresh item ${item} does not exist.`, 2);
@@ -1821,11 +1822,11 @@ function planInsert(snapshot, list) {
         throw new Fault("TARGET_NOT_FOUND", `Refresh region ${region} does not exist.`, 2);
   }
   const offset = parsed.children.filter((c) => c.type === "region").length;
-  let text2 = page.regions.map((region, index) => renderRegion(region, offset + index, release)).join("\n");
-  let rest = renderPageBody(page, release, { regions: false });
+  let text2 = page2.regions.map((region, index) => renderRegion(region, offset + index, release)).join("\n");
+  let rest = renderPageBody(page2, release, { regions: false });
   const actions = existing("dynamicAction");
   const refreshNames = [];
-  (page.refreshes ?? []).forEach((_refresh, index) => {
+  (page2.refreshes ?? []).forEach((_refresh, index) => {
     let n = index + 1;
     while (actions.has(`REFRESH-${n}`)) n++;
     actions.add(`REFRESH-${n}`);
@@ -1836,10 +1837,10 @@ function planInsert(snapshot, list) {
   text2 = [text2, rest].filter(Boolean).join("\n");
   const lines = text2.split("\n").join(doc.eol) + doc.eol;
   const verify = (after) => {
-    for (const region of page.regions)
+    for (const region of page2.regions)
       if (!after.children.some((c) => c.type === "region" && c.id === region.id))
         throw new Fault("TRANSFORM_INVALID", `Region ${region.id} did not read back.`, 5);
-    for (const item of page.items ?? [])
+    for (const item of page2.items ?? [])
       if (!after.children.some((c) => c.type === "pageItem" && c.id.toUpperCase() === item.name.toUpperCase()))
         throw new Fault("TRANSFORM_INVALID", `Item ${item.name} did not read back.`, 5);
   };
@@ -1847,8 +1848,8 @@ function planInsert(snapshot, list) {
     edits: [appendChild(doc, node2, lines)],
     verify,
     targets: [
-      ...page.regions.map((region) => `region:${region.id}`),
-      ...(page.items ?? []).map((item) => `item:${item.name.toUpperCase()}`),
+      ...page2.regions.map((region) => `region:${region.id}`),
+      ...(page2.items ?? []).map((item) => `item:${item.name.toUpperCase()}`),
       ...refreshNames.map((name) => `dynamicAction:${name}`)
     ]
   };
@@ -1917,7 +1918,7 @@ function submitEdit(doc, owner, item) {
   throw new Fault("TRANSFORM_UNSUPPORTED", `Unclosed pageItemsToSubmit of ${owner.kind} ${owner.key}.`, 5);
 }
 function planFilters(snapshot, operations) {
-  const { doc, node: page } = snapshot;
+  const { doc, node: page2 } = snapshot;
   const edits = [];
   const checks = [];
   const seen = /* @__PURE__ */ new Set();
@@ -1927,7 +1928,7 @@ function planFilters(snapshot, operations) {
       const key = `${target.region.toUpperCase()}:${item}`;
       if (seen.has(key)) throw new Fault("INVALID_INPUT", `Region ${target.region} is listed twice.`, 2);
       seen.add(key);
-      const region = ApexLangDocument.one(page.children, "region", target.region, `Page ${page.key}`);
+      const region = ApexLangDocument.one(page2.children, "region", target.region, `Page ${page2.key}`);
       const type = String(region.properties.get("type")?.value ?? "");
       if (!FAMILIES.has(type))
         throw new Fault(
@@ -1988,26 +1989,26 @@ function planFilters(snapshot, operations) {
           )
         });
       }
-      for (const source of sources) {
-        if (!bind(item).test(source.sql))
+      for (const source2 of sources) {
+        if (!bind(item).test(source2.sql))
           throw new Fault(
             "FILTER_NOT_BOUND",
-            `The ${source.label} query does not reference :${item}. Pass complete replacement SQL that filters on it; predicates are not rewritten.`,
+            `The ${source2.label} query does not reference :${item}. Pass complete replacement SQL that filters on it; predicates are not rewritten.`,
             2
           );
-        const edit = submitEdit(doc, source.owner, item);
+        const edit = submitEdit(doc, source2.owner, item);
         if (edit) edits.push(edit);
-        checks.push({ source, item });
+        checks.push({ source: source2, item });
       }
     }
   }
   const verify = (after) => {
-    for (const { source, item } of checks) {
-      const component = source.find(after);
+    for (const { source: source2, item } of checks) {
+      const component = source2.find(after);
       const items = submitted(component && readProperty(component, "source.pageItemsToSubmit"));
       const sql2 = String((component && readProperty(component, "source.sqlQuery")) ?? "");
       if (!items.some((name) => name.toUpperCase() === item) || !bind(item).test(sql2))
-        throw new Fault("TRANSFORM_INVALID", `${source.label} does not submit and bind ${item}.`, 5);
+        throw new Fault("TRANSFORM_INVALID", `${source2.label} does not submit and bind ${item}.`, 5);
     }
   };
   return {
@@ -2059,14 +2060,14 @@ function replaceGroup(doc, owner, name, text2) {
   return { start: before.offset, end: before.offset, content: body };
 }
 function planDialogs(snapshot, operations) {
-  const { doc, node: page, parsed, release, related } = snapshot;
+  const { doc, node: page2, parsed, release, related } = snapshot;
   const edits = [];
   const warnings = [];
   const checks = [];
   const targets = [];
-  const buttons = new Set(page.children.filter((c) => c.kind === "button").map((c) => c.key.toUpperCase()));
+  const buttons = new Set(page2.children.filter((c) => c.kind === "button").map((c) => c.key.toUpperCase()));
   const actions = new Set(
-    page.children.filter((c) => c.kind === "dynamicAction").map((c) => c.key.toUpperCase())
+    page2.children.filter((c) => c.kind === "dynamicAction").map((c) => c.key.toUpperCase())
   );
   let appended = "";
   for (const operation of operations) {
@@ -2111,7 +2112,7 @@ function planDialogs(snapshot, operations) {
       if (buttons.has(button.id.toUpperCase()))
         throw new Fault("TARGET_EXISTS", `Button ${button.id} already exists.`, 5);
       buttons.add(button.id.toUpperCase());
-      ApexLangDocument.one(page.children, "region", button.region, `Page ${page.key}`);
+      ApexLangDocument.one(page2.children, "region", button.region, `Page ${page2.key}`);
       if (!refreshRegion)
         throw new Fault("INVALID_INPUT", "A dialog button needs refresh: the region to update.", 2);
       const sequence = Math.max(
@@ -2141,7 +2142,7 @@ button: @${button.id}`;
       });
     } else {
       const link = operation.link;
-      const region = ApexLangDocument.one(page.children, "region", link.region, `Page ${page.key}`);
+      const region = ApexLangDocument.one(page2.children, "region", link.region, `Page ${page2.key}`);
       const type = reportRegion(region, "A row link");
       const rowColumns = new Set(
         region.children.filter((c) => c.kind === "column").map((c) => c.key.toUpperCase())
@@ -2183,12 +2184,12 @@ region: @${region.key}`;
         const owner = type === "interactiveReport" ? parsedRegion : parsedRegion?.children.find(
           (c) => c.type === "column" && c.id.toUpperCase() === link.column.toUpperCase()
         );
-        const page2 = owner && readProperty(owner, "link.target")?.page;
-        if (String(page2) !== String(operation.target.page))
+        const page3 = owner && readProperty(owner, "link.target")?.page;
+        if (String(page3) !== String(operation.target.page))
           throw new Fault("TRANSFORM_INVALID", `${link.region} link did not read back.`, 5);
       });
     }
-    ApexLangDocument.one(page.children, "region", refreshRegion, `Page ${page.key}`);
+    ApexLangDocument.one(page2.children, "region", refreshRegion, `Page ${page2.key}`);
     const reused = parsed.children.some(
       (c) => c.type === "dynamicAction" && readProperty(c, "when.event") === "apexafterclosedialog" && (operation.button ? refOf(readProperty(c, "when.button")) === operation.button.id : refOf(readProperty(c, "when.region")) === operation.link.region) && c.children.some(
         (action) => readProperty(action, "action") === "refresh" && readProperty(action, "affectedElements.region")?.ref === refreshRegion
@@ -2208,7 +2209,7 @@ region: @${region.key}`;
     }
   }
   if (appended)
-    edits.push(appendChild(doc, page, indent(appended.trimEnd()).split("\n").join(doc.eol) + doc.eol));
+    edits.push(appendChild(doc, page2, indent(appended.trimEnd()).split("\n").join(doc.eol) + doc.eol));
   return {
     edits,
     verify: (after) => checks.forEach((check2) => check2(after)),
@@ -2286,7 +2287,7 @@ function replaceGroup2(doc, owner, name, text2) {
   return { start: before.offset, end: before.offset, content: body };
 }
 function planBindLov(snapshot, operations) {
-  const { doc, node: page, parsed, release, related } = snapshot;
+  const { doc, node: page2, parsed, release, related } = snapshot;
   if (release !== "26.2")
     throw new Fault(
       "OPERATION_UNSUPPORTED",
@@ -2298,7 +2299,7 @@ function planBindLov(snapshot, operations) {
   const items = new Set(parsed.children.filter((c) => c.type === "pageItem").map((c) => c.id.toUpperCase()));
   const seen = /* @__PURE__ */ new Set();
   for (const operation of operations) {
-    const item = ApexLangDocument.one(page.children, "pageItem", operation.item, `Page ${page.key}`);
+    const item = ApexLangDocument.one(page2.children, "pageItem", operation.item, `Page ${page2.key}`);
     if (seen.has(item.key.toUpperCase()))
       throw new Fault("TRANSFORM_CONFLICT", `${item.key} is bound twice.`, 5);
     seen.add(item.key.toUpperCase());
@@ -2361,7 +2362,7 @@ function planBindLov(snapshot, operations) {
           if (name === item.key.toUpperCase())
             throw new Fault("INVALID_INPUT", `${item.key} cannot cascade from itself.`, 2);
           if (!items.has(name))
-            throw new Fault("TARGET_NOT_FOUND", `Page ${page.key} has no item ${name}.`, 2);
+            throw new Fault("TARGET_NOT_FOUND", `Page ${page2.key} has no item ${name}.`, 2);
         }
         edits.push(
           replaceGroup2(
@@ -2420,19 +2421,19 @@ var PAGE_SLOTS = {
 var KINDS = { item: "pageItem", button: "button", region: "region" };
 var refOf3 = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : value === void 0 ? void 0 : String(value).replace(/^@/u, "");
 function planMoves(snapshot, operations) {
-  const { doc, node: page, parsed } = snapshot;
+  const { doc, node: page2, parsed } = snapshot;
   const modal = readProperty(parsed, "appearance.pageMode") === "modalDialog";
   const edits = [];
   const checks = [];
   const seen = /* @__PURE__ */ new Set();
-  const regions = page.children.filter((child) => child.kind === "region");
+  const regions = page2.children.filter((child) => child.kind === "region");
   for (const operation of operations) {
     const at = operation.component.indexOf(":");
     const kind = KINDS[operation.component.slice(0, at)];
     const id2 = operation.component.slice(at + 1);
     if (at < 1 || !kind || !id2)
       throw new Fault("INVALID_INPUT", "component is item:NAME, button:ID or region:ID.", 2);
-    const node2 = ApexLangDocument.one(page.children, kind, id2, `Page ${page.key}`);
+    const node2 = ApexLangDocument.one(page2.children, kind, id2, `Page ${page2.key}`);
     if (seen.has(`${kind}:${node2.key.toUpperCase()}`))
       throw new Fault("TRANSFORM_CONFLICT", `${operation.component} is moved twice.`, 5);
     seen.add(`${kind}:${node2.key.toUpperCase()}`);
@@ -2440,7 +2441,7 @@ function planMoves(snapshot, operations) {
     const parentPath = kind === "region" ? "layout.parentRegion" : "layout.region";
     let target;
     if (destination !== void 0) {
-      target = ApexLangDocument.one(regions, "region", destination, `Page ${page.key}`);
+      target = ApexLangDocument.one(regions, "region", destination, `Page ${page2.key}`);
       if (kind === "region") {
         for (let current = target; current; ) {
           if (current === node2)
@@ -2590,7 +2591,7 @@ var sql = external_exports.string().min(1).max(64e3).refine((value) => /^\s*(sel
   (value) => !value.includes("```") && !/[\x00\r]/u.test(value),
   "No fence delimiters or control characters"
 );
-var scheme = external_exports.string().regex(/^[A-Za-z0-9][A-Za-z0-9 _.-]{0,254}$/u, "Authorization scheme name");
+var scheme = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,127}$/u, "Authorization scheme component id");
 var entityFieldSchema = external_exports.strictObject({
   type: external_exports.enum(["varchar2", "number", "date", "timestamp"]),
   label: text,
@@ -2636,16 +2637,16 @@ function checkEntity(contract) {
   const diagnostics = [];
   const add = (code, message, at) => diagnostics.push({ code, message, ...at ? { path: at } : {} });
   const names = Object.keys(contract.fields);
-  const upper = /* @__PURE__ */ new Map();
-  for (const name of names) upper.set(name.toUpperCase(), [...upper.get(name.toUpperCase()) ?? [], name]);
-  for (const [, duplicates] of upper)
+  const upper2 = /* @__PURE__ */ new Map();
+  for (const name of names) upper2.set(name.toUpperCase(), [...upper2.get(name.toUpperCase()) ?? [], name]);
+  for (const [, duplicates] of upper2)
     if (duplicates.length > 1)
       add("ENTITY_DUPLICATE_FIELD", `Fields ${duplicates.join(", ")} differ only in case.`, "fields");
-  const field = (name) => names.find((candidate) => candidate.toUpperCase() === name.toUpperCase());
+  const field2 = (name) => names.find((candidate) => candidate.toUpperCase() === name.toUpperCase());
   const keys = contract.key.map((name) => name.toUpperCase());
   if (new Set(keys).size !== keys.length) add("ENTITY_KEY_INVALID", "Key columns repeat.", "key");
   for (const name of contract.key) {
-    const declared = field(name);
+    const declared = field2(name);
     if (!declared) add("ENTITY_KEY_INVALID", `Key column ${name} is not a declared field.`, "key");
     else {
       const definition = contract.fields[declared];
@@ -2674,7 +2675,7 @@ function checkEntity(contract) {
       );
     const lost = contract.write.lostUpdate;
     if (typeof lost === "object") {
-      const declared = field(lost.rowVersion);
+      const declared = field2(lost.rowVersion);
       if (!declared)
         add(
           "ENTITY_WRITE_INCOMPLETE",
@@ -2831,11 +2832,11 @@ async function checkEntityBinding(ctx, input, deps) {
     );
   const { contract } = loaded;
   const diagnostics = [...loaded.diagnostics];
-  for (const [name, field] of Object.entries(contract.fields))
-    if (field.lov && "shared" in field.lov && !await deps.lovExists(field.lov.shared))
+  for (const [name, field2] of Object.entries(contract.fields))
+    if (field2.lov && "shared" in field2.lov && !await deps.lovExists(field2.lov.shared))
       diagnostics.push({
         code: "ENTITY_LOV_MISSING",
-        message: `${name} uses shared LOV ${field.lov.shared}, which the application sources do not declare.`,
+        message: `${name} uses shared LOV ${field2.lov.shared}, which the application sources do not declare.`,
         path: `fields.${name}.lov`
       });
   const base = { entity: loaded.id, file: loaded.file, digest: loaded.digest };
@@ -2868,8 +2869,8 @@ async function checkEntityBinding(ctx, input, deps) {
     }
     const column = (name) => columns.find((row) => String(row.COLUMN_NAME).toUpperCase() === name.toUpperCase());
     const isRead = "table" in contract.read && contract.read.table.toUpperCase() === table;
-    for (const [name, field] of Object.entries(contract.fields)) {
-      if (!isRead && field.readOnly) continue;
+    for (const [name, field2] of Object.entries(contract.fields)) {
+      if (!isRead && field2.readOnly) continue;
       const observed = column(name);
       if (!observed) {
         diagnostics.push({
@@ -2880,20 +2881,20 @@ async function checkEntityBinding(ctx, input, deps) {
         continue;
       }
       const type = oracleType(observed.DATA_TYPE);
-      if (!TYPES[field.type].includes(type))
+      if (!TYPES[field2.type].includes(type))
         diagnostics.push({
           code: "ENTITY_TYPE_CHANGED",
-          message: `${table}.${name} is ${type}, not a ${field.type} column.`,
+          message: `${table}.${name} is ${type}, not a ${field2.type} column.`,
           path: `fields.${name}.type`
         });
       const length = Number(observed.CHAR_LENGTH ?? 0) || Number(observed.DATA_LENGTH ?? 0);
-      if (field.type === "varchar2" && field.maxLength && length && field.maxLength > length)
+      if (field2.type === "varchar2" && field2.maxLength && length && field2.maxLength > length)
         diagnostics.push({
           code: "ENTITY_LENGTH_CHANGED",
-          message: `${table}.${name} holds ${length} characters; the contract allows ${field.maxLength}.`,
+          message: `${table}.${name} holds ${length} characters; the contract allows ${field2.maxLength}.`,
           path: `fields.${name}.maxLength`
         });
-      if (field.required && String(observed.NULLABLE ?? "") === "Y" && contract.key.some((key) => key.toUpperCase() === name.toUpperCase()))
+      if (field2.required && String(observed.NULLABLE ?? "") === "Y" && contract.key.some((key) => key.toUpperCase() === name.toUpperCase()))
         diagnostics.push({
           code: "ENTITY_KEY_CHANGED",
           message: `Key column ${table}.${name} is nullable.`,
@@ -2930,6 +2931,287 @@ async function checkEntityBinding(ctx, input, deps) {
     verified: diagnostics.length === 0,
     next: diagnostics.length ? "Review the contract against these differences; it was not changed." : "Use this digest with this target for generation."
   };
+}
+
+// packages/core/src/recipes.ts
+var page = external_exports.number().int().min(1).max(99999);
+var field = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_$#]{0,127}$/u);
+var label = external_exports.string().trim().min(1).max(240);
+var recipeRequestSchema = external_exports.discriminatedUnion("recipe", [
+  external_exports.strictObject({
+    recipe: external_exports.literal("report-form"),
+    entity: external_exports.string().regex(/^[a-z][a-z0-9-]{0,62}$/u),
+    entityDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional(),
+    pages: external_exports.strictObject({ report: page, form: page }),
+    overrides: external_exports.strictObject({
+      reportTitle: label.optional(),
+      formTitle: label.optional(),
+      /** Report columns in display order (default: every field). */
+      columns: external_exports.array(field).min(1).max(100).optional(),
+      emptyMessage: label.optional(),
+      createLabel: label.optional()
+    }).default({})
+  }),
+  external_exports.strictObject({
+    recipe: external_exports.literal("filtered-dashboard"),
+    entity: external_exports.string().regex(/^[a-z][a-z0-9-]{0,62}$/u),
+    entityDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional(),
+    pages: external_exports.strictObject({ dashboard: page }),
+    overrides: external_exports.strictObject({
+      title: label.optional(),
+      /** The field to filter by; it needs static LOV values (default: the first such field). */
+      filter: field.optional(),
+      cardTitle: field.optional(),
+      cardBody: field.optional()
+    }).default({})
+  })
+]);
+var upper = (name) => name.toUpperCase();
+function fieldOf(contract, name) {
+  const key = Object.keys(contract.fields).find((candidate) => upper(candidate) === upper(name));
+  if (!key) throw new Fault("RECIPE_FIELD_UNKNOWN", `${contract.id} has no field ${name}.`, 2);
+  return { name: upper(key), definition: contract.fields[key] };
+}
+function source(contract, columns) {
+  const list = columns.join(", ");
+  if ("table" in contract.read)
+    return `select ${list} from ${contract.read.owner ? `${contract.read.owner}.` : ""}${contract.read.table}`;
+  return `select ${list} from (
+${contract.read.sql}
+)`;
+}
+var itemType = (definition, key) => key ? "hidden" : definition.readOnly ? "displayOnly" : definition.lov && "values" in definition.lov ? "selectList" : definition.type === "number" ? "numberField" : definition.type === "date" || definition.type === "timestamp" ? "datePicker" : "textField";
+function expandRecipe(request, contract) {
+  const warnings = [];
+  const readScheme = "scheme" in contract.authorization.read ? contract.authorization.read.scheme : void 0;
+  const keys = contract.key.map(upper);
+  const all = Object.keys(contract.fields).map(upper);
+  let pages;
+  if (request.recipe === "report-form") {
+    const { report, form } = request.pages;
+    if (report === form) throw new Fault("INVALID_INPUT", "The report and form need two different pages.", 2);
+    if (keys.length !== 1)
+      throw new Fault(
+        "RECIPE_UNSUPPORTED",
+        "report-form links rows by a single key column; this contract has a composite key.",
+        2
+      );
+    const key = keys[0];
+    const shown = (request.overrides.columns ?? all).map((name) => fieldOf(contract, name).name);
+    if (new Set(shown).size !== shown.length) throw new Fault("INVALID_INPUT", "Report columns repeat.", 2);
+    const columns = shown.includes(key) ? shown : [key, ...shown];
+    const writable = contract.write;
+    const reportId = `${contract.id}-report`;
+    const formId = `${contract.id}-form`;
+    const items = all.map((name) => {
+      const { definition } = fieldOf(contract, name);
+      const isKey = keys.includes(name);
+      const type = writable ? itemType(definition, isKey) : isKey ? "hidden" : "displayOnly";
+      if (definition.lov && "shared" in definition.lov && !isKey)
+        warnings.push(
+          `P${form}_${name} is a text field; bind it to shared LOV ${definition.lov.shared} with a bindLov edit after generation.`
+        );
+      return {
+        name: `P${form}_${name}`,
+        region: formId,
+        type,
+        ...isKey ? {} : { label: definition.label },
+        ...definition.required && !isKey && type !== "displayOnly" ? { required: true } : {},
+        ...definition.formatMask && (type === "numberField" || type === "datePicker") ? { formatMask: definition.formatMask } : {},
+        ...type === "selectList" && definition.lov && "values" in definition.lov ? { lov: definition.lov.values } : {},
+        sourceColumn: name,
+        dataType: definition.type,
+        ...isKey ? { primaryKey: true } : {}
+      };
+    });
+    const operations = writable?.operations.map((operation) => operation === "insert" ? "add" : operation) ?? [];
+    pages = [
+      {
+        id: report,
+        name: request.overrides.reportTitle ?? contract.pluralLabel,
+        ...readScheme ? { authorizationScheme: readScheme } : {},
+        regions: [
+          {
+            id: reportId,
+            type: "interactiveReport",
+            name: request.overrides.reportTitle ?? contract.pluralLabel,
+            sql: source(contract, columns),
+            refreshOnDialogClose: true,
+            ...request.overrides.emptyMessage ? { emptyMessage: request.overrides.emptyMessage } : {},
+            columns: columns.map((name) => {
+              const { definition } = fieldOf(contract, name);
+              return {
+                name,
+                heading: definition.label,
+                dataType: definition.type,
+                ...definition.formatMask ? { formatMask: definition.formatMask } : {},
+                ...name === key ? { link: { page: form, items: { [`P${form}_${key}`]: `#${key}#` }, clearCache: [form] } } : {}
+              };
+            })
+          }
+        ],
+        ...writable?.operations.includes("insert") ? {
+          buttons: [
+            {
+              id: `create-${contract.id}`,
+              label: request.overrides.createLabel ?? `Create ${contract.label}`,
+              region: reportId,
+              target: { page: form, clearCache: [form] }
+            }
+          ]
+        } : {}
+      },
+      {
+        id: form,
+        name: request.overrides.formTitle ?? contract.label,
+        mode: "modalDialog",
+        // Editable forms need the write scheme; read-only forms the read scheme.
+        ...(writable ? contract.authorization.write?.scheme : readScheme) ? { authorizationScheme: writable ? contract.authorization.write.scheme : readScheme } : {},
+        regions: [
+          writable ? {
+            id: formId,
+            type: "form",
+            name: request.overrides.formTitle ?? contract.label,
+            table: writable.table,
+            edit: {
+              operations,
+              ...typeof writable.lostUpdate === "object" ? { rowVersionColumn: upper(writable.lostUpdate.rowVersion) } : {}
+            }
+          } : {
+            id: formId,
+            type: "form",
+            name: request.overrides.formTitle ?? contract.label,
+            sql: `${source(contract, all)} where ${key} = :P${form}_${key}`
+          }
+        ],
+        items
+      }
+    ];
+  } else {
+    const { dashboard } = request.pages;
+    const filter = request.overrides.filter ? fieldOf(contract, request.overrides.filter) : Object.keys(contract.fields).map((name) => fieldOf(contract, name)).find(({ definition }) => definition.lov && "values" in definition.lov);
+    if (!filter || !filter.definition.lov || !("values" in filter.definition.lov))
+      throw new Fault(
+        "RECIPE_UNSUPPORTED",
+        "filtered-dashboard needs a filter field with static LOV values in the contract.",
+        2
+      );
+    const others = all.filter((name) => !keys.includes(name) && name !== filter.name);
+    const title = request.overrides.cardTitle ? fieldOf(contract, request.overrides.cardTitle).name : others[0];
+    const body = request.overrides.cardBody ? fieldOf(contract, request.overrides.cardBody).name : filter.name;
+    if (!title)
+      throw new Fault("RECIPE_UNSUPPORTED", "filtered-dashboard needs a field for the card title.", 2);
+    const item = `P${dashboard}_${filter.name}`;
+    const predicate = `(:${item} is null or ${filter.name} = :${item})`;
+    const cards = `${contract.id}-cards`;
+    const chart = `${contract.id}-chart`;
+    const columns = [.../* @__PURE__ */ new Set([...keys, title, body])];
+    pages = [
+      {
+        id: dashboard,
+        name: request.overrides.title ?? contract.pluralLabel,
+        ...readScheme ? { authorizationScheme: readScheme } : {},
+        regions: [
+          { id: `${contract.id}-filters`, type: "staticContent", name: "Filters" },
+          {
+            id: cards,
+            type: "cards",
+            name: contract.pluralLabel,
+            sql: `select ${columns.join(", ")} from (
+${source(contract, columns)}
+) where ${predicate}`,
+            itemsToSubmit: [item],
+            titleColumn: title,
+            bodyColumn: body
+          },
+          {
+            id: chart,
+            type: "chart",
+            name: `${contract.pluralLabel} by ${filter.definition.label}`,
+            chartType: "bar",
+            series: [
+              {
+                id: "count",
+                name: contract.pluralLabel,
+                sql: `select ${filter.name} label, count(*) value from (
+${source(contract, [filter.name])}
+) where ${predicate} group by ${filter.name} order by 1`,
+                itemsToSubmit: [item],
+                labelColumn: "LABEL",
+                valueColumn: "VALUE"
+              }
+            ]
+          }
+        ],
+        items: [
+          {
+            name: item,
+            region: `${contract.id}-filters`,
+            type: "selectList",
+            label: filter.definition.label,
+            lov: filter.definition.lov.values
+          }
+        ],
+        refreshes: [{ items: [item], regions: [cards, chart] }]
+      }
+    ];
+  }
+  const spec = scaffoldSchema.safeParse({ pages });
+  if (!spec.success) {
+    const issue = spec.error.issues[0];
+    throw new Fault(
+      "RECIPE_INVALID",
+      `The expanded specification is invalid at ${issue?.path.join(".")}: ${issue?.message}`,
+      5
+    );
+  }
+  return { spec: spec.data, warnings };
+}
+async function runRecipe(ctx, input) {
+  const parsed = recipeRequestSchema.safeParse(input.request);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new Fault("INVALID_INPUT", `Recipe request ${issue?.path.join(".")}: ${issue?.message}`, 2);
+  }
+  const request = parsed.data;
+  const entity = await loadEntity(ctx, request.entity);
+  if (request.entityDigest && request.entityDigest !== entity.digest)
+    throw new Fault(
+      "TRANSFORM_CONFLICT",
+      `${entity.file} changed since it was reviewed; read it again.`,
+      5,
+      "conflict",
+      {
+        file: entity.file,
+        currentDigest: entity.digest
+      }
+    );
+  if (entity.diagnostics.length)
+    throw new Fault(
+      "ENTITY_INVALID",
+      `${entity.file} has diagnostics: ${entity.diagnostics.map((d) => d.code).join(", ")}. Fix the contract first.`,
+      2
+    );
+  const { spec, warnings } = expandRecipe(request, entity.contract);
+  const raw = JSON.stringify(spec, null, 2) + "\n";
+  const base = {
+    recipe: request.recipe,
+    entity: entity.id,
+    entityDigest: entity.digest,
+    spec,
+    ...warnings.length ? { warnings } : {}
+  };
+  if (input.dryRun)
+    return { ...base, written: false, next: "Review the expanded specification, then run without dryRun." };
+  const result = await scaffoldSpec(ctx, spec, raw, input.env, async () => {
+    if ((await loadEntity(ctx, request.entity)).digest !== entity.digest)
+      throw new Fault(
+        "SOURCE_DRIFT",
+        `${entity.file} changed before writing; the staged exact input is retained.`,
+        5
+      );
+  });
+  return { ...base, written: true, scaffold: result };
 }
 
 // packages/core/src/deploy-reconcile.ts
@@ -3516,17 +3798,17 @@ function nativeUsage(host, events, counterMode) {
         outputTokens: output,
         totalTokens: input + output
       };
-      for (const [source, target, bound] of [
+      for (const [source2, target, bound] of [
         ["cache_write_input_tokens", "cacheWriteInputTokens", "input_tokens"],
         ["reasoning_output_tokens", "reasoningOutputTokens", "output_tokens"]
       ]) {
-        const reported = event.usage?.[source];
+        const reported = event.usage?.[source2];
         if (reported !== void 0) {
           const value = measured(reported);
           if (value > measured(event.usage?.[bound]))
             throw new Fault("USAGE_SOURCE_INVALID", "A reported token subset exceeds its parent counter.", 2);
           totals[target] = value;
-          current[source] = value;
+          current[source2] = value;
         }
       }
       if (previous) {
@@ -3588,14 +3870,14 @@ function nativeUsage(host, events, counterMode) {
     throw new Fault("USAGE_SOURCE_INVALID", "Native token subsets and totals do not agree.", 2);
   return { counters: verified.data, models: [...models].sort(), elapsed, ok, nativeSessionHash };
 }
-async function importUsage(host, source, elapsedMs, counterMode) {
+async function importUsage(host, source2, elapsedMs, counterMode) {
   if (!await usageLogEnabled())
     throw new Fault(
       "USAGE_LOG_DISABLED",
       "Enable local usage logging with settings configure --usage-log on.",
       2
     );
-  const contents = await readPrivate(path8.resolve(source), 8 * 1024 * 1024);
+  const contents = await readPrivate(path8.resolve(source2), 8 * 1024 * 1024);
   const native = nativeUsage(host, records(contents), counterMode);
   const elapsed = elapsedMs === void 0 ? native.elapsed : parse(duration, elapsedMs);
   const entry = parse(entrySchema2, {
@@ -3780,18 +4062,18 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source = path10.resolve(root, input.sourceDir);
-  if (!await exists(path10.join(source, "application.apx")))
+  const source2 = path10.resolve(root, input.sourceDir);
+  if (!await exists(path10.join(source2, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
-      `${source} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
+      `${source2} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path10.join(source, ".apex", "apexlang.json");
-  if (await exists(own)) return { source, metadata: { origin: "source", file: own } };
+  const own = path10.join(source2, ".apex", "apexlang.json");
+  if (await exists(own)) return { source: source2, metadata: { origin: "source", file: own } };
   const candidates = [];
   if (input.project !== void 0) candidates.push(path10.resolve(input.project));
-  for (let dir = path10.dirname(source); ; dir = path10.dirname(dir)) {
+  for (let dir = path10.dirname(source2); ; dir = path10.dirname(dir)) {
     if (await exists(path10.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
@@ -3806,20 +4088,20 @@ async function validationSource(root, input) {
       continue;
     }
     const file2 = path10.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
-    if (await exists(file2)) return { source, metadata: { origin: "project", file: file2 } };
+    if (await exists(file2)) return { source: source2, metadata: { origin: "project", file: file2 } };
   }
   throw new Fault(
     "MMD_METADATA_REQUIRED",
-    `${source} has no Oracle-generated .apex/apexlang.json and no enclosing APEXREST project provides one, so the APEXlang metadata version is unknown. Export or generate the application with SQLcl (apexrest apex export or apex generate), or validate it from a project whose application has .apex/apexlang.json.`,
+    `${source2} has no Oracle-generated .apex/apexlang.json and no enclosing APEXREST project provides one, so the APEXlang metadata version is unknown. Export or generate the application with SQLcl (apexrest apex export or apex generate), or validate it from a project whose application has .apex/apexlang.json.`,
     3
   );
 }
 async function validateApplication(oracle, target, parseDiagnostics2, signal) {
-  const { source, metadata } = typeof target === "string" ? { source: target, metadata: void 0 } : target;
+  const { source: source2, metadata } = typeof target === "string" ? { source: target, metadata: void 0 } : target;
   const started = Date.now();
   let validated;
   try {
-    validated = metadata?.origin === "project" ? await oracle.validate(source, signal, { metadataFile: metadata.file }) : await oracle.validate(source, signal);
+    validated = metadata?.origin === "project" ? await oracle.validate(source2, signal, { metadataFile: metadata.file }) : await oracle.validate(source2, signal);
   } catch (error) {
     throw compilerFault(error, parseDiagnostics2);
   }
@@ -3839,17 +4121,17 @@ async function validateApplication(oracle, target, parseDiagnostics2, signal) {
   };
   const [staticAnalysis, upgradeAudit] = await Promise.all([
     advisory(
-      async () => typeof oracle.codeScan === "function" ? oracle.codeScan(source, signal) : {
+      async () => typeof oracle.codeScan === "function" ? oracle.codeScan(source2, signal) : {
         status: "unavailable",
         findings: [],
         reason: "The selected adapter does not provide CodeScan."
       }
     ),
-    advisory(() => auditUpgradeSource(source))
+    advisory(() => auditUpgradeSource(source2))
   ]);
   return {
     ...rest,
-    ...metadata ? { sourceDir: source, metadata } : {},
+    ...metadata ? { sourceDir: source2, metadata } : {},
     diagnostics: warnings,
     warningCount: warnings.length,
     staticAnalysis,
@@ -4523,12 +4805,12 @@ function prewarmCompiler(project) {
     (async () => {
       try {
         const ctx = await loadProject(project);
-        const source = await contained(ctx.root, ctx.config.application.sourceDir);
-        if (!await exists(path12.join(source, ".apex/apexlang.json"))) {
+        const source2 = await contained(ctx.root, ctx.config.application.sourceDir);
+        if (!await exists(path12.join(source2, ".apex/apexlang.json"))) {
           compilerPrewarms.delete(project);
           return;
         }
-        await (await sharedOracle()).validate(source);
+        await (await sharedOracle()).validate(source2);
       } catch {
       }
     })()
@@ -4577,6 +4859,8 @@ function routeProject(parsed) {
       return { operation: "project.context", input: pick("project", "page") };
     case "entities":
       return { operation: "entity.list", input: pick("project") };
+    case "recipe":
+      return { operation: "project.recipe", input: pick("project", "request", "env") };
     case "entity_check":
       return { operation: "entity.check", input: pick("project", "entity", "env", "expectedDigest") };
     case "lov_context":
@@ -4783,17 +5067,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-ISXT5E6U.mjs");
+        const { setup } = await import("./chunk-Y7WOWV7D.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-ISXT5E6U.mjs");
+        const { validateNative } = await import("./chunk-Y7WOWV7D.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-ISXT5E6U.mjs");
+        const { uninstallNative } = await import("./chunk-Y7WOWV7D.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -4807,7 +5091,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-UZKIYPEJ.mjs");
+        const { scaffold } = await import("./chunk-S7MZDMUG.mjs");
         data = await scaffold(await loadProject(root), text2("specFile"), text2("env"));
         break;
       }
@@ -4944,6 +5228,9 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           case "project.patch":
             data = await patchPage(ctx, schemas["project.patch"].parse(parsed));
+            break;
+          case "project.recipe":
+            data = await runRecipe(ctx, schemas["project.recipe"].parse(parsed));
             break;
           case "entity.list":
             data = await listEntities(ctx);
