@@ -1049,6 +1049,19 @@
         "docs/evidence/fast-dev/addfilter-compiler-2026-11-25.json"
       ],
       "blocker": "Repository tests and the local SQLite preview pass (initial, changed, empty and cleared results). The offline Oracle compiler passed report, cards and chart-series filters on a scratch 26.2 project. Native import and browser behaviour on an APEX target are not yet observed."
+    },
+    {
+      "id": "FASTDEV-A04",
+      "criterion": "Report columns are added at a requested place or reordered with their dependent declarations: column sequences and interactive-report saved-report display columns stay consistent, retained columns keep their bytes, SQL is only replaced by complete caller text, and dropping a column another saved-report declaration uses is refused",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/edit/columns.ts",
+        "packages/core/src/edit/patch.ts",
+        "tests/unit/source-edit-columns.test.ts",
+        "docs/evidence/fast-dev/columns-compiler-2026-11-25.json"
+      ],
+      "blocker": "Repository tests and the offline Oracle compiler (26.2 profile) pass. Native import and browser display are not yet observed; 26.1 compilation of the new operations is not run."
     }
   ]
 }

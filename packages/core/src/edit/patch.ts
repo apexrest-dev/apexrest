@@ -4,6 +4,16 @@ import type { ProjectContext } from '../config.ts';
 import { Fault } from '../result.ts';
 import type { SourceChange } from '../revision.ts';
 import { pageFile } from './page-file.ts';
+import {
+  afterColumns,
+  checkNames,
+  columnText,
+  columnsOf,
+  queryNames,
+  reportRegion,
+  savedReportEdits,
+  type Release,
+} from './columns.ts';
 import { contextOf, type ContextDelta, type PageContext } from './context.ts';
 import {
   runPageTransaction,
@@ -20,8 +30,6 @@ import {
   setProperty,
   setFencedText,
   removeComponent,
-  appendChild,
-  scalarText,
   type ComponentNode,
   type TextEdit,
 } from './apexlang-edit.ts';
@@ -49,13 +57,6 @@ export interface QueryColumn {
   heading?: string | undefined;
   dataType?: 'varchar2' | 'number' | 'date' | 'timestamp' | undefined;
 }
-const REPORTS = new Set(['interactiveReport', 'classicReport']);
-const DATA_TYPES: Record<string, string> = {
-  varchar2: 'STRING',
-  number: 'NUMBER',
-  date: 'DATE',
-  timestamp: 'TIMESTAMP',
-};
 
 /** The supported APEXlang property path of each semantic property, by component kind. */
 const PATHS: Record<string, Partial<Record<PatchProperty, string>>> = {
@@ -140,7 +141,8 @@ export function planSets(snapshot: PageSnapshot, operations: PatchOperation[]): 
   }
   const edits: TextEdit[] = [];
   for (const entry of resolved) {
-    if (entry.operation.property === 'query') edits.push(...queryEdits(doc, entry.node, entry.operation));
+    if (entry.operation.property === 'query')
+      edits.push(...queryEdits(doc, entry.node, entry.operation, snapshot.release));
     else edits.push(setProperty(doc, entry.node, entry.path, entry.operation.value));
   }
   // Validation: every target reads the new value from the parsed result.
@@ -191,37 +193,25 @@ export function queryEdits(
   doc: ApexLangDocument,
   region: ComponentNode,
   operation: PatchOperation,
+  release: Release = '26.2',
 ): TextEdit[] {
-  const type = doc.lines[region.open] && region.properties.get('type')?.value;
-  if (!REPORTS.has(String(type)))
-    throw new Fault(
-      'OPERATION_UNSUPPORTED',
-      `query is supported on interactive and classic reports, not ${type}.`,
-      2,
-    );
+  const type = reportRegion(region, 'query');
   const columns = operation.columns ?? [];
   if (!columns.length) throw new Fault('INVALID_INPUT', 'query needs the complete columns contract.', 2);
   const names = columns.map((column) => column.name.toUpperCase());
-  if (names.some((name) => !/^[A-Z][A-Z0-9_$#]{0,127}$/u.test(name)) || new Set(names).size !== names.length)
-    throw new Fault('INVALID_INPUT', 'Column names must be unique Oracle identifiers.', 2);
-  const sql = operation.value;
-  const missing = names.filter(
-    (name) =>
-      !new RegExp(`(^|[^A-Z0-9_$#])${name.replace(/[$#]/gu, '\\$&')}([^A-Z0-9_$#]|$)`, 'iu').test(sql),
-  );
-  if (missing.length)
-    throw new Fault('COLUMN_NOT_IN_QUERY', `The query does not name ${missing.join(', ')}.`, 2);
-  const edits = [setFencedText(doc, region, 'source.sqlQuery', sql)];
-  const existing = region.children.filter((child) => child.kind === 'column');
+  checkNames(names);
+  queryNames(operation.value, names);
+  const edits = [setFencedText(doc, region, 'source.sqlQuery', operation.value)];
+  const existing = columnsOf(region);
+  const dropped = existing.map((column) => column.key.toUpperCase()).filter((name) => !names.includes(name));
   for (const column of existing)
-    if (!names.includes(column.key.toUpperCase())) edits.push(removeComponent(doc, column));
+    if (dropped.includes(column.key.toUpperCase())) edits.push(removeComponent(doc, column));
   let sequence = Math.max(
     0,
     ...existing.map((column) => Number(column.properties.get('layout.sequence')?.value) || 0),
   );
-  const indent = ' '.repeat(region.indent + 4);
-  const eol = doc.eol;
   let added = '';
+  const news: string[] = [];
   for (const column of columns) {
     const kept = existing.find((entry) => entry.key.toUpperCase() === column.name.toUpperCase());
     if (kept) {
@@ -229,23 +219,20 @@ export function queryEdits(
       continue;
     }
     sequence += 10;
-    const lines = [
-      `column ${column.name.toUpperCase()} (`,
-      '    type: plainText',
-      '    heading {',
-      `        heading: ${scalarText(column.heading ?? column.name)}`,
-      '    }',
-      '    layout {',
-      `        sequence: ${sequence}`,
-      '    }',
-      ...(column.dataType
-        ? ['    source {', `        dataType: ${DATA_TYPES[column.dataType]}`, '    }']
-        : []),
-      ')',
-    ];
-    added += lines.map((line) => indent + line).join(eol) + eol;
+    added += columnText(doc, region, column, sequence, release);
+    news.push(column.name.toUpperCase());
   }
-  if (added) edits.push(appendChild(doc, region, added));
+  if (added) edits.push(afterColumns(doc, region, added));
+  // Interactive reports: saved reports drop removed columns and show new ones at the end.
+  if (type === 'interactiveReport')
+    edits.push(
+      ...savedReportEdits(
+        doc,
+        region,
+        dropped,
+        news.map((name) => ({ name })),
+      ),
+    );
   return edits;
 }
 

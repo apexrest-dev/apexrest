@@ -1584,6 +1584,20 @@
         "preview row counts per filter value"
       ],
       "budgetMs": 15000
+    },
+    {
+      "id": "A261-074",
+      "title": "Report column addition and reorder",
+      "acceptance": ["FASTDEV-A04"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": ["Add a column after an existing one with complete SQL.", "Reorder the columns.", "Validate."],
+      "expected": [
+        "Report columns and the default saved report show the requested order; retained columns keep their properties; the compiler passes."
+      ],
+      "evidence": ["sanitized result code", "compiler diagnostics count", "column and displayColumn order"],
+      "budgetMs": 15000
     }
   ],
   "metrics": "quality-performance.json"

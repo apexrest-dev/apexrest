@@ -260,6 +260,28 @@ export const schemas = {
               .optional(),
           }),
           z.strictObject({
+            op: z.literal('addColumn'),
+            region: z.string().min(1).max(255),
+            sql: z.string().max(100000).describe('Complete SQL naming every column'),
+            column: z.strictObject({
+              name: z.string().min(1).max(128),
+              heading: z.string().max(4000).optional(),
+              dataType: z.enum(['varchar2', 'number', 'date', 'timestamp']).optional(),
+              format: z.string().max(255).optional(),
+            }),
+            after: z.string().min(1).max(128).optional(),
+            before: z.string().min(1).max(128).optional(),
+          }),
+          z.strictObject({
+            op: z.literal('orderColumns'),
+            region: z.string().min(1).max(255),
+            order: z
+              .array(z.string().min(1).max(128))
+              .min(1)
+              .max(200)
+              .describe('Every column, new display order'),
+          }),
+          z.strictObject({
             op: z.literal('addFilter'),
             item: z
               .object({ name: z.string().min(1).max(128), region: z.string().min(1).max(255) })

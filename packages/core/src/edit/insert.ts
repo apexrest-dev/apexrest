@@ -42,7 +42,7 @@ function merged(list: Components[]): Components {
 
 /** Plans appended components against the page snapshot; throws before anything is written. */
 export function planInsert(snapshot: PageSnapshot, list: Components[]): PlannedEdit {
-  const { doc, node, parsed, pageId } = snapshot;
+  const { doc, node, parsed, pageId, release } = snapshot;
   const components = merged(list);
   const spec = scaffoldSchema.safeParse({
     applicationName: 'insert',
@@ -94,8 +94,8 @@ export function planInsert(snapshot: PageSnapshot, list: Components[]): PlannedE
   }
   // New regions follow the existing ones; items and refreshes use the page emitter unchanged.
   const offset = parsed.children.filter((c) => c.type === 'region').length;
-  let text = page.regions.map((region, index) => renderRegion(region, offset + index, '26.2')).join('\n');
-  let rest = renderPageBody(page, '26.2', { regions: false });
+  let text = page.regions.map((region, index) => renderRegion(region, offset + index, release)).join('\n');
+  let rest = renderPageBody(page, release, { regions: false });
   const actions = existing('dynamicAction');
   const refreshNames: string[] = [];
   (page.refreshes ?? []).forEach((_refresh, index) => {

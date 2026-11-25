@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fixture } from '../fixtures/project.ts';
-import { patchPage, _forTests } from '../../packages/core/src/edit/patch.ts';
+import { patchPage, planSets, _forTests } from '../../packages/core/src/edit/patch.ts';
+import { transformPage } from '../../packages/core/src/edit/transaction.ts';
 import { ApexLangDocument, digestOf, scalarText } from '../../packages/core/src/edit/apexlang-edit.ts';
 
 const { transform } = _forTests;
@@ -246,11 +247,29 @@ test('a report query and its column contract change together, keeping kept colum
   );
   assert.ok(
     result.includes(
-      '        column STATUS (\n            type: plainText\n            heading {\n                heading: Status\n            }\n            layout {\n                sequence: 30\n            }\n            source {\n                dataType: STRING\n            }\n        )\n    )',
+      '        column STATUS (\n            type: plainText\n            heading {\n                heading: Status\n            }\n            layout {\n                sequence: 30\n            }\n            source {\n                dataType: varchar2\n            }\n        )\n    )',
     ),
   );
   // Everything outside the region is unchanged.
   assert.ok(result.endsWith(PAGE.slice(PAGE.indexOf('    pageItem P7_SEARCH ('))));
+  // 26.1 sources spell the data type as 26.1 exports do.
+  const older = transformPage(
+    PAGE,
+    '7',
+    [
+      (snapshot) =>
+        planSets(snapshot, [
+          {
+            target: 'region:orders',
+            property: 'query',
+            value: 'select amount, status from orders',
+            columns: [{ name: 'AMOUNT' }, { name: 'STATUS', dataType: 'varchar2' }],
+          },
+        ]),
+    ],
+    '26.1',
+  ).result;
+  assert.match(older, /dataType: STRING/u);
 });
 
 test('query edits refuse a column the query does not name and non-report regions', () => {

@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import type { ProjectContext } from '../config.ts';
-import { atomicWrite, withLock } from '../fs.ts';
+import { atomicWrite, contained, withLock } from '../fs.ts';
+import { sourceRelease } from '../partial-import.ts';
 import { Fault } from '../result.ts';
 import { sourceInventory } from '../deploy.ts';
 import { sourceChange, type SourceChange } from '../revision.ts';
@@ -15,6 +16,7 @@ import {
   type TextEdit,
 } from './apexlang-edit.ts';
 import { pageFile } from './page-file.ts';
+import type { Release } from './columns.ts';
 import { contextDelta, contextOf, type ContextDelta, type PageContext } from './context.ts';
 
 /**
@@ -32,6 +34,8 @@ import { contextDelta, contextOf, type ContextDelta, type PageContext } from './
 export interface PageSnapshot {
   source: string;
   pageId: string;
+  /** APEXlang release of the application sources (`.apex/apexlang.json`); 26.2 when unknown. */
+  release: Release;
   doc: ApexLangDocument;
   /** The scanned `page` component (offsets into `source`). */
   node: ComponentNode;
@@ -93,12 +97,12 @@ function combine(plans: PlannedEdit[]): TextEdit[] {
   return edits;
 }
 
-export function snapshotOf(source: string, pageId: string): PageSnapshot {
+export function snapshotOf(source: string, pageId: string, release: Release = '26.2'): PageSnapshot {
   const doc = new ApexLangDocument(source);
   const node = ApexLangDocument.one(doc.roots, 'page', pageId, 'The file');
   const parsed = parseApexLang(source, 'page').find((c) => c.type === 'page' && c.id === node.key);
   if (!parsed) throw new Fault('TARGET_NOT_FOUND', `No page ${pageId} in its file.`, 2);
-  return { source, pageId, doc, node, parsed };
+  return { source, pageId, release, doc, node, parsed };
 }
 
 /** Plans, applies and validates a group sequence in memory; nothing is written. */
@@ -106,8 +110,9 @@ export function transformPage(
   source: string,
   pageId: string,
   groups: ((snapshot: PageSnapshot) => PlannedEdit)[],
+  release: Release = '26.2',
 ): { result: string; edits: number; targets: string[] } {
-  const snapshot = snapshotOf(source, pageId);
+  const snapshot = snapshotOf(source, pageId, release);
   const plans = groups.map((plan) => plan(snapshot));
   const edits = combine(plans);
   const result = applyEdits(source, edits);
@@ -139,9 +144,15 @@ export async function runPageTransaction<T>(
   const pageId = String(Number(input.page));
   const file = await pageFile(ctx, pageId);
   const relative = path.relative(ctx.root, file).split(path.sep).join('/');
+  const found = await sourceRelease(await contained(ctx.root, ctx.config.application.sourceDir));
+  const release: Release = found === '26.1' ? '26.1' : '26.2';
   const plan = async () => {
     const source = await readFile(file, 'utf8');
-    return { source, digest: digestOf(source), ...transformPage(source, pageId, groups(input.operations)) };
+    return {
+      source,
+      digest: digestOf(source),
+      ...transformPage(source, pageId, groups(input.operations), release),
+    };
   };
   const described = (source: string, result: string) => {
     const mode = input.context ?? 'delta';

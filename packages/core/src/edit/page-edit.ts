@@ -3,6 +3,7 @@ import { Fault } from '../result.ts';
 import { planSets, type PatchOperation } from './patch.ts';
 import { planInsert, type InsertInput } from './insert.ts';
 import { filterFragment, planFilters, type AddFilterOperation } from './filter.ts';
+import { planColumns, type AddColumnOperation, type OrderColumnsOperation } from './columns.ts';
 import {
   runPageTransaction,
   type ContextMode,
@@ -19,6 +20,8 @@ import {
 
 export type EditOperation =
   | AddFilterOperation
+  | AddColumnOperation
+  | OrderColumnsOperation
   | ({ op: 'set' } & PatchOperation)
   | { op: 'insert'; components: InsertInput['components'] };
 
@@ -37,7 +40,12 @@ export function editGroups(operations: EditOperation[]): Group[] {
   const sets: PatchOperation[] = [];
   const inserts: InsertInput['components'][] = [];
   const filters: AddFilterOperation[] = [];
+  const columns: (AddColumnOperation | OrderColumnsOperation)[] = [];
   for (const operation of operations) {
+    if (operation.op === 'addColumn' || operation.op === 'orderColumns') {
+      columns.push(operation);
+      continue;
+    }
     if (operation.op === 'addFilter') {
       // The item, region and refresh join the one insert plan, so ids and refresh names stay unique.
       inserts.push(filterFragment(operation));
@@ -54,6 +62,7 @@ export function editGroups(operations: EditOperation[]): Group[] {
   if (sets.length) groups.push((snapshot) => planSets(snapshot, sets));
   if (inserts.length) groups.push((snapshot) => planInsert(snapshot, inserts));
   if (filters.length) groups.push((snapshot) => planFilters(snapshot, filters));
+  if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
   return groups;
 }
 

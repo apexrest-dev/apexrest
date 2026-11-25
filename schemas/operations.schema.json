@@ -840,6 +840,104 @@
               "properties": {
                 "op": {
                   "type": "string",
+                  "const": "addColumn"
+                },
+                "region": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255
+                },
+                "sql": {
+                  "type": "string",
+                  "maxLength": 100000,
+                  "description": "Complete SQL naming every column"
+                },
+                "column": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "heading": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "dataType": {
+                      "type": "string",
+                      "enum": [
+                        "varchar2",
+                        "number",
+                        "date",
+                        "timestamp"
+                      ]
+                    },
+                    "format": {
+                      "type": "string",
+                      "maxLength": 255
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ],
+                  "additionalProperties": false
+                },
+                "after": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "before": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "required": [
+                "op",
+                "region",
+                "sql",
+                "column"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "const": "orderColumns"
+                },
+                "region": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255
+                },
+                "order": {
+                  "minItems": 1,
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "description": "Every column, new display order"
+                }
+              },
+              "required": [
+                "op",
+                "region",
+                "order"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
                   "const": "addFilter"
                 },
                 "item": {

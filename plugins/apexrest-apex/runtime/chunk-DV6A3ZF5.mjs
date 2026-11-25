@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-J3ZPUUEK.mjs";
+} from "./chunk-G62AN6YY.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -26,6 +26,7 @@ import {
   deployPlanSchema,
   pageContext,
   patchPage,
+  planColumns,
   planDigest,
   planSets,
   queryEdits,
@@ -38,7 +39,7 @@ import {
   setProperty,
   sourceInventory,
   sourceRevision
-} from "./chunk-OET4JQY5.mjs";
+} from "./chunk-SPL42ZBO.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -1750,7 +1751,7 @@ function merged(list) {
   };
 }
 function planInsert(snapshot, list) {
-  const { doc, node, parsed, pageId } = snapshot;
+  const { doc, node, parsed, pageId, release } = snapshot;
   const components = merged(list);
   const spec = scaffoldSchema.safeParse({
     applicationName: "insert",
@@ -1800,8 +1801,8 @@ function planInsert(snapshot, list) {
         throw new Fault("TARGET_NOT_FOUND", `Refresh region ${region} does not exist.`, 2);
   }
   const offset = parsed.children.filter((c) => c.type === "region").length;
-  let text = page.regions.map((region, index) => renderRegion(region, offset + index, "26.2")).join("\n");
-  let rest = renderPageBody(page, "26.2", { regions: false });
+  let text = page.regions.map((region, index) => renderRegion(region, offset + index, release)).join("\n");
+  let rest = renderPageBody(page, release, { regions: false });
   const actions = existing("dynamicAction");
   const refreshNames = [];
   (page.refreshes ?? []).forEach((_refresh, index) => {
@@ -1941,12 +1942,17 @@ function planFilters(snapshot, operations) {
         if (target.sql !== void 0) {
           if (REPORTS.has(type))
             edits.push(
-              ...queryEdits(doc, region, {
-                target: `region:${region.key}`,
-                property: "query",
-                value: target.sql,
-                columns: target.columns
-              })
+              ...queryEdits(
+                doc,
+                region,
+                {
+                  target: `region:${region.key}`,
+                  property: "query",
+                  value: target.sql,
+                  columns: target.columns
+                },
+                snapshot.release
+              )
             );
           else {
             if (target.columns) throw new Fault("INVALID_INPUT", "columns apply to reports only.", 2);
@@ -2006,7 +2012,12 @@ function editGroups(operations) {
   const sets = [];
   const inserts = [];
   const filters = [];
+  const columns = [];
   for (const operation of operations) {
+    if (operation.op === "addColumn" || operation.op === "orderColumns") {
+      columns.push(operation);
+      continue;
+    }
     if (operation.op === "addFilter") {
       inserts.push(filterFragment(operation));
       filters.push(operation);
@@ -2022,6 +2033,7 @@ function editGroups(operations) {
   if (sets.length) groups.push((snapshot) => planSets(snapshot, sets));
   if (inserts.length) groups.push((snapshot) => planInsert(snapshot, inserts));
   if (filters.length) groups.push((snapshot) => planFilters(snapshot, filters));
+  if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
   return groups;
 }
 async function editPage(ctx, input) {
@@ -3830,7 +3842,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-Q6N5KQPG.mjs");
+      const { previewDispatch } = await import("./chunk-GU4X4XCK.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -3872,17 +3884,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-ZEDSPGWR.mjs");
+        const { setup } = await import("./chunk-4GZFZ4RP.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-ZEDSPGWR.mjs");
+        const { validateNative } = await import("./chunk-4GZFZ4RP.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-ZEDSPGWR.mjs");
+        const { uninstallNative } = await import("./chunk-4GZFZ4RP.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });

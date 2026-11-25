@@ -154,12 +154,17 @@ export function planFilters(snapshot: PageSnapshot, operations: AddFilterOperati
         if (target.sql !== undefined) {
           if (REPORTS.has(type))
             edits.push(
-              ...queryEdits(doc, region, {
-                target: `region:${region.key}`,
-                property: 'query',
-                value: target.sql,
-                columns: target.columns,
-              }),
+              ...queryEdits(
+                doc,
+                region,
+                {
+                  target: `region:${region.key}`,
+                  property: 'query',
+                  value: target.sql,
+                  columns: target.columns,
+                },
+                snapshot.release,
+              ),
             );
           else {
             if (target.columns) throw new Fault('INVALID_INPUT', 'columns apply to reports only.', 2);

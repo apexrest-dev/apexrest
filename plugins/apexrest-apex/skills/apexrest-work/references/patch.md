@@ -52,3 +52,9 @@ apexrest_project action:edit page:"10" expectedDigest:"<digest>" operations:[{"o
 ```text
 {"op":"addFilter","region":{"id":"filters","type":"staticContent","name":"Filters"},"item":{"name":"P10_STATUS","region":"filters","type":"selectList","label":"Status","lov":[{"label":"Active","value":"ACTIVE"}]},"targets":[{"region":"customers","sql":"select id, name, status from customers where (:P10_STATUS is null or status = :P10_STATUS)","columns":[{"name":"NAME"},{"name":"STATUS"}]}]}
 ```
+
+## Add or reorder report columns
+
+- `{"op":"addColumn", "region", "sql", "column":{name, heading?, dataType?, format?}, "after"?|"before"?}` adds one column at its place. `sql` is the complete query and names every column. Existing columns keep their bytes unless a renumbering is needed to make room. An interactive report's default saved report shows the new column at the same place.
+- `{"op":"orderColumns", "region", "order":[every column]}` changes the display order (`layout.sequence` and the default report's `displayColumn` order). The SQL is not touched.
+- A `query` patch also keeps interactive-report saved reports consistent: dropped columns leave them, new ones are shown at the end. Dropping a column a saved-report sort, filter or highlight still uses returns `COLUMN_REFERENCED`; change that in source first.

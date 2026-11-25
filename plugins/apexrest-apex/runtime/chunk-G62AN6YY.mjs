@@ -194,6 +194,24 @@ var schemas = {
           ).max(200).optional()
         }),
         external_exports.strictObject({
+          op: external_exports.literal("addColumn"),
+          region: external_exports.string().min(1).max(255),
+          sql: external_exports.string().max(1e5).describe("Complete SQL naming every column"),
+          column: external_exports.strictObject({
+            name: external_exports.string().min(1).max(128),
+            heading: external_exports.string().max(4e3).optional(),
+            dataType: external_exports.enum(["varchar2", "number", "date", "timestamp"]).optional(),
+            format: external_exports.string().max(255).optional()
+          }),
+          after: external_exports.string().min(1).max(128).optional(),
+          before: external_exports.string().min(1).max(128).optional()
+        }),
+        external_exports.strictObject({
+          op: external_exports.literal("orderColumns"),
+          region: external_exports.string().min(1).max(255),
+          order: external_exports.array(external_exports.string().min(1).max(128)).min(1).max(200).describe("Every column, new display order")
+        }),
+        external_exports.strictObject({
           op: external_exports.literal("addFilter"),
           item: external_exports.object({ name: external_exports.string().min(1).max(128), region: external_exports.string().min(1).max(255) }).passthrough().describe("Scaffold item: name P<page>_..., region, type, label, lov ..."),
           region: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("Optional new scaffold region"),
