@@ -7635,8 +7635,10 @@ var ArtifactService = class {
   }
 };
 
-// packages/core/src/composer/service.ts
-import { readFile as readFile6 } from "node:fs/promises";
+// packages/core/src/composer/materializer.ts
+import path4 from "node:path";
+import { readFile as readFile4, mkdir as mkdir3, cp as cp2, rm as rm2, open } from "node:fs/promises";
+import { randomUUID as randomUUID2 } from "node:crypto";
 
 // packages/core/src/composer/schemas.ts
 var digest = external_exports.string().regex(/^[a-f0-9]{64}$/);
@@ -7943,9 +7945,6 @@ var evidenceSchema = external_exports.strictObject({
   reason: external_exports.string()
 });
 
-// packages/core/src/composer/planner.ts
-import { readFile as readFile4, readdir as readdir3 } from "node:fs/promises";
-
 // packages/core/src/composer/formats.ts
 var import_yaml = __toESM(require_dist(), 1);
 import { readFile as readFile2, lstat, realpath } from "node:fs/promises";
@@ -8241,6 +8240,722 @@ async function catalogRead(id, offset = 0, limit2 = 4096, project) {
     dataClassification: "untrusted_catalog_content"
   };
 }
+
+// packages/core/src/composer/profiles.ts
+var COMPOSER_262_PROFILE = "profile:apex262-ut262-mmd3479";
+var composerProfiles = {
+  "profile:apex261-ut261-mmd3102": { mmd: "26.1.0+3102", sqlcl: "26.1.2.132.1334" },
+  [COMPOSER_262_PROFILE]: { mmd: APEX_262_PROFILE.mmd, sqlcl: APEX_262_PROFILE.sqlcl }
+};
+function profilesForCompiler(build, mmd) {
+  if (!build) return [];
+  return Object.entries(composerProfiles).filter(([, pinned]) => pinned.sqlcl === build).sort(([, a], [, b]) => Number(b.mmd === mmd) - Number(a.mmd === mmd)).map(([id]) => id);
+}
+function requireComposerCompiler(profile, actual, blueprintsFor = () => []) {
+  const expected = composerProfiles[profile], version2 = /\bBuild:? (\d+(?:\.\d+)+)\b/.exec(actual.compiler.version)?.[1];
+  if (expected && actual.mmd.mmdVersion === expected.mmd && version2 === expected.sqlcl) return;
+  const found = `SQLcl ${version2 ?? "unknown build"} with MMD ${actual.mmd.mmdVersion}`;
+  const matching = profilesForCompiler(version2, actual.mmd.mmdVersion).filter((id) => id !== profile);
+  const nextActions = [];
+  for (const id of matching) {
+    const blueprints = blueprintsFor(id);
+    nextActions.push(
+      blueprints.length ? `Use a blueprint for ${id}, which matches the installed compiler: ${blueprints.join(", ")}.` : `Use a blueprint whose compatibilityProfile is ${id}, which matches the installed compiler.`
+    );
+  }
+  if (expected)
+    nextActions.push(
+      `Or install SQLcl ${expected.sqlcl} (MMD ${expected.mmd}) and select it with APEXREST_SQLCL, then rerun compose plan.`
+    );
+  else nextActions.push(`Use a known Composer profile: ${Object.keys(composerProfiles).join(", ")}.`);
+  throw new Fault(
+    "PROFILE_COMPILER_MISMATCH",
+    expected ? `Blueprint profile ${profile} is pinned to SQLcl ${expected.sqlcl} with MMD ${expected.mmd}; found ${found}.` + (matching.length ? ` The installed compiler matches ${matching.join(", ")}.` : "") : `Blueprint profile ${profile} is not a pinned Composer profile; found ${found}.`,
+    5,
+    "failed",
+    {
+      profile,
+      expected: expected ? { sqlcl: expected.sqlcl, mmd: expected.mmd } : null,
+      found: { sqlcl: version2 ?? null, mmd: actual.mmd.mmdVersion },
+      matchingProfiles: matching,
+      nextActions
+    }
+  );
+}
+
+// packages/core/src/composer/shared-lovs.ts
+var limit = 512;
+function semantics(profile, values) {
+  return {
+    kind: "static-enum-lov",
+    formatVersion: 1,
+    profile,
+    type: "string",
+    values
+  };
+}
+function identities(key, profile) {
+  const identity = "cmp-enum-" + key.slice(0, 48), name2 = "CMP_ENUM_" + key.slice(0, 48).toUpperCase();
+  if (!["profile:apex261-ut261-mmd3102", COMPOSER_262_PROFILE].includes(profile))
+    throw new Fault(
+      "SHARED_RESOURCE_PROFILE_UNSUPPORTED",
+      "Static enum LOVs require a pinned 26.1 or 26.2 Composer profile.",
+      5
+    );
+  return {
+    identity,
+    name: name2,
+    file: profile === COMPOSER_262_PROFILE ? `shared-components/lovs/${identity}.apx` : "shared-components/lovs.apx"
+  };
+}
+function sharedEnumValuesSupported(values) {
+  return values.length > 0 && values.length <= 100 && new Set(values).size === values.length && !values.some(
+    (value) => !value || value.length > 128 || /[\x00-\x1f\x7f`<>]|&[A-Za-z0-9_$#]+(?:![A-Za-z0-9_]+)?\.|#[A-Za-z0-9_$]+(?:![A-Za-z0-9_]+)?#|^\s*@/.test(
+      value
+    )
+  );
+}
+function admitted(values) {
+  if (!sharedEnumValuesSupported(values))
+    throw new Fault(
+      "ENUM_LOV_LITERAL_UNSUPPORTED",
+      "Shared enum LOVs require distinct nonempty single-line literal text without markup or APEX substitutions.",
+      5
+    );
+}
+function enumLovSource(resource) {
+  return `lov ${resource.identity} (
+    name: ${resource.name}
+    source {
+        location: staticValues
+    }
+` + resource.values.map(
+    (value, i) => `    entry value-${i + 1} (
+        sequence: ${(i + 1) * 10}
+        display: ${JSON.stringify(value)}
+        return: ${JSON.stringify(value)}
+    )
+`
+  ).join("") + ")\n";
+}
+function lovs(sources) {
+  return Object.entries(sources).flatMap(
+    ([file, source2]) => declarations(source2).filter((node2) => node2.kind === "lov").map((node2) => {
+      const text2 = source2.slice(node2.start, node2.end);
+      try {
+        const parsed = parseApexLang(text2, file), definition = parsed[0], name2 = definition?.props.name;
+        if (parsed.length !== 1 || definition?.type !== "lov" || !["string", "number", "boolean"].includes(typeof name2))
+          throw new Error("LOV identity or direct name is unavailable.");
+        return { file, node: node2, identity: definition.id, name: String(name2), text: text2 };
+      } catch {
+        throw new Fault(
+          "SHARED_RESOURCE_SOURCE_UNSUPPORTED",
+          "A shared LOV identity/name cannot be safely read. Its source was preserved; resolve unsupported syntax before composing.",
+          5
+        );
+      }
+    })
+  );
+}
+function verifySharedLov(key, resource, declared, bases) {
+  admitted(resource.values);
+  const expected = identities(key, resource.profile), source2 = enumLovSource(resource), matches = declared.filter(({ identity }) => identity.toUpperCase() === resource.identity.toUpperCase()), names = declared.filter(({ name: name2 }) => name2.toUpperCase() === resource.name);
+  if (semanticDigest(semantics(resource.profile, resource.values)) !== key || resource.identity !== expected.identity || resource.name !== expected.name || resource.file !== expected.file || resource.kind !== "static-enum-lov" || resource.type !== "string" || resource.formatVersion !== 1 || hash(source2) !== resource.base || resource.digest !== resource.base || bases && bases[resource.base] !== source2)
+    throw new Fault(
+      "SHARED_RESOURCE_STATE_INVALID",
+      "Shared LOV identity, semantic key or generated base is inconsistent. Preserve state and reconcile the resource.",
+      5
+    );
+  if (matches.length !== 1 || names.length !== 1 || names[0] !== matches[0] || matches[0].file !== resource.file || matches[0].node.depth !== 0 || hash(matches[0].text) !== resource.digest)
+    throw new Fault(
+      "SHARED_RESOURCE_EDITED",
+      "An owned shared LOV is missing, duplicated or manually edited. Its source was preserved; restore its reviewed definition before composing.",
+      5
+    );
+}
+function verifySharedLovs(resources, sources, bases) {
+  if (!Object.keys(resources).length) return;
+  const declared = lovs(sources);
+  for (const [key, resource] of Object.entries(resources)) verifySharedLov(key, resource, declared, bases);
+}
+function planEnumLovs(input) {
+  const resources = {}, references = /* @__PURE__ */ Object.create(null), files = {}, bases = {}, diagnostics = [];
+  if (!input.requests.length && !Object.keys(input.previous ?? {}).length)
+    return { resources, references, files, bases, diagnostics };
+  const declared = lovs(input.sources), active = /* @__PURE__ */ new Map();
+  for (const [key, previous] of Object.entries(input.previous ?? {})) {
+    verifySharedLov(key, previous, declared, input.bases);
+    resources[key] = {
+      ...previous,
+      consumers: previous.consumers.filter((id) => input.detachedConsumers.has(id)),
+      retained: true
+    };
+  }
+  for (const request of input.requests) {
+    if (request.type !== "string")
+      throw new Fault(
+        "ENUM_LOV_TYPE_UNSUPPORTED",
+        "Shared enum LOVs currently support string fields. Numeric, temporal and boolean enum contracts require a separate verified adapter.",
+        5
+      );
+    admitted(request.values);
+    const semantic = semantics(input.profile, request.values), key = semanticDigest(semantic), allocated = identities(key, input.profile);
+    let resource = resources[key];
+    if (!resource) {
+      if (declared.some(
+        ({ identity, name: name2 }) => identity.toUpperCase() === allocated.identity.toUpperCase() || name2.toUpperCase() === allocated.name
+      ) || Object.values(resources).some(
+        (other) => other.identity === allocated.identity || other.name === allocated.name
+      ) || input.profile === COMPOSER_262_PROFILE && Object.hasOwn(input.sources, allocated.file))
+        throw new Fault(
+          "SHARED_RESOURCE_COLLISION",
+          "A shared LOV identity or path already belongs to unmanaged source. Composer will not adopt or replace it.",
+          5
+        );
+      const generated = enumLovSource({ ...allocated, values: request.values }), digest2 = hash(generated);
+      resource = resources[key] = {
+        ...semantic,
+        ...allocated,
+        base: digest2,
+        digest: digest2,
+        consumers: [],
+        retained: false
+      };
+      bases[digest2] = generated;
+      const current = files[resource.file] ?? input.sources[resource.file] ?? "";
+      files[resource.file] = current + (current && !current.endsWith("\n") ? "\n" : "") + generated;
+    }
+    resource.retained = false;
+    const consumers = active.get(key) ?? /* @__PURE__ */ new Set();
+    consumers.add(request.instanceId);
+    active.set(key, consumers);
+    references[request.instanceId] ??= /* @__PURE__ */ Object.create(null);
+    references[request.instanceId][request.field] = resource.identity;
+  }
+  if (Object.keys(resources).length > limit)
+    throw new Fault(
+      "SHARED_RESOURCE_LIMIT",
+      `At most ${limit} shared enum LOVs may be tracked. Retired resources require separate reviewed cleanup.`,
+      5
+    );
+  for (const [key, resource] of Object.entries(resources)) {
+    resource.consumers = [.../* @__PURE__ */ new Set([...resource.consumers, ...active.get(key) ?? []])].sort();
+    if (resource.retained)
+      diagnostics.push({
+        code: "SHARED_RESOURCE_RETAINED",
+        severity: "info",
+        message: `Retained ${resource.identity} unchanged for detached or unknown consumers. Automatic shared-resource cleanup is unsupported.`
+      });
+  }
+  return { resources, references, files, bases, diagnostics };
+}
+
+// packages/core/src/composer/materializer.ts
+var activeJournal = ".apexrest/composer/journal.json";
+var journalSchema = external_exports.strictObject({
+  schemaVersion: external_exports.literal(1),
+  id: external_exports.uuid(),
+  phase: external_exports.enum(["prepared", "writing", "completed"]),
+  plan: planSchema,
+  previousReceipt: external_exports.string().nullable(),
+  records: external_exports.array(
+    external_exports.strictObject({
+      path: relativePath,
+      before: external_exports.string().nullable(),
+      after: external_exports.string().nullable(),
+      preimage: external_exports.string().nullable(),
+      content: external_exports.string().nullable()
+    })
+  ).max(2050),
+  completed: external_exports.array(relativePath)
+});
+function receiptFor(plan) {
+  if (!plan.state || !plan.lock) throw new Fault("PLAN_BLOCKED", "Plan lacks durable state.", 5);
+  return {
+    schemaVersion: 1,
+    generationDigest: plan.state.generationDigest,
+    planDigest: plan.digest,
+    stateDigest: semanticDigest(plan.state),
+    blueprintPath: plan.blueprintPath,
+    blueprintDigest: plan.blueprintDigest,
+    lockDigest: semanticDigest(plan.lock),
+    qualification: plan.validation === "compiler" ? "offline-compiler" : "source-only",
+    deployment: "not-run"
+  };
+}
+function requireWriteScope(ctx, write, metadata = false) {
+  const sourceDir = ctx.config.application.sourceDir, base = write.path.match(/^\.apexrest-composer\/bases\/([a-f0-9]{64})\.apx$/);
+  if (!(write.path.startsWith(sourceDir + "/") || base && (write.after === null || write.after === base[1]) || metadata && [".apexrest-composer/state.json", ".apexrest-composer/lock.json"].includes(write.path)))
+    throw new Fault("COMPOSITION_SCOPE_DENIED", "Plan writes outside Composer ownership.", 5);
+  if (write.path.split("/").includes(".apex"))
+    throw new Fault("COMPOSITION_SCOPE_DENIED", "Oracle metadata cannot be overwritten.", 5);
+}
+async function requireFrozenPlan(ctx, plan) {
+  let frozen;
+  try {
+    frozen = await readDocument(
+      ctx.root,
+      `.apexrest/composer/plans/${plan.digest}.json`,
+      planSchema,
+      planLimits
+    );
+  } catch {
+    throw new Fault("JOURNAL_CORRUPT", "Journal plan has no immutable reviewed plan record.", 5);
+  }
+  if (canonical(frozen) !== canonical(plan))
+    throw new Fault("JOURNAL_CORRUPT", "Journal plan differs from its immutable reviewed record.", 5);
+}
+async function bytes(ctx, relative) {
+  const file = await safePath(ctx.root, relative);
+  return await exists(file) ? await readFile4(file) : null;
+}
+async function durable(ctx, relative, content) {
+  const file = await safePath(ctx.root, relative);
+  await mkdir3(path4.dirname(file), { recursive: true, mode: 448 });
+  if (content === null) await rm2(file, { force: true });
+  else await atomicWrite(file, content);
+  try {
+    const handle = await open(path4.dirname(file), "r");
+    try {
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+  } catch (error) {
+    if (process.platform !== "win32") throw error;
+  }
+}
+async function journal(ctx) {
+  const file = await safePath(ctx.root, activeJournal);
+  if (!await exists(file)) return null;
+  const value = validate(journalSchema, JSON.parse(await readFile4(file, "utf8")));
+  if (value.schemaVersion !== 1 || !["prepared", "writing", "completed"].includes(value.phase) || !Array.isArray(value.records) || !Array.isArray(value.completed))
+    throw new Fault("JOURNAL_CORRUPT", "Composition journal requires explicit inspection.", 5);
+  value.plan = validate(planSchema, value.plan);
+  if (planDigest(value.plan) !== value.plan.digest)
+    throw new Fault("JOURNAL_CORRUPT", "Journal plan integrity failed.", 5);
+  const paths = new Set(value.records.map((record) => record.path));
+  if (paths.size !== value.records.length || value.plan.operations.some((operation) => !paths.has(operation.path)) || value.plan.state && value.plan.stateDigest !== semanticDigest(value.plan.state) && !paths.has(".apexrest-composer/state.json"))
+    throw new Fault("JOURNAL_CORRUPT", "Journal write set is incomplete or duplicated.", 5);
+  if (new Set(value.completed).size !== value.completed.length || value.completed.some((completed) => !paths.has(completed)))
+    throw new Fault("JOURNAL_CORRUPT", "Journal checkpoints do not match its write set.", 5);
+  for (const record of value.records) {
+    requireWriteScope(ctx, record, true);
+    await safePath(ctx.root, record.path);
+    const operation = value.plan.operations.find((op) => op.path === record.path);
+    const metadata = record.path === ".apexrest-composer/state.json" ? value.plan.state : record.path === ".apexrest-composer/lock.json" ? value.plan.lock : null;
+    if (operation ? operation.content !== record.content || operation.after !== record.after || operation.before !== record.before : !metadata || record.content !== documentText(metadata))
+      throw new Fault("JOURNAL_CORRUPT", "Journal write differs from its immutable plan.", 5);
+    if ((record.preimage === null ? null : hash(record.preimage)) !== record.before || (record.content === null ? null : hash(record.content)) !== record.after)
+      throw new Fault("JOURNAL_CORRUPT", "Journal image integrity failed.", 5);
+  }
+  if (!value.plan.state || !value.plan.lock)
+    throw new Fault("JOURNAL_CORRUPT", "Journal plan lacks generation metadata.", 5);
+  const lockDigest = semanticDigest(value.plan.lock);
+  if (value.plan.state.lockDigest !== lockDigest)
+    throw new Fault("JOURNAL_CORRUPT", "Journal state does not bind its planned lock.", 5);
+  const stateRecord = value.records.find((record) => record.path === ".apexrest-composer/state.json"), lockRecord = value.records.find((record) => record.path === ".apexrest-composer/lock.json"), previousStateText = stateRecord ? stateRecord.preimage : (await bytes(ctx, ".apexrest-composer/state.json"))?.toString("utf8") ?? null;
+  let previousState;
+  try {
+    previousState = previousStateText === null ? null : validate(stateSchema, parseDocumentData(previousStateText));
+  } catch {
+    throw new Fault("JOURNAL_CORRUPT", "Journal state preimage is invalid.", 5);
+  }
+  if ((previousState ? semanticDigest(previousState) : null) !== value.plan.stateDigest)
+    throw new Fault("JOURNAL_CORRUPT", "Journal state preimage differs from the reviewed plan.", 5);
+  if (lockRecord && previousState) {
+    let previousLockDigest;
+    try {
+      previousLockDigest = lockRecord.preimage === null ? null : semanticDigest(validate(lockSchema, parseDocumentData(lockRecord.preimage)));
+    } catch {
+      throw new Fault("JOURNAL_CORRUPT", "Journal lock preimage is invalid.", 5);
+    }
+    if (previousLockDigest !== previousState.lockDigest)
+      throw new Fault("JOURNAL_CORRUPT", "Journal lock preimage differs from the reviewed state.", 5);
+  }
+  if (!lockRecord) {
+    if (previousState && previousState.lockDigest !== lockDigest || (await bytes(ctx, ".apexrest-composer/lock.json"))?.toString("utf8") !== documentText(value.plan.lock))
+      throw new Fault("JOURNAL_CORRUPT", "Journal omits a required lock write.", 5);
+  }
+  return value;
+}
+async function checkPreconditions(ctx, plan) {
+  const sources = await inventory(await safePath(ctx.root, ctx.config.application.sourceDir));
+  const stateFile = await safePath(ctx.root, ".apexrest-composer/state.json");
+  const state = await exists(stateFile) ? await readDocument(ctx.root, ".apexrest-composer/state.json", stateSchema) : null;
+  if (plan.projectId !== ctx.config.projectId || plan.configurationDigest !== semanticDigest(ctx.config) || plan.toolchainDigest !== hash(await readFile4(await safePath(ctx.root, ctx.config.toolchain.lockFile))) || semanticDigest(sources) !== semanticDigest(plan.sourceInventory) || (state ? semanticDigest(state) : null) !== plan.stateDigest || plan.blueprintDigest !== semanticDigest(await readDocument(ctx.root, plan.blueprintPath, blueprintSchema)) || plan.catalogDigest !== (await loadCatalog(ctx.root)).digest)
+    throw new Fault(
+      "COMPOSITION_DRIFT",
+      "Blueprint, catalog, state, source or configuration changed after review.",
+      5
+    );
+  if (state && plan.kind === "composition" && state.lockDigest !== semanticDigest(await readDocument(ctx.root, ".apexrest-composer/lock.json", lockSchema)))
+    throw new Fault("COMPOSITION_DRIFT", "Tracked lock differs from state.", 5);
+  for (const op of plan.operations) {
+    requireWriteScope(ctx, op);
+    const current = await bytes(ctx, op.path);
+    if ((current ? hash(current) : null) !== op.before || (op.content === null ? null : hash(op.content)) !== op.after)
+      throw new Fault("COMPOSITION_DRIFT", "Planned preimage or postimage changed.", 5);
+  }
+}
+async function stagePlan(ctx, plan) {
+  const relative = `.apexrest/composer/staging/${plan.digest}`, base = await safePath(ctx.root, relative);
+  await mkdir3(base, { recursive: true, mode: 448 });
+  const application = path4.join(base, "application");
+  await rm2(application, { recursive: true, force: true });
+  await cp2(await safePath(ctx.root, ctx.config.application.sourceDir), application, { recursive: true });
+  for (const op of plan.operations.filter(
+    (op2) => op2.path.startsWith(ctx.config.application.sourceDir + "/")
+  )) {
+    const file = await safePath(application, op.path.slice(ctx.config.application.sourceDir.length + 1));
+    if (op.content === null) await rm2(file, { force: true });
+    else await atomicWrite(file, op.content);
+  }
+  return { directory: application, sourceDigest: semanticDigest(await inventory(application)) };
+}
+async function freeze(ctx, plan, out) {
+  const text2 = documentText(validate(planSchema, plan));
+  const frozen = await safePath(ctx.root, `.apexrest/composer/plans/${plan.digest}.json`);
+  if (await exists(frozen)) {
+    if (await readFile4(frozen, "utf8") !== text2)
+      throw new Fault("PLAN_TAMPERED", "Immutable plan record changed.", 5);
+  } else await atomicWrite(frozen, text2);
+  const destination = await safePath(ctx.root, out);
+  if (!out.endsWith(".json") || out === ctx.config.toolchain.lockFile || out === "apexrest.json" || [
+    ".git",
+    ".agents",
+    ".codex",
+    ".apexrest-composer",
+    ctx.config.application.sourceDir,
+    ...Object.values(ctx.config.database)
+  ].some((p) => out === p || out.startsWith(p + "/")) || out.startsWith(".apexrest/composer/") && !out.startsWith(".apexrest/composer/plans/") && out !== ".apexrest/composer/panel-plan.json" || out.startsWith(".apexrest/composer/plans/") && destination !== frozen)
+    throw new Fault(
+      "COMPOSITION_SCOPE_DENIED",
+      "Plan output cannot overwrite application source or tracked state.",
+      5
+    );
+  if (await exists(destination) && destination !== frozen) {
+    try {
+      await readDocument(ctx.root, out, planSchema, planLimits);
+    } catch {
+      throw new Fault("COMPOSITION_SCOPE_DENIED", "Existing output is not a Composer plan.", 5);
+    }
+  }
+  await atomicWrite(destination, text2);
+}
+async function readPlan(ctx, file, expectedDigest) {
+  const plan = await readDocument(ctx.root, file, planSchema, planLimits);
+  if (plan.digest !== expectedDigest || planDigest(plan) !== plan.digest)
+    throw new Fault("PLAN_TAMPERED", "Reviewed plan digest differs.", 5);
+  const frozen = await readDocument(
+    ctx.root,
+    `.apexrest/composer/plans/${plan.digest}.json`,
+    planSchema,
+    planLimits
+  );
+  if (semanticDigest(frozen) !== semanticDigest(plan))
+    throw new Fault("PLAN_TAMPERED", "Plan differs from its original immutable record.", 5);
+  return plan;
+}
+async function materialize(ctx, plan, options = {}) {
+  if (plan.status !== "materializable" || planDigest(plan) !== plan.digest)
+    throw new Fault("PLAN_BLOCKED", "Only an intact materializable plan can be applied.", 5);
+  await readPlan(ctx, `.apexrest/composer/plans/${plan.digest}.json`, plan.digest);
+  return withLock(await safePath(ctx.root, ".apexrest/composer/ownership.lock"), async () => {
+    const previous = await journal(ctx);
+    if (plan.kind !== "composition") return applyRecovery(ctx, plan, previous, options);
+    if (previous && previous.phase !== "completed")
+      throw new Fault(
+        "RECOVERY_REQUIRED",
+        "Inspect the interrupted composition and create an explicit recovery plan.",
+        5
+      );
+    await checkPreconditions(ctx, plan);
+    if (!plan.state || !plan.lock)
+      throw new Fault("PLAN_BLOCKED", "Materializable plan lacks durable state.", 5);
+    const stateText = documentText(plan.state), lockText = documentText(plan.lock);
+    const requested = [
+      ...plan.operations.map((op) => ({
+        path: op.path,
+        before: op.before,
+        after: op.after,
+        content: op.content
+      }))
+    ];
+    for (const [file, content] of [
+      [".apexrest-composer/lock.json", lockText],
+      [".apexrest-composer/state.json", stateText]
+    ]) {
+      const current = await bytes(ctx, file);
+      if (current?.toString("utf8") !== content)
+        requested.push({ path: file, before: current ? hash(current) : null, after: hash(content), content });
+    }
+    if (!requested.length) {
+      const receiptFile = ".apexrest/composer/receipt.json", existing = await bytes(ctx, receiptFile);
+      const receipt = receiptFor(plan);
+      let current = null;
+      try {
+        current = existing ? JSON.parse(existing.toString("utf8")) : null;
+      } catch {
+        current = null;
+      }
+      if (current === null || canonical(current) !== canonical(receipt))
+        await durable(ctx, receiptFile, documentText(receipt));
+      return {
+        status: "no-op",
+        generationDigest: plan.state.generationDigest,
+        stateDigest: semanticDigest(plan.state),
+        changedFiles: [],
+        qualification: plan.validation === "compiler" ? "offline-compiler" : "source-only"
+      };
+    }
+    if (previous)
+      await durable(
+        ctx,
+        `.apexrest/composer/journals/${previous.id}.json`,
+        JSON.stringify(previous, null, 2) + "\n"
+      );
+    const record = {
+      schemaVersion: 1,
+      id: randomUUID2(),
+      phase: "prepared",
+      plan,
+      records: [],
+      completed: [],
+      previousReceipt: (await bytes(ctx, ".apexrest/composer/receipt.json"))?.toString("utf8") ?? null
+    };
+    for (const entry2 of requested) {
+      const preimage = await bytes(ctx, entry2.path);
+      record.records.push({ ...entry2, preimage: preimage?.toString("utf8") ?? null });
+    }
+    await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
+    try {
+      await options.boundary?.("prepared", activeJournal);
+      record.phase = "writing";
+      await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
+      await options.boundary?.("writing", activeJournal);
+      for (const entry2 of record.records) {
+        if (options.signal?.aborted)
+          throw new Fault(
+            "RECOVERY_REQUIRED",
+            "Composition interrupted; inspect journal before retry.",
+            6,
+            "cancelled"
+          );
+        const current = await bytes(ctx, entry2.path);
+        if ((current ? hash(current) : null) !== entry2.before)
+          throw new Fault("RECOVERY_REQUIRED", "Concurrent edits interrupted composition.", 5);
+        await options.boundary?.("before-write", entry2.path);
+        const recheck = await bytes(ctx, entry2.path);
+        if ((recheck ? hash(recheck) : null) !== entry2.before)
+          throw new Fault("RECOVERY_REQUIRED", "Concurrent edit before the write.", 5);
+        await durable(ctx, entry2.path, entry2.content);
+        await options.boundary?.("after-write", entry2.path);
+        const after = await bytes(ctx, entry2.path);
+        if ((after ? hash(after) : null) !== entry2.after)
+          throw new Fault("RECOVERY_REQUIRED", "Postimage differs after local write.", 5);
+        record.completed.push(entry2.path);
+        await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
+        await options.boundary?.("checkpoint", entry2.path);
+      }
+      const expectedSources = { ...plan.sourceInventory };
+      for (const op of plan.operations)
+        if (op.path.startsWith(ctx.config.application.sourceDir + "/")) {
+          const file = op.path.slice(ctx.config.application.sourceDir.length + 1);
+          if (op.after === null) delete expectedSources[file];
+          else expectedSources[file] = op.after;
+        }
+      const checkPostimages = async () => {
+        for (const entry2 of record.records) {
+          const after = await bytes(ctx, entry2.path);
+          if ((after ? hash(after) : null) !== entry2.after)
+            throw new Fault("RECOVERY_REQUIRED", "Concurrent changes detected before completion.", 5);
+        }
+        if (semanticDigest(await inventory(await safePath(ctx.root, ctx.config.application.sourceDir))) !== semanticDigest(expectedSources))
+          throw new Fault("RECOVERY_REQUIRED", "Application changed during materialization.", 5);
+      };
+      await checkPostimages();
+      const receipt = receiptFor(plan), receiptText = JSON.stringify(receipt, null, 2) + "\n";
+      await options.boundary?.("before-receipt", ".apexrest/composer/receipt.json");
+      await durable(ctx, ".apexrest/composer/receipt.json", receiptText);
+      await options.boundary?.("after-receipt", ".apexrest/composer/receipt.json");
+      await options.boundary?.("before-complete", activeJournal);
+      await checkPostimages();
+      if ((await bytes(ctx, ".apexrest/composer/receipt.json"))?.toString("utf8") !== receiptText)
+        throw new Fault("RECOVERY_REQUIRED", "Composition receipt changed before completion.", 5);
+      record.phase = "completed";
+      await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
+      return { status: "materialized", ...receipt, changedFiles: record.records.map((e) => e.path) };
+    } catch (error) {
+      if (error instanceof Fault && error.code === "RECOVERY_REQUIRED") throw error;
+      throw new Fault(
+        "RECOVERY_REQUIRED",
+        "Local writes may be partial. Preserve the journal and request explicit recovery.",
+        5
+      );
+    }
+  });
+}
+async function recoveryPlan(ctx, action) {
+  const record = await journal(ctx);
+  if (!record || record.phase === "completed")
+    throw new Fault("RECOVERY_NOT_REQUIRED", "No interrupted composition requires recovery.", 5);
+  await requireFrozenPlan(ctx, record.plan);
+  for (const entry2 of record.records) {
+    const current = await bytes(ctx, entry2.path), digest2 = current ? hash(current) : null;
+    if (digest2 !== entry2.before && digest2 !== entry2.after)
+      throw new Fault("RECOVERY_CONFLICT", "Recovery cannot overwrite an unrecognized concurrent edit.", 5);
+  }
+  const stateFile = await safePath(ctx.root, ".apexrest-composer/state.json");
+  const state = await exists(stateFile) ? await readDocument(ctx.root, ".apexrest-composer/state.json", stateSchema) : null;
+  const plan = {
+    ...record.plan,
+    kind: action === "resume" ? "recovery-resume" : "recovery-restore",
+    sourceInventory: await inventory(await safePath(ctx.root, ctx.config.application.sourceDir)),
+    stateDigest: state ? semanticDigest(state) : null,
+    blueprintDigest: semanticDigest(await readDocument(ctx.root, record.plan.blueprintPath, blueprintSchema)),
+    recovery: {
+      journalId: record.id,
+      sourcePlanDigest: record.plan.digest,
+      recordsDigest: semanticDigest(record.records)
+    },
+    operations: await Promise.all(
+      record.records.map(async (e) => {
+        const current = await bytes(ctx, e.path), content = action === "restore" ? e.preimage : e.content;
+        return {
+          path: e.path,
+          before: current ? hash(current) : null,
+          after: content === null ? null : hash(content),
+          content,
+          reason: "recovery-" + action
+        };
+      })
+    ),
+    diagnostics: [
+      {
+        code: "EXPLICIT_LOCAL_RECOVERY",
+        severity: "info",
+        message: `Reviewed ${action} of a partial filesystem composition. No database recovery is performed.`
+      }
+    ]
+  };
+  plan.digest = planDigest(plan);
+  return validate(planSchema, plan);
+}
+async function applyRecovery(ctx, plan, record, options) {
+  if (!record || record.phase === "completed")
+    throw new Fault("RECOVERY_NOT_REQUIRED", "No interrupted journal.", 5);
+  if (plan.recovery?.journalId !== record.id || plan.recovery.sourcePlanDigest !== record.plan.digest || plan.recovery.recordsDigest !== semanticDigest(record.records))
+    throw new Fault("RECOVERY_CONFLICT", "Recovery plan binds another journal.", 5);
+  await requireFrozenPlan(ctx, record.plan);
+  for (const entry2 of record.records) requireWriteScope(ctx, entry2, true);
+  for (const operation of plan.operations) requireWriteScope(ctx, operation, true);
+  if (canonical(plan.operations.map((operation) => operation.path)) !== canonical(record.records.map((entry2) => entry2.path)))
+    throw new Fault("RECOVERY_CONFLICT", "Recovery plan write set differs from its journal.", 5);
+  await checkPreconditions(ctx, { ...plan, operations: [] });
+  const restore = plan.kind === "recovery-restore";
+  for (const entry2 of [...record.records].sort(
+    (a, b) => restore ? record.records.indexOf(b) - record.records.indexOf(a) : record.records.indexOf(a) - record.records.indexOf(b)
+  )) {
+    if (options.signal?.aborted)
+      throw new Fault("RECOVERY_REQUIRED", "Recovery interrupted; preserve journal.", 6, "cancelled");
+    const current = await bytes(ctx, entry2.path), actual = current ? hash(current) : null;
+    if (actual !== entry2.before && actual !== entry2.after)
+      throw new Fault("RECOVERY_CONFLICT", "Unknown local edit blocks recovery.", 5);
+    const content = restore ? entry2.preimage : entry2.content, expected = restore ? entry2.before : entry2.after;
+    await options.boundary?.("before-recovery-write", entry2.path);
+    const recheck = await bytes(ctx, entry2.path);
+    if ((recheck ? hash(recheck) : null) !== actual)
+      throw new Fault("RECOVERY_CONFLICT", "Concurrent edit before recovery write.", 5);
+    await durable(ctx, entry2.path, content);
+    await options.boundary?.("after-recovery-write", entry2.path);
+    const after = await bytes(ctx, entry2.path);
+    if ((after ? hash(after) : null) !== expected)
+      throw new Fault("RECOVERY_CONFLICT", "Recovery postimage differs.", 5);
+  }
+  for (const entry2 of record.records) {
+    const current = await bytes(ctx, entry2.path);
+    if ((current ? hash(current) : null) !== (restore ? entry2.before : entry2.after))
+      throw new Fault("RECOVERY_CONFLICT", "Concurrent edit before recovery completion.", 5);
+  }
+  if (restore) await durable(ctx, ".apexrest/composer/receipt.json", record.previousReceipt);
+  if (!restore && plan.state && plan.lock)
+    await durable(ctx, ".apexrest/composer/receipt.json", documentText(receiptFor(record.plan)));
+  record.phase = "completed";
+  await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
+  return {
+    status: restore ? "restored" : "materialized",
+    databaseEffects: [],
+    changedFiles: record.records.map((e) => e.path)
+  };
+}
+async function deploymentBinding(ctx) {
+  const pending = await journal(ctx);
+  if (pending && pending.phase !== "completed")
+    throw new Fault("RECOVERY_REQUIRED", "Interrupted composition must be recovered before deployment.", 5);
+  const file = await safePath(ctx.root, ".apexrest/composer/receipt.json");
+  const stateFile = await safePath(ctx.root, ".apexrest-composer/state.json");
+  if (!await exists(file)) {
+    if (await exists(stateFile))
+      throw new Fault(
+        "COMPOSITION_RECEIPT_MISSING",
+        "Tracked Composer state requires its local materialization receipt.",
+        5
+      );
+    return null;
+  }
+  const receipt = JSON.parse(await readFile4(file, "utf8"));
+  if (receipt.qualification !== "offline-compiler")
+    throw new Fault(
+      "COMPOSITION_UNQUALIFIED",
+      "Source-only Composer drafts cannot bind into deployment plans; replan with compiler validation.",
+      5
+    );
+  const state = await readDocument(ctx.root, ".apexrest-composer/state.json", stateSchema);
+  const blueprintDigest = semanticDigest(
+    await readDocument(ctx.root, receipt.blueprintPath, blueprintSchema)
+  );
+  const lock = await readDocument(ctx.root, ".apexrest-composer/lock.json", lockSchema), lockDigest = semanticDigest(lock);
+  if (lock.catalogDigest !== (await loadCatalog(ctx.root)).digest || state.lockDigest !== lockDigest)
+    throw new Fault("COMPOSITION_DRIFT", "Catalog or tracked lock changed.", 5);
+  if (receipt.stateDigest !== semanticDigest(state) || receipt.generationDigest !== state.generationDigest || receipt.blueprintDigest !== blueprintDigest || receipt.lockDigest !== lockDigest)
+    throw new Fault("COMPOSITION_DRIFT", "Composition receipt, blueprint, state or lock changed.", 5);
+  for (const owner of Object.values(state.owners))
+    if (owner.mode !== "detached")
+      for (const [file2, digest2] of Object.entries(owner.files)) {
+        const source2 = await bytes(ctx, ctx.config.application.sourceDir + "/" + file2);
+        if (!source2 || hash(source2) !== digest2)
+          throw new Fault(
+            "COMPOSITION_DRIFT",
+            "Managed source changed after materialization; replan before deployment.",
+            5
+          );
+      }
+  if (Object.keys(state.sharedResources ?? {}).length) {
+    const root = await safePath(ctx.root, ctx.config.application.sourceDir), sources = {};
+    for (const file2 of Object.keys(await inventory(root)).filter((file3) => file3.endsWith(".apx"))) {
+      const source2 = await bytes(ctx, ctx.config.application.sourceDir + "/" + file2);
+      if (!source2 || !Buffer.from(source2.toString("utf8")).equals(source2))
+        throw new Fault("COMPOSITION_DRIFT", "Shared resource source is missing or invalid UTF-8.", 5);
+      sources[file2] = source2.toString("utf8");
+    }
+    verifySharedLovs(state.sharedResources, sources);
+  }
+  return {
+    generationDigest: receipt.generationDigest,
+    blueprintDigest,
+    stateDigest: receipt.stateDigest,
+    lockDigest,
+    catalogDigest: (await loadCatalog(ctx.root)).digest,
+    blueprintPath: receipt.blueprintPath
+  };
+}
+
+// packages/core/src/composer/service.ts
+import { readFile as readFile6 } from "node:fs/promises";
+
+// packages/core/src/composer/planner.ts
+import { readFile as readFile5, readdir as readdir3 } from "node:fs/promises";
 
 // packages/core/src/composer/binding.ts
 function keyFields(entity) {
@@ -8544,215 +9259,6 @@ function bind(blueprint, instance, metadata) {
     }
   }
   return { entity, keys, predicate, command, writable, entityRef: ref, writeExpression };
-}
-
-// packages/core/src/composer/profiles.ts
-var COMPOSER_262_PROFILE = "profile:apex262-ut262-mmd3479";
-var composerProfiles = {
-  "profile:apex261-ut261-mmd3102": { mmd: "26.1.0+3102", sqlcl: "26.1.2.132.1334" },
-  [COMPOSER_262_PROFILE]: { mmd: APEX_262_PROFILE.mmd, sqlcl: APEX_262_PROFILE.sqlcl }
-};
-function profilesForCompiler(build, mmd) {
-  if (!build) return [];
-  return Object.entries(composerProfiles).filter(([, pinned]) => pinned.sqlcl === build).sort(([, a], [, b]) => Number(b.mmd === mmd) - Number(a.mmd === mmd)).map(([id]) => id);
-}
-function requireComposerCompiler(profile, actual, blueprintsFor = () => []) {
-  const expected = composerProfiles[profile], version2 = /\bBuild:? (\d+(?:\.\d+)+)\b/.exec(actual.compiler.version)?.[1];
-  if (expected && actual.mmd.mmdVersion === expected.mmd && version2 === expected.sqlcl) return;
-  const found = `SQLcl ${version2 ?? "unknown build"} with MMD ${actual.mmd.mmdVersion}`;
-  const matching = profilesForCompiler(version2, actual.mmd.mmdVersion).filter((id) => id !== profile);
-  const nextActions = [];
-  for (const id of matching) {
-    const blueprints = blueprintsFor(id);
-    nextActions.push(
-      blueprints.length ? `Use a blueprint for ${id}, which matches the installed compiler: ${blueprints.join(", ")}.` : `Use a blueprint whose compatibilityProfile is ${id}, which matches the installed compiler.`
-    );
-  }
-  if (expected)
-    nextActions.push(
-      `Or install SQLcl ${expected.sqlcl} (MMD ${expected.mmd}) and select it with APEXREST_SQLCL, then rerun compose plan.`
-    );
-  else nextActions.push(`Use a known Composer profile: ${Object.keys(composerProfiles).join(", ")}.`);
-  throw new Fault(
-    "PROFILE_COMPILER_MISMATCH",
-    expected ? `Blueprint profile ${profile} is pinned to SQLcl ${expected.sqlcl} with MMD ${expected.mmd}; found ${found}.` + (matching.length ? ` The installed compiler matches ${matching.join(", ")}.` : "") : `Blueprint profile ${profile} is not a pinned Composer profile; found ${found}.`,
-    5,
-    "failed",
-    {
-      profile,
-      expected: expected ? { sqlcl: expected.sqlcl, mmd: expected.mmd } : null,
-      found: { sqlcl: version2 ?? null, mmd: actual.mmd.mmdVersion },
-      matchingProfiles: matching,
-      nextActions
-    }
-  );
-}
-
-// packages/core/src/composer/shared-lovs.ts
-var limit = 512;
-function semantics(profile, values) {
-  return {
-    kind: "static-enum-lov",
-    formatVersion: 1,
-    profile,
-    type: "string",
-    values
-  };
-}
-function identities(key, profile) {
-  const identity = "cmp-enum-" + key.slice(0, 48), name2 = "CMP_ENUM_" + key.slice(0, 48).toUpperCase();
-  if (!["profile:apex261-ut261-mmd3102", COMPOSER_262_PROFILE].includes(profile))
-    throw new Fault(
-      "SHARED_RESOURCE_PROFILE_UNSUPPORTED",
-      "Static enum LOVs require a pinned 26.1 or 26.2 Composer profile.",
-      5
-    );
-  return {
-    identity,
-    name: name2,
-    file: profile === COMPOSER_262_PROFILE ? `shared-components/lovs/${identity}.apx` : "shared-components/lovs.apx"
-  };
-}
-function sharedEnumValuesSupported(values) {
-  return values.length > 0 && values.length <= 100 && new Set(values).size === values.length && !values.some(
-    (value) => !value || value.length > 128 || /[\x00-\x1f\x7f`<>]|&[A-Za-z0-9_$#]+(?:![A-Za-z0-9_]+)?\.|#[A-Za-z0-9_$]+(?:![A-Za-z0-9_]+)?#|^\s*@/.test(
-      value
-    )
-  );
-}
-function admitted(values) {
-  if (!sharedEnumValuesSupported(values))
-    throw new Fault(
-      "ENUM_LOV_LITERAL_UNSUPPORTED",
-      "Shared enum LOVs require distinct nonempty single-line literal text without markup or APEX substitutions.",
-      5
-    );
-}
-function enumLovSource(resource) {
-  return `lov ${resource.identity} (
-    name: ${resource.name}
-    source {
-        location: staticValues
-    }
-` + resource.values.map(
-    (value, i) => `    entry value-${i + 1} (
-        sequence: ${(i + 1) * 10}
-        display: ${JSON.stringify(value)}
-        return: ${JSON.stringify(value)}
-    )
-`
-  ).join("") + ")\n";
-}
-function lovs(sources) {
-  return Object.entries(sources).flatMap(
-    ([file, source2]) => declarations(source2).filter((node2) => node2.kind === "lov").map((node2) => {
-      const text2 = source2.slice(node2.start, node2.end);
-      try {
-        const parsed = parseApexLang(text2, file), definition = parsed[0], name2 = definition?.props.name;
-        if (parsed.length !== 1 || definition?.type !== "lov" || !["string", "number", "boolean"].includes(typeof name2))
-          throw new Error("LOV identity or direct name is unavailable.");
-        return { file, node: node2, identity: definition.id, name: String(name2), text: text2 };
-      } catch {
-        throw new Fault(
-          "SHARED_RESOURCE_SOURCE_UNSUPPORTED",
-          "A shared LOV identity/name cannot be safely read. Its source was preserved; resolve unsupported syntax before composing.",
-          5
-        );
-      }
-    })
-  );
-}
-function verifySharedLov(key, resource, declared, bases) {
-  admitted(resource.values);
-  const expected = identities(key, resource.profile), source2 = enumLovSource(resource), matches = declared.filter(({ identity }) => identity.toUpperCase() === resource.identity.toUpperCase()), names = declared.filter(({ name: name2 }) => name2.toUpperCase() === resource.name);
-  if (semanticDigest(semantics(resource.profile, resource.values)) !== key || resource.identity !== expected.identity || resource.name !== expected.name || resource.file !== expected.file || resource.kind !== "static-enum-lov" || resource.type !== "string" || resource.formatVersion !== 1 || hash(source2) !== resource.base || resource.digest !== resource.base || bases && bases[resource.base] !== source2)
-    throw new Fault(
-      "SHARED_RESOURCE_STATE_INVALID",
-      "Shared LOV identity, semantic key or generated base is inconsistent. Preserve state and reconcile the resource.",
-      5
-    );
-  if (matches.length !== 1 || names.length !== 1 || names[0] !== matches[0] || matches[0].file !== resource.file || matches[0].node.depth !== 0 || hash(matches[0].text) !== resource.digest)
-    throw new Fault(
-      "SHARED_RESOURCE_EDITED",
-      "An owned shared LOV is missing, duplicated or manually edited. Its source was preserved; restore its reviewed definition before composing.",
-      5
-    );
-}
-function verifySharedLovs(resources, sources, bases) {
-  if (!Object.keys(resources).length) return;
-  const declared = lovs(sources);
-  for (const [key, resource] of Object.entries(resources)) verifySharedLov(key, resource, declared, bases);
-}
-function planEnumLovs(input) {
-  const resources = {}, references = /* @__PURE__ */ Object.create(null), files = {}, bases = {}, diagnostics = [];
-  if (!input.requests.length && !Object.keys(input.previous ?? {}).length)
-    return { resources, references, files, bases, diagnostics };
-  const declared = lovs(input.sources), active = /* @__PURE__ */ new Map();
-  for (const [key, previous] of Object.entries(input.previous ?? {})) {
-    verifySharedLov(key, previous, declared, input.bases);
-    resources[key] = {
-      ...previous,
-      consumers: previous.consumers.filter((id) => input.detachedConsumers.has(id)),
-      retained: true
-    };
-  }
-  for (const request of input.requests) {
-    if (request.type !== "string")
-      throw new Fault(
-        "ENUM_LOV_TYPE_UNSUPPORTED",
-        "Shared enum LOVs currently support string fields. Numeric, temporal and boolean enum contracts require a separate verified adapter.",
-        5
-      );
-    admitted(request.values);
-    const semantic = semantics(input.profile, request.values), key = semanticDigest(semantic), allocated = identities(key, input.profile);
-    let resource = resources[key];
-    if (!resource) {
-      if (declared.some(
-        ({ identity, name: name2 }) => identity.toUpperCase() === allocated.identity.toUpperCase() || name2.toUpperCase() === allocated.name
-      ) || Object.values(resources).some(
-        (other) => other.identity === allocated.identity || other.name === allocated.name
-      ) || input.profile === COMPOSER_262_PROFILE && Object.hasOwn(input.sources, allocated.file))
-        throw new Fault(
-          "SHARED_RESOURCE_COLLISION",
-          "A shared LOV identity or path already belongs to unmanaged source. Composer will not adopt or replace it.",
-          5
-        );
-      const generated = enumLovSource({ ...allocated, values: request.values }), digest2 = hash(generated);
-      resource = resources[key] = {
-        ...semantic,
-        ...allocated,
-        base: digest2,
-        digest: digest2,
-        consumers: [],
-        retained: false
-      };
-      bases[digest2] = generated;
-      const current = files[resource.file] ?? input.sources[resource.file] ?? "";
-      files[resource.file] = current + (current && !current.endsWith("\n") ? "\n" : "") + generated;
-    }
-    resource.retained = false;
-    const consumers = active.get(key) ?? /* @__PURE__ */ new Set();
-    consumers.add(request.instanceId);
-    active.set(key, consumers);
-    references[request.instanceId] ??= /* @__PURE__ */ Object.create(null);
-    references[request.instanceId][request.field] = resource.identity;
-  }
-  if (Object.keys(resources).length > limit)
-    throw new Fault(
-      "SHARED_RESOURCE_LIMIT",
-      `At most ${limit} shared enum LOVs may be tracked. Retired resources require separate reviewed cleanup.`,
-      5
-    );
-  for (const [key, resource] of Object.entries(resources)) {
-    resource.consumers = [.../* @__PURE__ */ new Set([...resource.consumers, ...active.get(key) ?? []])].sort();
-    if (resource.retained)
-      diagnostics.push({
-        code: "SHARED_RESOURCE_RETAINED",
-        severity: "info",
-        message: `Retained ${resource.identity} unchanged for detached or unknown consumers. Automatic shared-resource cleanup is unsupported.`
-      });
-  }
-  return { resources, references, files, bases, diagnostics };
 }
 
 // packages/core/src/composer/emitter.ts
@@ -9342,7 +9848,7 @@ async function snapshot(ctx, blueprintPath, options = {}) {
   const root = await safePath(ctx.root, ctx.config.application.sourceDir), sourceInventory = await inventory(root);
   const sources = {};
   for (const file of Object.keys(sourceInventory).filter((file2) => file2.endsWith(".apx"))) {
-    const bytes2 = await readFile4(await safePath(root, file)), text2 = bytes2.toString("utf8");
+    const bytes2 = await readFile5(await safePath(root, file)), text2 = bytes2.toString("utf8");
     if (!Buffer.from(text2).equals(bytes2))
       throw new Fault("TRANSFORM_UNSUPPORTED", "Source must be valid UTF-8.", 5);
     sources[file] = text2;
@@ -9355,7 +9861,7 @@ async function snapshot(ctx, blueprintPath, options = {}) {
     for (const entry2 of await readdir3(baseRoot)) {
       if (!/^[a-f0-9]{64}\.apx$/.test(entry2))
         throw new Fault("GENERATION_BASE_CORRUPT", "Unexpected generated base entry.", 5);
-      const bytes2 = await readFile4(await safePath(baseRoot, entry2)), digest2 = entry2.slice(0, -4);
+      const bytes2 = await readFile5(await safePath(baseRoot, entry2)), digest2 = entry2.slice(0, -4);
       if (hash(bytes2) !== digest2)
         throw new Fault("GENERATION_BASE_CORRUPT", "Generated base integrity failed.", 5);
       bases[digest2] = bytes2.toString("utf8");
@@ -9385,7 +9891,7 @@ async function snapshot(ctx, blueprintPath, options = {}) {
     sourceInventory,
     bases,
     configurationDigest: semanticDigest(ctx.config),
-    toolchainDigest: hash(await readFile4(await safePath(ctx.root, ctx.config.toolchain.lockFile))),
+    toolchainDigest: hash(await readFile5(await safePath(ctx.root, ctx.config.toolchain.lockFile))),
     sourceDir: ctx.config.application.sourceDir,
     projectId: ctx.config.projectId,
     mode,
@@ -9832,510 +10338,6 @@ function planComposition(input) {
   ];
   plan.digest = planDigest(plan);
   return validate(planSchema, plan);
-}
-
-// packages/core/src/composer/materializer.ts
-import path4 from "node:path";
-import { readFile as readFile5, mkdir as mkdir3, cp as cp2, rm as rm2, open } from "node:fs/promises";
-import { randomUUID as randomUUID2 } from "node:crypto";
-var activeJournal = ".apexrest/composer/journal.json";
-var journalSchema = external_exports.strictObject({
-  schemaVersion: external_exports.literal(1),
-  id: external_exports.uuid(),
-  phase: external_exports.enum(["prepared", "writing", "completed"]),
-  plan: planSchema,
-  previousReceipt: external_exports.string().nullable(),
-  records: external_exports.array(
-    external_exports.strictObject({
-      path: relativePath,
-      before: external_exports.string().nullable(),
-      after: external_exports.string().nullable(),
-      preimage: external_exports.string().nullable(),
-      content: external_exports.string().nullable()
-    })
-  ).max(2050),
-  completed: external_exports.array(relativePath)
-});
-function receiptFor(plan) {
-  if (!plan.state || !plan.lock) throw new Fault("PLAN_BLOCKED", "Plan lacks durable state.", 5);
-  return {
-    schemaVersion: 1,
-    generationDigest: plan.state.generationDigest,
-    planDigest: plan.digest,
-    stateDigest: semanticDigest(plan.state),
-    blueprintPath: plan.blueprintPath,
-    blueprintDigest: plan.blueprintDigest,
-    lockDigest: semanticDigest(plan.lock),
-    qualification: plan.validation === "compiler" ? "offline-compiler" : "source-only",
-    deployment: "not-run"
-  };
-}
-function requireWriteScope(ctx, write, metadata = false) {
-  const sourceDir = ctx.config.application.sourceDir, base = write.path.match(/^\.apexrest-composer\/bases\/([a-f0-9]{64})\.apx$/);
-  if (!(write.path.startsWith(sourceDir + "/") || base && (write.after === null || write.after === base[1]) || metadata && [".apexrest-composer/state.json", ".apexrest-composer/lock.json"].includes(write.path)))
-    throw new Fault("COMPOSITION_SCOPE_DENIED", "Plan writes outside Composer ownership.", 5);
-  if (write.path.split("/").includes(".apex"))
-    throw new Fault("COMPOSITION_SCOPE_DENIED", "Oracle metadata cannot be overwritten.", 5);
-}
-async function requireFrozenPlan(ctx, plan) {
-  let frozen;
-  try {
-    frozen = await readDocument(
-      ctx.root,
-      `.apexrest/composer/plans/${plan.digest}.json`,
-      planSchema,
-      planLimits
-    );
-  } catch {
-    throw new Fault("JOURNAL_CORRUPT", "Journal plan has no immutable reviewed plan record.", 5);
-  }
-  if (canonical(frozen) !== canonical(plan))
-    throw new Fault("JOURNAL_CORRUPT", "Journal plan differs from its immutable reviewed record.", 5);
-}
-async function bytes(ctx, relative) {
-  const file = await safePath(ctx.root, relative);
-  return await exists(file) ? await readFile5(file) : null;
-}
-async function durable(ctx, relative, content) {
-  const file = await safePath(ctx.root, relative);
-  await mkdir3(path4.dirname(file), { recursive: true, mode: 448 });
-  if (content === null) await rm2(file, { force: true });
-  else await atomicWrite(file, content);
-  try {
-    const handle = await open(path4.dirname(file), "r");
-    try {
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
-  } catch (error) {
-    if (process.platform !== "win32") throw error;
-  }
-}
-async function journal(ctx) {
-  const file = await safePath(ctx.root, activeJournal);
-  if (!await exists(file)) return null;
-  const value = validate(journalSchema, JSON.parse(await readFile5(file, "utf8")));
-  if (value.schemaVersion !== 1 || !["prepared", "writing", "completed"].includes(value.phase) || !Array.isArray(value.records) || !Array.isArray(value.completed))
-    throw new Fault("JOURNAL_CORRUPT", "Composition journal requires explicit inspection.", 5);
-  value.plan = validate(planSchema, value.plan);
-  if (planDigest(value.plan) !== value.plan.digest)
-    throw new Fault("JOURNAL_CORRUPT", "Journal plan integrity failed.", 5);
-  const paths = new Set(value.records.map((record) => record.path));
-  if (paths.size !== value.records.length || value.plan.operations.some((operation) => !paths.has(operation.path)) || value.plan.state && value.plan.stateDigest !== semanticDigest(value.plan.state) && !paths.has(".apexrest-composer/state.json"))
-    throw new Fault("JOURNAL_CORRUPT", "Journal write set is incomplete or duplicated.", 5);
-  if (new Set(value.completed).size !== value.completed.length || value.completed.some((completed) => !paths.has(completed)))
-    throw new Fault("JOURNAL_CORRUPT", "Journal checkpoints do not match its write set.", 5);
-  for (const record of value.records) {
-    requireWriteScope(ctx, record, true);
-    await safePath(ctx.root, record.path);
-    const operation = value.plan.operations.find((op) => op.path === record.path);
-    const metadata = record.path === ".apexrest-composer/state.json" ? value.plan.state : record.path === ".apexrest-composer/lock.json" ? value.plan.lock : null;
-    if (operation ? operation.content !== record.content || operation.after !== record.after || operation.before !== record.before : !metadata || record.content !== documentText(metadata))
-      throw new Fault("JOURNAL_CORRUPT", "Journal write differs from its immutable plan.", 5);
-    if ((record.preimage === null ? null : hash(record.preimage)) !== record.before || (record.content === null ? null : hash(record.content)) !== record.after)
-      throw new Fault("JOURNAL_CORRUPT", "Journal image integrity failed.", 5);
-  }
-  if (!value.plan.state || !value.plan.lock)
-    throw new Fault("JOURNAL_CORRUPT", "Journal plan lacks generation metadata.", 5);
-  const lockDigest = semanticDigest(value.plan.lock);
-  if (value.plan.state.lockDigest !== lockDigest)
-    throw new Fault("JOURNAL_CORRUPT", "Journal state does not bind its planned lock.", 5);
-  const stateRecord = value.records.find((record) => record.path === ".apexrest-composer/state.json"), lockRecord = value.records.find((record) => record.path === ".apexrest-composer/lock.json"), previousStateText = stateRecord ? stateRecord.preimage : (await bytes(ctx, ".apexrest-composer/state.json"))?.toString("utf8") ?? null;
-  let previousState;
-  try {
-    previousState = previousStateText === null ? null : validate(stateSchema, parseDocumentData(previousStateText));
-  } catch {
-    throw new Fault("JOURNAL_CORRUPT", "Journal state preimage is invalid.", 5);
-  }
-  if ((previousState ? semanticDigest(previousState) : null) !== value.plan.stateDigest)
-    throw new Fault("JOURNAL_CORRUPT", "Journal state preimage differs from the reviewed plan.", 5);
-  if (lockRecord && previousState) {
-    let previousLockDigest;
-    try {
-      previousLockDigest = lockRecord.preimage === null ? null : semanticDigest(validate(lockSchema, parseDocumentData(lockRecord.preimage)));
-    } catch {
-      throw new Fault("JOURNAL_CORRUPT", "Journal lock preimage is invalid.", 5);
-    }
-    if (previousLockDigest !== previousState.lockDigest)
-      throw new Fault("JOURNAL_CORRUPT", "Journal lock preimage differs from the reviewed state.", 5);
-  }
-  if (!lockRecord) {
-    if (previousState && previousState.lockDigest !== lockDigest || (await bytes(ctx, ".apexrest-composer/lock.json"))?.toString("utf8") !== documentText(value.plan.lock))
-      throw new Fault("JOURNAL_CORRUPT", "Journal omits a required lock write.", 5);
-  }
-  return value;
-}
-async function checkPreconditions(ctx, plan) {
-  const sources = await inventory(await safePath(ctx.root, ctx.config.application.sourceDir));
-  const stateFile = await safePath(ctx.root, ".apexrest-composer/state.json");
-  const state = await exists(stateFile) ? await readDocument(ctx.root, ".apexrest-composer/state.json", stateSchema) : null;
-  if (plan.projectId !== ctx.config.projectId || plan.configurationDigest !== semanticDigest(ctx.config) || plan.toolchainDigest !== hash(await readFile5(await safePath(ctx.root, ctx.config.toolchain.lockFile))) || semanticDigest(sources) !== semanticDigest(plan.sourceInventory) || (state ? semanticDigest(state) : null) !== plan.stateDigest || plan.blueprintDigest !== semanticDigest(await readDocument(ctx.root, plan.blueprintPath, blueprintSchema)) || plan.catalogDigest !== (await loadCatalog(ctx.root)).digest)
-    throw new Fault(
-      "COMPOSITION_DRIFT",
-      "Blueprint, catalog, state, source or configuration changed after review.",
-      5
-    );
-  if (state && plan.kind === "composition" && state.lockDigest !== semanticDigest(await readDocument(ctx.root, ".apexrest-composer/lock.json", lockSchema)))
-    throw new Fault("COMPOSITION_DRIFT", "Tracked lock differs from state.", 5);
-  for (const op of plan.operations) {
-    requireWriteScope(ctx, op);
-    const current = await bytes(ctx, op.path);
-    if ((current ? hash(current) : null) !== op.before || (op.content === null ? null : hash(op.content)) !== op.after)
-      throw new Fault("COMPOSITION_DRIFT", "Planned preimage or postimage changed.", 5);
-  }
-}
-async function stagePlan(ctx, plan) {
-  const relative = `.apexrest/composer/staging/${plan.digest}`, base = await safePath(ctx.root, relative);
-  await mkdir3(base, { recursive: true, mode: 448 });
-  const application = path4.join(base, "application");
-  await rm2(application, { recursive: true, force: true });
-  await cp2(await safePath(ctx.root, ctx.config.application.sourceDir), application, { recursive: true });
-  for (const op of plan.operations.filter(
-    (op2) => op2.path.startsWith(ctx.config.application.sourceDir + "/")
-  )) {
-    const file = await safePath(application, op.path.slice(ctx.config.application.sourceDir.length + 1));
-    if (op.content === null) await rm2(file, { force: true });
-    else await atomicWrite(file, op.content);
-  }
-  return { directory: application, sourceDigest: semanticDigest(await inventory(application)) };
-}
-async function freeze(ctx, plan, out) {
-  const text2 = documentText(validate(planSchema, plan));
-  const frozen = await safePath(ctx.root, `.apexrest/composer/plans/${plan.digest}.json`);
-  if (await exists(frozen)) {
-    if (await readFile5(frozen, "utf8") !== text2)
-      throw new Fault("PLAN_TAMPERED", "Immutable plan record changed.", 5);
-  } else await atomicWrite(frozen, text2);
-  const destination = await safePath(ctx.root, out);
-  if (!out.endsWith(".json") || out === ctx.config.toolchain.lockFile || out === "apexrest.json" || [
-    ".git",
-    ".agents",
-    ".codex",
-    ".apexrest-composer",
-    ctx.config.application.sourceDir,
-    ...Object.values(ctx.config.database)
-  ].some((p) => out === p || out.startsWith(p + "/")) || out.startsWith(".apexrest/composer/") && !out.startsWith(".apexrest/composer/plans/") && out !== ".apexrest/composer/panel-plan.json" || out.startsWith(".apexrest/composer/plans/") && destination !== frozen)
-    throw new Fault(
-      "COMPOSITION_SCOPE_DENIED",
-      "Plan output cannot overwrite application source or tracked state.",
-      5
-    );
-  if (await exists(destination) && destination !== frozen) {
-    try {
-      await readDocument(ctx.root, out, planSchema, planLimits);
-    } catch {
-      throw new Fault("COMPOSITION_SCOPE_DENIED", "Existing output is not a Composer plan.", 5);
-    }
-  }
-  await atomicWrite(destination, text2);
-}
-async function readPlan(ctx, file, expectedDigest) {
-  const plan = await readDocument(ctx.root, file, planSchema, planLimits);
-  if (plan.digest !== expectedDigest || planDigest(plan) !== plan.digest)
-    throw new Fault("PLAN_TAMPERED", "Reviewed plan digest differs.", 5);
-  const frozen = await readDocument(
-    ctx.root,
-    `.apexrest/composer/plans/${plan.digest}.json`,
-    planSchema,
-    planLimits
-  );
-  if (semanticDigest(frozen) !== semanticDigest(plan))
-    throw new Fault("PLAN_TAMPERED", "Plan differs from its original immutable record.", 5);
-  return plan;
-}
-async function materialize(ctx, plan, options = {}) {
-  if (plan.status !== "materializable" || planDigest(plan) !== plan.digest)
-    throw new Fault("PLAN_BLOCKED", "Only an intact materializable plan can be applied.", 5);
-  await readPlan(ctx, `.apexrest/composer/plans/${plan.digest}.json`, plan.digest);
-  return withLock(await safePath(ctx.root, ".apexrest/composer/ownership.lock"), async () => {
-    const previous = await journal(ctx);
-    if (plan.kind !== "composition") return applyRecovery(ctx, plan, previous, options);
-    if (previous && previous.phase !== "completed")
-      throw new Fault(
-        "RECOVERY_REQUIRED",
-        "Inspect the interrupted composition and create an explicit recovery plan.",
-        5
-      );
-    await checkPreconditions(ctx, plan);
-    if (!plan.state || !plan.lock)
-      throw new Fault("PLAN_BLOCKED", "Materializable plan lacks durable state.", 5);
-    const stateText = documentText(plan.state), lockText = documentText(plan.lock);
-    const requested = [
-      ...plan.operations.map((op) => ({
-        path: op.path,
-        before: op.before,
-        after: op.after,
-        content: op.content
-      }))
-    ];
-    for (const [file, content] of [
-      [".apexrest-composer/lock.json", lockText],
-      [".apexrest-composer/state.json", stateText]
-    ]) {
-      const current = await bytes(ctx, file);
-      if (current?.toString("utf8") !== content)
-        requested.push({ path: file, before: current ? hash(current) : null, after: hash(content), content });
-    }
-    if (!requested.length) {
-      const receiptFile = ".apexrest/composer/receipt.json", existing = await bytes(ctx, receiptFile);
-      const receipt = receiptFor(plan);
-      let current = null;
-      try {
-        current = existing ? JSON.parse(existing.toString("utf8")) : null;
-      } catch {
-        current = null;
-      }
-      if (current === null || canonical(current) !== canonical(receipt))
-        await durable(ctx, receiptFile, documentText(receipt));
-      return {
-        status: "no-op",
-        generationDigest: plan.state.generationDigest,
-        stateDigest: semanticDigest(plan.state),
-        changedFiles: [],
-        qualification: plan.validation === "compiler" ? "offline-compiler" : "source-only"
-      };
-    }
-    if (previous)
-      await durable(
-        ctx,
-        `.apexrest/composer/journals/${previous.id}.json`,
-        JSON.stringify(previous, null, 2) + "\n"
-      );
-    const record = {
-      schemaVersion: 1,
-      id: randomUUID2(),
-      phase: "prepared",
-      plan,
-      records: [],
-      completed: [],
-      previousReceipt: (await bytes(ctx, ".apexrest/composer/receipt.json"))?.toString("utf8") ?? null
-    };
-    for (const entry2 of requested) {
-      const preimage = await bytes(ctx, entry2.path);
-      record.records.push({ ...entry2, preimage: preimage?.toString("utf8") ?? null });
-    }
-    await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
-    try {
-      await options.boundary?.("prepared", activeJournal);
-      record.phase = "writing";
-      await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
-      await options.boundary?.("writing", activeJournal);
-      for (const entry2 of record.records) {
-        if (options.signal?.aborted)
-          throw new Fault(
-            "RECOVERY_REQUIRED",
-            "Composition interrupted; inspect journal before retry.",
-            6,
-            "cancelled"
-          );
-        const current = await bytes(ctx, entry2.path);
-        if ((current ? hash(current) : null) !== entry2.before)
-          throw new Fault("RECOVERY_REQUIRED", "Concurrent edits interrupted composition.", 5);
-        await options.boundary?.("before-write", entry2.path);
-        const recheck = await bytes(ctx, entry2.path);
-        if ((recheck ? hash(recheck) : null) !== entry2.before)
-          throw new Fault("RECOVERY_REQUIRED", "Concurrent edit before the write.", 5);
-        await durable(ctx, entry2.path, entry2.content);
-        await options.boundary?.("after-write", entry2.path);
-        const after = await bytes(ctx, entry2.path);
-        if ((after ? hash(after) : null) !== entry2.after)
-          throw new Fault("RECOVERY_REQUIRED", "Postimage differs after local write.", 5);
-        record.completed.push(entry2.path);
-        await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
-        await options.boundary?.("checkpoint", entry2.path);
-      }
-      const expectedSources = { ...plan.sourceInventory };
-      for (const op of plan.operations)
-        if (op.path.startsWith(ctx.config.application.sourceDir + "/")) {
-          const file = op.path.slice(ctx.config.application.sourceDir.length + 1);
-          if (op.after === null) delete expectedSources[file];
-          else expectedSources[file] = op.after;
-        }
-      const checkPostimages = async () => {
-        for (const entry2 of record.records) {
-          const after = await bytes(ctx, entry2.path);
-          if ((after ? hash(after) : null) !== entry2.after)
-            throw new Fault("RECOVERY_REQUIRED", "Concurrent changes detected before completion.", 5);
-        }
-        if (semanticDigest(await inventory(await safePath(ctx.root, ctx.config.application.sourceDir))) !== semanticDigest(expectedSources))
-          throw new Fault("RECOVERY_REQUIRED", "Application changed during materialization.", 5);
-      };
-      await checkPostimages();
-      const receipt = receiptFor(plan), receiptText = JSON.stringify(receipt, null, 2) + "\n";
-      await options.boundary?.("before-receipt", ".apexrest/composer/receipt.json");
-      await durable(ctx, ".apexrest/composer/receipt.json", receiptText);
-      await options.boundary?.("after-receipt", ".apexrest/composer/receipt.json");
-      await options.boundary?.("before-complete", activeJournal);
-      await checkPostimages();
-      if ((await bytes(ctx, ".apexrest/composer/receipt.json"))?.toString("utf8") !== receiptText)
-        throw new Fault("RECOVERY_REQUIRED", "Composition receipt changed before completion.", 5);
-      record.phase = "completed";
-      await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
-      return { status: "materialized", ...receipt, changedFiles: record.records.map((e) => e.path) };
-    } catch (error) {
-      if (error instanceof Fault && error.code === "RECOVERY_REQUIRED") throw error;
-      throw new Fault(
-        "RECOVERY_REQUIRED",
-        "Local writes may be partial. Preserve the journal and request explicit recovery.",
-        5
-      );
-    }
-  });
-}
-async function recoveryPlan(ctx, action) {
-  const record = await journal(ctx);
-  if (!record || record.phase === "completed")
-    throw new Fault("RECOVERY_NOT_REQUIRED", "No interrupted composition requires recovery.", 5);
-  await requireFrozenPlan(ctx, record.plan);
-  for (const entry2 of record.records) {
-    const current = await bytes(ctx, entry2.path), digest2 = current ? hash(current) : null;
-    if (digest2 !== entry2.before && digest2 !== entry2.after)
-      throw new Fault("RECOVERY_CONFLICT", "Recovery cannot overwrite an unrecognized concurrent edit.", 5);
-  }
-  const stateFile = await safePath(ctx.root, ".apexrest-composer/state.json");
-  const state = await exists(stateFile) ? await readDocument(ctx.root, ".apexrest-composer/state.json", stateSchema) : null;
-  const plan = {
-    ...record.plan,
-    kind: action === "resume" ? "recovery-resume" : "recovery-restore",
-    sourceInventory: await inventory(await safePath(ctx.root, ctx.config.application.sourceDir)),
-    stateDigest: state ? semanticDigest(state) : null,
-    blueprintDigest: semanticDigest(await readDocument(ctx.root, record.plan.blueprintPath, blueprintSchema)),
-    recovery: {
-      journalId: record.id,
-      sourcePlanDigest: record.plan.digest,
-      recordsDigest: semanticDigest(record.records)
-    },
-    operations: await Promise.all(
-      record.records.map(async (e) => {
-        const current = await bytes(ctx, e.path), content = action === "restore" ? e.preimage : e.content;
-        return {
-          path: e.path,
-          before: current ? hash(current) : null,
-          after: content === null ? null : hash(content),
-          content,
-          reason: "recovery-" + action
-        };
-      })
-    ),
-    diagnostics: [
-      {
-        code: "EXPLICIT_LOCAL_RECOVERY",
-        severity: "info",
-        message: `Reviewed ${action} of a partial filesystem composition. No database recovery is performed.`
-      }
-    ]
-  };
-  plan.digest = planDigest(plan);
-  return validate(planSchema, plan);
-}
-async function applyRecovery(ctx, plan, record, options) {
-  if (!record || record.phase === "completed")
-    throw new Fault("RECOVERY_NOT_REQUIRED", "No interrupted journal.", 5);
-  if (plan.recovery?.journalId !== record.id || plan.recovery.sourcePlanDigest !== record.plan.digest || plan.recovery.recordsDigest !== semanticDigest(record.records))
-    throw new Fault("RECOVERY_CONFLICT", "Recovery plan binds another journal.", 5);
-  await requireFrozenPlan(ctx, record.plan);
-  for (const entry2 of record.records) requireWriteScope(ctx, entry2, true);
-  for (const operation of plan.operations) requireWriteScope(ctx, operation, true);
-  if (canonical(plan.operations.map((operation) => operation.path)) !== canonical(record.records.map((entry2) => entry2.path)))
-    throw new Fault("RECOVERY_CONFLICT", "Recovery plan write set differs from its journal.", 5);
-  await checkPreconditions(ctx, { ...plan, operations: [] });
-  const restore = plan.kind === "recovery-restore";
-  for (const entry2 of [...record.records].sort(
-    (a, b) => restore ? record.records.indexOf(b) - record.records.indexOf(a) : record.records.indexOf(a) - record.records.indexOf(b)
-  )) {
-    if (options.signal?.aborted)
-      throw new Fault("RECOVERY_REQUIRED", "Recovery interrupted; preserve journal.", 6, "cancelled");
-    const current = await bytes(ctx, entry2.path), actual = current ? hash(current) : null;
-    if (actual !== entry2.before && actual !== entry2.after)
-      throw new Fault("RECOVERY_CONFLICT", "Unknown local edit blocks recovery.", 5);
-    const content = restore ? entry2.preimage : entry2.content, expected = restore ? entry2.before : entry2.after;
-    await options.boundary?.("before-recovery-write", entry2.path);
-    const recheck = await bytes(ctx, entry2.path);
-    if ((recheck ? hash(recheck) : null) !== actual)
-      throw new Fault("RECOVERY_CONFLICT", "Concurrent edit before recovery write.", 5);
-    await durable(ctx, entry2.path, content);
-    await options.boundary?.("after-recovery-write", entry2.path);
-    const after = await bytes(ctx, entry2.path);
-    if ((after ? hash(after) : null) !== expected)
-      throw new Fault("RECOVERY_CONFLICT", "Recovery postimage differs.", 5);
-  }
-  for (const entry2 of record.records) {
-    const current = await bytes(ctx, entry2.path);
-    if ((current ? hash(current) : null) !== (restore ? entry2.before : entry2.after))
-      throw new Fault("RECOVERY_CONFLICT", "Concurrent edit before recovery completion.", 5);
-  }
-  if (restore) await durable(ctx, ".apexrest/composer/receipt.json", record.previousReceipt);
-  if (!restore && plan.state && plan.lock)
-    await durable(ctx, ".apexrest/composer/receipt.json", documentText(receiptFor(record.plan)));
-  record.phase = "completed";
-  await durable(ctx, activeJournal, JSON.stringify(record, null, 2) + "\n");
-  return {
-    status: restore ? "restored" : "materialized",
-    databaseEffects: [],
-    changedFiles: record.records.map((e) => e.path)
-  };
-}
-async function deploymentBinding(ctx) {
-  const pending = await journal(ctx);
-  if (pending && pending.phase !== "completed")
-    throw new Fault("RECOVERY_REQUIRED", "Interrupted composition must be recovered before deployment.", 5);
-  const file = await safePath(ctx.root, ".apexrest/composer/receipt.json");
-  const stateFile = await safePath(ctx.root, ".apexrest-composer/state.json");
-  if (!await exists(file)) {
-    if (await exists(stateFile))
-      throw new Fault(
-        "COMPOSITION_RECEIPT_MISSING",
-        "Tracked Composer state requires its local materialization receipt.",
-        5
-      );
-    return null;
-  }
-  const receipt = JSON.parse(await readFile5(file, "utf8"));
-  if (receipt.qualification !== "offline-compiler")
-    throw new Fault(
-      "COMPOSITION_UNQUALIFIED",
-      "Source-only Composer drafts cannot bind into deployment plans; replan with compiler validation.",
-      5
-    );
-  const state = await readDocument(ctx.root, ".apexrest-composer/state.json", stateSchema);
-  const blueprintDigest = semanticDigest(
-    await readDocument(ctx.root, receipt.blueprintPath, blueprintSchema)
-  );
-  const lock = await readDocument(ctx.root, ".apexrest-composer/lock.json", lockSchema), lockDigest = semanticDigest(lock);
-  if (lock.catalogDigest !== (await loadCatalog(ctx.root)).digest || state.lockDigest !== lockDigest)
-    throw new Fault("COMPOSITION_DRIFT", "Catalog or tracked lock changed.", 5);
-  if (receipt.stateDigest !== semanticDigest(state) || receipt.generationDigest !== state.generationDigest || receipt.blueprintDigest !== blueprintDigest || receipt.lockDigest !== lockDigest)
-    throw new Fault("COMPOSITION_DRIFT", "Composition receipt, blueprint, state or lock changed.", 5);
-  for (const owner of Object.values(state.owners))
-    if (owner.mode !== "detached")
-      for (const [file2, digest2] of Object.entries(owner.files)) {
-        const source2 = await bytes(ctx, ctx.config.application.sourceDir + "/" + file2);
-        if (!source2 || hash(source2) !== digest2)
-          throw new Fault(
-            "COMPOSITION_DRIFT",
-            "Managed source changed after materialization; replan before deployment.",
-            5
-          );
-      }
-  if (Object.keys(state.sharedResources ?? {}).length) {
-    const root = await safePath(ctx.root, ctx.config.application.sourceDir), sources = {};
-    for (const file2 of Object.keys(await inventory(root)).filter((file3) => file3.endsWith(".apx"))) {
-      const source2 = await bytes(ctx, ctx.config.application.sourceDir + "/" + file2);
-      if (!source2 || !Buffer.from(source2.toString("utf8")).equals(source2))
-        throw new Fault("COMPOSITION_DRIFT", "Shared resource source is missing or invalid UTF-8.", 5);
-      sources[file2] = source2.toString("utf8");
-    }
-    verifySharedLovs(state.sharedResources, sources);
-  }
-  return {
-    generationDigest: receipt.generationDigest,
-    blueprintDigest,
-    stateDigest: receipt.stateDigest,
-    lockDigest,
-    catalogDigest: (await loadCatalog(ctx.root)).digest,
-    blueprintPath: receipt.blueprintPath
-  };
 }
 
 // packages/core/src/composer/service.ts

@@ -4,12 +4,12 @@ import {
 } from "./chunk-S4NYTED6.mjs";
 import {
   JOB_WAIT_MAX_SECONDS
-} from "./chunk-D7LI6RDR.mjs";
+} from "./chunk-YBGRY5OB.mjs";
 import {
   composeMaterializeInput,
   composePlanInput,
   metadataInputSchema
-} from "./chunk-MQFEOF3A.mjs";
+} from "./chunk-DOWWSLS6.mjs";
 import {
   databaseTransport,
   ordsUrl,
@@ -600,6 +600,8 @@ var schemas = {
     }).optional(),
     userRequest: external_exports.string().trim().min(1).max(16e3)
   }),
+  // Internal: a captured ship intent (ship-intent.ts), prepared and applied in one job.
+  "ship.intent": external_exports.strictObject({ ...base, env, intent: external_exports.uuid() }),
   "peer.status": external_exports.strictObject(base),
   "peer.review": external_exports.strictObject({
     ...base,
@@ -639,6 +641,7 @@ var internalOperations = [
   "project",
   "reference",
   "ship.apply",
+  "ship.intent",
   "job",
   "preview",
   "peer"

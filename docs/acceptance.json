@@ -1330,6 +1330,21 @@
         "tests/unit/ship-spans.test.ts"
       ],
       "blocker": "Repository fixtures with deterministic delays. Native Oracle span timings remain to be recorded with the D-series measurements."
+    },
+    {
+      "id": "FASTDEV-D02",
+      "criterion": "apexrest_ship apply without a saved plan queues a durable ship intent before any export or compiler work; one job claim prepares and applies it, a captured intent deploys exactly its revision or is superseded, status distinguishes intent states, and saved plans are checked exactly",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/ship-intent.ts",
+        "packages/mcp/src/server.ts",
+        "packages/core/src/broker.ts",
+        "packages/core/src/jobs.ts",
+        "packages/core/src/service.ts",
+        "tests/unit/ship-intent.test.ts"
+      ],
+      "blocker": "Repository fixtures. Native broker timing with real exports is part of the D-series measurements."
     }
   ]
 }

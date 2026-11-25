@@ -1,5 +1,10 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  renderPageBody,
+  renderRegion,
+  scaffoldSchema
+} from "./chunk-BBZ43UIE.mjs";
+import {
   ApexLangDocument,
   afterColumns,
   appendChild,
@@ -23,12 +28,7 @@ import {
   setProperty,
   setPropertyText,
   visibilityEdits
-} from "./chunk-52E2USZJ.mjs";
-import {
-  renderPageBody,
-  renderRegion,
-  scaffoldSchema
-} from "./chunk-BBZ43UIE.mjs";
+} from "./chunk-DN4KP646.mjs";
 import {
   group,
   indent,

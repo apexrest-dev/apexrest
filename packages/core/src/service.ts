@@ -251,7 +251,7 @@ export async function dispatch(
       operation,
       async () => {
         // A ship runs in one operation trace (spans.ts): planning, a job's queue and worker, apply.
-        const shipping = operation === 'ship' || operation === 'ship.apply';
+        const shipping = operation === 'ship' || operation === 'ship.apply' || operation === 'ship.intent';
         let operations: TraceReport | undefined;
         const result = shipping
           ? await withTrace(async () => {
@@ -745,6 +745,11 @@ async function dispatchObserved(
               phases: [...planned.phases, ...applied.phases],
               ...(peer ? { peerReview: peer } : {}),
             };
+            break;
+          }
+          case 'ship.intent': {
+            const { runShipIntent } = await import('./ship-intent.ts');
+            data = await runShipIntent(ctx, text('intent'), deployment, parseDiagnostics, signal, progress);
             break;
           }
           case 'ship.apply': {

@@ -5,28 +5,29 @@ import {
   prewarmCompiler,
   shutdownOracle,
   waitsForCompilerPrewarm
-} from "./chunk-5ZQEW3BU.mjs";
-import "./chunk-7PLJZRO4.mjs";
+} from "./chunk-LUARGUNP.mjs";
+import "./chunk-SIHBA2TI.mjs";
+import "./chunk-Q2XACWE7.mjs";
+import "./chunk-BBZ43UIE.mjs";
 import {
   schemas,
   toolCatalog
-} from "./chunk-HCF2VM4K.mjs";
+} from "./chunk-FRVV5G6V.mjs";
 import "./chunk-S4NYTED6.mjs";
 import "./chunk-6DN7RAI6.mjs";
-import "./chunk-RPD4VAE7.mjs";
+import "./chunk-SNXCRPR5.mjs";
+import "./chunk-QRRLQA7X.mjs";
 import {
   JobService,
   jobToolResult,
   settleInlineJobs
-} from "./chunk-D7LI6RDR.mjs";
-import "./chunk-PRSF5ANR.mjs";
-import "./chunk-52E2USZJ.mjs";
+} from "./chunk-YBGRY5OB.mjs";
+import "./chunk-RNNNWNIB.mjs";
+import "./chunk-DN4KP646.mjs";
+import "./chunk-K3MFNBA3.mjs";
 import {
   ArtifactService
-} from "./chunk-MQFEOF3A.mjs";
-import "./chunk-KUKVCAPO.mjs";
-import "./chunk-SIHBA2TI.mjs";
-import "./chunk-BBZ43UIE.mjs";
+} from "./chunk-DOWWSLS6.mjs";
 import "./chunk-C66KGFY2.mjs";
 import "./chunk-JI42DR2Q.mjs";
 import "./chunk-QLJHOYUI.mjs";
@@ -59,6 +60,7 @@ import {
   safeParse,
   serializeMessage
 } from "./chunk-7SGTFDEC.mjs";
+import "./chunk-KUKVCAPO.mjs";
 import {
   VERSION
 } from "./chunk-IIUPXDVT.mjs";
@@ -1117,7 +1119,34 @@ async function startMcp() {
       if (project && waitsForCompilerPrewarm(tool.operation, input)) await compilerPrewarmed(project);
       if (tool.long && !inProcess) {
         const jobs = new JobService(await loadProject(String(input.project)));
-        if (tool.operation === "ship" && input.mode === "apply") {
+        if (tool.operation === "ship" && input.mode === "apply" && typeof input.plan !== "string") {
+          const { waitSeconds } = input;
+          const { captureShipIntent } = await import("./chunk-ZXMWA245.mjs");
+          const ctx = await loadProject(String(input.project));
+          const intent = await captureShipIntent(ctx, {
+            env: String(input.env),
+            userRequest: String(input.userRequest),
+            ...input.importMode ? { importMode: input.importMode } : {},
+            ...Array.isArray(input.files) ? { files: input.files } : {}
+          });
+          const job = await runJobTool(
+            jobs,
+            "ship.intent",
+            { project: input.project, env: input.env, intent: intent.id, waitSeconds },
+            runtime,
+            extra.signal,
+            { waitSchema: shipWait }
+          );
+          result = jobToolResult("ship.intent", job);
+          result = {
+            ...result,
+            operation: "ship",
+            data: {
+              ...result.data,
+              intent: { id: intent.id, revision: intent.revision, capturedAt: intent.createdAt }
+            }
+          };
+        } else if (tool.operation === "ship" && input.mode === "apply") {
           const { waitSeconds } = input;
           const planned = await prepareShipApplyPlan(
             input,

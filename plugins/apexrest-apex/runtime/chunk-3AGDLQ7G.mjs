@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   toolCatalog
-} from "./chunk-HCF2VM4K.mjs";
+} from "./chunk-FRVV5G6V.mjs";
 import "./chunk-S4NYTED6.mjs";
 import {
   ToolchainService,
@@ -10,9 +10,8 @@ import {
   runCommand,
   runtimeState
 } from "./chunk-6DN7RAI6.mjs";
-import "./chunk-D7LI6RDR.mjs";
-import "./chunk-MQFEOF3A.mjs";
-import "./chunk-KUKVCAPO.mjs";
+import "./chunk-YBGRY5OB.mjs";
+import "./chunk-DOWWSLS6.mjs";
 import "./chunk-C66KGFY2.mjs";
 import {
   resourceRoot
@@ -39,6 +38,7 @@ import {
   require_validation_error,
   serializeMessage
 } from "./chunk-7SGTFDEC.mjs";
+import "./chunk-KUKVCAPO.mjs";
 import {
   VERSION
 } from "./chunk-IIUPXDVT.mjs";

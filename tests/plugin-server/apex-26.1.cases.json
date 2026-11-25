@@ -1965,6 +1965,22 @@
       ],
       "evidence": ["ship result operations", "run journal"],
       "budgetMs": 30000
+    },
+    {
+      "id": "A261-096",
+      "title": "Durable ship intents",
+      "acceptance": ["FASTDEV-D02"],
+      "execution": "harness",
+      "surface": "mcp",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Call apexrest_ship mode:apply without a plan on a fixture target, edit the sources, and call it again."
+      ],
+      "expected": [
+        "Each call returns a job id after capturing an intent with no export or compile; the older intent is superseded without planning; the newer one is prepared and applied under one claim; a saved plan is applied exactly."
+      ],
+      "evidence": ["job status", "intent status"],
+      "budgetMs": 60000
     }
   ],
   "metrics": "quality-performance.json"

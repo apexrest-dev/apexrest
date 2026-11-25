@@ -36,6 +36,7 @@ var jobOperations = [
   "deploy.plan",
   "deploy.apply",
   "ship.apply",
+  "ship.intent",
   "ship",
   "peer"
 ];
@@ -85,7 +86,7 @@ var JobService = class {
   }
   async start(operation, input, runtime) {
     const id = await this.enqueue(operation, input);
-    const { submitToBroker } = await import("./chunk-HSRH7SDA.mjs");
+    const { submitToBroker } = await import("./chunk-O3SMM27L.mjs");
     if (await submitToBroker(this.ctx.root, id).catch(() => false))
       return {
         jobId: id,

@@ -267,7 +267,7 @@ export async function runBroker(ctx: ProjectContext, execute: JobExecutor): Prom
       operation: string;
       input: Record<string, unknown>;
     };
-    if (requested.operation === 'ship.apply') {
+    if (requested.operation === 'ship.apply' || requested.operation === 'ship.intent') {
       const env = String(requested.input.env ?? '');
       waiting.set(env, [...(waiting.get(env) ?? []), jobId]);
       // Let an immediately following apply arrive, so a burst coalesces.
@@ -350,7 +350,12 @@ async function planCreated(ctx: ProjectContext, id: string): Promise<number | un
   try {
     const request = (await readJson(
       path.join(await contained(ctx.root, '.apexrest/jobs/' + id), 'request.json'),
-    )) as { input?: { plan?: unknown } };
+    )) as { operation?: string; input?: { plan?: unknown; intent?: unknown } };
+    // An intent is ordered by its capture time, as a plan by its creation.
+    if (request.operation === 'ship.intent') {
+      const { intentCreated } = await import('./ship-intent.ts');
+      return await intentCreated(ctx, String(request.input?.intent ?? ''));
+    }
     const plan = (await readJson(await contained(ctx.root, String(request.input?.plan ?? '')))) as {
       createdAt?: string;
     };
@@ -367,12 +372,17 @@ async function supersede(ctx: ProjectContext, id: string, by: string) {
   // The claim keeps a detached worker from starting it after it was superseded.
   if (!(await claimJob(root, 'broker-superseded'))) return;
   const state = (await readJson(path.join(root, 'state.json'))) as { operation?: string };
+  if (state.operation === 'ship.intent') {
+    const request = (await readJson(path.join(root, 'request.json'))) as { input?: { intent?: unknown } };
+    const { markIntentSuperseded } = await import('./ship-intent.ts');
+    await markIntentSuperseded(ctx, String(request.input?.intent ?? ''), by).catch(() => undefined);
+  }
   await writeJson(path.join(root, 'state.json'), {
     id,
     operation: state.operation ?? 'ship.apply',
     status: 'superseded',
     supersededBy: by,
-    nextAction: `This apply never started. Job ${by}, planned from newer sources of the same environment, applies the changes.`,
+    nextAction: `This apply never started. Job ${by}, prepared from newer sources of the same environment, applies the changes.`,
     updatedAt: new Date().toISOString(),
   });
 }

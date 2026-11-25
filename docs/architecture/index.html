@@ -152,7 +152,7 @@
 </tr>
 <tr>
 <td><code>apexrest_ship</code> <code>mode:apply</code></td>
-<td>Validates and plans in-process, then runs the apply phase in a detached worker so a database write survives host termination.</td>
+<td>Without a saved plan, queues a ship intent (the captured source revision, target and request; no export or compile) and one job validates, plans and applies it, so a database write survives host termination and a superseded edit pays for neither. With a saved plan, the apply job checks that exact plan.</td>
 </tr>
 </tbody></table>
 </div>

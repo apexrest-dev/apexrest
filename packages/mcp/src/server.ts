@@ -180,9 +180,38 @@ export async function startMcp() {
       if (project && waitsForCompilerPrewarm(tool.operation, input)) await compilerPrewarmed(project);
       if (tool.long && !inProcess) {
         const jobs = new JobService(await loadProject(String(input.project)));
-        if (tool.operation === 'ship' && input.mode === 'apply') {
-          // Validate and plan in-process (no writes); the apply phase runs in a
-          // detached worker so a database write survives MCP termination.
+        if (tool.operation === 'ship' && input.mode === 'apply' && typeof input.plan !== 'string') {
+          // Queue a ship intent before any export or compiler work: the job prepares (validate,
+          // plan) and applies it under one claim, so a superseded edit pays for neither and a
+          // database write survives MCP termination. Configuration refusals stay immediate.
+          const { waitSeconds } = input;
+          const { captureShipIntent } = await import('../../core/src/ship-intent.ts');
+          const ctx = await loadProject(String(input.project));
+          const intent = await captureShipIntent(ctx, {
+            env: String(input.env),
+            userRequest: String(input.userRequest),
+            ...(input.importMode ? { importMode: input.importMode as 'auto' | 'full' | 'files' } : {}),
+            ...(Array.isArray(input.files) ? { files: input.files as string[] } : {}),
+          });
+          const job = await runJobTool(
+            jobs,
+            'ship.intent',
+            { project: input.project, env: input.env, intent: intent.id, waitSeconds },
+            runtime,
+            extra.signal,
+            { waitSchema: shipWait },
+          );
+          result = jobToolResult('ship.intent', job);
+          result = {
+            ...result,
+            operation: 'ship',
+            data: {
+              ...(result.data as object),
+              intent: { id: intent.id, revision: intent.revision, capturedAt: intent.createdAt },
+            },
+          };
+        } else if (tool.operation === 'ship' && input.mode === 'apply') {
+          // A saved reviewed plan: the apply worker checks that exact plan before its grant.
           const { waitSeconds } = input;
           const planned = await prepareShipApplyPlan(input, (domainInput) =>
             dispatch('ship', domainInput, extra.signal),

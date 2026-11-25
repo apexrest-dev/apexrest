@@ -3,7 +3,7 @@ import {
   claimJob,
   executeJob,
   failQueuedJob
-} from "./chunk-D7LI6RDR.mjs";
+} from "./chunk-YBGRY5OB.mjs";
 import {
   VERSION
 } from "./chunk-IIUPXDVT.mjs";
@@ -213,7 +213,7 @@ async function runBroker(ctx, execute) {
     const state = await readJson(path.join(root, "state.json"));
     if (state.status !== "queued" || await exists(path.join(root, "claim.json"))) return false;
     const requested = await readJson(path.join(root, "request.json"));
-    if (requested.operation === "ship.apply") {
+    if (requested.operation === "ship.apply" || requested.operation === "ship.intent") {
       const env = String(requested.input.env ?? "");
       waiting.set(env, [...waiting.get(env) ?? [], jobId]);
       setTimeout(() => void drain(env), 50);
@@ -283,6 +283,10 @@ async function planCreated(ctx, id) {
     const request2 = await readJson(
       path.join(await contained(ctx.root, ".apexrest/jobs/" + id), "request.json")
     );
+    if (request2.operation === "ship.intent") {
+      const { intentCreated } = await import("./chunk-ZXMWA245.mjs");
+      return await intentCreated(ctx, String(request2.input?.intent ?? ""));
+    }
     const plan = await readJson(await contained(ctx.root, String(request2.input?.plan ?? "")));
     const at = Date.parse(String(plan.createdAt ?? ""));
     return Number.isFinite(at) ? at : void 0;
@@ -294,12 +298,17 @@ async function supersede(ctx, id, by) {
   const root = await contained(ctx.root, ".apexrest/jobs/" + id);
   if (!await claimJob(root, "broker-superseded")) return;
   const state = await readJson(path.join(root, "state.json"));
+  if (state.operation === "ship.intent") {
+    const request2 = await readJson(path.join(root, "request.json"));
+    const { markIntentSuperseded } = await import("./chunk-ZXMWA245.mjs");
+    await markIntentSuperseded(ctx, String(request2.input?.intent ?? ""), by).catch(() => void 0);
+  }
   await writeJson(path.join(root, "state.json"), {
     id,
     operation: state.operation ?? "ship.apply",
     status: "superseded",
     supersededBy: by,
-    nextAction: `This apply never started. Job ${by}, planned from newer sources of the same environment, applies the changes.`,
+    nextAction: `This apply never started. Job ${by}, prepared from newer sources of the same environment, applies the changes.`,
     updatedAt: (/* @__PURE__ */ new Date()).toISOString()
   });
 }

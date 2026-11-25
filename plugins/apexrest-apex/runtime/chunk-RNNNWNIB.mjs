@@ -9,7 +9,7 @@ import {
   scalarText,
   setFencedText,
   setProperty
-} from "./chunk-52E2USZJ.mjs";
+} from "./chunk-DN4KP646.mjs";
 import {
   parseApexLang
 } from "./chunk-C66KGFY2.mjs";

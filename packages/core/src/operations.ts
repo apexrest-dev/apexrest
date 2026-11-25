@@ -808,6 +808,8 @@ export const schemas = {
       .optional(),
     userRequest: z.string().trim().min(1).max(16000),
   }),
+  // Internal: a captured ship intent (ship-intent.ts), prepared and applied in one job.
+  'ship.intent': z.strictObject({ ...base, env, intent: z.uuid() }),
   'peer.status': z.strictObject(base),
   'peer.review': z.strictObject({
     ...base,
@@ -849,6 +851,7 @@ export const internalOperations: Operation[] = [
   'project',
   'reference',
   'ship.apply',
+  'ship.intent',
   'job',
   'preview',
   'peer',

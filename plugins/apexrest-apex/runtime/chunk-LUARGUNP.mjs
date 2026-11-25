@@ -1,13 +1,19 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  scaffoldSpec
+} from "./chunk-SIHBA2TI.mjs";
+import {
   editPage,
   insertComponents,
   pageContext,
   patchPage
-} from "./chunk-7PLJZRO4.mjs";
+} from "./chunk-Q2XACWE7.mjs";
+import {
+  scaffoldSchema
+} from "./chunk-BBZ43UIE.mjs";
 import {
   schemas
-} from "./chunk-HCF2VM4K.mjs";
+} from "./chunk-FRVV5G6V.mjs";
 import {
   browserPreferences
 } from "./chunk-S4NYTED6.mjs";
@@ -17,32 +23,42 @@ import {
   runtimeState
 } from "./chunk-6DN7RAI6.mjs";
 import {
+  fallbackCompilerDiagnostics,
+  planPreview,
+  shipApply,
+  shipPlan,
+  validateApplication,
+  validationSource
+} from "./chunk-SNXCRPR5.mjs";
+import {
   brokerStatus,
   startBroker,
   stopBroker
-} from "./chunk-RPD4VAE7.mjs";
+} from "./chunk-QRRLQA7X.mjs";
 import {
   JobService,
   jobToolResult
-} from "./chunk-D7LI6RDR.mjs";
+} from "./chunk-YBGRY5OB.mjs";
 import {
   lovContext,
   lovEdit,
   lovFile
-} from "./chunk-PRSF5ANR.mjs";
+} from "./chunk-RNNNWNIB.mjs";
+import {
+  editHistory,
+  redoEdit,
+  undoEdit
+} from "./chunk-DN4KP646.mjs";
 import {
   DeploymentService,
   deployPlanSchema,
-  editHistory,
   planDigest,
   recordRevision,
-  redoEdit,
   revisionOf,
   revisionStatus,
   sourceInventory,
-  sourceRevision,
-  undoEdit
-} from "./chunk-52E2USZJ.mjs";
+  sourceRevision
+} from "./chunk-K3MFNBA3.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -52,27 +68,13 @@ import {
   metadataRead,
   oracleType,
   readMetadataBatch
-} from "./chunk-MQFEOF3A.mjs";
-import {
-  correlationId,
-  openSpan,
-  spanned,
-  traceReport,
-  withTrace
-} from "./chunk-KUKVCAPO.mjs";
-import {
-  scaffoldSpec
-} from "./chunk-SIHBA2TI.mjs";
-import {
-  scaffoldSchema
-} from "./chunk-BBZ43UIE.mjs";
+} from "./chunk-DOWWSLS6.mjs";
 import {
   CODE_LIMIT,
   LocalDeploymentControl,
   OracleAdapter,
   SEARCH_LINKS,
   SyncStore,
-  auditUpgradeSource,
   boundCode,
   buildReferencePostings,
   canonicalReference,
@@ -117,18 +119,20 @@ import {
   withSqlclTimings
 } from "./chunk-7SGTFDEC.mjs";
 import {
+  traceReport,
+  withTrace
+} from "./chunk-KUKVCAPO.mjs";
+import {
   VERSION
 } from "./chunk-IIUPXDVT.mjs";
 import {
   environment,
-  isProductionTarget,
   loadProject,
   managedHome,
   parse,
   policy,
   refuseProductionDeployment,
-  targetDigest,
-  updatePolicy
+  targetDigest
 } from "./chunk-O3XZW7YC.mjs";
 import {
   canonical,
@@ -152,7 +156,7 @@ import {
 
 // packages/core/src/service.ts
 import { fileURLToPath } from "node:url";
-import path13 from "node:path";
+import path12 from "node:path";
 
 // packages/core/src/doctor.ts
 import path from "node:path";
@@ -3268,7 +3272,7 @@ async function usageStatus(limit = 20) {
 }
 
 // packages/core/src/peer-review.ts
-import path12 from "node:path";
+import path11 from "node:path";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile as readFile7, rm } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
@@ -3326,394 +3330,6 @@ async function resolveCliCommand(command, args, host = {}) {
     executable: batch.executable,
     args: batch.args,
     ...batch.verbatim ? { windowsVerbatimArguments: true } : {}
-  };
-}
-
-// packages/core/src/ship.ts
-import path11 from "node:path";
-var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
-function fallbackCompilerDiagnostics(output) {
-  const entries = [];
-  for (const raw of output.split(/\r?\n/)) {
-    const line = raw.replace(/\x1b\[[0-9;]*m/g, "").trim();
-    if (!line || !/\b(?:error|warn(?:ing)?|ORA-\d+|PLS-\d+)\b/i.test(line)) continue;
-    if (/^\d+\s+(?:errors?|warnings?)\b|validation (?:failed|completed)/i.test(line)) continue;
-    const entry = {
-      severity: /\bwarn(?:ing)?\b/i.test(line) && !/\berror\b/i.test(line) ? "warning" : "error",
-      message: line.slice(0, 2e3)
-    };
-    const file2 = /([\w./-]+\.apx)\b/.exec(line)?.[1];
-    if (file2) entry.file = file2;
-    const position = /(?:line\s+(\d+)(?:[,\s]+col(?:umn)?\s+(\d+))?)|\.apx:(\d+)(?::(\d+))?/i.exec(line);
-    if (position) {
-      const l = position[1] ?? position[3], c = position[2] ?? position[4];
-      if (l) entry.line = Number(l);
-      if (c) entry.column = Number(c);
-    }
-    entries.push(entry);
-  }
-  return entries;
-}
-function compilerFault(error, parseDiagnostics2) {
-  if (!(error instanceof Fault) || !compilerFaults.has(error.code)) return error;
-  const recorded = Array.isArray(error.details?.diagnostics) ? error.details.diagnostics : [];
-  const diagnostics = recorded.length ? recorded : parseDiagnostics2(error.message);
-  const errors = diagnostics.filter((d) => (d.severity ?? "error") === "error").length;
-  return new Fault(
-    "VALIDATION_FAILED",
-    diagnostics.length ? `Oracle compiler reported ${errors} error(s) and ${diagnostics.length - errors} warning(s).` : error.message.slice(0, 2e3),
-    1,
-    "failed",
-    {
-      ...error.details,
-      diagnostics: diagnostics.length ? diagnostics : [{ message: error.message.slice(0, 4e3) }]
-    }
-  );
-}
-async function validationSource(root, input) {
-  if (input.sourceDir === void 0) {
-    const ctx = await loadProject(root);
-    return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
-  }
-  const source2 = path11.resolve(root, input.sourceDir);
-  if (!await exists(path11.join(source2, "application.apx")))
-    throw new Fault(
-      "VALIDATION_SOURCE_MISSING",
-      `${source2} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
-      2
-    );
-  const own = path11.join(source2, ".apex", "apexlang.json");
-  if (await exists(own)) return { source: source2, metadata: { origin: "source", file: own } };
-  const candidates = [];
-  if (input.project !== void 0) candidates.push(path11.resolve(input.project));
-  for (let dir = path11.dirname(source2); ; dir = path11.dirname(dir)) {
-    if (await exists(path11.join(dir, "apexrest.json"))) {
-      candidates.push(dir);
-      break;
-    }
-    if (path11.dirname(dir) === dir) break;
-  }
-  for (const candidate of candidates) {
-    let ctx;
-    try {
-      ctx = await loadProject(candidate);
-    } catch {
-      continue;
-    }
-    const file2 = path11.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
-    if (await exists(file2)) return { source: source2, metadata: { origin: "project", file: file2 } };
-  }
-  throw new Fault(
-    "MMD_METADATA_REQUIRED",
-    `${source2} has no Oracle-generated .apex/apexlang.json and no enclosing APEXREST project provides one, so the APEXlang metadata version is unknown. Export or generate the application with SQLcl (apexrest apex export or apex generate), or validate it from a project whose application has .apex/apexlang.json.`,
-    3
-  );
-}
-async function validateApplication(oracle, target, parseDiagnostics2, signal) {
-  const { source: source2, metadata } = typeof target === "string" ? { source: target, metadata: void 0 } : target;
-  const started = Date.now();
-  let validated;
-  try {
-    validated = metadata?.origin === "project" ? await oracle.validate(source2, signal, { metadataFile: metadata.file }) : await oracle.validate(source2, signal);
-  } catch (error) {
-    throw compilerFault(error, parseDiagnostics2);
-  }
-  const { output, mmd: _mmd, ...rest } = validated;
-  const warnings = parseDiagnostics2(output).filter((d) => d.severity === "warning");
-  const advisory = async (action) => {
-    try {
-      return await action();
-    } catch (error) {
-      if (signal?.aborted || error instanceof Fault && error.code === "CANCELLED") throw error;
-      return {
-        status: "unavailable",
-        findings: [],
-        reason: error instanceof Error ? error.message : "Advisory analysis did not complete."
-      };
-    }
-  };
-  const [staticAnalysis, upgradeAudit] = await Promise.all([
-    advisory(
-      async () => typeof oracle.codeScan === "function" ? oracle.codeScan(source2, signal) : {
-        status: "unavailable",
-        findings: [],
-        reason: "The selected adapter does not provide CodeScan."
-      }
-    ),
-    advisory(() => auditUpgradeSource(source2))
-  ]);
-  return {
-    ...rest,
-    ...metadata ? { sourceDir: source2, metadata } : {},
-    diagnostics: warnings,
-    warningCount: warnings.length,
-    staticAnalysis,
-    upgradeAudit,
-    ms: Date.now() - started,
-    output,
-    outputTruncated: false
-  };
-}
-function sourceCounts(ctx, plan) {
-  const under = (dir) => Object.keys(plan.sources).filter((f) => f.startsWith(dir + "/"));
-  const application = under(ctx.config.application.sourceDir);
-  const pages = application.filter((f) => /\/pages\/[^/]+\.apx$/.test(f));
-  return {
-    application: application.length,
-    pages: pages.length,
-    pageFiles: pages.slice(0, 50).map((f) => f.slice(ctx.config.application.sourceDir.length + 1)),
-    migrations: plan.operations.filter((o) => o.kind === "migration").length,
-    packages: plan.operations.filter((o) => o.kind === "package").length
-  };
-}
-function planPreview(ctx, plan, options) {
-  const selection = plan.schemaVersion === 4 ? plan.importSelection : {
-    requestedMode: options?.importMode ?? "full",
-    resolvedMode: "full",
-    files: [],
-    dependencies: [],
-    reasons: [
-      (ctx.config.toolchain.profile ?? "26.1") === "26.1" ? "apex-26.1-full-import" : "legacy-full-application-plan"
-    ]
-  };
-  return {
-    planId: plan.id,
-    planDigest: plan.digest,
-    environment: plan.environment,
-    targetDigest: plan.targetDigest,
-    planMode: plan.schemaVersion === 1 ? "full-export" : plan.mode,
-    importSelection: {
-      requestedMode: selection.requestedMode,
-      resolvedMode: selection.resolvedMode,
-      fileCount: selection.files.length,
-      files: selection.files.slice(0, 50),
-      filesTruncated: selection.files.length > 50,
-      dependencies: selection.dependencies.slice(0, 50),
-      dependencyCount: selection.dependencies.length,
-      reasons: selection.reasons,
-      ...plan.schemaVersion === 4 && plan.importSelection.readbackPolicy ? { readbackPolicy: plan.importSelection.readbackPolicy } : {}
-    },
-    backupRequired: plan.backupRequired,
-    compiler: plan.compiler,
-    createdAt: plan.createdAt,
-    expiresAt: plan.expiresAt,
-    risks: plan.risks,
-    databaseReview: plan.databaseReview,
-    approval: plan.approval,
-    sources: sourceCounts(ctx, plan),
-    target: JSON.stringify(plan.target).length <= 1200 ? plan.target : { omitted: true }
-  };
-}
-function applicationLink(ctx, name) {
-  const env = environment(ctx, name);
-  return {
-    id: env.applicationId,
-    alias: ctx.config.application.alias,
-    workspace: env.workspace,
-    url: new URL(`f?p=${env.applicationId}`, env.baseUrl).toString()
-  };
-}
-async function shipPlan(ctx, name, deployment, parseDiagnostics2, progress, options = { importMode: "auto" }) {
-  const started = Date.now();
-  progress?.("validating");
-  let plan;
-  try {
-    plan = await spanned("planning", () => deployment.plan(ctx, name, options));
-  } catch (error) {
-    throw compilerFault(error, parseDiagnostics2);
-  }
-  const planPath = ".apexrest/plans/ship-" + plan.id + ".json";
-  await writeJson(await contained(ctx.root, planPath), plan);
-  const phases = [{ phase: "planning", ms: Date.now() - started }];
-  return { plan, planPath, phases, preview: planPreview(ctx, plan, options) };
-}
-var phaseFor = {
-  backing_up: "backing_up",
-  migrating: "migrating",
-  importing: "importing",
-  verifying: "verifying"
-};
-function shipGrant(ctx, plan, userRequest, confirmation) {
-  return {
-    projectRoot: ctx.root,
-    targetDigest: plan.targetDigest,
-    planDigest: plan.digest,
-    expiresAt: new Date(Math.min(Date.parse(plan.expiresAt), Date.now() + 10 * 60 * 1e3)).toISOString(),
-    workerPid: process.pid,
-    ...confirmation ? { confirmedRisks: plan.risks, confirmationRequest: confirmation.userRequest } : {},
-    operations: ["deploy"],
-    note: userRequest.slice(0, 16e3),
-    grantedBy: "ship",
-    grantedAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
-}
-async function reconcileShipGrants() {
-  await updatePolicy((p) => ({
-    ...p,
-    grants: p.grants.filter((g) => {
-      if (g.grantedBy !== "ship") return true;
-      if (Date.parse(g.expiresAt) <= Date.now() || !g.workerPid) return false;
-      try {
-        process.kill(g.workerPid, 0);
-        return true;
-      } catch (error) {
-        return error.code === "EPERM";
-      }
-    })
-  }));
-}
-var ownGrant = (ctx, plan) => (g) => g.grantedBy === "ship" && g.projectRoot === ctx.root && g.planDigest === plan.digest;
-async function checkShipTarget(ctx, plan, local = false, confirmation) {
-  const env = environment(ctx, plan.environment);
-  if (await isProductionTarget(env, plan.targetDigest))
-    throw new Fault(
-      "PRODUCTION_DEPLOY_DENIED",
-      "The plugin never deploys or restores production-marked targets.",
-      4,
-      "blocked"
-    );
-  if (confirmation && (confirmation.planDigest !== plan.digest || confirmation.userRequest.trim().length < 1))
-    throw new Fault(
-      "CONFIRMATION_PLAN_MISMATCH",
-      "Human confirmation must name this exact reviewed plan digest.",
-      4,
-      "blocked"
-    );
-  if (!local && plan.risks.some((r) => r !== "application-restore") && !confirmation)
-    throw new Fault(
-      "DATABASE_CONFIRMATION_REQUIRED",
-      "Describe the actual remote database operations and consequences, then obtain human confirmation for this exact saved plan.",
-      4,
-      "blocked",
-      {
-        nextActions: plan.risks.map((r) => "Review operation: " + r)
-      }
-    );
-  return env;
-}
-var CLIENT_STOPPED_CAUSES = /* @__PURE__ */ new Set([
-  "TIMEOUT",
-  "CANCELLED",
-  "OUTPUT_LIMIT",
-  "LEASE_OR_CANCELLATION",
-  "SQLCL_MCP_INCOMPLETE",
-  "SCRIPT_INCOMPLETE"
-]);
-async function shipApply(ctx, planValue, userRequest, deployment, signal, progress, confirmation, recoveryAttempt = 0) {
-  return withTrace(async () => {
-    try {
-      return await shipApplyTraced(
-        ctx,
-        planValue,
-        userRequest,
-        deployment,
-        signal,
-        progress,
-        confirmation,
-        recoveryAttempt
-      );
-    } catch (error) {
-      if (error instanceof Fault && correlationId())
-        error.details = { ...error.details, correlationId: correlationId() };
-      throw error;
-    }
-  });
-}
-async function shipApplyTraced(ctx, planValue, userRequest, deployment, signal, progress, confirmation, recoveryAttempt = 0) {
-  const setup = openSpan("setup", { stage: "ship" });
-  const plan = parse(deployPlanSchema, planValue);
-  if (await isProductionTarget(environment(ctx, plan.environment), plan.targetDigest))
-    throw new Fault(
-      "PRODUCTION_DEPLOY_DENIED",
-      "The plugin never deploys or restores production-marked targets.",
-      4,
-      "blocked"
-    );
-  await deployment.checkLocal(ctx, plan);
-  const locality = plan.risks.length ? await deployment.localTarget(ctx, plan) : { local: false };
-  await checkShipTarget(ctx, plan, locality.local, confirmation);
-  await reconcileShipGrants();
-  const phases = [];
-  let current;
-  const mark = (phase) => {
-    if (current) phases.push({ phase: current.phase, ms: Date.now() - current.at });
-    current = { phase, at: Date.now() };
-    progress?.(phase);
-  };
-  const grant = shipGrant(ctx, plan, userRequest, confirmation);
-  await updatePolicy((p) => ({ ...p, grants: [...p.grants.filter((g) => !ownGrant(ctx, plan)(g)), grant] }));
-  let grantRemoved = false;
-  let applied;
-  setup.end();
-  try {
-    mark("backing_up");
-    applied = await deployment.apply(ctx, plan, signal, (state) => {
-      const phase = phaseFor[state];
-      if (phase && phase !== current?.phase) mark(phase);
-    });
-  } catch (error) {
-    const runId = error instanceof Fault ? error.details?.deploymentRunId : void 0;
-    if (error instanceof Fault && error.code === "OUTCOME_UNKNOWN" && typeof runId === "string" && CLIENT_STOPPED_CAUSES.has(String(error.details?.cause))) {
-      error.message = `${error.message} SQLcl stopped before Oracle confirmed the outcome (${String(error.details?.cause)}); the database may still be executing it, so no automatic recovery was attempted. Once no APEXREST session remains on the target, run apexrest_ship mode:recover for run ${runId}.`;
-      error.details = { ...error.details, automaticRecovery: "skipped" };
-      throw error;
-    }
-    if (recoveryAttempt === 0 && typeof runId === "string" && ["OUTCOME_UNKNOWN", "POST_DEPLOY_CONTENT_FAILED", "POST_DEPLOY_VERIFICATION_FAILED"].includes(
-      error.code
-    )) {
-      let recovered;
-      try {
-        recovered = await deployment.recover(ctx, runId);
-      } catch (recoveryError) {
-        if (recoveryError instanceof Fault) {
-          recoveryError.details = {
-            ...recoveryError.details,
-            deploymentRunId: runId,
-            originalCode: error.code
-          };
-          recoveryError.message = `${recoveryError.message} Interrupted deployment run: ${runId}.`;
-        }
-        throw recoveryError;
-      }
-      if (recovered.status === "succeeded") applied = recovered;
-      else
-        return await shipApplyTraced(
-          ctx,
-          recovered.retryPlan,
-          userRequest,
-          deployment,
-          signal,
-          progress,
-          void 0,
-          recoveryAttempt + 1
-        );
-    } else throw error;
-  } finally {
-    grantRemoved = await updatePolicy((p) => ({
-      ...p,
-      grants: p.grants.filter((g) => !ownGrant(ctx, plan)(g))
-    })).then(
-      () => true,
-      () => false
-    );
-  }
-  if (current) phases.push({ phase: current.phase, ms: Date.now() - current.at });
-  return {
-    status: "succeeded",
-    runId: applied.runId,
-    planId: plan.id,
-    planDigest: plan.digest,
-    environment: plan.environment,
-    application: applicationLink(ctx, plan.environment),
-    sources: sourceCounts(ctx, plan),
-    phases,
-    ...correlationId() ? { correlationId: correlationId(), operations: traceReport() } : {},
-    ...applied.recovered ? { recovery: "server-readback-confirmed" } : {},
-    verification: { identity: "confirmed", state: applied.state, directory: applied.directory },
-    grant: { recorded: true, removed: grantRemoved, expiresAt: grant.expiresAt, planDigest: plan.digest },
-    nextActions: grantRemoved ? [] : [
-      "The grant cleanup failed; retain this diagnostic and let runtime grant reconciliation handle it before the next attempt."
-    ]
   };
 }
 
@@ -3928,8 +3544,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID());
   await mkdir(scratch, { recursive: true });
   try {
-    const schemaFile = path12.join(scratch, "verdict.schema.json");
-    const lastFile = path12.join(scratch, "last-message.json");
+    const schemaFile = path11.join(scratch, "verdict.schema.json");
+    const lastFile = path11.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -4142,7 +3758,7 @@ function prewarmCompiler(project) {
       try {
         const ctx = await loadProject(project);
         const source2 = await contained(ctx.root, ctx.config.application.sourceDir);
-        if (!await exists(path13.join(source2, ".apex/apexlang.json"))) {
+        if (!await exists(path12.join(source2, ".apex/apexlang.json"))) {
           compilerPrewarms.delete(project);
           return;
         }
@@ -4281,7 +3897,7 @@ async function dispatch(operation, input = {}, signal, progress) {
     () => observeUsage(
       operation,
       async () => {
-        const shipping = operation === "ship" || operation === "ship.apply";
+        const shipping = operation === "ship" || operation === "ship.apply" || operation === "ship.intent";
         let operations;
         const result = shipping ? await withTrace(async () => {
           const value = await dispatchObserved(operation, input, signal, progress);
@@ -4373,7 +3989,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-YNYR6BOV.mjs");
+      const { previewDispatch } = await import("./chunk-GJPJZ5RZ.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4415,17 +4031,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-MZ37SOH2.mjs");
+        const { setup } = await import("./chunk-3AGDLQ7G.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-MZ37SOH2.mjs");
+        const { validateNative } = await import("./chunk-3AGDLQ7G.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-MZ37SOH2.mjs");
+        const { uninstallNative } = await import("./chunk-3AGDLQ7G.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -4435,7 +4051,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text2("directory"),
           text2("template"),
-          text2("alias") ?? path13.basename(path13.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text2("alias") ?? path12.basename(path12.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "project.scaffold": {
@@ -4559,7 +4175,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           case "dev.start":
             data = await startBroker(
               ctx,
-              path13.join(path13.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
+              path12.join(path12.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
             );
             break;
           case "dev.status":
@@ -4746,6 +4362,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             };
             break;
           }
+          case "ship.intent": {
+            const { runShipIntent } = await import("./chunk-ZXMWA245.mjs");
+            data = await runShipIntent(ctx, text2("intent"), deployment, parseDiagnostics, signal, progress);
+            break;
+          }
           case "ship.apply": {
             const plan = await readRequestedPlan(ctx.root, text2("plan"), text2("env"));
             const peer = await peerReviewGate(ctx, plan);
@@ -4869,7 +4490,7 @@ var observationOnly = /* @__PURE__ */ new Set([
 ]);
 async function rememberProject(root) {
   try {
-    const ctx = await loadProject(path13.resolve(root));
+    const ctx = await loadProject(path12.resolve(root));
     await recordProject(ctx.root, ctx.config.projectId);
   } catch {
   }
