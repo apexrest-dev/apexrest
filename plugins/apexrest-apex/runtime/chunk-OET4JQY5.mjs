@@ -3740,10 +3740,15 @@ export {
   planDigest,
   sourceInventory,
   DeploymentService,
+  ApexLangDocument,
+  setProperty,
+  setFencedText,
   appendChild,
+  readProperty,
   runPageTransaction,
   PATCH_PROPERTIES,
   planSets,
+  queryEdits,
   pageContext,
   patchPage
 };

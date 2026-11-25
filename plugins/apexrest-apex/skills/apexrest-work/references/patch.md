@@ -32,7 +32,7 @@ Unknown targets, ambiguous ids, unsupported properties, multi-line values and co
 - Item names must start with the page prefix (`P10_`).
 - A refresh may target new or existing regions; its dynamic action gets an unused name.
 - Existing components keep their bytes. The edit uses the same digest, lock and atomic write as `patch`.
-- For a filter: a `staticContent` region, a `selectList` item and a `refreshes` entry for the report. Then add the item to the report query with a `query` patch.
+- For a working filter use the `addFilter` edit below; it also submits and binds the item.
 
 ## Several changes in one edit
 
@@ -40,4 +40,15 @@ Unknown targets, ambiguous ids, unsupported properties, multi-line values and co
 
 ```text
 apexrest_project action:edit page:"10" expectedDigest:"<digest>" operations:[{"op":"insert","components":{"regions":[{"id":"filters","type":"staticContent","name":"Filters"}],"items":[{"name":"P10_STATUS","region":"filters","type":"selectList","label":"Status","lov":[{"label":"Open","value":"O"}]}],"refreshes":[{"items":["P10_STATUS"],"regions":["customers"]}]}},{"op":"set","target":"region:customers","property":"query","value":"select id, name, status from customers where :P10_STATUS is null or status = :P10_STATUS","columns":[{"name":"NAME"},{"name":"STATUS"}]}]
+```
+
+## Add a working filter
+
+`{"op":"addFilter", "item":{...}, "region"?:{...}, "targets":[...]}` in `action:edit` adds the filter item (and an optional container region), makes every target query or chart series submit it (`pageItemsToSubmit`) and adds one refresh of all targets. Targets: interactive and classic reports, cards and charts.
+
+- Every target query must reference the item as a bind variable (`:P10_STATUS`). Predicates are never rewritten: give the complete replacement SQL in `sql` (reports also need `columns`, as for a `query` patch) or, for a chart, per series in `series:[{id, sql}]`.
+- A query without the bind returns `FILTER_NOT_BOUND`; other regions return `OPERATION_UNSUPPORTED`. Nothing is written.
+
+```text
+{"op":"addFilter","region":{"id":"filters","type":"staticContent","name":"Filters"},"item":{"name":"P10_STATUS","region":"filters","type":"selectList","label":"Status","lov":[{"label":"Active","value":"ACTIVE"}]},"targets":[{"region":"customers","sql":"select id, name, status from customers where (:P10_STATUS is null or status = :P10_STATUS)","columns":[{"name":"NAME"},{"name":"STATUS"}]}]}
 ```

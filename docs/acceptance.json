@@ -1037,6 +1037,18 @@
         "tests/unit/source-edit-transaction.test.ts"
       ],
       "blocker": "Local repository tests only. Output size is bounded to 40 entries and 2000 characters of query text per entry; larger changes point to project action:context."
+    },
+    {
+      "id": "FASTDEV-A03",
+      "criterion": "An addFilter edit adds the filter item, submits and binds it on every target report, cards region or chart series and refreshes every target in one page transaction; unbound queries and unsupported regions are refused before writing",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/edit/filter.ts",
+        "tests/unit/source-edit-filter.test.ts",
+        "docs/evidence/fast-dev/addfilter-compiler-2026-11-25.json"
+      ],
+      "blocker": "Repository tests and the local SQLite preview pass (initial, changed, empty and cleared results). The offline Oracle compiler passed report, cards and chart-series filters on a scratch 26.2 project. Native import and browser behaviour on an APEX target are not yet observed."
     }
   ]
 }

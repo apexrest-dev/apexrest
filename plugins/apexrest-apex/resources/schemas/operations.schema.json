@@ -840,6 +840,127 @@
               "properties": {
                 "op": {
                   "type": "string",
+                  "const": "addFilter"
+                },
+                "item": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "region": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 255
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "region"
+                  ],
+                  "additionalProperties": {},
+                  "description": "Scaffold item: name P<page>_..., region, type, label, lov ..."
+                },
+                "region": {
+                  "description": "Optional new scaffold region",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                },
+                "targets": {
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "region": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255
+                      },
+                      "sql": {
+                        "type": "string",
+                        "maxLength": 100000
+                      },
+                      "columns": {
+                        "maxItems": 200,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "heading": {
+                              "type": "string",
+                              "maxLength": 4000
+                            },
+                            "dataType": {
+                              "type": "string",
+                              "enum": [
+                                "varchar2",
+                                "number",
+                                "date",
+                                "timestamp"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "series": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 255
+                            },
+                            "sql": {
+                              "type": "string",
+                              "maxLength": 100000
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "sql"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "region"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "op",
+                "item",
+                "targets"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
                   "const": "insert"
                 },
                 "components": {

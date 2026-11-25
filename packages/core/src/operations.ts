@@ -260,6 +260,37 @@ export const schemas = {
               .optional(),
           }),
           z.strictObject({
+            op: z.literal('addFilter'),
+            item: z
+              .object({ name: z.string().min(1).max(128), region: z.string().min(1).max(255) })
+              .passthrough()
+              .describe('Scaffold item: name P<page>_..., region, type, label, lov ...'),
+            region: z.record(z.string(), z.unknown()).optional().describe('Optional new scaffold region'),
+            targets: z
+              .array(
+                z.strictObject({
+                  region: z.string().min(1).max(255),
+                  sql: z.string().max(100000).optional(),
+                  columns: z
+                    .array(
+                      z.strictObject({
+                        name: z.string().min(1).max(128),
+                        heading: z.string().max(4000).optional(),
+                        dataType: z.enum(['varchar2', 'number', 'date', 'timestamp']).optional(),
+                      }),
+                    )
+                    .max(200)
+                    .optional(),
+                  series: z
+                    .array(z.strictObject({ id: z.string().min(1).max(255), sql: z.string().max(100000) }))
+                    .max(20)
+                    .optional(),
+                }),
+              )
+              .min(1)
+              .max(20),
+          }),
+          z.strictObject({
             op: z.literal('insert'),
             components: z
               .record(z.string(), z.unknown())

@@ -2,6 +2,7 @@ import type { ProjectContext } from '../config.ts';
 import { Fault } from '../result.ts';
 import { planSets, type PatchOperation } from './patch.ts';
 import { planInsert, type InsertInput } from './insert.ts';
+import { filterFragment, planFilters, type AddFilterOperation } from './filter.ts';
 import {
   runPageTransaction,
   type ContextMode,
@@ -17,7 +18,9 @@ import {
  */
 
 export type EditOperation =
-  ({ op: 'set' } & PatchOperation) | { op: 'insert'; components: InsertInput['components'] };
+  | AddFilterOperation
+  | ({ op: 'set' } & PatchOperation)
+  | { op: 'insert'; components: InsertInput['components'] };
 
 export interface EditInput {
   page: string;
@@ -33,7 +36,14 @@ export type Group = (snapshot: PageSnapshot) => PlannedEdit;
 export function editGroups(operations: EditOperation[]): Group[] {
   const sets: PatchOperation[] = [];
   const inserts: InsertInput['components'][] = [];
+  const filters: AddFilterOperation[] = [];
   for (const operation of operations) {
+    if (operation.op === 'addFilter') {
+      // The item, region and refresh join the one insert plan, so ids and refresh names stay unique.
+      inserts.push(filterFragment(operation));
+      filters.push(operation);
+      continue;
+    }
     if (operation.op === 'set') {
       const { op: _op, ...set } = operation;
       sets.push(set);
@@ -43,6 +53,7 @@ export function editGroups(operations: EditOperation[]): Group[] {
   const groups: Group[] = [];
   if (sets.length) groups.push((snapshot) => planSets(snapshot, sets));
   if (inserts.length) groups.push((snapshot) => planInsert(snapshot, inserts));
+  if (filters.length) groups.push((snapshot) => planFilters(snapshot, filters));
   return groups;
 }
 

@@ -194,6 +194,25 @@ var schemas = {
           ).max(200).optional()
         }),
         external_exports.strictObject({
+          op: external_exports.literal("addFilter"),
+          item: external_exports.object({ name: external_exports.string().min(1).max(128), region: external_exports.string().min(1).max(255) }).passthrough().describe("Scaffold item: name P<page>_..., region, type, label, lov ..."),
+          region: external_exports.record(external_exports.string(), external_exports.unknown()).optional().describe("Optional new scaffold region"),
+          targets: external_exports.array(
+            external_exports.strictObject({
+              region: external_exports.string().min(1).max(255),
+              sql: external_exports.string().max(1e5).optional(),
+              columns: external_exports.array(
+                external_exports.strictObject({
+                  name: external_exports.string().min(1).max(128),
+                  heading: external_exports.string().max(4e3).optional(),
+                  dataType: external_exports.enum(["varchar2", "number", "date", "timestamp"]).optional()
+                })
+              ).max(200).optional(),
+              series: external_exports.array(external_exports.strictObject({ id: external_exports.string().min(1).max(255), sql: external_exports.string().max(1e5) })).max(20).optional()
+            })
+          ).min(1).max(20)
+        }),
+        external_exports.strictObject({
           op: external_exports.literal("insert"),
           components: external_exports.record(external_exports.string(), external_exports.unknown()).describe("Scaffold fragment: {regions, items?, refreshes?}")
         })

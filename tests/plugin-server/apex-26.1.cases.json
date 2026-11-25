@@ -1561,6 +1561,29 @@
       ],
       "evidence": ["sanitized result code", "page file digest before and after", "MCP call count"],
       "budgetMs": 5000
+    },
+    {
+      "id": "A261-073",
+      "title": "Working filter on an existing page",
+      "acceptance": ["FASTDEV-A03"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Read a page with a report and a chart.",
+        "Send project action:edit with addFilter for both targets and the read digest.",
+        "Validate, then change, empty and clear the filter value in the preview."
+      ],
+      "expected": [
+        "Every target submits and binds the item and one refresh covers all targets; the compiler passes.",
+        "Rows change with the value, an unmatched value shows no rows, clearing restores all rows."
+      ],
+      "evidence": [
+        "sanitized result code",
+        "compiler diagnostics count",
+        "preview row counts per filter value"
+      ],
+      "budgetMs": 15000
     }
   ],
   "metrics": "quality-performance.json"

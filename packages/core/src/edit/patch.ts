@@ -187,7 +187,11 @@ function transform(source: string, pageId: string, operations: PatchOperation[])
  * and new ones are added with a heading, data type and the next layout sequence. Every column must
  * appear in the query text; the compiler checks the full contract when the page is validated.
  */
-function queryEdits(doc: ApexLangDocument, region: ComponentNode, operation: PatchOperation): TextEdit[] {
+export function queryEdits(
+  doc: ApexLangDocument,
+  region: ComponentNode,
+  operation: PatchOperation,
+): TextEdit[] {
   const type = doc.lines[region.open] && region.properties.get('type')?.value;
   if (!REPORTS.has(String(type)))
     throw new Fault(
