@@ -29,6 +29,7 @@ export interface PendingShip {
   revision: string;
   createdAt: number;
   confirmed: boolean;
+  toolchain?: string;
 }
 export type Coverage =
   | {
@@ -64,6 +65,7 @@ export async function pendingShip(ctx: ProjectContext, jobId: string): Promise<P
         revision: intent.revision,
         createdAt: Date.parse(intent.createdAt),
         confirmed: false,
+        ...(intent.toolchain ? { toolchain: intent.toolchain } : {}),
       };
     }
     if (request.operation !== 'ship.apply') return undefined;
@@ -106,6 +108,7 @@ export function coverage(older: PendingShip | undefined, newer: PendingShip | un
   if (older.targetDigest !== newer.targetDigest) return { covered: false, reason: 'different target' };
   if (older.configuration !== newer.configuration)
     return { covered: false, reason: 'different configuration' };
+  if (older.toolchain !== newer.toolchain) return { covered: false, reason: 'different toolchain' };
   if (older.confirmed || newer.confirmed)
     return { covered: false, reason: 'separately confirmed authorization' };
   if (newer.createdAt < older.createdAt) return { covered: false, reason: 'captured earlier' };

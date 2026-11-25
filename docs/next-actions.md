@@ -205,3 +205,4 @@ Preserve functional catalog provenance, licensing and compiler bindings. Preserv
 
 - Keep tracked Pages generated from the current Markdown/site sources; rerun `site:check`, documentation checks and relevant browser review after changes.
 - After a separately authorized push to `main`, verify the live [GitHub Pages website](https://apexrest-dev.github.io/apexrest/), search, navigation and assets.
+- **Resident CLI ship qualification (APE-437).** Measure cold against resident CLI ships on a native DEV target, using the `planning` span's `compilerReused` and the operation totals, before any speed claim.

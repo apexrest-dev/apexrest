@@ -1,46 +1,48 @@
 #!/usr/bin/env node
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
-  setPreviewOwner
-} from "./chunk-JSJXHH5F.mjs";
-import {
   dispatch
-} from "./chunk-K7JSLO4Q.mjs";
-import "./chunk-2GRMYPN5.mjs";
-import "./chunk-72JHEBTX.mjs";
-import "./chunk-BBZ43UIE.mjs";
+} from "./chunk-GPUDL6NM.mjs";
+import "./chunk-G2XY4RBN.mjs";
+import "./chunk-PPBHHBQE.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-JWL4KF5G.mjs";
-import "./chunk-S4NYTED6.mjs";
-import "./chunk-6YEZFXV7.mjs";
-import "./chunk-N35GIEYW.mjs";
-import "./chunk-SIDKH5GG.mjs";
+} from "./chunk-DZ4T74MO.mjs";
+import "./chunk-JY4RDLCW.mjs";
 import {
   executeJob,
   failQueuedJob
-} from "./chunk-C2BKJMP2.mjs";
-import "./chunk-6LQAKUZL.mjs";
-import "./chunk-JQKZZLZF.mjs";
-import "./chunk-HSLUPXT4.mjs";
-import "./chunk-LZPDQQEA.mjs";
-import "./chunk-C66KGFY2.mjs";
-import "./chunk-ZJMQHNNS.mjs";
-import "./chunk-QLJHOYUI.mjs";
-import "./chunk-7SGTFDEC.mjs";
-import "./chunk-V3NFRVGE.mjs";
-import "./chunk-KUKVCAPO.mjs";
-import "./chunk-IIUPXDVT.mjs";
+} from "./chunk-44C6ROEJ.mjs";
+import "./chunk-LUWWMFTV.mjs";
+import "./chunk-MBAQ72HJ.mjs";
+import {
+  setPreviewOwner
+} from "./chunk-T4L6A35M.mjs";
+import "./chunk-HOLI56NF.mjs";
+import "./chunk-3PFNITAD.mjs";
+import "./chunk-55N4ZQFI.mjs";
+import "./chunk-PCV5YPHF.mjs";
+import "./chunk-N6DM4DZ3.mjs";
+import "./chunk-MPDF637Z.mjs";
+import "./chunk-LEQBIOA6.mjs";
+import "./chunk-OA3W7BIM.mjs";
+import "./chunk-L5FXZTIT.mjs";
+import "./chunk-CVR5OUUL.mjs";
+import "./chunk-4GRGGAQV.mjs";
+import "./chunk-73QQA3SD.mjs";
 import {
   loadProject
-} from "./chunk-O3XZW7YC.mjs";
-import "./chunk-YLKYRT24.mjs";
+} from "./chunk-FMCSJH7I.mjs";
+import "./chunk-5OZJQ7M6.mjs";
+import "./chunk-4S6ZNCT6.mjs";
+import "./chunk-RW7D7AJD.mjs";
 import {
   Fault,
   failure
-} from "./chunk-HRRL6FHO.mjs";
+} from "./chunk-OWILYJ3V.mjs";
+import "./chunk-NNKK245H.mjs";
 
 // packages/cli/src/main.ts
 var argv = process.argv.slice(2);
@@ -322,12 +324,12 @@ try {
     }
   } else if (argv[0] === "--broker") {
     if (argv.length !== 2) throw new Fault("INVALID_INPUT", "Invalid internal broker request.", 2);
-    const { runBroker } = await import("./chunk-NVYEBCWA.mjs");
+    const { runBroker } = await import("./chunk-TT5QPKW4.mjs");
     await runBroker(await loadProject(argv[1]), dispatch);
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-FZDH4QJJ.mjs");
+    const { startMcp } = await import("./chunk-HHSBEOSC.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;
@@ -374,7 +376,12 @@ try {
       }
     }
     if (selectedOp.op === "preview.start") setPreviewOwner("cli");
-    const result = await dispatch(selectedOp.op, input);
+    let result = selectedOp.op === "ship" ? await (await import("./chunk-QPUGRTRK.mjs")).shipThroughBroker(input, dispatch) : void 0;
+    if (!result) {
+      result = await dispatch(selectedOp.op, input);
+      if (selectedOp.op === "ship" && input.mode === "apply" && result.data && typeof result.data === "object")
+        result = { ...result, data: { ...result.data, provenance: "cold-cli" } };
+    }
     console.log(JSON.stringify(result, null, argv.includes("--json") ? 0 : 2));
     process.exitCode = result.exitCode;
     if (selectedOp.op === "preview.start" && result.ok)

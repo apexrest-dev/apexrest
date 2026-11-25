@@ -403,7 +403,22 @@ try {
     }
     // This process exists only to serve the preview, so other processes may stop it (preview stop).
     if (selectedOp.op === 'preview.start') setPreviewOwner('cli');
-    const result = await dispatch(selectedOp.op, input);
+    // A one-shot ship apply goes to a running development broker (resident compiler) when there
+    // is one; otherwise this process prepares and applies it ("cold CLI").
+    let result =
+      selectedOp.op === 'ship'
+        ? await (await import('../../core/src/ship-intent.ts')).shipThroughBroker(input, dispatch)
+        : undefined;
+    if (!result) {
+      result = await dispatch(selectedOp.op, input);
+      if (
+        selectedOp.op === 'ship' &&
+        input.mode === 'apply' &&
+        result.data &&
+        typeof result.data === 'object'
+      )
+        result = { ...result, data: { ...(result.data as object), provenance: 'cold-cli' } };
+    }
     console.log(JSON.stringify(result, null, argv.includes('--json') ? 0 : 2));
     process.exitCode = result.exitCode;
     // The preview server keeps this process alive until it is interrupted.

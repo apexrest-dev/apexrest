@@ -21,6 +21,7 @@ import type { JobPhase } from './jobs.ts';
 import { Fault, type StructuredDiagnostic } from './result.ts';
 import { auditUpgradeSource } from './upgrade-audit.ts';
 import { correlationId, openSpan, spanned, traceReport, withTrace } from './spans.ts';
+import { sqlclTimings } from './sqlcl-timings.ts';
 
 // apexrest_ship: validate -> plan -> (apply) record a plan-bound grant -> deploy
 // -> verify -> remove the grant. The grant records the user's literal request
@@ -279,7 +280,16 @@ export async function shipPlan(
   try {
     // Planning compiles the sources and reads the target in parallel; a
     // compiler failure is reported as structured validation diagnostics.
-    plan = await spanned('planning', () => deployment.plan(ctx, name, options));
+    // The compiler session this planning used (D01 telemetry): reused by a resident process or not.
+    plan = await spanned('planning', async (span) => {
+      const before = sqlclTimings().length;
+      const value = await deployment.plan(ctx, name, options);
+      const compile = sqlclTimings()
+        .slice(before)
+        .find((entry) => entry.label === 'validate');
+      if (compile) span.set({ compilerReused: compile.reused, compilerTransport: compile.transport });
+      return value;
+    });
   } catch (error) {
     throw compilerFault(error, parseDiagnostics);
   }

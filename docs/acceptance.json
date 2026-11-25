@@ -1366,6 +1366,21 @@
       "verification": "passed",
       "evidence": ["packages/core/src/ship-intent.ts", "tests/unit/ship-intent.test.ts"],
       "blocker": "Repository fixtures."
+    },
+    {
+      "id": "FASTDEV-D05",
+      "criterion": "One-shot CLI ship applies without a saved plan are prepared and applied in a running development broker that reuses its compiler, fall back to the CLI process under the exclusive job claim, invalidate intents on toolchain changes, keep MCP routing explicit, and report cold-cli, resident-cli, warm-mcp or resident-mcp provenance",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/ship-intent.ts",
+        "packages/core/src/jobs.ts",
+        "packages/cli/src/main.ts",
+        "packages/mcp/src/server.ts",
+        "packages/core/src/ship.ts",
+        "tests/unit/ship-resident.test.ts"
+      ],
+      "blocker": "Repository fixtures with an in-process broker. Native cold versus resident CLI timing remains open."
     }
   ]
 }

@@ -152,7 +152,7 @@
 </tr>
 <tr>
 <td><code>apexrest_ship</code> <code>mode:apply</code></td>
-<td>Without a saved plan, queues a ship intent (the captured source revision, target and request; no export or compile) and one job validates, plans and applies it, so a database write survives host termination and a superseded edit pays for neither. With a saved plan, the apply job checks that exact plan.</td>
+<td>Without a saved plan and with a running development broker, queues a ship intent (the captured source revision, target and request; no export or compile) that the broker prepares and applies under one claim, so a superseded edit pays for neither. Without a broker, validates and plans with this warm MCP process&#39;s compiler and a detached worker applies the plan. With a saved plan, the apply job checks that exact plan. A database write survives host termination in every case.</td>
 </tr>
 </tbody></table>
 </div>

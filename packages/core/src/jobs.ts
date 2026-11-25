@@ -85,6 +85,26 @@ export class JobService {
         'Wait for this job with apexrest_job action:status and the same jobId; never rerun the operation to fetch results.',
     };
   }
+  /**
+   * Runs a job in the resident broker when one confirms it took it; otherwise in this process.
+   * An unconfirmed handoff is safe: whichever runner claims the job first runs it, and the other
+   * one only waits for that result (exclusive claim), so nothing runs twice.
+   */
+  async submit(operation: string, input: Record<string, unknown>, execute: JobExecutor) {
+    const id = await this.enqueue(operation, input);
+    const { submitToBroker } = await import('./broker.ts');
+    if (await submitToBroker(this.ctx.root, id).catch(() => false))
+      return { jobId: id, runner: 'broker' as const };
+    try {
+      await executeJob(this.ctx, id, execute, 'in-process');
+      return { jobId: id, runner: 'in-process' as const };
+    } catch (error) {
+      if (error instanceof Fault && error.code === 'JOB_ALREADY_CLAIMED')
+        return { jobId: id, runner: 'broker' as const };
+      await failQueuedJob(this.ctx.root, id, error).catch(() => undefined);
+      throw error;
+    }
+  }
   async start(operation: string, input: Record<string, unknown>, runtime: string) {
     const id = await this.enqueue(operation, input);
     // A running development broker (broker.ts) takes the job in its warm process. Without a

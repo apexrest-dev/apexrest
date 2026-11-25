@@ -2013,6 +2013,22 @@
       ],
       "evidence": ["intent status", "deployment ownership record"],
       "budgetMs": 30000
+    },
+    {
+      "id": "A261-099",
+      "title": "Resident CLI ship routing",
+      "acceptance": ["FASTDEV-D05"],
+      "execution": "harness",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Start the development broker and run apexrest ship --mode apply twice without a saved plan; repeat without the broker."
+      ],
+      "expected": [
+        "With the broker both ships are prepared and applied in the resident process with provenance resident-cli and a reused compiler on the second; without it the CLI ships in its own process (cold-cli); no ship runs twice."
+      ],
+      "evidence": ["ship results", "operation spans"],
+      "budgetMs": 60000
     }
   ],
   "metrics": "quality-performance.json"

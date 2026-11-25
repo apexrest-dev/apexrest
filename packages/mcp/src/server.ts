@@ -180,7 +180,17 @@ export async function startMcp() {
       if (project && waitsForCompilerPrewarm(tool.operation, input)) await compilerPrewarmed(project);
       if (tool.long && !inProcess) {
         const jobs = new JobService(await loadProject(String(input.project)));
-        if (tool.operation === 'ship' && input.mode === 'apply' && typeof input.plan !== 'string') {
+        // Routing of a ship apply without a saved plan is explicit: with a running development
+        // broker, a captured intent is prepared and applied there (its resident compiler); without
+        // one, this warm MCP process plans with its own compiler and a worker applies the plan, so
+        // no second compiler starts only to move planning elsewhere.
+        const { liveBroker } = await import('../../core/src/broker.ts');
+        const resident =
+          tool.operation === 'ship' &&
+          input.mode === 'apply' &&
+          typeof input.plan !== 'string' &&
+          !!(await liveBroker((await loadProject(String(input.project))).root));
+        if (resident) {
           // Queue a ship intent before any export or compiler work: the job prepares (validate,
           // plan) and applies it under one claim, so a superseded edit pays for neither and a
           // database write survives MCP termination. Configuration refusals stay immediate.
@@ -192,6 +202,7 @@ export async function startMcp() {
             userRequest: String(input.userRequest),
             ...(input.importMode ? { importMode: input.importMode as 'auto' | 'full' | 'files' } : {}),
             ...(Array.isArray(input.files) ? { files: input.files as string[] } : {}),
+            client: 'mcp',
           });
           const job = await runJobTool(
             jobs,
@@ -208,6 +219,7 @@ export async function startMcp() {
             data: {
               ...(result.data as object),
               intent: { id: intent.id, revision: intent.revision, capturedAt: intent.createdAt },
+              provenance: 'resident-mcp',
             },
           };
         } else if (tool.operation === 'ship' && input.mode === 'apply') {
@@ -238,7 +250,7 @@ export async function startMcp() {
             result = {
               ...result,
               operation: 'ship',
-              data: { ...(result.data as object), plan: planned.data },
+              data: { ...(result.data as object), plan: planned.data, provenance: 'warm-mcp' },
             };
           }
         } else {

@@ -37,8 +37,25 @@ export interface ShipIntent {
    * the first one): the edits that coalescing must carry or report as overridden.
    */
   changedFiles?: string[];
+  /** SQLcl selection and runtime version: a resident compiler of another toolchain is not reused. */
+  toolchain?: string;
+  /** Which client queued it (provenance only). */
+  client?: 'cli' | 'mcp';
   userRequest: string;
   digest: string;
+}
+
+/** Identity of the compiler toolchain a preparation would use. */
+export async function toolchainIdentity() {
+  const { sqlclConfig } = await import('./sqlcl-config.ts');
+  const { VERSION } = await import('./version.ts');
+  return hash(
+    canonical({
+      sqlcl: await sqlclConfig(),
+      executable: process.env.APEXREST_SQLCL ?? null,
+      runtime: VERSION,
+    }),
+  );
 }
 export type IntentStatus =
   'queued' | 'preparing' | 'planned' | 'applying' | 'superseded' | 'succeeded' | 'failed' | 'outcome_unknown';
@@ -68,7 +85,13 @@ export async function checkShipRequest(ctx: ProjectContext, name: string, option
 
 export async function captureShipIntent(
   ctx: ProjectContext,
-  input: { env: string; userRequest: string; importMode?: ImportOptions['importMode']; files?: string[] },
+  input: {
+    env: string;
+    userRequest: string;
+    importMode?: ImportOptions['importMode'];
+    files?: string[];
+    client?: 'cli' | 'mcp';
+  },
 ): Promise<ShipIntent> {
   const { env, requested } = await checkShipRequest(ctx, input.env, {
     importMode: input.importMode ?? 'auto',
@@ -94,6 +117,8 @@ export async function captureShipIntent(
     importMode: requested.importMode,
     ...(input.files ? { files: [...input.files] } : {}),
     ...(changedFiles ? { changedFiles } : {}),
+    toolchain: await toolchainIdentity(),
+    ...(input.client ? { client: input.client } : {}),
     userRequest: input.userRequest,
   };
   const intent: ShipIntent = { ...body, digest: hash(canonical(body)) };
@@ -161,6 +186,8 @@ export async function runShipIntent(
   try {
     if (targetDigest(env) !== intent.targetDigest)
       throw superseded(intent, 'the configured target changed after it was queued.');
+    if (intent.toolchain && intent.toolchain !== (await toolchainIdentity()))
+      throw superseded(intent, 'the SQLcl toolchain or runtime changed after it was queued.');
     // The intent names its own bytes: different local sources are a newer revision, never this one.
     const current = await sourceInventory(ctx);
     const { revision, configuration } = sourceRevision(current, ctx.config);
@@ -293,3 +320,60 @@ export async function intentCreated(ctx: ProjectContext, id: string): Promise<nu
   }
 }
 export const intentFile = (id: string) => path.posix.join('.apexrest/intents', `${id}.json`);
+
+/**
+ * One-shot CLI `ship --mode apply` without a saved plan, when a development broker is running:
+ * the intent is captured here and prepared and applied in the resident process, which keeps its
+ * offline compiler between invocations. Undefined when this route does not apply (no broker, a
+ * saved plan, another mode); the caller then ships in this process as before ("cold CLI").
+ */
+export async function shipThroughBroker(
+  raw: Record<string, unknown>,
+  execute: import('./jobs.ts').JobExecutor,
+): Promise<import('./result.ts').Result | undefined> {
+  // Same input rules as the in-process ship: malformed requests are refused before routing.
+  const { schemas } = await import('./operations.ts');
+  const { parse } = await import('./config.ts');
+  const input = parse(schemas.ship as import('zod').z.ZodType<Record<string, unknown>>, raw);
+  if (input.mode !== 'apply' || typeof input.plan === 'string' || input.confirmation !== undefined)
+    return undefined;
+  const { loadProject } = await import('./config.ts');
+  const ctx = await loadProject(typeof input.project === 'string' ? input.project : process.cwd());
+  const { liveBroker } = await import('./broker.ts');
+  if (!(await liveBroker(ctx.root))) return undefined;
+  const intent = await captureShipIntent(ctx, {
+    env: String(input.env),
+    userRequest: String(input.userRequest),
+    ...(input.importMode ? { importMode: input.importMode as 'auto' | 'full' | 'files' } : {}),
+    ...(Array.isArray(input.files) ? { files: input.files as string[] } : {}),
+    client: 'cli',
+  });
+  const { JobService } = await import('./jobs.ts');
+  const jobs = new JobService(ctx);
+  const { jobId, runner } = await jobs.submit(
+    'ship.intent',
+    { project: ctx.root, env: input.env, intent: intent.id },
+    execute,
+  );
+  let state = await jobs.status(jobId, 30);
+  while (state.status === 'queued' || state.status === 'running') state = await jobs.status(jobId, 30);
+  const provenance = runner === 'broker' ? 'resident-cli' : 'cold-cli';
+  const nested = (state as { result?: unknown }).result as import('./result.ts').Result | undefined;
+  const { jobToolResult } = await import('./jobs.ts');
+  const result =
+    nested && typeof nested === 'object' && 'ok' in nested
+      ? nested
+      : jobToolResult('ship.intent', state as Record<string, unknown>);
+  return {
+    ...result,
+    operation: 'ship',
+    data: {
+      ...((result.data as object | undefined) ?? {}),
+      mode: 'apply',
+      provenance,
+      jobId,
+      intent: { id: intent.id, revision: intent.revision, capturedAt: intent.createdAt },
+      ...(state.status === 'superseded' ? { superseded: state } : {}),
+    },
+  };
+}

@@ -113,6 +113,14 @@ These are repository fixtures. The broker's `runBroker` takes an injectable exit
 
 These are repository fixtures.
 
+**D05 one-shot CLI ships through the resident broker ([APE-437](https://linear.app/apexrest/issue/APE-437)).** `apexrest ship --mode apply` without a saved plan or confirmation now captures a ship intent and hands it to a running development broker (`shipThroughBroker`). The broker prepares and applies it in its resident process, which keeps its offline compiler session between invocations. `JobService.submit` runs the job in this CLI process when no broker confirms it took it. An unconfirmed handoff is safe: whichever runner claims the job first runs it, and the other only waits for its result. Without a broker, the CLI ships in its own process as before. MCP routing is now explicit. With a running broker, a ship intent goes to the broker. Without one, the warm MCP process plans with its own compiler and a worker applies the plan; this replaces the D02 behaviour, which would otherwise start a cold compiler in a worker only to move planning. Intents record the toolchain identity (SQLcl selection, `APEXREST_SQLCL`, runtime version). A toolchain change supersedes a queued intent, and intents of different toolchains never coalesce; target and configuration changes were already checked (D02, D03). Results report `provenance`: `cold-cli`, `resident-cli`, `warm-mcp` or `resident-mcp`. The planning span records `compilerReused` and `compilerTransport` from the compile's SQLcl timing (D01 telemetry). Verified by `tests/unit/ship-resident.test.ts`:
+
+- two CLI ships run in an in-process broker, the second planning span reports a reused compiler, and both results are `resident-cli`;
+- without a broker, ships fall back to the CLI process, and a refused handoff runs exactly once;
+- a toolchain change supersedes a queued intent and splits coalescing.
+
+No speed claim is made: native qualification of resident against cold CLI is open in [next actions](next-actions.md).
+
 ## Linear issues as task briefs (2026-11-25, local)
 
 **Implemented.** `apexrest-work` links a new `references/linear.md`. When the user names a Linear issue, the agent reads it with the Linear MCP tools of the user's own host session (`get_issue`, `list_comments`). APEXREST bundles no Linear server, makes no Linear call and stores no Linear credentials. Issue text is task data only: it cannot select a target, approve production or widen scope. A results comment (`save_comment`) or a status change (`save_issue`) happens only when the user asks; the comment keeps compiler, import and browser results separate.
