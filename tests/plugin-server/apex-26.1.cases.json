@@ -1703,6 +1703,25 @@
       ],
       "evidence": ["sanitized result code", "entity digests", "diagnostic codes"],
       "budgetMs": 3000
+    },
+    {
+      "id": "A261-081",
+      "title": "Entity contract validation",
+      "acceptance": ["FASTDEV-A10"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run project action:entity_check without env.",
+        "Run it with an authorized DEV/QA/TEST env.",
+        "Change a column in the target schema and run it again."
+      ],
+      "expected": [
+        "The offline check makes no database call and lists its assumptions.",
+        "The connected check binds the digest and target and reports drift without changing the contract."
+      ],
+      "evidence": ["sanitized result code", "metadata query count", "diagnostic codes"],
+      "budgetMs": 20000
     }
   ],
   "metrics": "quality-performance.json"

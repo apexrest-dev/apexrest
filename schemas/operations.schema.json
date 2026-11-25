@@ -1368,6 +1368,36 @@
     },
     "additionalProperties": false
   },
+  "entity.check": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "entity": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{0,62}$",
+        "description": "Entity id (entities/<id>.json)"
+      },
+      "env": {
+        "description": "Configured DEV/QA/TEST target for the connected check; omit for offline",
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,100}$"
+      },
+      "expectedDigest": {
+        "description": "Contract digest you reviewed",
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "required": [
+      "entity"
+    ],
+    "additionalProperties": false
+  },
   "lov.context": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -2682,6 +2712,7 @@
           "lov_context",
           "lov_edit",
           "entities",
+          "entity_check",
           "connection_add",
           "connection_list",
           "connection_test"
@@ -2714,6 +2745,9 @@
         ]
       },
       "lov": {
+        "type": "string"
+      },
+      "entity": {
         "type": "string"
       },
       "entries": {},

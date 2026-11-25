@@ -10567,9 +10567,11 @@ export {
   ArtifactService,
   catalogSearch,
   catalogRead,
+  oracleType,
   deploymentBinding,
   composePlanInput,
   composeMaterializeInput,
+  readMetadataBatch,
   verifyDeploymentPredicates,
   composePlan,
   composeMaterialize

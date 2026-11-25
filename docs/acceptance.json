@@ -1133,6 +1133,14 @@
       "verification": "passed",
       "evidence": ["packages/core/src/entities.ts", "tests/unit/entities.test.ts"],
       "blocker": "Local repository tests. Connected validation (FASTDEV-A10) and generation from contracts (FASTDEV-A11) are separate."
+    },
+    {
+      "id": "FASTDEV-A10",
+      "criterion": "Entity contracts are validated offline without database calls, listing unverifiable assumptions, and optionally against the configured target through the batched, paginated, target-verified metadata service, diagnosing missing columns and changed types or keys without rewriting the contract and binding the result to the contract digest and observed target",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": ["packages/core/src/entity-check.ts", "tests/unit/entity-check.test.ts"],
+      "blocker": "Repository tests use a local adapter fixture, not Oracle. A connected check against a real DEV/QA/TEST target is not yet run. Entity contracts reference no PL/SQL APIs, so signature checks do not apply."
     }
   ]
 }

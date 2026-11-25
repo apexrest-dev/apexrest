@@ -395,6 +395,19 @@ export const schemas = {
       .describe('Edited page context in the result: changed/inserted/removed targets (default), whole, none'),
   }),
   'entity.list': z.strictObject({ ...base }),
+  'entity.check': z.strictObject({
+    ...base,
+    entity: z
+      .string()
+      .regex(/^[a-z][a-z0-9-]{0,62}$/u)
+      .describe('Entity id (entities/<id>.json)'),
+    env: env.optional().describe('Configured DEV/QA/TEST target for the connected check; omit for offline'),
+    expectedDigest: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional()
+      .describe('Contract digest you reviewed'),
+  }),
   'lov.context': z.strictObject({
     ...base,
     lov: z.string().min(1).max(255).describe('Shared LOV id or name'),
@@ -629,6 +642,7 @@ export const schemas = {
       'lov_context',
       'lov_edit',
       'entities',
+      'entity_check',
       'connection_add',
       'connection_list',
       'connection_test',
@@ -640,6 +654,7 @@ export const schemas = {
     expectedDigest: z.string().optional(),
     context: z.enum(['delta', 'full', 'none']).optional(),
     lov: z.string().optional(),
+    entity: z.string().optional(),
     // Validated by the routed operation's own schema (lov.edit); kept untyped here for catalog size.
     entries: z.unknown().optional(),
     query: z.unknown().optional(),

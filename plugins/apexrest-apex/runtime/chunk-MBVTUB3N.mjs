@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-HAPO33HC.mjs";
+} from "./chunk-H36VSCTJ.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -26,14 +26,15 @@ import {
 } from "./chunk-NOTPADGV.mjs";
 import {
   lovContext,
-  lovEdit
-} from "./chunk-R2AMBWDG.mjs";
+  lovEdit,
+  lovFile
+} from "./chunk-22GQ5JVK.mjs";
 import {
   pageContext,
   patchPage,
   planSets,
   queryEdits
-} from "./chunk-G3M7LGF5.mjs";
+} from "./chunk-TCCMWNKJ.mjs";
 import {
   ApexLangDocument,
   DeploymentService,
@@ -55,15 +56,17 @@ import {
   setPropertyText,
   sourceInventory,
   sourceRevision
-} from "./chunk-NSIT5RZE.mjs";
+} from "./chunk-33ZG6DXL.mjs";
 import {
   ArtifactService,
   catalogRead,
   catalogSearch,
   composeMaterialize,
   composePlan,
-  metadataRead
-} from "./chunk-Y2XCPATG.mjs";
+  metadataRead,
+  oracleType,
+  readMetadataBatch
+} from "./chunk-VN3PQCGH.mjs";
 import {
   group,
   indent,
@@ -2789,6 +2792,146 @@ async function listEntities(ctx) {
   };
 }
 
+// packages/core/src/entity-check.ts
+var TYPES = {
+  varchar2: ["VARCHAR2", "NVARCHAR2", "CHAR", "NCHAR", "CLOB", "NCLOB"],
+  number: ["NUMBER", "INTEGER", "FLOAT", "BINARY_FLOAT", "BINARY_DOUBLE"],
+  date: ["DATE"],
+  timestamp: ["TIMESTAMP", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITH LOCAL TIME ZONE"]
+};
+function tables(contract) {
+  const names = /* @__PURE__ */ new Set();
+  if ("table" in contract.read) names.add(contract.read.table.toUpperCase());
+  if (contract.write) names.add(contract.write.table.toUpperCase());
+  return [...names];
+}
+function assumptions(contract) {
+  const found = [];
+  for (const table of tables(contract))
+    found.push(`${table} exists with the declared columns, types, lengths and primary key.`);
+  if ("sql" in contract.read)
+    found.push(
+      "The read SQL returns every declared field; the compiler checks the query, this check does not run it."
+    );
+  if (contract.authorization.read && "scheme" in contract.authorization.read)
+    found.push(`Authorization scheme ${contract.authorization.read.scheme} exists in the application.`);
+  if (contract.authorization.write)
+    found.push(`Authorization scheme ${contract.authorization.write.scheme} exists in the application.`);
+  return found;
+}
+async function checkEntityBinding(ctx, input, deps) {
+  const loaded = await loadEntity(ctx, input.entity);
+  if (input.expectedDigest && input.expectedDigest !== loaded.digest)
+    throw new Fault(
+      "TRANSFORM_CONFLICT",
+      `${loaded.file} changed since it was reviewed; read it again.`,
+      5,
+      "conflict",
+      { file: loaded.file, currentDigest: loaded.digest }
+    );
+  const { contract } = loaded;
+  const diagnostics = [...loaded.diagnostics];
+  for (const [name, field] of Object.entries(contract.fields))
+    if (field.lov && "shared" in field.lov && !await deps.lovExists(field.lov.shared))
+      diagnostics.push({
+        code: "ENTITY_LOV_MISSING",
+        message: `${name} uses shared LOV ${field.lov.shared}, which the application sources do not declare.`,
+        path: `fields.${name}.lov`
+      });
+  const base = { entity: loaded.id, file: loaded.file, digest: loaded.digest };
+  if (!input.env)
+    return {
+      ...base,
+      mode: "offline",
+      databaseCalls: 0,
+      diagnostics,
+      assumptions: assumptions(contract),
+      verified: false,
+      next: "Pass env to check the assumptions against the configured DEV/QA/TEST target."
+    };
+  const env = deps.environment(input.env);
+  const names = tables(contract);
+  const wanted = names.flatMap((name) => [
+    { kind: "columns", name },
+    { kind: "constraint-columns", name }
+  ]);
+  const rows = await readMetadataBatch(deps.oracle, env, await deps.connection(env), wanted, deps.signal);
+  const remaining = "sql" in contract.read ? [assumptions(contract).find((a) => a.startsWith("The read SQL"))] : [];
+  for (const table of names) {
+    const columns = rows.get(`columns:${table}`) ?? [];
+    if (!columns.length) {
+      diagnostics.push({
+        code: "ENTITY_TABLE_MISSING",
+        message: `${table} is not visible in ${env.parsingSchema}.`
+      });
+      continue;
+    }
+    const column = (name) => columns.find((row) => String(row.COLUMN_NAME).toUpperCase() === name.toUpperCase());
+    const isRead = "table" in contract.read && contract.read.table.toUpperCase() === table;
+    for (const [name, field] of Object.entries(contract.fields)) {
+      if (!isRead && field.readOnly) continue;
+      const observed = column(name);
+      if (!observed) {
+        diagnostics.push({
+          code: "ENTITY_COLUMN_MISSING",
+          message: `${table} has no column ${name}.`,
+          path: `fields.${name}`
+        });
+        continue;
+      }
+      const type = oracleType(observed.DATA_TYPE);
+      if (!TYPES[field.type].includes(type))
+        diagnostics.push({
+          code: "ENTITY_TYPE_CHANGED",
+          message: `${table}.${name} is ${type}, not a ${field.type} column.`,
+          path: `fields.${name}.type`
+        });
+      const length = Number(observed.CHAR_LENGTH ?? 0) || Number(observed.DATA_LENGTH ?? 0);
+      if (field.type === "varchar2" && field.maxLength && length && field.maxLength > length)
+        diagnostics.push({
+          code: "ENTITY_LENGTH_CHANGED",
+          message: `${table}.${name} holds ${length} characters; the contract allows ${field.maxLength}.`,
+          path: `fields.${name}.maxLength`
+        });
+      if (field.required && String(observed.NULLABLE ?? "") === "Y" && contract.key.some((key) => key.toUpperCase() === name.toUpperCase()))
+        diagnostics.push({
+          code: "ENTITY_KEY_CHANGED",
+          message: `Key column ${table}.${name} is nullable.`,
+          path: "key"
+        });
+    }
+    if (contract.write?.table.toUpperCase() === table) {
+      const primary = (rows.get(`constraint-columns:${table}`) ?? []).filter((row) => row.CONSTRAINT_TYPE === "P").sort((a, b) => Number(a.POSITION) - Number(b.POSITION)).map((row) => String(row.COLUMN_NAME).toUpperCase());
+      const key = contract.key.map((name) => name.toUpperCase());
+      if (JSON.stringify(primary) !== JSON.stringify(key))
+        diagnostics.push({
+          code: "ENTITY_KEY_CHANGED",
+          message: primary.length ? `${table} primary key is ${primary.join(", ")}; the contract key is ${key.join(", ")}.` : `${table} has no primary key; the contract key ${key.join(", ")} cannot identify rows for writes.`,
+          path: "key"
+        });
+    }
+  }
+  return {
+    ...base,
+    mode: "connected",
+    target: {
+      env: input.env,
+      workspace: env.workspace,
+      applicationId: env.applicationId,
+      schema: env.parsingSchema
+    },
+    tablesRead: names,
+    diagnostics,
+    assumptions: [
+      ...remaining,
+      ...assumptions(contract).filter((assumption) => assumption.startsWith("Authorization scheme"))
+    ],
+    // Bound to this digest and target: any change to either needs a new check.
+    verified: diagnostics.length === 0,
+    next: diagnostics.length ? "Review the contract against these differences; it was not changed." : "Use this digest with this target for generation."
+  };
+}
+
 // packages/core/src/deploy-reconcile.ts
 import path6 from "node:path";
 import { appendFile } from "node:fs/promises";
@@ -4434,6 +4577,8 @@ function routeProject(parsed) {
       return { operation: "project.context", input: pick("project", "page") };
     case "entities":
       return { operation: "entity.list", input: pick("project") };
+    case "entity_check":
+      return { operation: "entity.check", input: pick("project", "entity", "env", "expectedDigest") };
     case "lov_context":
       return { operation: "lov.context", input: pick("project", "lov") };
     case "lov_edit":
@@ -4596,7 +4741,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-3RYH7HFF.mjs");
+      const { previewDispatch } = await import("./chunk-H7ZI2KJB.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4638,17 +4783,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-V2QGRE3V.mjs");
+        const { setup } = await import("./chunk-ISXT5E6U.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-V2QGRE3V.mjs");
+        const { validateNative } = await import("./chunk-ISXT5E6U.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-V2QGRE3V.mjs");
+        const { uninstallNative } = await import("./chunk-ISXT5E6U.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -4802,6 +4947,18 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           case "entity.list":
             data = await listEntities(ctx);
+            break;
+          case "entity.check":
+            data = await checkEntityBinding(ctx, schemas["entity.check"].parse(parsed), {
+              oracle,
+              environment: (name) => environment(ctx, name),
+              connection: (env) => resolveConnection(env.readConnectionRef),
+              lovExists: (key) => lovFile(ctx, key).then(
+                () => true,
+                () => false
+              ),
+              signal
+            });
             break;
           case "lov.context":
             data = await lovContext(ctx, String(parsed.lov));

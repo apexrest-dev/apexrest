@@ -9,7 +9,7 @@ import {
   composeMaterializeInput,
   composePlanInput,
   metadataInputSchema
-} from "./chunk-Y2XCPATG.mjs";
+} from "./chunk-VN3PQCGH.mjs";
 import {
   databaseTransport,
   ordsUrl,
@@ -286,6 +286,12 @@ var schemas = {
     context: external_exports.enum(["delta", "full", "none"]).default("delta").describe("Edited page context in the result: changed/inserted/removed targets (default), whole, none")
   }),
   "entity.list": external_exports.strictObject({ ...base }),
+  "entity.check": external_exports.strictObject({
+    ...base,
+    entity: external_exports.string().regex(/^[a-z][a-z0-9-]{0,62}$/u).describe("Entity id (entities/<id>.json)"),
+    env: env.optional().describe("Configured DEV/QA/TEST target for the connected check; omit for offline"),
+    expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional().describe("Contract digest you reviewed")
+  }),
   "lov.context": external_exports.strictObject({
     ...base,
     lov: external_exports.string().min(1).max(255).describe("Shared LOV id or name")
@@ -461,6 +467,7 @@ var schemas = {
       "lov_context",
       "lov_edit",
       "entities",
+      "entity_check",
       "connection_add",
       "connection_list",
       "connection_test"
@@ -472,6 +479,7 @@ var schemas = {
     expectedDigest: external_exports.string().optional(),
     context: external_exports.enum(["delta", "full", "none"]).optional(),
     lov: external_exports.string().optional(),
+    entity: external_exports.string().optional(),
     // Validated by the routed operation's own schema (lov.edit); kept untyped here for catalog size.
     entries: external_exports.unknown().optional(),
     query: external_exports.unknown().optional(),

@@ -22,8 +22,9 @@ import { recordRevision, revisionOf } from './revision.ts';
 import { pageContext, patchPage } from './edit/patch.ts';
 import { insertComponents } from './edit/insert.ts';
 import { editPage } from './edit/page-edit.ts';
-import { lovContext, lovEdit } from './edit/lov.ts';
+import { lovContext, lovEdit, lovFile } from './edit/lov.ts';
 import { listEntities } from './entities.ts';
+import { checkEntityBinding } from './entity-check.ts';
 import { brokerStatus, startBroker, stopBroker } from './broker.ts';
 import { reconcileRun } from './deploy-reconcile.ts';
 import { ArtifactService } from './artifacts.ts';
@@ -155,6 +156,8 @@ function routeProject(parsed: Record<string, unknown>) {
       return { operation: 'project.context', input: pick('project', 'page') };
     case 'entities':
       return { operation: 'entity.list', input: pick('project') };
+    case 'entity_check':
+      return { operation: 'entity.check', input: pick('project', 'entity', 'env', 'expectedDigest') };
     case 'lov_context':
       return { operation: 'lov.context', input: pick('project', 'lov') };
     case 'lov_edit':
@@ -549,6 +552,19 @@ async function dispatchObserved(
             break;
           case 'entity.list':
             data = await listEntities(ctx);
+            break;
+          case 'entity.check':
+            data = await checkEntityBinding(ctx, schemas['entity.check'].parse(parsed), {
+              oracle,
+              environment: (name) => environment(ctx, name),
+              connection: (env) => resolveConnection(env.readConnectionRef),
+              lovExists: (key) =>
+                lovFile(ctx, key).then(
+                  () => true,
+                  () => false,
+                ),
+              signal,
+            });
             break;
           case 'lov.context':
             data = await lovContext(ctx, String(parsed.lov));
