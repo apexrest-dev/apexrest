@@ -109,13 +109,15 @@ The preview binds each selection to its source revision. It records the componen
 
 **Edit** in the same form changes properties in the source instead of leaving a comment:
 
-| Component     | Properties                |
-| ------------- | ------------------------- |
-| Page          | title                     |
-| Region        | title, sequence           |
-| Item          | label, sequence           |
-| Button        | label, sequence           |
-| Report column | heading, format, sequence |
+| Component     | Properties                                                                      |
+| ------------- | ------------------------------------------------------------------------------- |
+| Page          | title, template, template options                                               |
+| Region        | title, sequence, template, template options, column span, column, start new row |
+| Item          | label, sequence, column span, column, start new row                             |
+| Button        | label, sequence                                                                 |
+| Report column | heading, format, sequence                                                       |
+
+Template, template options and grid placement are offered for 26.2 sources. Their pickers list the templates and options of the theme the preview renders with: a template list with **Theme default**, one choice per option group plus the template's other options for the template being set, **Automatic** or 1-12 for column and span, and **Default**, **Yes** or **No** for a new row. A choice joins the proposed changes like any other edit; the patch service checks it again before writing. For other releases the form says the controls need 26.2 sources.
 
 The edit goes through the same digest-bound patch service as `project patch` and `apexrest_project action:patch`:
 

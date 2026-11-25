@@ -772,12 +772,14 @@ function indexTheme(calls) {
     styles: /* @__PURE__ */ new Map(),
     slots: /* @__PURE__ */ new Map(),
     byId: /* @__PURE__ */ new Map(),
-    options: []
+    options: [],
+    groups: []
   };
   for (const call of calls) {
     const params = call.params;
     if (call.kind === "theme") index.theme = params;
     if (call.kind === "template_option") index.options.push(params);
+    if (call.kind === "template_opt_group") index.groups.push(params);
     const target = KIND_TO_MAP[call.kind];
     if (target && typeof params.static_id === "string")
       index[target].set(params.static_id.toLowerCase(), params);

@@ -18,6 +18,8 @@ export interface ThemeIndex {
   byId: Map<string, TemplateParams>;
   /** Template options (`create_template_option`): CSS classes per template type and template. */
   options: TemplateParams[];
+  /** Template option groups (`create_template_opt_group`): one option of a group applies at a time. */
+  groups: TemplateParams[];
 }
 
 const KIND_TO_MAP = {
@@ -45,11 +47,13 @@ export function indexTheme(calls: ThemeCall[]): ThemeIndex {
     slots: new Map(),
     byId: new Map(),
     options: [],
+    groups: [],
   };
   for (const call of calls) {
     const params = call.params;
     if (call.kind === 'theme') index.theme = params;
     if (call.kind === 'template_option') index.options.push(params);
+    if (call.kind === 'template_opt_group') index.groups.push(params);
     const target = KIND_TO_MAP[call.kind as keyof typeof KIND_TO_MAP];
     if (target && typeof params.static_id === 'string')
       index[target].set(params.static_id.toLowerCase(), params);

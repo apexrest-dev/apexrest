@@ -1207,6 +1207,19 @@
         "docs/evidence/fast-dev/layout-compiler-2026-11-25.json"
       ],
       "blocker": "Repository tests and the offline Oracle compiler (26.2 with the installed theme) pass. Template options need the installed theme; rendered layout and native import are not yet observed."
+    },
+    {
+      "id": "FASTDEV-V03",
+      "criterion": "The visual editor offers template, template-option and grid pickers for supported pages, regions and items of 26.2 sources with current values, theme choices and a default/reset choice, turns each choice into a batched patch proposal and shows an explicit unavailable state for other releases",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/preview/extensions/review.ts",
+        "packages/core/src/preview/extensions/review/client.ts",
+        "tests/unit/preview-review.test.ts",
+        "docs/local-preview.md"
+      ],
+      "blocker": "Route and configuration tests pass and the client script parses; the pickers have not been observed in a browser."
     }
   ]
 }

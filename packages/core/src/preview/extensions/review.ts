@@ -4,7 +4,7 @@ import path from 'node:path';
 import { loadProject } from '../../config.ts';
 import { patchPage, PATCH_PROPERTIES, type PatchProperty } from '../../edit/patch.ts';
 import { Fault } from '../../result.ts';
-import { str, type ApxComponent } from '../apexlang.ts';
+import { get, str, type ApxComponent } from '../apexlang.ts';
 import { registerExtension, type RouteRequest, type RouteResponse } from '../extensions.ts';
 import type { ApexRenderer, Session } from '../render.ts';
 import {
@@ -56,26 +56,121 @@ interface MapEntry {
 
 /** Editable properties per map kind; the patch service is the authority and refuses the rest. */
 const EDITABLE: Record<MapEntry['kind'] | 'page', PatchProperty[]> = {
-  page: ['title'],
-  region: ['title', 'sequence'],
-  item: ['label', 'sequence'],
+  page: ['title', 'template', 'templateOptions'],
+  region: ['title', 'sequence', 'template', 'templateOptions', 'columnSpan', 'column', 'startNewRow'],
+  item: ['label', 'sequence', 'columnSpan', 'column', 'startNewRow'],
   button: ['label', 'sequence'],
   column: ['heading', 'format', 'sequence'],
 };
+/** Template and grid properties: 26.2 sources only (see edit/layout.ts). */
+const LAYOUT: PatchProperty[] = ['template', 'templateOptions', 'column', 'columnSpan', 'startNewRow'];
 const VALUE_PATHS: Record<string, Partial<Record<PatchProperty, string>>> = {
-  page: { title: 'title' },
-  region: { title: 'name', sequence: 'layout.sequence' },
-  item: { label: 'label.label', sequence: 'layout.sequence' },
+  page: {
+    title: 'title',
+    template: 'appearance.pageTemplate',
+    templateOptions: 'appearance.templateOptions',
+  },
+  region: {
+    title: 'name',
+    sequence: 'layout.sequence',
+    template: 'appearance.template',
+    templateOptions: 'appearance.templateOptions',
+    column: 'layout.column',
+    columnSpan: 'layout.columnSpan',
+    startNewRow: 'layout.startNewRow',
+  },
+  item: {
+    label: 'label.label',
+    sequence: 'layout.sequence',
+    column: 'layout.column',
+    columnSpan: 'layout.columnSpan',
+    startNewRow: 'layout.startNewRow',
+  },
   button: { label: 'label', sequence: 'layout.sequence' },
   column: { heading: 'heading.heading', format: 'appearance.formatMask', sequence: 'layout.sequence' },
 };
+/** A source value as the form shows it: template ids without `@/`, options space-separated, `""` when unset. */
+function valueText(raw: unknown): string {
+  if (raw === undefined || raw === null) return '';
+  if (Array.isArray(raw)) return raw.map(String).join(' ');
+  if (typeof raw === 'object' && 'ref' in raw)
+    return String((raw as { ref: unknown }).ref).replace(/^\//u, '');
+  return String(raw);
+}
 function values(kind: keyof typeof VALUE_PATHS, component: ApxComponent) {
   return Object.fromEntries(
     Object.entries(VALUE_PATHS[kind] ?? {}).map(([property, dotted]) => [
       property,
-      str(component.props, dotted, ''),
+      valueText(get(component.props, dotted)),
     ]),
   ) as Partial<Record<PatchProperty, string>>;
+}
+/** The APEXlang release of the previewed sources (`.apex/apexlang.json`), when declared. */
+function sourceRelease(root: string): string | undefined {
+  try {
+    const value = JSON.parse(fs.readFileSync(path.join(root, '.apex/apexlang.json'), 'utf8')) as {
+      mmdVersion?: unknown;
+    };
+    return typeof value.mmdVersion === 'string' ? value.mmdVersion.match(/^\d+\.\d+/u)?.[0] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+/** Editable properties for these sources: template and grid controls only for 26.2. */
+function editableFor(root: string) {
+  if (sourceRelease(root) === '26.2') return { editable: EDITABLE };
+  return {
+    editable: Object.fromEntries(
+      Object.entries(EDITABLE).map(([kind, list]) => [
+        kind,
+        list.filter((property) => !LAYOUT.includes(property)),
+      ]),
+    ),
+    layoutUnavailable: 'Template and layout controls need 26.2 sources.',
+  };
+}
+/** Page and region templates and their option groups, from the theme the preview renders with. */
+function choices(renderer: ApexRenderer) {
+  const theme = renderer.theme;
+  const name = (params: Record<string, unknown>) => String(params.name ?? params.static_id ?? '');
+  const options = (
+    type: 'PAGE' | 'REGION',
+    key: 'page_template_id' | 'region_template_id',
+    templates: Map<string, Record<string, unknown>>,
+  ) =>
+    Object.fromEntries(
+      [...templates].map(([id, params]) => [
+        id,
+        theme.options
+          .filter(
+            (option) =>
+              option.template_types === type &&
+              (option[key] === params.id || option[key] === undefined || option[key] === null),
+          )
+          .map((option) => ({
+            css: String(option.css_classes ?? ''),
+            label: String(option.display_name ?? option.name ?? option.css_classes ?? ''),
+            ...(option.group_id ? { group: String(option.group_id) } : {}),
+          }))
+          .filter((option) => option.css && !/\s/u.test(option.css)),
+      ]),
+    );
+  return {
+    templates: {
+      page: [...theme.pages].map(([id, params]) => ({ id, name: name(params) })),
+      region: [...theme.regions].map(([id, params]) => ({ id, name: name(params) })),
+    },
+    options: {
+      page: options('PAGE', 'page_template_id', theme.pages),
+      region: options('REGION', 'region_template_id', theme.regions),
+    },
+    groups: Object.fromEntries(
+      theme.groups.map((group) => [
+        String(group.id),
+        { label: String(group.display_name ?? group.name ?? ''), none: String(group.null_text ?? 'Default') },
+      ]),
+    ),
+  };
 }
 
 const sha256 = (file: string): string | undefined => {
@@ -294,6 +389,7 @@ function reviewRoute(
     return json({ error: 'Review comments need a project folder; start the preview from a project.' }, 409);
   try {
     if (request.method === 'GET') {
+      if (request.params.get('choices') === '1') return json(choices(renderer));
       const status = request.params.get('status') ?? 'all';
       if (!['open', 'resolved', 'all'].includes(status))
         return json({ error: 'status must be open, resolved or all' }, 400);
@@ -370,7 +466,7 @@ registerExtension({
       intents: REVIEW_INTENTS,
       map: reviewMap(renderer, ctx.page),
       pageValues: values('page', ctx.page),
-      editable: EDITABLE,
+      ...editableFor(renderer.app.root),
       digests: digestsFor(renderer, ctx.page),
     };
     const badge = open

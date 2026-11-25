@@ -27,7 +27,7 @@ import {
   setupAssets,
   templateOptions,
   text
-} from "./chunk-5DRFTKLT.mjs";
+} from "./chunk-D7XOUOFP.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -10826,14 +10826,14 @@ function orderBy(renderer, ctx, region) {
   const item2 = get(props, "orderBy.item");
   if ((type === "item" || !type && isObject(item2)) && isObject(item2)) {
     const name = str(item2, "itemName").toUpperCase();
-    const choices2 = get(item2, "orderBys");
+    const choices3 = get(item2, "orderBys");
     const selected = ctx.session.items[name] ?? "";
     let clause = "";
-    if (isObject(choices2)) {
-      const key = Object.keys(choices2).find((entry) => entry.toUpperCase() === selected.toUpperCase());
-      const fallback = Object.keys(choices2)[0];
+    if (isObject(choices3)) {
+      const key = Object.keys(choices3).find((entry) => entry.toUpperCase() === selected.toUpperCase());
+      const fallback = Object.keys(choices3)[0];
       const chosen = key ?? fallback;
-      clause = chosen ? String(choices2[chosen] ?? "") : "";
+      clause = chosen ? String(choices3[chosen] ?? "") : "";
     }
     return { clause, ...name ? { item: name } : {} };
   }
@@ -26058,6 +26058,8 @@ html.apex-local-review-picking,html.apex-local-review-picking *{cursor:crosshair
 .apex-local-review-batch{margin:4px 0 8px;padding-left:18px;font-size:12px}
 .apex-local-review-batch li.is-error{color:#ffb4a8}
 .apex-local-review-batch button{margin-left:6px;font-size:11px}
+.apex-local-review-options{display:grid;gap:4px;max-height:180px;overflow:auto;margin:4px 0;font-size:12px}
+.apex-local-review-options label{display:flex;gap:6px;align-items:center}
 .apex-local-review-banner{position:fixed;z-index:2147483000;top:8px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:16px;background:#7c4dff;color:#fff;font:600 12px/16px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none}
 `;
 var REVIEW_JS = String.raw`
@@ -26258,7 +26260,8 @@ var REVIEW_JS = String.raw`
       (existing ? "" : '<div class="apex-local-review-modes"><button type="button" class="is-on" data-mode="comment">Comment</button><button type="button" data-mode="edit" title="Change a property in the source file">Edit</button></div>') +
       '<div data-mode-pane="comment"><select name="intent" aria-label="Kind of change">' + intents + "</select>" +
       '<textarea name="text" maxlength="4000" placeholder="What should change? e.g. Rename this column to “Amount, EUR” and move it after Status">' + esc(existing ? existing.text : "") + "</textarea></div>" +
-      '<div data-mode-pane="edit" hidden><select name="property" aria-label="Property"></select><input name="value" aria-label="New value" maxlength="4000"><p class="apex-local-review-where" data-edit-where></p>' +
+      '<div data-mode-pane="edit" hidden><select name="property" aria-label="Property"></select><span data-value-control><input name="value" aria-label="New value" maxlength="4000"></span><p class="apex-local-review-where" data-edit-where></p>' +
+      (config.layoutUnavailable ? '<p class="apex-local-review-where">' + esc(config.layoutUnavailable) + "</p>" : "") +
       '<button type="button" class="apex-local-action" data-batch-add title="Collect this change and pick another component or property">Add to changes</button><ol class="apex-local-review-batch" data-batch aria-label="Proposed changes"></ol></div>' +
       '<p class="apex-local-review-error" hidden></p><p class="apex-local-review-ok" hidden></p>' +
       '<div class="apex-local-review-row"><span>Ctrl+Enter to save</span><button type="button" class="apex-local-action" data-cancel>Cancel</button><button type="submit" class="apex-local-action is-primary">Save</button></div>';
@@ -26274,7 +26277,77 @@ var REVIEW_JS = String.raw`
     var area = composer.querySelector("textarea");
     var mode = "comment";
     var propertySelect = composer.querySelector('select[name="property"]');
-    var valueInput = composer.querySelector('input[name="value"]');
+    var control = composer.querySelector("[data-value-control]");
+    var valueInput = control.querySelector("input");
+    // Template and grid properties get pickers from the rendered theme; everything else is text.
+    var choicesRequest;
+    function themeChoices() {
+      return choicesRequest || (choicesRequest = fetch(route + "?choices=1", { credentials: "same-origin" }).then(function (response) { return response.json(); }));
+    }
+    var PICKERS = { template: 1, templateOptions: 1, column: 1, columnSpan: 1, startNewRow: 1 };
+    function selectHtml(name, entries, value) {
+      return '<select data-value name="' + esc(name) + '" aria-label="' + esc(name) + '">' + entries.map(function (entry) {
+        return '<option value="' + esc(entry[0]) + '"' + (entry[0] === value ? " selected" : "") + ">" + esc(entry[1]) + "</option>";
+      }).join("") + "</select>";
+    }
+    function pendingTemplate(editable) {
+      var entry = batch.filter(function (item) { return item.target === editable.patch && item.property === "template"; })[0];
+      return entry ? entry.value : editable.values.template || "standard";
+    }
+    function renderControl(editable, property, value) {
+      if (!PICKERS[property]) {
+        control.innerHTML = '<input name="value" aria-label="New value" maxlength="4000">';
+        valueInput = control.querySelector("input");
+        valueInput.value = value;
+        valueInput.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); composer.requestSubmit(); } });
+        return;
+      }
+      valueInput = null;
+      if (property === "column" || property === "columnSpan") {
+        var columns = [["", "Automatic"]];
+        for (var n = 1; n <= 12; n++) columns.push([String(n), String(n)]);
+        control.innerHTML = selectHtml(property, columns, value);
+        return;
+      }
+      if (property === "startNewRow") {
+        control.innerHTML = selectHtml(property, [["", "Default (yes)"], ["true", "Yes"], ["false", "No"]], value);
+        return;
+      }
+      control.innerHTML = '<span class="apex-local-muted">Loading the theme…</span>';
+      themeChoices().then(function (data) {
+        if (current() !== editable || propertySelect.value !== property) return;
+        var kind = editable.kind === "page" ? "page" : "region";
+        if (property === "template") {
+          control.innerHTML = selectHtml(property, [["", "Theme default"]].concat((data.templates[kind] || []).map(function (entry) { return [entry.id, entry.name + " (" + entry.id + ")"]; })), value);
+          return;
+        }
+        var template = pendingTemplate(editable), options = (data.options[kind] || {})[template] || [];
+        var chosen = (value || "").split(/\s+/).filter(Boolean), groups = {}, loose = [];
+        options.forEach(function (option) { if (option.group) (groups[option.group] = groups[option.group] || []).push(option); else loose.push(option); });
+        var html = '<div class="apex-local-review-options" data-options><label><input type="checkbox" data-option value="#DEFAULT#"' + (chosen.indexOf("#DEFAULT#") >= 0 ? " checked" : "") + "> Template defaults</label>";
+        Object.keys(groups).forEach(function (id) {
+          var group = data.groups[id] || { label: id, none: "Default" };
+          var picked = groups[id].filter(function (option) { return chosen.indexOf(option.css) >= 0; })[0];
+          html += "<label>" + esc(group.label) + " " + selectHtml("group-" + id, [["", group.none]].concat(groups[id].map(function (option) { return [option.css, option.label]; })), picked ? picked.css : "") + "</label>";
+        });
+        loose.forEach(function (option) {
+          html += '<label><input type="checkbox" data-option value="' + esc(option.css) + '"' + (chosen.indexOf(option.css) >= 0 ? " checked" : "") + "> " + esc(option.label) + "</label>";
+        });
+        control.innerHTML = options.length ? html + "</div>" : '<span class="apex-local-muted">Template ' + esc(template) + " has no options in this theme.</span>";
+      }, function () { control.innerHTML = '<span class="apex-local-muted">The theme is unavailable; template and layout pickers need the preview theme.</span>'; });
+    }
+    function controlValue() {
+      if (valueInput) return valueInput.value;
+      var options = control.querySelector("[data-options]");
+      if (options) {
+        var values = [];
+        options.querySelectorAll("input[data-option]:checked").forEach(function (box) { values.push(box.value); });
+        options.querySelectorAll("select[data-value]").forEach(function (select) { if (select.value) values.push(select.value); });
+        return values.join(" ");
+      }
+      var select = control.querySelector("select[data-value]");
+      return select ? select.value : null;
+    }
     function current() { return editableOf(options[targetSelect ? Number(targetSelect.value) : selected]); }
     function fillProperties() {
       var editable = current(), properties = editProperties(editable);
@@ -26286,7 +26359,7 @@ var REVIEW_JS = String.raw`
     }
     function fillValue() {
       var editable = current();
-      valueInput.value = editable && propertySelect.value ? editable.values[propertySelect.value] || "" : "";
+      renderControl(editable, propertySelect.value, editable && propertySelect.value ? editable.values[propertySelect.value] || "" : "");
       var whereNode = composer.querySelector("[data-edit-where]");
       whereNode.textContent = editable ? editable.patch + " · " + editable.file : "";
     }
@@ -26294,14 +26367,16 @@ var REVIEW_JS = String.raw`
       mode = next;
       composer.querySelectorAll("[data-mode]").forEach(function (button) { button.classList.toggle("is-on", button.getAttribute("data-mode") === mode); });
       composer.querySelectorAll("[data-mode-pane]").forEach(function (pane) { pane.hidden = pane.getAttribute("data-mode-pane") !== mode; });
-      (mode === "edit" ? valueInput : area).focus();
+      (mode === "edit" ? valueInput || control.querySelector("select, input") || propertySelect : area).focus();
     }
     // Proposed changes of one page file, saved together as one atomic source replacement.
     var batch = [], batchList = composer.querySelector("[data-batch]");
     function proposal() {
       var editable = current();
       if (!editable || !propertySelect.value) return null;
-      return { editable: editable, target: editable.patch, property: propertySelect.value, value: valueInput.value };
+      var value = controlValue();
+      if (value === null) return null;
+      return { editable: editable, target: editable.patch, property: propertySelect.value, value: value };
     }
     function renderBatch(failed) {
       batchList.innerHTML = batch.map(function (entry, index) {
@@ -26332,7 +26407,6 @@ var REVIEW_JS = String.raw`
       composer.querySelectorAll("[data-mode]").forEach(function (button) { button.addEventListener("click", function () { setMode(button.getAttribute("data-mode")); }); });
       if (targetSelect) targetSelect.addEventListener("change", fillProperties);
       propertySelect.addEventListener("change", fillValue);
-      valueInput.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); composer.requestSubmit(); } });
       fillProperties();
     }
     area.focus();
@@ -26540,26 +26614,104 @@ var REVIEW_JS = String.raw`
 
 // packages/core/src/preview/extensions/review.ts
 var EDITABLE = {
-  page: ["title"],
-  region: ["title", "sequence"],
-  item: ["label", "sequence"],
+  page: ["title", "template", "templateOptions"],
+  region: ["title", "sequence", "template", "templateOptions", "columnSpan", "column", "startNewRow"],
+  item: ["label", "sequence", "columnSpan", "column", "startNewRow"],
   button: ["label", "sequence"],
   column: ["heading", "format", "sequence"]
 };
+var LAYOUT = ["template", "templateOptions", "column", "columnSpan", "startNewRow"];
 var VALUE_PATHS = {
-  page: { title: "title" },
-  region: { title: "name", sequence: "layout.sequence" },
-  item: { label: "label.label", sequence: "layout.sequence" },
+  page: {
+    title: "title",
+    template: "appearance.pageTemplate",
+    templateOptions: "appearance.templateOptions"
+  },
+  region: {
+    title: "name",
+    sequence: "layout.sequence",
+    template: "appearance.template",
+    templateOptions: "appearance.templateOptions",
+    column: "layout.column",
+    columnSpan: "layout.columnSpan",
+    startNewRow: "layout.startNewRow"
+  },
+  item: {
+    label: "label.label",
+    sequence: "layout.sequence",
+    column: "layout.column",
+    columnSpan: "layout.columnSpan",
+    startNewRow: "layout.startNewRow"
+  },
   button: { label: "label", sequence: "layout.sequence" },
   column: { heading: "heading.heading", format: "appearance.formatMask", sequence: "layout.sequence" }
 };
+function valueText(raw2) {
+  if (raw2 === void 0 || raw2 === null) return "";
+  if (Array.isArray(raw2)) return raw2.map(String).join(" ");
+  if (typeof raw2 === "object" && "ref" in raw2)
+    return String(raw2.ref).replace(/^\//u, "");
+  return String(raw2);
+}
 function values(kind, component) {
   return Object.fromEntries(
     Object.entries(VALUE_PATHS[kind] ?? {}).map(([property2, dotted]) => [
       property2,
-      str(component.props, dotted, "")
+      valueText(get(component.props, dotted))
     ])
   );
+}
+function sourceRelease(root) {
+  try {
+    const value2 = JSON.parse(fs11.readFileSync(path12.join(root, ".apex/apexlang.json"), "utf8"));
+    return typeof value2.mmdVersion === "string" ? value2.mmdVersion.match(/^\d+\.\d+/u)?.[0] : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function editableFor(root) {
+  if (sourceRelease(root) === "26.2") return { editable: EDITABLE };
+  return {
+    editable: Object.fromEntries(
+      Object.entries(EDITABLE).map(([kind, list4]) => [
+        kind,
+        list4.filter((property2) => !LAYOUT.includes(property2))
+      ])
+    ),
+    layoutUnavailable: "Template and layout controls need 26.2 sources."
+  };
+}
+function choices2(renderer) {
+  const theme = renderer.theme;
+  const name = (params2) => String(params2.name ?? params2.static_id ?? "");
+  const options3 = (type, key, templates) => Object.fromEntries(
+    [...templates].map(([id, params2]) => [
+      id,
+      theme.options.filter(
+        (option) => option.template_types === type && (option[key] === params2.id || option[key] === void 0 || option[key] === null)
+      ).map((option) => ({
+        css: String(option.css_classes ?? ""),
+        label: String(option.display_name ?? option.name ?? option.css_classes ?? ""),
+        ...option.group_id ? { group: String(option.group_id) } : {}
+      })).filter((option) => option.css && !/\s/u.test(option.css))
+    ])
+  );
+  return {
+    templates: {
+      page: [...theme.pages].map(([id, params2]) => ({ id, name: name(params2) })),
+      region: [...theme.regions].map(([id, params2]) => ({ id, name: name(params2) }))
+    },
+    options: {
+      page: options3("PAGE", "page_template_id", theme.pages),
+      region: options3("REGION", "region_template_id", theme.regions)
+    },
+    groups: Object.fromEntries(
+      theme.groups.map((group2) => [
+        String(group2.id),
+        { label: String(group2.display_name ?? group2.name ?? ""), none: String(group2.null_text ?? "Default") }
+      ])
+    )
+  };
 }
 var sha256 = (file) => {
   try {
@@ -26729,6 +26881,7 @@ function reviewRoute(renderer, _session, request) {
     return json5({ error: "Review comments need a project folder; start the preview from a project." }, 409);
   try {
     if (request.method === "GET") {
+      if (request.params.get("choices") === "1") return json5(choices2(renderer));
       const status = request.params.get("status") ?? "all";
       if (!["open", "resolved", "all"].includes(status))
         return json5({ error: "status must be open, resolved or all" }, 400);
@@ -26804,7 +26957,7 @@ registerExtension({
       intents: REVIEW_INTENTS,
       map: reviewMap(renderer, ctx.page),
       pageValues: values("page", ctx.page),
-      editable: EDITABLE,
+      ...editableFor(renderer.app.root),
       digests: digestsFor(renderer, ctx.page)
     };
     const badge = open3 ? `<span class="apex-local-badge is-review" data-apex-local-review-count>${open3}</span>` : '<span class="apex-local-badge is-review" data-apex-local-review-count hidden></span>';
@@ -28616,10 +28769,10 @@ function columnToggleReport(renderer, ctx, region) {
     return ` data-col="${escapeHtml(name)}"${level ? ` data-priority="${escapeHtml(level)}"` : ""}`;
   });
   const button2 = escapeHtml(str(region.props, "settings.colButtonText", "Columns..."));
-  const choices2 = [...labels].map(
+  const choices3 = [...labels].map(
     ([name, label]) => `<label class="apex-local-coltoggle-choice"><input type="checkbox" checked value="${escapeHtml(name)}" data-apex-local-coltoggle="${escapeHtml(domId)}"> ${escapeHtml(label)}</label>`
   ).join("");
-  return `<div class="apex-local-rwd apex-local-coltoggle ${escapeHtml(layoutClasses(region))}" data-region="${escapeHtml(domId)}"><div class="apex-local-coltoggle-bar"><button type="button" class="t-Button t-Button--small apex-local-coltoggle-button" aria-expanded="false">${button2}</button><div class="apex-local-coltoggle-menu" hidden>${choices2}</div></div>${body4}</div>`;
+  return `<div class="apex-local-rwd apex-local-coltoggle ${escapeHtml(layoutClasses(region))}" data-region="${escapeHtml(domId)}"><div class="apex-local-coltoggle-bar"><button type="button" class="t-Button t-Button--small apex-local-coltoggle-button" aria-expanded="false">${button2}</button><div class="apex-local-coltoggle-menu" hidden>${choices3}</div></div>${body4}</div>`;
 }
 var EDITABLE2 = /* @__PURE__ */ new Set([
   "textField",
@@ -32566,10 +32719,10 @@ ${pagination2 ? `<div class="a-IRR-paginationWrap a-IRR-paginationWrap--bottom">
       case "checkboxGroup": {
         const input = type === "radioGroup" ? "radio" : "checkbox";
         const selected = value2.split(":");
-        const choices2 = lov().map(
+        const choices3 = lov().map(
           (entry, index) => `<div class="apex-item-option"><input type="${input}" id="${name}_${index}" name="${name}" value="${escapeHtml(entry.r)}"${selected.includes(entry.r) ? " checked" : ""}><label for="${name}_${index}">${escapeHtml(entry.d)}</label></div>`
         ).join("");
-        return `<div tabindex="-1" id="${name}" class="${input === "radio" ? "radio_group apex-item-radio" : "checkbox_group apex-item-checkbox"}" role="${input === "radio" ? "radiogroup" : "group"}" aria-labelledby="${name}_LABEL">${choices2}</div>`;
+        return `<div tabindex="-1" id="${name}" class="${input === "radio" ? "radio_group apex-item-radio" : "checkbox_group apex-item-checkbox"}" role="${input === "radio" ? "radiogroup" : "group"}" aria-labelledby="${name}_LABEL">${choices3}</div>`;
       }
       case "checkbox": {
         const checked = value2 === str(item2.props, "settings.checkedValue", "Y");

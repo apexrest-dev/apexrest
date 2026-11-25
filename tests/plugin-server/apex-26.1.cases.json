@@ -1814,6 +1814,23 @@
       ],
       "evidence": ["sanitized result code", "compiler diagnostics count"],
       "budgetMs": 15000
+    },
+    {
+      "id": "A261-087",
+      "title": "Template and layout pickers",
+      "acceptance": ["FASTDEV-V03"],
+      "execution": "manual",
+      "surface": "browser",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "In review mode on a 26.2 page, pick a region template and an option of one group, set a column span and save.",
+        "Open a 26.1 page."
+      ],
+      "expected": [
+        "Only applicable controls with current values appear; the batch saves once and the preview reloads with the layout; the 26.1 page shows the unavailable note."
+      ],
+      "evidence": ["page file digest before and after", "screenshot of the pickers"],
+      "budgetMs": 60000
     }
   ],
   "metrics": "quality-performance.json"

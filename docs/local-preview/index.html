@@ -141,15 +141,15 @@ apexrest preview stop --port 8765           # or select by --source-dir, --port;
 </thead>
 <tbody><tr>
 <td>Page</td>
-<td>title</td>
+<td>title, template, template options</td>
 </tr>
 <tr>
 <td>Region</td>
-<td>title, sequence</td>
+<td>title, sequence, template, template options, column span, column, start new row</td>
 </tr>
 <tr>
 <td>Item</td>
-<td>label, sequence</td>
+<td>label, sequence, column span, column, start new row</td>
 </tr>
 <tr>
 <td>Button</td>
@@ -161,6 +161,7 @@ apexrest preview stop --port 8765           # or select by --source-dir, --port;
 </tr>
 </tbody></table>
 </div>
+<p>Template, template options and grid placement are offered for 26.2 sources. Their pickers list the templates and options of the theme the preview renders with: a template list with <strong>Theme default</strong>, one choice per option group plus the template&#39;s other options for the template being set, <strong>Automatic</strong> or 1-12 for column and span, and <strong>Default</strong>, <strong>Yes</strong> or <strong>No</strong> for a new row. A choice joins the proposed changes like any other edit; the patch service checks it again before writing. For other releases the form says the controls need 26.2 sources.</p>
 <p>The edit goes through the same digest-bound patch service as <code>project patch</code> and <code>apexrest_project action:patch</code>:</p>
 <ul>
 <li><strong>Add to changes</strong> collects a change and lets you pick another component or property of the same page file; the list shows every proposed change before you save. <strong>Save</strong> writes them all, with the field you are editing, as one atomic change.</li>

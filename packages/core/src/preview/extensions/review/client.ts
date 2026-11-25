@@ -41,6 +41,8 @@ html.apex-local-review-picking,html.apex-local-review-picking *{cursor:crosshair
 .apex-local-review-batch{margin:4px 0 8px;padding-left:18px;font-size:12px}
 .apex-local-review-batch li.is-error{color:#ffb4a8}
 .apex-local-review-batch button{margin-left:6px;font-size:11px}
+.apex-local-review-options{display:grid;gap:4px;max-height:180px;overflow:auto;margin:4px 0;font-size:12px}
+.apex-local-review-options label{display:flex;gap:6px;align-items:center}
 .apex-local-review-banner{position:fixed;z-index:2147483000;top:8px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:16px;background:#7c4dff;color:#fff;font:600 12px/16px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none}
 `;
 
@@ -242,7 +244,8 @@ export const REVIEW_JS = String.raw`
       (existing ? "" : '<div class="apex-local-review-modes"><button type="button" class="is-on" data-mode="comment">Comment</button><button type="button" data-mode="edit" title="Change a property in the source file">Edit</button></div>') +
       '<div data-mode-pane="comment"><select name="intent" aria-label="Kind of change">' + intents + "</select>" +
       '<textarea name="text" maxlength="4000" placeholder="What should change? e.g. Rename this column to “Amount, EUR” and move it after Status">' + esc(existing ? existing.text : "") + "</textarea></div>" +
-      '<div data-mode-pane="edit" hidden><select name="property" aria-label="Property"></select><input name="value" aria-label="New value" maxlength="4000"><p class="apex-local-review-where" data-edit-where></p>' +
+      '<div data-mode-pane="edit" hidden><select name="property" aria-label="Property"></select><span data-value-control><input name="value" aria-label="New value" maxlength="4000"></span><p class="apex-local-review-where" data-edit-where></p>' +
+      (config.layoutUnavailable ? '<p class="apex-local-review-where">' + esc(config.layoutUnavailable) + "</p>" : "") +
       '<button type="button" class="apex-local-action" data-batch-add title="Collect this change and pick another component or property">Add to changes</button><ol class="apex-local-review-batch" data-batch aria-label="Proposed changes"></ol></div>' +
       '<p class="apex-local-review-error" hidden></p><p class="apex-local-review-ok" hidden></p>' +
       '<div class="apex-local-review-row"><span>Ctrl+Enter to save</span><button type="button" class="apex-local-action" data-cancel>Cancel</button><button type="submit" class="apex-local-action is-primary">Save</button></div>';
@@ -258,7 +261,77 @@ export const REVIEW_JS = String.raw`
     var area = composer.querySelector("textarea");
     var mode = "comment";
     var propertySelect = composer.querySelector('select[name="property"]');
-    var valueInput = composer.querySelector('input[name="value"]');
+    var control = composer.querySelector("[data-value-control]");
+    var valueInput = control.querySelector("input");
+    // Template and grid properties get pickers from the rendered theme; everything else is text.
+    var choicesRequest;
+    function themeChoices() {
+      return choicesRequest || (choicesRequest = fetch(route + "?choices=1", { credentials: "same-origin" }).then(function (response) { return response.json(); }));
+    }
+    var PICKERS = { template: 1, templateOptions: 1, column: 1, columnSpan: 1, startNewRow: 1 };
+    function selectHtml(name, entries, value) {
+      return '<select data-value name="' + esc(name) + '" aria-label="' + esc(name) + '">' + entries.map(function (entry) {
+        return '<option value="' + esc(entry[0]) + '"' + (entry[0] === value ? " selected" : "") + ">" + esc(entry[1]) + "</option>";
+      }).join("") + "</select>";
+    }
+    function pendingTemplate(editable) {
+      var entry = batch.filter(function (item) { return item.target === editable.patch && item.property === "template"; })[0];
+      return entry ? entry.value : editable.values.template || "standard";
+    }
+    function renderControl(editable, property, value) {
+      if (!PICKERS[property]) {
+        control.innerHTML = '<input name="value" aria-label="New value" maxlength="4000">';
+        valueInput = control.querySelector("input");
+        valueInput.value = value;
+        valueInput.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); composer.requestSubmit(); } });
+        return;
+      }
+      valueInput = null;
+      if (property === "column" || property === "columnSpan") {
+        var columns = [["", "Automatic"]];
+        for (var n = 1; n <= 12; n++) columns.push([String(n), String(n)]);
+        control.innerHTML = selectHtml(property, columns, value);
+        return;
+      }
+      if (property === "startNewRow") {
+        control.innerHTML = selectHtml(property, [["", "Default (yes)"], ["true", "Yes"], ["false", "No"]], value);
+        return;
+      }
+      control.innerHTML = '<span class="apex-local-muted">Loading the theme…</span>';
+      themeChoices().then(function (data) {
+        if (current() !== editable || propertySelect.value !== property) return;
+        var kind = editable.kind === "page" ? "page" : "region";
+        if (property === "template") {
+          control.innerHTML = selectHtml(property, [["", "Theme default"]].concat((data.templates[kind] || []).map(function (entry) { return [entry.id, entry.name + " (" + entry.id + ")"]; })), value);
+          return;
+        }
+        var template = pendingTemplate(editable), options = (data.options[kind] || {})[template] || [];
+        var chosen = (value || "").split(/\s+/).filter(Boolean), groups = {}, loose = [];
+        options.forEach(function (option) { if (option.group) (groups[option.group] = groups[option.group] || []).push(option); else loose.push(option); });
+        var html = '<div class="apex-local-review-options" data-options><label><input type="checkbox" data-option value="#DEFAULT#"' + (chosen.indexOf("#DEFAULT#") >= 0 ? " checked" : "") + "> Template defaults</label>";
+        Object.keys(groups).forEach(function (id) {
+          var group = data.groups[id] || { label: id, none: "Default" };
+          var picked = groups[id].filter(function (option) { return chosen.indexOf(option.css) >= 0; })[0];
+          html += "<label>" + esc(group.label) + " " + selectHtml("group-" + id, [["", group.none]].concat(groups[id].map(function (option) { return [option.css, option.label]; })), picked ? picked.css : "") + "</label>";
+        });
+        loose.forEach(function (option) {
+          html += '<label><input type="checkbox" data-option value="' + esc(option.css) + '"' + (chosen.indexOf(option.css) >= 0 ? " checked" : "") + "> " + esc(option.label) + "</label>";
+        });
+        control.innerHTML = options.length ? html + "</div>" : '<span class="apex-local-muted">Template ' + esc(template) + " has no options in this theme.</span>";
+      }, function () { control.innerHTML = '<span class="apex-local-muted">The theme is unavailable; template and layout pickers need the preview theme.</span>'; });
+    }
+    function controlValue() {
+      if (valueInput) return valueInput.value;
+      var options = control.querySelector("[data-options]");
+      if (options) {
+        var values = [];
+        options.querySelectorAll("input[data-option]:checked").forEach(function (box) { values.push(box.value); });
+        options.querySelectorAll("select[data-value]").forEach(function (select) { if (select.value) values.push(select.value); });
+        return values.join(" ");
+      }
+      var select = control.querySelector("select[data-value]");
+      return select ? select.value : null;
+    }
     function current() { return editableOf(options[targetSelect ? Number(targetSelect.value) : selected]); }
     function fillProperties() {
       var editable = current(), properties = editProperties(editable);
@@ -270,7 +343,7 @@ export const REVIEW_JS = String.raw`
     }
     function fillValue() {
       var editable = current();
-      valueInput.value = editable && propertySelect.value ? editable.values[propertySelect.value] || "" : "";
+      renderControl(editable, propertySelect.value, editable && propertySelect.value ? editable.values[propertySelect.value] || "" : "");
       var whereNode = composer.querySelector("[data-edit-where]");
       whereNode.textContent = editable ? editable.patch + " · " + editable.file : "";
     }
@@ -278,14 +351,16 @@ export const REVIEW_JS = String.raw`
       mode = next;
       composer.querySelectorAll("[data-mode]").forEach(function (button) { button.classList.toggle("is-on", button.getAttribute("data-mode") === mode); });
       composer.querySelectorAll("[data-mode-pane]").forEach(function (pane) { pane.hidden = pane.getAttribute("data-mode-pane") !== mode; });
-      (mode === "edit" ? valueInput : area).focus();
+      (mode === "edit" ? valueInput || control.querySelector("select, input") || propertySelect : area).focus();
     }
     // Proposed changes of one page file, saved together as one atomic source replacement.
     var batch = [], batchList = composer.querySelector("[data-batch]");
     function proposal() {
       var editable = current();
       if (!editable || !propertySelect.value) return null;
-      return { editable: editable, target: editable.patch, property: propertySelect.value, value: valueInput.value };
+      var value = controlValue();
+      if (value === null) return null;
+      return { editable: editable, target: editable.patch, property: propertySelect.value, value: value };
     }
     function renderBatch(failed) {
       batchList.innerHTML = batch.map(function (entry, index) {
@@ -316,7 +391,6 @@ export const REVIEW_JS = String.raw`
       composer.querySelectorAll("[data-mode]").forEach(function (button) { button.addEventListener("click", function () { setMode(button.getAttribute("data-mode")); }); });
       if (targetSelect) targetSelect.addEventListener("change", fillProperties);
       propertySelect.addEventListener("change", fillValue);
-      valueInput.addEventListener("keydown", function (event) { if (event.key === "Enter") { event.preventDefault(); composer.requestSubmit(); } });
       fillProperties();
     }
     area.focus();

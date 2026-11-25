@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PreviewServer } from '../../packages/core/src/preview/server.ts';
@@ -561,4 +561,52 @@ test('preview edits save a batch of properties across components as one atomic c
   });
   assert.equal(stale.status, 409);
   assert.equal(await readFile(pageFile, 'utf8'), after);
+});
+
+test('template and grid pickers: offered for 26.2 sources with current values and the theme choices', async (t) => {
+  const { call, post, pageFile, root } = await project(t);
+  const app = path.dirname(path.dirname(pageFile));
+  // Without a declared 26.2 source release the layout controls are left out and the form says why.
+  const plain = configOf(await (await call('/r/demo/orders')).text());
+  assert.deepEqual(plain.editable.region, ['title', 'sequence']);
+  assert.match(plain.layoutUnavailable, /26\.2/u);
+  await mkdir(path.join(app, '.apex'), { recursive: true });
+  await writeFile(path.join(app, '.apex/apexlang.json'), JSON.stringify({ mmdVersion: '26.2.0+3479' }));
+  const page = await readFile(pageFile, 'utf8');
+  await writeFile(
+    pageFile,
+    page.replace(
+      '        advanced {\n            htmlDomId: orders_report',
+      '        appearance {\n            template: @/standard\n        }\n        advanced {\n            htmlDomId: orders_report',
+    ),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const config = configOf(await (await call('/r/demo/orders')).text());
+  assert.ok(config.editable.region.includes('template') && config.editable.region.includes('columnSpan'));
+  assert.equal(config.layoutUnavailable, undefined);
+  const orders = config.map.find((entry: { patch: string }) => entry.patch === 'region:orders');
+  assert.equal(orders.values.template, 'standard');
+  assert.equal(orders.values.columnSpan, '');
+  // The pickers' choices come from the theme the preview renders with.
+  const choices = await (await call('/r/demo/__apex/x/review?choices=1')).json();
+  assert.ok(choices.templates.region.some((entry: { id: string }) => entry.id === 'standard'));
+  assert.ok(choices.templates.page.some((entry: { id: string }) => entry.id === 'devpage'));
+  assert.ok(typeof choices.options.region.standard !== 'undefined');
+  // A picker's choice is an ordinary patch proposal: saved with the batch through the shared service.
+  const before = await readFile(pageFile, 'utf8');
+  const saved = await post({
+    op: 'patch',
+    page: '3',
+    digest: sha(before),
+    operations: [
+      { target: 'region:orders', property: 'columnSpan', value: '6' },
+      { target: 'region:orders', property: 'startNewRow', value: 'false' },
+      { target: 'region:orders', property: 'template', value: '' },
+    ],
+  });
+  assert.equal(saved.status, 200, await saved.clone().text());
+  const after = await readFile(pageFile, 'utf8');
+  assert.match(after, /columnSpan: 6/u);
+  assert.doesNotMatch(after, /template: @\/standard/u);
+  void root;
 });
