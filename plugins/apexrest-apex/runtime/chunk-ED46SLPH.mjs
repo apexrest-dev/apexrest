@@ -2,10 +2,10 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   deploymentBinding,
   verifyDeploymentPredicates
-} from "./chunk-QREGOPY7.mjs";
+} from "./chunk-VOYRQ4YG.mjs";
 import {
   parseApexLang
-} from "./chunk-7NEUIVN5.mjs";
+} from "./chunk-C66KGFY2.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   LocalDeploymentControl,
@@ -35,7 +35,7 @@ import {
   supportedFile,
   syncPath,
   withConnectedReads
-} from "./chunk-WEBUXBUI.mjs";
+} from "./chunk-PU24NTLU.mjs";
 import {
   sqlclTimings,
   withSqlclTimings
@@ -51,7 +51,7 @@ import {
   refName,
   refuseProductionDeployment,
   targetDigest
-} from "./chunk-OZXHZF36.mjs";
+} from "./chunk-O3XZW7YC.mjs";
 import {
   atomicWrite,
   canonical,
@@ -62,7 +62,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-VS4GLWTQ.mjs";
+} from "./chunk-YLKYRT24.mjs";
 import {
   Fault,
   external_exports
@@ -144,6 +144,285 @@ async function revisionStatus(root, latestLocal) {
     failed: state.failed
   };
 }
+
+// packages/core/src/edit/apexlang-edit.ts
+import { createHash } from "node:crypto";
+var MAX_BYTES = 8 * 1024 * 1024;
+var COMPONENT = /^( *)([A-Za-z]\w*)(?:\s+(.+?))?\s*\(\s*$/u;
+var GROUP = /^( *)([A-Za-z][\w-]*)\s*\{\s*$/u;
+var PROPERTY = /^( *)("(?:[^"\\]|\\.)*"|[A-Za-z0-9_$.#-]+)\s*:(?:([ \t]+)(.*?))?\s*$/u;
+var unsupported = (message) => new Fault("TRANSFORM_UNSUPPORTED", message, 5);
+var unquote = (raw) => {
+  if (!raw.startsWith('"')) return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw unsupported(`Invalid quoted identifier ${raw}`);
+  }
+};
+var digestOf = (text2) => createHash("sha256").update(text2, "utf8").digest("hex");
+var ApexLangDocument = class {
+  constructor(source) {
+    this.source = source;
+    if (Buffer.byteLength(source) > MAX_BYTES) throw unsupported("Source exceeds the bounded editor limit.");
+    this.lines = [...source.matchAll(/([^\r\n]*)(\r\n|\r|\n|$)/gu)].filter((match) => match[0].length).map((match) => ({ text: match[1], eol: match[2], offset: match.index }));
+    this.eol = this.lines.find((line) => line.eol)?.eol ?? "\n";
+    this.scan();
+  }
+  source;
+  lines;
+  roots = [];
+  eol;
+  scan() {
+    const stack = [];
+    const component = () => {
+      for (let i = stack.length - 1; i >= 0; i--) {
+        const frame = stack[i];
+        if (frame.type === "component") return frame.node;
+      }
+      return void 0;
+    };
+    const groupPath = () => {
+      const parts = [];
+      for (let i = stack.length - 1; i >= 0; i--) {
+        const frame = stack[i];
+        if (frame.type === "component") break;
+        if (frame.type === "group") parts.unshift(frame.path);
+      }
+      return parts.join(".");
+    };
+    let fence = false;
+    let block = false;
+    let pendingFence;
+    let fenceOwner;
+    for (let index = 0; index < this.lines.length; index++) {
+      const line = this.lines[index];
+      const text2 = line.text;
+      const trimmed = text2.trim();
+      if (fence) {
+        if (trimmed === "```") {
+          fence = false;
+          if (fenceOwner?.fence) fenceOwner.fence.close = index;
+          fenceOwner = void 0;
+        }
+        continue;
+      }
+      if (block) {
+        const end = text2.indexOf("*/");
+        if (end === -1) continue;
+        if (text2.slice(end + 2).trim()) throw unsupported("Content after a block comment is not supported.");
+        block = false;
+        continue;
+      }
+      if (!trimmed || trimmed.startsWith("//")) continue;
+      if (trimmed.startsWith("/*")) {
+        const end = text2.indexOf("*/", text2.indexOf("/*") + 2);
+        if (end === -1) block = true;
+        else if (text2.slice(end + 2).trim())
+          throw unsupported("Content after a block comment is not supported.");
+        continue;
+      }
+      if (trimmed.startsWith("```")) {
+        if (!pendingFence) throw unsupported(`Unexpected literal at line ${index + 1}.`);
+        fence = !(trimmed.length >= 6 && trimmed.endsWith("```"));
+        if (fence) {
+          pendingFence.fence = { open: index, close: -1 };
+          fenceOwner = pendingFence;
+        }
+        pendingFence = void 0;
+        continue;
+      }
+      pendingFence = void 0;
+      const top = stack.at(-1);
+      if (top?.type === "value") {
+        if (trimmed === top.close) stack.pop();
+        else if (trimmed === "{" || /:\s*\{$/u.test(trimmed)) stack.push({ type: "value", close: "}" });
+        else if (trimmed === "[" || /:\s*\[$/u.test(trimmed)) stack.push({ type: "value", close: "]" });
+        continue;
+      }
+      if (trimmed === ")") {
+        const frame = stack.pop();
+        if (frame?.type !== "component") throw unsupported(`Unbalanced component at line ${index + 1}.`);
+        frame.node.close = index;
+        continue;
+      }
+      if (trimmed === "}") {
+        const frame = stack.pop();
+        if (frame?.type !== "group") throw unsupported(`Unbalanced group at line ${index + 1}.`);
+        const owner = component();
+        if (!owner) throw unsupported(`Group outside a component at line ${index + 1}.`);
+        const parent = groupPath();
+        owner.groups.set(parent ? `${parent}.${frame.path}` : frame.path, {
+          open: frame.start,
+          close: index,
+          indent: frame.indent
+        });
+        continue;
+      }
+      const open2 = COMPONENT.exec(text2);
+      if (open2) {
+        const parent = component();
+        if (stack.at(-1)?.type === "group")
+          throw unsupported(`Component inside a group at line ${index + 1}.`);
+        const node = {
+          kind: open2[2],
+          key: unquote((open2[3] ?? "").trim()),
+          indent: open2[1].length,
+          open: index,
+          close: -1,
+          parent,
+          children: [],
+          properties: /* @__PURE__ */ new Map(),
+          groups: /* @__PURE__ */ new Map()
+        };
+        (parent ? parent.children : this.roots).push(node);
+        stack.push({ type: "component", node });
+        continue;
+      }
+      const group = GROUP.exec(text2);
+      if (group) {
+        if (!component()) throw unsupported(`Group outside a component at line ${index + 1}.`);
+        stack.push({ type: "group", path: group[2], start: index, indent: group[1].length });
+        continue;
+      }
+      const property = PROPERTY.exec(text2);
+      if (property) {
+        const owner = component();
+        if (!owner) throw unsupported(`Property outside a component at line ${index + 1}.`);
+        const key = unquote(property[2]);
+        const prefix = groupPath();
+        const path7 = prefix ? `${prefix}.${key}` : key;
+        const value = property[4] ?? "";
+        const colon = text2.indexOf(":", property[1].length + property[2].length);
+        const valueStart = property[3] ? line.offset + colon + 1 + property[3].length : line.offset + colon + 1;
+        const entry = {
+          line: index,
+          valueStart,
+          valueEnd: valueStart + value.length,
+          value,
+          opaque: value === "" || value === "{" || value === "[" || value.startsWith("```")
+        };
+        if (owner.properties.has(path7)) throw unsupported(`Duplicate property ${path7} at line ${index + 1}.`);
+        owner.properties.set(path7, entry);
+        if (value === "") pendingFence = entry;
+        else if (value === "{") stack.push({ type: "value", close: "}" });
+        else if (value === "[") stack.push({ type: "value", close: "]" });
+        continue;
+      }
+      throw unsupported(`Unsupported line ${index + 1}: ${trimmed.slice(0, 80)}`);
+    }
+    if (fence || block || stack.length) throw unsupported("Unclosed literal, comment, group or component.");
+  }
+  /** Finds exactly one component by kind and key among the given nodes (case-insensitive key). */
+  static one(nodes, kind, key, where) {
+    const found = nodes.filter((node) => node.kind === kind && node.key.toUpperCase() === key.toUpperCase());
+    if (found.length === 1) return found[0];
+    throw new Fault(
+      found.length ? "TARGET_AMBIGUOUS" : "TARGET_NOT_FOUND",
+      found.length ? `${where} has ${found.length} ${kind} components named ${key}.` : `${where} has no ${kind} ${key}.`,
+      found.length ? 5 : 2
+    );
+  }
+};
+function scalarText(value) {
+  if (/[\r\n]/u.test(value)) throw new Fault("INVALID_INPUT", "Values must be single-line text.", 2);
+  if (value.length > 4e3) throw new Fault("INVALID_INPUT", "Values are limited to 4000 characters.", 2);
+  const plain = value !== "" && value === value.trim() && !["true", "false", "{", "["].includes(value) && !/^["@\\[{]|^```|^\/\/|^\/\*/u.test(value);
+  return plain ? value : JSON.stringify(value);
+}
+function setProperty(doc, node, path7, value) {
+  return setPropertyText(doc, node, path7, scalarText(value));
+}
+function referenceText(id) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.$#-]{0,254}$/u.test(id))
+    throw new Fault("INVALID_INPUT", `${id} is not a component id.`, 2);
+  return "@" + id;
+}
+function setPropertyText(doc, node, path7, text2) {
+  const existing = node.properties.get(path7);
+  if (existing) {
+    if (existing.opaque) throw unsupported(`${path7} holds a multi-line value; edit it in source.`);
+    return { start: existing.valueStart, end: existing.valueEnd, content: text2 };
+  }
+  const parts = path7.split(".");
+  if (parts.length > 2) throw unsupported(`Nested property ${path7} is not supported.`);
+  const indent = " ".repeat(node.indent + 4);
+  const eol = doc.eol;
+  if (parts.length === 2) {
+    const group = node.groups.get(parts[0]);
+    if (group) {
+      const close = doc.lines[group.close];
+      return {
+        start: close.offset,
+        end: close.offset,
+        content: `${" ".repeat(group.indent + 4)}${parts[1]}: ${text2}${eol}`
+      };
+    }
+    const before = node.children[0]?.open ?? node.close;
+    const anchor = doc.lines[before];
+    return {
+      start: anchor.offset,
+      end: anchor.offset,
+      content: `${indent}${parts[0]} {${eol}${indent}    ${parts[1]}: ${text2}${eol}${indent}}${eol}`
+    };
+  }
+  const after = node.properties.get("name")?.line ?? node.open;
+  const line = doc.lines[after];
+  const at = line.offset + line.text.length + line.eol.length;
+  return { start: at, end: at, content: `${indent}${path7}: ${text2}${eol}` };
+}
+function removeProperty(doc, node, path7) {
+  const property = node.properties.get(path7);
+  if (!property) return void 0;
+  if (property.opaque) throw unsupported(`${path7} holds a multi-line value; edit it in source.`);
+  const line = doc.lines[property.line];
+  return { start: line.offset, end: line.offset + line.text.length + line.eol.length, content: "" };
+}
+function applyEdits(source, edits) {
+  let result = source;
+  let previous = source.length + 1;
+  for (const edit of [...edits].sort((a, b) => b.start - a.start || b.end - a.end)) {
+    if (edit.end > previous || edit.start > edit.end)
+      throw new Fault("TRANSFORM_CONFLICT", "Two operations change the same property.", 5);
+    result = result.slice(0, edit.start) + edit.content + result.slice(edit.end);
+    previous = edit.start;
+  }
+  return result;
+}
+function setFencedText(doc, node, path7, text2) {
+  const property = node.properties.get(path7);
+  if (!property?.fence || property.fence.close < 0)
+    throw unsupported(`${path7} is not a fenced literal of ${node.kind} ${node.key}.`);
+  if (/^\s*```/mu.test(text2))
+    throw new Fault("INVALID_INPUT", "The text cannot contain a ``` fence line.", 2);
+  const open2 = doc.lines[property.fence.open];
+  const close = doc.lines[property.fence.close];
+  const indent = open2.text.slice(0, open2.text.length - open2.text.trimStart().length);
+  const body = text2.replace(/\r\n?/gu, "\n").replace(/\n+$/u, "").split("\n").map((line) => line ? indent + line : "").join(doc.eol);
+  const start = open2.offset + open2.text.length + open2.eol.length;
+  return { start, end: close.offset, content: body + doc.eol };
+}
+function removeComponent(doc, node) {
+  const open2 = doc.lines[node.open];
+  const close = doc.lines[node.close];
+  return { start: open2.offset, end: close.offset + close.text.length + close.eol.length, content: "" };
+}
+function appendChild(doc, parent, text2) {
+  const close = doc.lines[parent.close];
+  return { start: close.offset, end: close.offset, content: text2 };
+}
+function readProperty(component, path7) {
+  let value = component.props;
+  for (const part of path7.split(".")) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
+    value = value[part];
+  }
+  return value;
+}
+
+// packages/core/src/edit/transaction.ts
+import path6 from "node:path";
+import { readFile as readFile5 } from "node:fs/promises";
 
 // packages/core/src/deploy.ts
 import path3 from "node:path";
@@ -3086,285 +3365,6 @@ ${error.message}`,
   }
 };
 
-// packages/core/src/edit/apexlang-edit.ts
-import { createHash } from "node:crypto";
-var MAX_BYTES = 8 * 1024 * 1024;
-var COMPONENT = /^( *)([A-Za-z]\w*)(?:\s+(.+?))?\s*\(\s*$/u;
-var GROUP = /^( *)([A-Za-z][\w-]*)\s*\{\s*$/u;
-var PROPERTY = /^( *)("(?:[^"\\]|\\.)*"|[A-Za-z0-9_$.#-]+)\s*:(?:([ \t]+)(.*?))?\s*$/u;
-var unsupported = (message) => new Fault("TRANSFORM_UNSUPPORTED", message, 5);
-var unquote = (raw) => {
-  if (!raw.startsWith('"')) return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    throw unsupported(`Invalid quoted identifier ${raw}`);
-  }
-};
-var digestOf = (text2) => createHash("sha256").update(text2, "utf8").digest("hex");
-var ApexLangDocument = class {
-  constructor(source) {
-    this.source = source;
-    if (Buffer.byteLength(source) > MAX_BYTES) throw unsupported("Source exceeds the bounded editor limit.");
-    this.lines = [...source.matchAll(/([^\r\n]*)(\r\n|\r|\n|$)/gu)].filter((match) => match[0].length).map((match) => ({ text: match[1], eol: match[2], offset: match.index }));
-    this.eol = this.lines.find((line) => line.eol)?.eol ?? "\n";
-    this.scan();
-  }
-  source;
-  lines;
-  roots = [];
-  eol;
-  scan() {
-    const stack = [];
-    const component = () => {
-      for (let i = stack.length - 1; i >= 0; i--) {
-        const frame = stack[i];
-        if (frame.type === "component") return frame.node;
-      }
-      return void 0;
-    };
-    const groupPath = () => {
-      const parts = [];
-      for (let i = stack.length - 1; i >= 0; i--) {
-        const frame = stack[i];
-        if (frame.type === "component") break;
-        if (frame.type === "group") parts.unshift(frame.path);
-      }
-      return parts.join(".");
-    };
-    let fence = false;
-    let block = false;
-    let pendingFence;
-    let fenceOwner;
-    for (let index = 0; index < this.lines.length; index++) {
-      const line = this.lines[index];
-      const text2 = line.text;
-      const trimmed = text2.trim();
-      if (fence) {
-        if (trimmed === "```") {
-          fence = false;
-          if (fenceOwner?.fence) fenceOwner.fence.close = index;
-          fenceOwner = void 0;
-        }
-        continue;
-      }
-      if (block) {
-        const end = text2.indexOf("*/");
-        if (end === -1) continue;
-        if (text2.slice(end + 2).trim()) throw unsupported("Content after a block comment is not supported.");
-        block = false;
-        continue;
-      }
-      if (!trimmed || trimmed.startsWith("//")) continue;
-      if (trimmed.startsWith("/*")) {
-        const end = text2.indexOf("*/", text2.indexOf("/*") + 2);
-        if (end === -1) block = true;
-        else if (text2.slice(end + 2).trim())
-          throw unsupported("Content after a block comment is not supported.");
-        continue;
-      }
-      if (trimmed.startsWith("```")) {
-        if (!pendingFence) throw unsupported(`Unexpected literal at line ${index + 1}.`);
-        fence = !(trimmed.length >= 6 && trimmed.endsWith("```"));
-        if (fence) {
-          pendingFence.fence = { open: index, close: -1 };
-          fenceOwner = pendingFence;
-        }
-        pendingFence = void 0;
-        continue;
-      }
-      pendingFence = void 0;
-      const top = stack.at(-1);
-      if (top?.type === "value") {
-        if (trimmed === top.close) stack.pop();
-        else if (trimmed === "{" || /:\s*\{$/u.test(trimmed)) stack.push({ type: "value", close: "}" });
-        else if (trimmed === "[" || /:\s*\[$/u.test(trimmed)) stack.push({ type: "value", close: "]" });
-        continue;
-      }
-      if (trimmed === ")") {
-        const frame = stack.pop();
-        if (frame?.type !== "component") throw unsupported(`Unbalanced component at line ${index + 1}.`);
-        frame.node.close = index;
-        continue;
-      }
-      if (trimmed === "}") {
-        const frame = stack.pop();
-        if (frame?.type !== "group") throw unsupported(`Unbalanced group at line ${index + 1}.`);
-        const owner = component();
-        if (!owner) throw unsupported(`Group outside a component at line ${index + 1}.`);
-        const parent = groupPath();
-        owner.groups.set(parent ? `${parent}.${frame.path}` : frame.path, {
-          open: frame.start,
-          close: index,
-          indent: frame.indent
-        });
-        continue;
-      }
-      const open2 = COMPONENT.exec(text2);
-      if (open2) {
-        const parent = component();
-        if (stack.at(-1)?.type === "group")
-          throw unsupported(`Component inside a group at line ${index + 1}.`);
-        const node = {
-          kind: open2[2],
-          key: unquote((open2[3] ?? "").trim()),
-          indent: open2[1].length,
-          open: index,
-          close: -1,
-          parent,
-          children: [],
-          properties: /* @__PURE__ */ new Map(),
-          groups: /* @__PURE__ */ new Map()
-        };
-        (parent ? parent.children : this.roots).push(node);
-        stack.push({ type: "component", node });
-        continue;
-      }
-      const group = GROUP.exec(text2);
-      if (group) {
-        if (!component()) throw unsupported(`Group outside a component at line ${index + 1}.`);
-        stack.push({ type: "group", path: group[2], start: index, indent: group[1].length });
-        continue;
-      }
-      const property = PROPERTY.exec(text2);
-      if (property) {
-        const owner = component();
-        if (!owner) throw unsupported(`Property outside a component at line ${index + 1}.`);
-        const key = unquote(property[2]);
-        const prefix = groupPath();
-        const path7 = prefix ? `${prefix}.${key}` : key;
-        const value = property[4] ?? "";
-        const colon = text2.indexOf(":", property[1].length + property[2].length);
-        const valueStart = property[3] ? line.offset + colon + 1 + property[3].length : line.offset + colon + 1;
-        const entry = {
-          line: index,
-          valueStart,
-          valueEnd: valueStart + value.length,
-          value,
-          opaque: value === "" || value === "{" || value === "[" || value.startsWith("```")
-        };
-        if (owner.properties.has(path7)) throw unsupported(`Duplicate property ${path7} at line ${index + 1}.`);
-        owner.properties.set(path7, entry);
-        if (value === "") pendingFence = entry;
-        else if (value === "{") stack.push({ type: "value", close: "}" });
-        else if (value === "[") stack.push({ type: "value", close: "]" });
-        continue;
-      }
-      throw unsupported(`Unsupported line ${index + 1}: ${trimmed.slice(0, 80)}`);
-    }
-    if (fence || block || stack.length) throw unsupported("Unclosed literal, comment, group or component.");
-  }
-  /** Finds exactly one component by kind and key among the given nodes (case-insensitive key). */
-  static one(nodes, kind, key, where) {
-    const found = nodes.filter((node) => node.kind === kind && node.key.toUpperCase() === key.toUpperCase());
-    if (found.length === 1) return found[0];
-    throw new Fault(
-      found.length ? "TARGET_AMBIGUOUS" : "TARGET_NOT_FOUND",
-      found.length ? `${where} has ${found.length} ${kind} components named ${key}.` : `${where} has no ${kind} ${key}.`,
-      found.length ? 5 : 2
-    );
-  }
-};
-function scalarText(value) {
-  if (/[\r\n]/u.test(value)) throw new Fault("INVALID_INPUT", "Values must be single-line text.", 2);
-  if (value.length > 4e3) throw new Fault("INVALID_INPUT", "Values are limited to 4000 characters.", 2);
-  const plain = value !== "" && value === value.trim() && !["true", "false", "{", "["].includes(value) && !/^["@\\[{]|^```|^\/\/|^\/\*/u.test(value);
-  return plain ? value : JSON.stringify(value);
-}
-function setProperty(doc, node, path7, value) {
-  return setPropertyText(doc, node, path7, scalarText(value));
-}
-function referenceText(id) {
-  if (!/^[A-Za-z0-9][A-Za-z0-9_.$#-]{0,254}$/u.test(id))
-    throw new Fault("INVALID_INPUT", `${id} is not a component id.`, 2);
-  return "@" + id;
-}
-function setPropertyText(doc, node, path7, text2) {
-  const existing = node.properties.get(path7);
-  if (existing) {
-    if (existing.opaque) throw unsupported(`${path7} holds a multi-line value; edit it in source.`);
-    return { start: existing.valueStart, end: existing.valueEnd, content: text2 };
-  }
-  const parts = path7.split(".");
-  if (parts.length > 2) throw unsupported(`Nested property ${path7} is not supported.`);
-  const indent = " ".repeat(node.indent + 4);
-  const eol = doc.eol;
-  if (parts.length === 2) {
-    const group = node.groups.get(parts[0]);
-    if (group) {
-      const close = doc.lines[group.close];
-      return {
-        start: close.offset,
-        end: close.offset,
-        content: `${" ".repeat(group.indent + 4)}${parts[1]}: ${text2}${eol}`
-      };
-    }
-    const before = node.children[0]?.open ?? node.close;
-    const anchor = doc.lines[before];
-    return {
-      start: anchor.offset,
-      end: anchor.offset,
-      content: `${indent}${parts[0]} {${eol}${indent}    ${parts[1]}: ${text2}${eol}${indent}}${eol}`
-    };
-  }
-  const after = node.properties.get("name")?.line ?? node.open;
-  const line = doc.lines[after];
-  const at = line.offset + line.text.length + line.eol.length;
-  return { start: at, end: at, content: `${indent}${path7}: ${text2}${eol}` };
-}
-function removeProperty(doc, node, path7) {
-  const property = node.properties.get(path7);
-  if (!property) return void 0;
-  if (property.opaque) throw unsupported(`${path7} holds a multi-line value; edit it in source.`);
-  const line = doc.lines[property.line];
-  return { start: line.offset, end: line.offset + line.text.length + line.eol.length, content: "" };
-}
-function applyEdits(source, edits) {
-  let result = source;
-  let previous = source.length + 1;
-  for (const edit of [...edits].sort((a, b) => b.start - a.start || b.end - a.end)) {
-    if (edit.end > previous || edit.start > edit.end)
-      throw new Fault("TRANSFORM_CONFLICT", "Two operations change the same property.", 5);
-    result = result.slice(0, edit.start) + edit.content + result.slice(edit.end);
-    previous = edit.start;
-  }
-  return result;
-}
-function setFencedText(doc, node, path7, text2) {
-  const property = node.properties.get(path7);
-  if (!property?.fence || property.fence.close < 0)
-    throw unsupported(`${path7} is not a fenced literal of ${node.kind} ${node.key}.`);
-  if (/^\s*```/mu.test(text2))
-    throw new Fault("INVALID_INPUT", "The text cannot contain a ``` fence line.", 2);
-  const open2 = doc.lines[property.fence.open];
-  const close = doc.lines[property.fence.close];
-  const indent = open2.text.slice(0, open2.text.length - open2.text.trimStart().length);
-  const body = text2.replace(/\r\n?/gu, "\n").replace(/\n+$/u, "").split("\n").map((line) => line ? indent + line : "").join(doc.eol);
-  const start = open2.offset + open2.text.length + open2.eol.length;
-  return { start, end: close.offset, content: body + doc.eol };
-}
-function removeComponent(doc, node) {
-  const open2 = doc.lines[node.open];
-  const close = doc.lines[node.close];
-  return { start: open2.offset, end: close.offset + close.text.length + close.eol.length, content: "" };
-}
-function appendChild(doc, parent, text2) {
-  const close = doc.lines[parent.close];
-  return { start: close.offset, end: close.offset, content: text2 };
-}
-function readProperty(component, path7) {
-  let value = component.props;
-  for (const part of path7.split(".")) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
-    value = value[part];
-  }
-  return value;
-}
-
-// packages/core/src/edit/transaction.ts
-import path6 from "node:path";
-import { readFile as readFile5 } from "node:fs/promises";
-
 // packages/core/src/edit/page-file.ts
 import path4 from "node:path";
 import { readFile as readFile3, readdir as readdir2 } from "node:fs/promises";
@@ -4105,7 +4105,7 @@ async function loadRelated(ctx, key) {
   const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   let file;
   if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
-  else if (kind === "lov") file = await (await import("./chunk-LFYLWQME.mjs")).lovFile(ctx, id).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-UJWYN6SM.mjs")).lovFile(ctx, id).catch(() => void 0);
   if (!file) return void 0;
   const text2 = await readFile5(file, "utf8");
   const parsed = parseApexLang(text2, "related").find(

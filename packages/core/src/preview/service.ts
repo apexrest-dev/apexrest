@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadProject } from '../config.ts';
+import { loadProject, type ProjectContext } from '../config.ts';
+import { readFile, readdir } from 'node:fs/promises';
+import { hash, hashFile, PREVIEW_STATE_DIR } from '../fs.ts';
 import { Fault } from '../result.ts';
 import { APEX_DOWNLOAD_URL, APEX_FULL_VERSION, defaultAssetsDir, loadAssets, setupAssets } from './assets.ts';
 import { loadApplication } from './apexlang.ts';
 import { localGaps } from './gaps.ts';
 import { pageContext } from '../edit/patch.ts';
-import { sourceInventory } from '../deploy.ts';
 import { recordRevision, revisionOf } from '../revision.ts';
 import {
   describeReviewComment,
@@ -226,9 +227,15 @@ export async function previewRevisionRecorder(root: string, sourceDir: string) {
   const appDir = path.resolve(ctx.root, ctx.config.application.sourceDir);
   if (!fs.existsSync(appDir) || fs.realpathSync(appDir) !== fs.realpathSync(sourceDir)) return undefined;
   const project = ctx;
-  return (startedAt: string) => {
+  const known = new Map<string, { signature: string; sha: string }>();
+  return (startedAt: string, snapshot?: Map<string, string>) => {
     void (async () => {
-      const files = await sourceInventory(project);
+      const files = await previewInventory(project, known);
+      // Bind the record to what was rendered: every loaded .apx file must still have the signature
+      // of the snapshot the load used; otherwise a newer load records its own revision.
+      if (snapshot)
+        for (const [relative, signature] of snapshot)
+          if (statSafe(path.join(appDir, relative)) !== signature) return;
       await recordRevision(project.root, 'preview', {
         revision: revisionOf(files),
         startedAt,
@@ -236,6 +243,64 @@ export async function previewRevisionRecorder(root: string, sourceDir: string) {
       });
     })().catch(() => undefined);
   };
+}
+
+const statSafe = (file: string) => {
+  try {
+    const info = fs.statSync(file);
+    return `${info.size}:${info.mtimeMs}`;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * The project source inventory (the same files and digests as `sourceInventory`) for preview
+ * status, re-hashing only files whose size or modification time changed since the previous load.
+ * This is a display record of what the preview rendered, not a deployment guard: plans, backups
+ * and imports keep reading fresh bytes through `sourceInventory`.
+ */
+async function previewInventory(ctx: ProjectContext, known: Map<string, { signature: string; sha: string }>) {
+  const files: Record<string, string> = {};
+  const seen = new Set<string>();
+  const add = async (relative: string, full: string) => {
+    const signature = statSafe(full);
+    if (!signature) return;
+    seen.add(relative);
+    const previous = known.get(relative);
+    const size = Number(signature.split(':')[0]);
+    const sha =
+      previous?.signature === signature
+        ? previous.sha
+        : size <= 1024 * 1024
+          ? hash(await readFile(full))
+          : await hashFile(full);
+    known.set(relative, { signature, sha });
+    files[relative] = sha;
+  };
+  const visit = async (root: string, prefix: string, dir: string, top: boolean) => {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      if (top && entry.name === PREVIEW_STATE_DIR && entry.isDirectory()) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) await visit(root, prefix, full, false);
+      else if (entry.isFile())
+        await add(prefix + '/' + path.relative(root, full).split(path.sep).join('/'), full);
+    }
+  };
+  for (const relative of [
+    ctx.config.application.sourceDir,
+    ctx.config.database.migrationsDir,
+    ctx.config.database.packagesDir,
+  ]) {
+    const dir = path.resolve(ctx.root, relative);
+    if (fs.existsSync(dir)) await visit(dir, relative, dir, true);
+  }
+  for (const relative of ['package.json', 'package-lock.json']) {
+    const full = path.join(ctx.root, relative);
+    if (fs.existsSync(full)) await add(relative, full);
+  }
+  for (const relative of [...known.keys()]) if (!seen.has(relative)) known.delete(relative);
+  return Object.fromEntries(Object.entries(files).sort());
 }
 
 async function stopServer(sourceDir: string, server: PreviewServer): Promise<void> {

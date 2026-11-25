@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   resourceRoot
-} from "./chunk-WEBUXBUI.mjs";
+} from "./chunk-PU24NTLU.mjs";
 import {
   runProcess
 } from "./chunk-7SGTFDEC.mjs";
@@ -9,7 +9,7 @@ import {
   loadProject,
   managedHome,
   parse
-} from "./chunk-OZXHZF36.mjs";
+} from "./chunk-O3XZW7YC.mjs";
 import {
   atomicWrite,
   canonical,
@@ -20,7 +20,7 @@ import {
   readJson,
   withLock,
   writeJson
-} from "./chunk-VS4GLWTQ.mjs";
+} from "./chunk-YLKYRT24.mjs";
 import {
   Fault,
   __commonJS,

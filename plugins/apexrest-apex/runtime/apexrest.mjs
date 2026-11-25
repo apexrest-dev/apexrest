@@ -2,37 +2,37 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   setPreviewOwner
-} from "./chunk-4SDMRO4L.mjs";
+} from "./chunk-JSJXHH5F.mjs";
 import {
   dispatch
-} from "./chunk-BKQQDS47.mjs";
-import "./chunk-UZOTVD46.mjs";
+} from "./chunk-IZ3JC3YU.mjs";
+import "./chunk-NT3UQSEU.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-73RSGHB4.mjs";
-import "./chunk-O7MNIZXK.mjs";
-import "./chunk-WYPBTRB6.mjs";
-import "./chunk-YSSNVOMD.mjs";
+} from "./chunk-4BPGLB73.mjs";
+import "./chunk-S4NYTED6.mjs";
+import "./chunk-35EGR64M.mjs";
+import "./chunk-FPW2XLPV.mjs";
 import {
   executeJob,
   failQueuedJob
-} from "./chunk-NOTPADGV.mjs";
-import "./chunk-HWAIRICD.mjs";
-import "./chunk-XDBVFMVB.mjs";
-import "./chunk-QREGOPY7.mjs";
-import "./chunk-WCK2TJYC.mjs";
-import "./chunk-WSDMLCUV.mjs";
-import "./chunk-7NEUIVN5.mjs";
-import "./chunk-WEBUXBUI.mjs";
-import "./chunk-NMTEJGHC.mjs";
+} from "./chunk-QUG35XZ7.mjs";
+import "./chunk-BZIPI54F.mjs";
+import "./chunk-ED46SLPH.mjs";
+import "./chunk-VOYRQ4YG.mjs";
+import "./chunk-XH2MRLFC.mjs";
+import "./chunk-BBZ43UIE.mjs";
+import "./chunk-C66KGFY2.mjs";
+import "./chunk-PU24NTLU.mjs";
+import "./chunk-QLJHOYUI.mjs";
 import "./chunk-7SGTFDEC.mjs";
 import "./chunk-IIUPXDVT.mjs";
 import {
   loadProject
-} from "./chunk-OZXHZF36.mjs";
-import "./chunk-VS4GLWTQ.mjs";
+} from "./chunk-O3XZW7YC.mjs";
+import "./chunk-YLKYRT24.mjs";
 import {
   Fault,
   failure
@@ -318,12 +318,12 @@ try {
     }
   } else if (argv[0] === "--broker") {
     if (argv.length !== 2) throw new Fault("INVALID_INPUT", "Invalid internal broker request.", 2);
-    const { runBroker } = await import("./chunk-PY2DHAHL.mjs");
+    const { runBroker } = await import("./chunk-SWI6GCYB.mjs");
     await runBroker(await loadProject(argv[1]), dispatch);
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-HNAEURRA.mjs");
+    const { startMcp } = await import("./chunk-5KUNAUY3.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

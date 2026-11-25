@@ -1899,6 +1899,23 @@
       ],
       "evidence": ["measurement report"],
       "budgetMs": 120000
+    },
+    {
+      "id": "A261-092",
+      "title": "Coherent preview refresh snapshot",
+      "acceptance": ["FASTDEV-V08"],
+      "execution": "harness",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Start a project preview and edit a page repeatedly while requesting it.",
+        "Read the preview revision in status."
+      ],
+      "expected": [
+        "Each refresh walks the sources once; an edit landing mid-load is read on the next request; the recorded preview revision always matches a rendered source state."
+      ],
+      "evidence": ["revision records", "request timings"],
+      "budgetMs": 30000
     }
   ],
   "metrics": "quality-performance.json"

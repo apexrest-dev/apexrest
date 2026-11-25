@@ -4,7 +4,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import type { Duplex } from 'node:stream';
-import { loadApplication, str, type ApxComponent, type ApxParseCache } from './apexlang.ts';
+import { loadApplication, statSignature, str, type ApxComponent, type ApxParseCache } from './apexlang.ts';
 import { loadAssets, type ApexAssets } from './assets.ts';
 import { rejectUpgrade } from './websocket.ts';
 import { messagesScript, RUNTIME_CSS, RUNTIME_JS } from './client.ts';
@@ -83,7 +83,8 @@ export interface PreviewOptions {
    * Called after each successful source load (the first and every refresh) with its start time,
    * so a project preview can record the source revision it rendered (revision.ts).
    */
-  onLoad?: (startedAt: string) => void;
+  /** Called after each successful load with the source snapshot that load rendered. */
+  onLoad?: (startedAt: string, snapshot: Signatures) => void;
 }
 
 export interface PreviewPage {
@@ -168,6 +169,13 @@ export function previewRequestRefusal(
 }
 
 /** Local, database-free runtime for APEXlang sources: Universal Theme 26.2 assets plus SQLite. */
+/** A source file changed while a load read it; the load is discarded and retried. */
+class IncoherentLoad extends Error {
+  constructor(readonly file: string) {
+    super(`${file} changed while the preview loaded it.`);
+  }
+}
+
 export class PreviewServer {
   readonly options: PreviewOptions;
   readonly assets: ApexAssets;
@@ -204,8 +212,15 @@ export class PreviewServer {
       this.seedProblems =
         fresh && !options.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options.seedDirs) : [];
       const startedAt = new Date().toISOString();
-      this.renderer = this.#load();
-      options.onLoad?.(startedAt);
+      // The first load has no earlier renderer to keep: a source that changed meanwhile is read again.
+      for (let attempt = 1; ; attempt++)
+        try {
+          this.renderer = this.#load(apxSignatures(this.options.sourceDir));
+          break;
+        } catch (error) {
+          if (!(error instanceof IncoherentLoad) || attempt === 3) throw error;
+        }
+      options.onLoad?.(startedAt, this.#signatures);
       // Connected mode rolls every request back, so only source reloads are pushed there.
       this.live = new LiveHub({
         sourceDir: this.options.sourceDir,
@@ -226,22 +241,36 @@ export class PreviewServer {
     }
   }
 
-  #load(): ApexRenderer {
-    this.#signatures = apxSignatures(this.options.sourceDir);
+  /**
+   * Loads the application from one source snapshot: the same signatures decide what changed, which
+   * files the cache reuses and which revision is recorded, so one refresh walks the tree once.
+   */
+  #load(snapshot: Signatures): ApexRenderer {
     this.#lastScan = Date.now();
     this.#dirty = false;
-    const renderer = new ApexRenderer(
-      loadApplication(this.options.sourceDir, 'default', this.#cache),
-      this.assets,
-      this.db,
-      {
-        ...(this.options.toolbar === undefined ? {} : { toolbar: this.options.toolbar }),
-        ...(this.options.sampleRows === undefined ? {} : { sampleRows: this.options.sampleRows }),
-        ...(this.options.seedDirs ? { seedDirs: this.options.seedDirs } : {}),
-        ...(this.options.oracle ? { oracle: this.options.oracle } : {}),
-        ...(this.options.reviewFile ? { reviewFile: this.options.reviewFile } : {}),
-      },
-    );
+    const app = loadApplication(this.options.sourceDir, 'default', this.#cache, snapshot);
+    // Integrity recheck, for correctness only: a file parsed now must still have the signature the
+    // snapshot recorded; otherwise it changed while this load read it and the load is not coherent.
+    for (const relative of app.parsedFiles ?? []) {
+      let current: string | undefined;
+      try {
+        current = statSignature(path.join(this.options.sourceDir, relative));
+      } catch {
+        current = undefined;
+      }
+      if (current !== snapshot.get(relative)) {
+        this.#cache.delete(relative);
+        throw new IncoherentLoad(relative);
+      }
+    }
+    this.#signatures = snapshot;
+    const renderer = new ApexRenderer(app, this.assets, this.db, {
+      ...(this.options.toolbar === undefined ? {} : { toolbar: this.options.toolbar }),
+      ...(this.options.sampleRows === undefined ? {} : { sampleRows: this.options.sampleRows }),
+      ...(this.options.seedDirs ? { seedDirs: this.options.seedDirs } : {}),
+      ...(this.options.oracle ? { oracle: this.options.oracle } : {}),
+      ...(this.options.reviewFile ? { reviewFile: this.options.reviewFile } : {}),
+    });
     for (const problem of this.seedProblems) renderer.diagnose('warning', `Seed script: ${problem}`);
     setUpRenderer(renderer);
     for (const warning of this.options.oracle?.warnings ?? [])
@@ -286,10 +315,10 @@ export class PreviewServer {
     const previous = this.renderer.app;
     try {
       const startedAt = new Date().toISOString();
-      this.renderer = this.#load();
+      this.renderer = this.#load(signatures);
       this.#loadError = undefined;
       this.#revision += 1;
-      this.options.onLoad?.(startedAt);
+      this.options.onLoad?.(startedAt, signatures);
       const pages = affectedPages(files, [previous, this.renderer.app]);
       const regions =
         Array.isArray(pages) && pages.length === 1
@@ -301,6 +330,12 @@ export class PreviewServer {
           : undefined;
       return { files, pages, ...(regions ? { regions } : {}) };
     } catch (error) {
+      // A source that changed while it was read: keep the last good renderer and its revision and
+      // scan again on the next request instead of rendering or recording a mixed state.
+      if (error instanceof IncoherentLoad) {
+        this.#dirty = true;
+        return undefined;
+      }
       // Keep the failed signatures so the same broken state is not parsed again on every request.
       this.#signatures = signatures;
       this.#dirty = false;

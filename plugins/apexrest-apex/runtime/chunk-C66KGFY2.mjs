@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   hash
-} from "./chunk-VS4GLWTQ.mjs";
+} from "./chunk-YLKYRT24.mjs";
 import {
   Fault
 } from "./chunk-HRRL6FHO.mjs";
@@ -393,11 +393,12 @@ function deploymentSubstitutions(root, deployment) {
   }
   return values;
 }
-function loadApplication(root, deployment = "default", cache) {
+function loadApplication(root, deployment = "default", cache, snapshot) {
   const appFile = path.join(root, "application.apx");
   if (!fs.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
   const substitutions = deploymentSubstitutions(root, deployment);
-  const files = walk(root).sort();
+  const files = snapshot ? [...snapshot.keys()].sort().map((relative) => path.join(root, relative)) : walk(root).sort();
+  const parsedFiles = [];
   const pages = /* @__PURE__ */ new Map();
   const shared = [];
   let app;
@@ -405,11 +406,14 @@ function loadApplication(root, deployment = "default", cache) {
   const present = new Set(relatives);
   for (const [index, file] of files.entries()) {
     const relative = relatives[index];
-    const info = cache ? fs.statSync(file) : void 0;
-    const key = info ? `${info.size}:${info.mtimeMs}:${JSON.stringify(substitutions)}` : "";
+    const signature = cache ? snapshot?.get(relative) ?? statSignature(file) : void 0;
+    const key = signature ? `${signature}:${JSON.stringify(substitutions)}` : "";
     const cached = cache?.get(relative);
     const parsed = cached && cached.key === key ? cached.components : parseFile(file, relative, root, substitutions);
-    if (cache && cached?.components !== parsed) cache.set(relative, { key, components: parsed });
+    if (cache && cached?.components !== parsed) {
+      cache.set(relative, { key, components: parsed });
+      parsedFiles.push(relative);
+    }
     for (const component of parsed) {
       if (component.type === "app") app = component;
       else if (component.type === "page") pages.set(component.id, component);
@@ -422,7 +426,11 @@ function loadApplication(root, deployment = "default", cache) {
   if (!app) throw new Error(`${appFile} does not declare an app component`);
   for (const child of app.children)
     if (child.type === "page" && !pages.has(child.id)) pages.set(child.id, child);
-  return { root, app, pages, shared, substitutions, files };
+  return { root, app, pages, shared, substitutions, files, ...cache ? { parsedFiles } : {} };
+}
+function statSignature(file) {
+  const info = fs.statSync(file);
+  return `${info.size}:${info.mtimeMs}`;
 }
 function parseFile(file, relative, root, substitutions) {
   {
@@ -470,6 +478,7 @@ export {
   ref,
   list,
   loadApplication,
+  statSignature,
   indent,
   group,
   node,

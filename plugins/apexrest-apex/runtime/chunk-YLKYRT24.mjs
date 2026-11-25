@@ -240,6 +240,7 @@ export {
   exists,
   contained,
   containedChild,
+  PREVIEW_STATE_DIR,
   withoutPreviewState,
   inventory,
   withLock

@@ -11,7 +11,7 @@ import {
 import {
   canonical,
   hash
-} from "./chunk-VS4GLWTQ.mjs";
+} from "./chunk-YLKYRT24.mjs";
 import {
   Fault
 } from "./chunk-HRRL6FHO.mjs";

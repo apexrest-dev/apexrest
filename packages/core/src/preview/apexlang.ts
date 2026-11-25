@@ -273,6 +273,8 @@ export interface ApxApplication {
   shared: ApxComponent[];
   substitutions: Record<string, string>;
   files: string[];
+  /** Files parsed by this load (cache misses), relative and '/'-separated; absent without a cache. */
+  parsedFiles?: string[];
 }
 
 function walk(directory: string): string[] {
@@ -312,12 +314,24 @@ function deploymentSubstitutions(root: string, deployment: string): Record<strin
  */
 export type ApxParseCache = Map<string, { key: string; components: ApxComponent[] }>;
 
-/** Loads an APEXlang source tree (the folder that contains `application.apx`). */
-export function loadApplication(root: string, deployment = 'default', cache?: ApxParseCache): ApxApplication {
+/**
+ * Loads an APEXlang source tree (the folder that contains `application.apx`). With `snapshot`
+ * (relative path -> size:mtime signature, as `apxSignatures` reads it) the file list and the cache
+ * keys come from that one observation instead of a second walk and per-file stat.
+ */
+export function loadApplication(
+  root: string,
+  deployment = 'default',
+  cache?: ApxParseCache,
+  snapshot?: Map<string, string>,
+): ApxApplication {
   const appFile = path.join(root, 'application.apx');
   if (!fs.existsSync(appFile)) throw new Error(`${root} does not contain application.apx`);
   const substitutions = deploymentSubstitutions(root, deployment);
-  const files = walk(root).sort();
+  const files = snapshot
+    ? [...snapshot.keys()].sort().map((relative) => path.join(root, relative))
+    : walk(root).sort();
+  const parsedFiles: string[] = [];
   const pages = new Map<string, ApxComponent>();
   const shared: ApxComponent[] = [];
   let app: ApxComponent | undefined;
@@ -327,12 +341,15 @@ export function loadApplication(root: string, deployment = 'default', cache?: Ap
   const present = new Set(relatives);
   for (const [index, file] of files.entries()) {
     const relative = relatives[index]!;
-    const info = cache ? fs.statSync(file) : undefined;
-    const key = info ? `${info.size}:${info.mtimeMs}:${JSON.stringify(substitutions)}` : '';
+    const signature = cache ? (snapshot?.get(relative) ?? statSignature(file)) : undefined;
+    const key = signature ? `${signature}:${JSON.stringify(substitutions)}` : '';
     const cached = cache?.get(relative);
     const parsed =
       cached && cached.key === key ? cached.components : parseFile(file, relative, root, substitutions);
-    if (cache && cached?.components !== parsed) cache.set(relative, { key, components: parsed });
+    if (cache && cached?.components !== parsed) {
+      cache.set(relative, { key, components: parsed });
+      parsedFiles.push(relative);
+    }
     for (const component of parsed) {
       if (component.type === 'app') app = component;
       else if (component.type === 'page') pages.set(component.id, component);
@@ -345,7 +362,13 @@ export function loadApplication(root: string, deployment = 'default', cache?: Ap
   // index them once, after root pages so existing root-page precedence is unchanged.
   for (const child of app.children)
     if (child.type === 'page' && !pages.has(child.id)) pages.set(child.id, child);
-  return { root, app, pages, shared, substitutions, files };
+  return { root, app, pages, shared, substitutions, files, ...(cache ? { parsedFiles } : {}) };
+}
+
+/** A file's size:mtime signature (the parse-cache and source-index identity). */
+export function statSignature(file: string): string {
+  const info = fs.statSync(file);
+  return `${info.size}:${info.mtimeMs}`;
 }
 
 function parseFile(file: string, relative: string, root: string, substitutions: Record<string, string>) {

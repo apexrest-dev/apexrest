@@ -1273,6 +1273,20 @@
         "docs/evidence/fast-dev/preview-cache-scaling-2026-11-25.json"
       ],
       "blocker": "Measured on one synthetic dataset and host (Linux, Node 26.12); no general speedup is claimed. Windows paths are covered by the unchanged normalization, not by a Windows run."
+    },
+    {
+      "id": "FASTDEV-V08",
+      "criterion": "A preview refresh reuses one coherent source snapshot for change detection, loading, affected pages and revision recording, discards and retries a load that observed a mid-load change, and records a preview revision only for the source state it rendered",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/preview/server.ts",
+        "packages/core/src/preview/apexlang.ts",
+        "packages/core/src/preview/service.ts",
+        "tests/unit/preview-review.test.ts",
+        "tests/unit/preview-source-index.test.ts"
+      ],
+      "blocker": "Local repository tests. Timing of the saved inventory work on large projects is part of FASTDEV-V09/V12 measurements."
     }
   ]
 }

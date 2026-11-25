@@ -750,3 +750,63 @@ test('the review panel undoes and redoes the last local source edit', async (t) 
   assert.match(await readFile(pageFile, 'utf8'), /name: Undo me/u);
   assert.equal((await post({ op: 'redo' })).status, 400);
 });
+
+test('a preview record is skipped when the loaded snapshot no longer matches the files', async (t) => {
+  const { root } = await project(t);
+  const { previewRevisionRecorder } = await import('../../packages/core/src/preview/service.ts');
+  const { loadProject } = await import('../../packages/core/src/config.ts');
+  const { apxSignatures } = await import('../../packages/core/src/preview/source-index.ts');
+  const ctx = await loadProject(root);
+  const app = path.join(root, ctx.config.application.sourceDir);
+  const record = (await previewRevisionRecorder(root, app))!;
+  const revisions = path.join(root, '.apexrest', 'revisions.json');
+  const stale = apxSignatures(app);
+  stale.set('pages/p00003-orders.apx', '1:1');
+  record(new Date().toISOString(), stale);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const read = async () => JSON.parse(await readFile(revisions, 'utf8').catch(() => '{}'));
+  assert.equal((await read()).preview, undefined);
+  record(new Date().toISOString(), apxSignatures(app));
+  for (let i = 0; i < 100 && !(await read()).preview; i++)
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.ok((await read()).preview);
+});
+
+test('an edit landing while the preview loads keeps the last good page and is read again', async (t) => {
+  const { call, pageFile } = await project(t);
+  const fs = (await import('node:fs')).default;
+  assert.match(await (await call('/r/demo/orders')).text(), /Orders/u);
+  await writeFile(
+    pageFile,
+    (await readFile(pageFile, 'utf8')).replace('name: Orders', 'name: Changed orders'),
+  );
+  // The integrity recheck after parsing sees a different signature once: a mixed observation.
+  const original = fs.statSync;
+  let interfere = true;
+  (fs as { statSync: unknown }).statSync = ((file: string, ...rest: unknown[]) => {
+    const info = (original as (...args: unknown[]) => import('node:fs').Stats)(file, ...rest);
+    if (
+      interfere &&
+      String(file).endsWith('p00003-orders.apx') &&
+      new Error().stack?.includes('statSignature')
+    ) {
+      interfere = false;
+      return {
+        ...info,
+        size: info.size + 1,
+        mtimeMs: info.mtimeMs,
+        isFile: () => true,
+        isDirectory: () => false,
+      };
+    }
+    return info;
+  }) as typeof fs.statSync;
+  t.after(() => {
+    (fs as { statSync: unknown }).statSync = original;
+  });
+  const during = await (await call('/r/demo/orders')).text();
+  assert.equal(interfere, false, 'the load observed the edit and rechecked it');
+  assert.doesNotMatch(during, /Changed orders/u);
+  const after = await (await call('/r/demo/orders')).text();
+  assert.match(after, /Changed orders/u);
+});

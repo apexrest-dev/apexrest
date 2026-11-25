@@ -50,7 +50,10 @@ test('a cached reload parses only changed files and equals a clean full load', a
   assert.equal(second.pages.get('1'), page1, 'an unchanged page keeps its parsed components');
   assert.notEqual(second.pages.get('3'), first.pages.get('3'));
   const clean = loadApplication(app);
-  assert.deepEqual(strip({ ...second, files: [] }), strip({ ...clean, files: [] }));
+  assert.deepEqual(
+    strip({ ...second, files: [], parsedFiles: undefined }),
+    strip({ ...clean, files: [], parsedFiles: undefined }),
+  );
   // A removed file leaves the cache and the application.
   await rm(file);
   const third = loadApplication(app, 'default', cache);
@@ -158,7 +161,10 @@ test('cached loads equal clean loads after adding, renaming and rewriting files 
     PAGE3.replace('page 3 (', 'page 4 (').replace('alias: THIRD', 'alias: FOURTH'),
   );
   let cached = loadApplication(app, 'default', cache);
-  assert.deepEqual(strip({ ...cached, files: [] }), strip({ ...loadApplication(app), files: [] }));
+  assert.deepEqual(
+    strip({ ...cached, files: [], parsedFiles: undefined }),
+    strip({ ...loadApplication(app), files: [], parsedFiles: undefined }),
+  );
   assert.deepEqual(
     [...cache.keys()].sort(),
     cached.files.map((file) => path.relative(app, file).split(path.sep).join('/')).sort(),
@@ -170,6 +176,9 @@ test('cached loads equal clean loads after adding, renaming and rewriting files 
   const old = new Date(Date.now() - 86400000);
   await utimes(renamed, old, old);
   cached = loadApplication(app, 'default', cache);
-  assert.deepEqual(strip({ ...cached, files: [] }), strip({ ...loadApplication(app), files: [] }));
+  assert.deepEqual(
+    strip({ ...cached, files: [], parsedFiles: undefined }),
+    strip({ ...loadApplication(app), files: [], parsedFiles: undefined }),
+  );
   assert.match(JSON.stringify(cached.pages.get('3')), /Notez/u);
 });

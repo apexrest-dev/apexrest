@@ -5,7 +5,7 @@ import {
   registerPreview,
   stopOtherPreview,
   unregisterPreview
-} from "./chunk-4SDMRO4L.mjs";
+} from "./chunk-JSJXHH5F.mjs";
 import {
   APEX_DOWNLOAD_URL,
   APEX_FULL_VERSION,
@@ -32,7 +32,7 @@ import {
   setupAssets,
   templateOptions,
   text
-} from "./chunk-UZOTVD46.mjs";
+} from "./chunk-NT3UQSEU.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -61,11 +61,10 @@ import {
   recordRevision,
   redoEdit,
   revisionOf,
-  sourceInventory,
   undoEdit
-} from "./chunk-XDBVFMVB.mjs";
-import "./chunk-QREGOPY7.mjs";
-import "./chunk-WSDMLCUV.mjs";
+} from "./chunk-ED46SLPH.mjs";
+import "./chunk-VOYRQ4YG.mjs";
+import "./chunk-BBZ43UIE.mjs";
 import {
   bool,
   get,
@@ -76,22 +75,27 @@ import {
   num,
   parseApexLang,
   ref,
+  statSignature,
   str
-} from "./chunk-7NEUIVN5.mjs";
+} from "./chunk-C66KGFY2.mjs";
 import {
   OracleAdapter,
   resolveConnection,
   targetIdentitySql
-} from "./chunk-WEBUXBUI.mjs";
-import "./chunk-NMTEJGHC.mjs";
+} from "./chunk-PU24NTLU.mjs";
+import "./chunk-QLJHOYUI.mjs";
 import "./chunk-7SGTFDEC.mjs";
 import "./chunk-IIUPXDVT.mjs";
 import {
   environment,
   isProductionTarget,
   loadProject
-} from "./chunk-OZXHZF36.mjs";
-import "./chunk-VS4GLWTQ.mjs";
+} from "./chunk-O3XZW7YC.mjs";
+import {
+  PREVIEW_STATE_DIR,
+  hash,
+  hashFile
+} from "./chunk-YLKYRT24.mjs";
 import {
   Fault
 } from "./chunk-HRRL6FHO.mjs";
@@ -99,6 +103,7 @@ import {
 // packages/core/src/preview/service.ts
 import fs15 from "node:fs";
 import path16 from "node:path";
+import { readFile, readdir } from "node:fs/promises";
 
 // packages/core/src/preview/gaps.ts
 var NOT_APPLIED = /* @__PURE__ */ new Set(["initJavaScriptFunction", "columnInitJavaScriptFunction"]);
@@ -18079,12 +18084,12 @@ registerExtension({ name: "live", page, toolbar, client: CLIENT3, css: CSS2 });
 var WORKSPACE = "PREVIEW";
 var WORKSPACE_ID = 1e9;
 function hashId(...parts) {
-  let hash = 2166136261;
+  let hash2 = 2166136261;
   for (const char of parts.join("|")) {
-    hash ^= char.codePointAt(0);
-    hash = Math.imul(hash, 16777619) >>> 0;
+    hash2 ^= char.codePointAt(0);
+    hash2 = Math.imul(hash2, 16777619) >>> 0;
   }
-  return 1e6 + hash % 9e8;
+  return 1e6 + hash2 % 9e8;
 }
 var now = () => isoDate(/* @__PURE__ */ new Date());
 var raw = (renderer) => renderer.db.db;
@@ -27496,7 +27501,7 @@ registerStubs({
     params: p2("val"),
     fn: (args) => {
       const seed = String(args.val ?? 1);
-      state2 = [...seed].reduce((hash, char) => Math.imul(hash, 31) + char.charCodeAt(0) | 0, 625341585) || 1;
+      state2 = [...seed].reduce((hash2, char) => Math.imul(hash2, 31) + char.charCodeAt(0) | 0, 625341585) || 1;
       return null;
     }
   },
@@ -27653,9 +27658,9 @@ function pluginRecord(renderer, ctx, plugin) {
   });
 }
 function numericId(id) {
-  let hash = 0;
-  for (const char of id) hash = Math.imul(hash, 31) + char.charCodeAt(0) | 0;
-  return Math.abs(hash) + 1;
+  let hash2 = 0;
+  for (const char of id) hash2 = Math.imul(hash2, 31) + char.charCodeAt(0) | 0;
+  return Math.abs(hash2) + 1;
 }
 function regionSource(region) {
   return str(region.props, "source.sqlQuery") || str(region.props, "source.plsqlCode") || str(region.props, "source.htmlCode") || str(region.props, "source.text") || (str(region.props, "source.tableName") ? `select * from ${str(region.props, "source.tableName")}` : "");
@@ -33305,6 +33310,13 @@ function previewRequestRefusal(headers2, port, bindHost) {
     return "Cross-site requests are not accepted. Open the preview URL directly in a browser tab";
   return void 0;
 }
+var IncoherentLoad = class extends Error {
+  constructor(file) {
+    super(`${file} changed while the preview loaded it.`);
+    this.file = file;
+  }
+  file;
+};
 var PreviewServer = class {
   options;
   assets;
@@ -33336,8 +33348,14 @@ var PreviewServer = class {
       this.db = db2 = new LocalDatabase(file);
       this.seedProblems = fresh && !options3.oracle ? ApexRenderer.seed(this.db, this.options.sourceDir, options3.seedDirs) : [];
       const startedAt = (/* @__PURE__ */ new Date()).toISOString();
-      this.renderer = this.#load();
-      options3.onLoad?.(startedAt);
+      for (let attempt = 1; ; attempt++)
+        try {
+          this.renderer = this.#load(apxSignatures(this.options.sourceDir));
+          break;
+        } catch (error) {
+          if (!(error instanceof IncoherentLoad) || attempt === 3) throw error;
+        }
+      options3.onLoad?.(startedAt, this.#signatures);
       this.live = new LiveHub({
         sourceDir: this.options.sourceDir,
         data: !options3.oracle && this.db.trackWrites(),
@@ -33356,22 +33374,34 @@ var PreviewServer = class {
       throw error;
     }
   }
-  #load() {
-    this.#signatures = apxSignatures(this.options.sourceDir);
+  /**
+   * Loads the application from one source snapshot: the same signatures decide what changed, which
+   * files the cache reuses and which revision is recorded, so one refresh walks the tree once.
+   */
+  #load(snapshot2) {
     this.#lastScan = Date.now();
     this.#dirty = false;
-    const renderer = new ApexRenderer(
-      loadApplication(this.options.sourceDir, "default", this.#cache),
-      this.assets,
-      this.db,
-      {
-        ...this.options.toolbar === void 0 ? {} : { toolbar: this.options.toolbar },
-        ...this.options.sampleRows === void 0 ? {} : { sampleRows: this.options.sampleRows },
-        ...this.options.seedDirs ? { seedDirs: this.options.seedDirs } : {},
-        ...this.options.oracle ? { oracle: this.options.oracle } : {},
-        ...this.options.reviewFile ? { reviewFile: this.options.reviewFile } : {}
+    const app = loadApplication(this.options.sourceDir, "default", this.#cache, snapshot2);
+    for (const relative of app.parsedFiles ?? []) {
+      let current3;
+      try {
+        current3 = statSignature(path15.join(this.options.sourceDir, relative));
+      } catch {
+        current3 = void 0;
       }
-    );
+      if (current3 !== snapshot2.get(relative)) {
+        this.#cache.delete(relative);
+        throw new IncoherentLoad(relative);
+      }
+    }
+    this.#signatures = snapshot2;
+    const renderer = new ApexRenderer(app, this.assets, this.db, {
+      ...this.options.toolbar === void 0 ? {} : { toolbar: this.options.toolbar },
+      ...this.options.sampleRows === void 0 ? {} : { sampleRows: this.options.sampleRows },
+      ...this.options.seedDirs ? { seedDirs: this.options.seedDirs } : {},
+      ...this.options.oracle ? { oracle: this.options.oracle } : {},
+      ...this.options.reviewFile ? { reviewFile: this.options.reviewFile } : {}
+    });
     for (const problem of this.seedProblems) renderer.diagnose("warning", `Seed script: ${problem}`);
     setUpRenderer(renderer);
     for (const warning of this.options.oracle?.warnings ?? [])
@@ -33411,10 +33441,10 @@ var PreviewServer = class {
     const previous = this.renderer.app;
     try {
       const startedAt = (/* @__PURE__ */ new Date()).toISOString();
-      this.renderer = this.#load();
+      this.renderer = this.#load(signatures);
       this.#loadError = void 0;
       this.#revision += 1;
-      this.options.onLoad?.(startedAt);
+      this.options.onLoad?.(startedAt, signatures);
       const pages2 = affectedPages(files, [previous, this.renderer.app]);
       const regions = Array.isArray(pages2) && pages2.length === 1 ? replaceableRegions(
         previous.pages.get(pages2[0]),
@@ -33423,6 +33453,10 @@ var PreviewServer = class {
       ) : void 0;
       return { files, pages: pages2, ...regions ? { regions } : {} };
     } catch (error) {
+      if (error instanceof IncoherentLoad) {
+        this.#dirty = true;
+        return void 0;
+      }
       this.#signatures = signatures;
       this.#dirty = false;
       this.#loadError = error.message;
@@ -34088,9 +34122,14 @@ async function previewRevisionRecorder(root, sourceDir) {
   const appDir = path16.resolve(ctx.root, ctx.config.application.sourceDir);
   if (!fs15.existsSync(appDir) || fs15.realpathSync(appDir) !== fs15.realpathSync(sourceDir)) return void 0;
   const project2 = ctx;
-  return (startedAt) => {
+  const known = /* @__PURE__ */ new Map();
+  return (startedAt, snapshot2) => {
     void (async () => {
-      const files = await sourceInventory(project2);
+      const files = await previewInventory(project2, known);
+      if (snapshot2) {
+        for (const [relative, signature] of snapshot2)
+          if (statSafe(path16.join(appDir, relative)) !== signature) return;
+      }
       await recordRevision(project2.root, "preview", {
         revision: revisionOf(files),
         startedAt,
@@ -34098,6 +34137,51 @@ async function previewRevisionRecorder(root, sourceDir) {
       });
     })().catch(() => void 0);
   };
+}
+var statSafe = (file) => {
+  try {
+    const info = fs15.statSync(file);
+    return `${info.size}:${info.mtimeMs}`;
+  } catch {
+    return void 0;
+  }
+};
+async function previewInventory(ctx, known) {
+  const files = {};
+  const seen = /* @__PURE__ */ new Set();
+  const add = async (relative, full) => {
+    const signature = statSafe(full);
+    if (!signature) return;
+    seen.add(relative);
+    const previous = known.get(relative);
+    const size = Number(signature.split(":")[0]);
+    const sha = previous?.signature === signature ? previous.sha : size <= 1024 * 1024 ? hash(await readFile(full)) : await hashFile(full);
+    known.set(relative, { signature, sha });
+    files[relative] = sha;
+  };
+  const visit = async (root, prefix, dir, top) => {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      if (top && entry.name === PREVIEW_STATE_DIR && entry.isDirectory()) continue;
+      const full = path16.join(dir, entry.name);
+      if (entry.isDirectory()) await visit(root, prefix, full, false);
+      else if (entry.isFile())
+        await add(prefix + "/" + path16.relative(root, full).split(path16.sep).join("/"), full);
+    }
+  };
+  for (const relative of [
+    ctx.config.application.sourceDir,
+    ctx.config.database.migrationsDir,
+    ctx.config.database.packagesDir
+  ]) {
+    const dir = path16.resolve(ctx.root, relative);
+    if (fs15.existsSync(dir)) await visit(dir, relative, dir, true);
+  }
+  for (const relative of ["package.json", "package-lock.json"]) {
+    const full = path16.join(ctx.root, relative);
+    if (fs15.existsSync(full)) await add(relative, full);
+  }
+  for (const relative of [...known.keys()]) if (!seen.has(relative)) known.delete(relative);
+  return Object.fromEntries(Object.entries(files).sort());
 }
 async function stopServer(sourceDir, server) {
   let port;
