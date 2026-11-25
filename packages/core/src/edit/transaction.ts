@@ -158,8 +158,11 @@ export async function runPageTransaction<T>(
   ctx: ProjectContext,
   input: TransactionInput<T>,
   groups: (operations: T[]) => ((snapshot: PageSnapshot) => PlannedEdit)[],
-  /** Other pages the operations read (a dialog's modal page); read with the page, under the same lock. */
-  dependencies: (operations: T[]) => number[] = () => [],
+  /**
+   * Other source files the operations read, as `page:N` (a dialog's modal page) or `lov:ID` (a shared
+   * LOV); read with the page under the same lock and exposed as `snapshot.related`.
+   */
+  dependencies: (operations: T[]) => string[] = () => [],
 ): Promise<TransactionResult> {
   if (!/^\d{1,5}$/u.test(input.page)) throw new Fault('INVALID_INPUT', 'page is a page number.', 2);
   if (!input.operations.length || input.operations.length > 50)
@@ -172,17 +175,9 @@ export async function runPageTransaction<T>(
   const plan = async () => {
     const source = await readFile(file, 'utf8');
     const related = new Map<string, Related>();
-    for (const page of new Set(dependencies(input.operations))) {
-      const other = await pageFile(ctx, String(page)).catch(() => undefined);
-      if (!other) continue;
-      const text = await readFile(other, 'utf8');
-      const parsed = parseApexLang(text, 'related').find((c) => c.type === 'page');
-      if (parsed)
-        related.set(`page:${page}`, {
-          file: path.relative(ctx.root, other).split(path.sep).join('/'),
-          digest: digestOf(text),
-          parsed,
-        });
+    for (const key of new Set(dependencies(input.operations))) {
+      const found = await loadRelated(ctx, key);
+      if (found) related.set(key, found);
     }
     return {
       source,
@@ -215,6 +210,25 @@ export async function runPageTransaction<T>(
       ? 'Source edited only. Validate or ship to check it with the compiler and import it.'
       : `Apply with expectedDigest ${planned.digest}.`,
   };
+}
+
+/** Reads one dependency (`page:N` or `lov:ID`); a missing one is left out for the planner to refuse. */
+async function loadRelated(ctx: ProjectContext, key: string): Promise<Related | undefined> {
+  const [kind, id = ''] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
+  let file: string | undefined;
+  if (kind === 'page') file = await pageFile(ctx, String(Number(id))).catch(() => undefined);
+  else if (kind === 'lov') file = await (await import('./lov.ts')).lovFile(ctx, id).catch(() => undefined);
+  if (!file) return undefined;
+  const text = await readFile(file, 'utf8');
+  const parsed = parseApexLang(text, 'related').find(
+    (c) =>
+      c.type === kind &&
+      (kind === 'page' ||
+        c.id.toUpperCase() === id.toUpperCase() ||
+        String(c.props.name ?? '').toUpperCase() === id.toUpperCase()),
+  );
+  if (!parsed) return undefined;
+  return { file: path.relative(ctx.root, file).split(path.sep).join('/'), digest: digestOf(text), parsed };
 }
 
 /**

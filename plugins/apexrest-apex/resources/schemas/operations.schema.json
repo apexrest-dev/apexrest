@@ -840,6 +840,102 @@
               "properties": {
                 "op": {
                   "type": "string",
+                  "const": "bindLov"
+                },
+                "item": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "lov": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255,
+                  "description": "Shared LOV id or name"
+                },
+                "expectedLovDigest": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "nullValue": {
+                  "anyOf": [
+                    {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "display": {
+                          "type": "string",
+                          "maxLength": 4000
+                        },
+                        "return": {
+                          "type": "string",
+                          "maxLength": 4000
+                        }
+                      },
+                      "required": [
+                        "display"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "displayExtraValues": {
+                  "type": "boolean"
+                },
+                "cascade": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "parentItems": {
+                          "minItems": 1,
+                          "maxItems": 20,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          }
+                        },
+                        "itemsToSubmit": {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          }
+                        },
+                        "parentRequired": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "parentItems"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "op",
+                "item",
+                "lov"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "op": {
+                  "type": "string",
                   "const": "addDialogAction"
                 },
                 "target": {

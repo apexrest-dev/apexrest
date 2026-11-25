@@ -1087,6 +1087,18 @@
         "docs/evidence/fast-dev/lov-compiler-2026-11-25.json"
       ],
       "blocker": "Repository tests pass for 26.1 and 26.2 layouts; the offline Oracle compiler passed a 26.2 static LOV edit. 26.1 compilation and native import are not yet observed."
+    },
+    {
+      "id": "FASTDEV-A07",
+      "criterion": "A bindLov edit binds an existing list item to an explicitly selected existing shared LOV, writing the 26.2 shared reference, removing only superseded LOV source properties, validating cascading parents and submitted items, and binding the edit to the page digest and the LOV read",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/edit/bind-lov.ts",
+        "tests/unit/source-edit-bind-lov.test.ts",
+        "docs/evidence/fast-dev/bind-lov-compiler-2026-11-25.json"
+      ],
+      "blocker": "Repository tests and the offline Oracle compiler (26.2) pass. 26.1 is refused, not qualified. Native import and cascading behaviour in a browser are not yet observed."
     }
   ]
 }

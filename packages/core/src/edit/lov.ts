@@ -162,6 +162,11 @@ function describe(located: Pick<Located, 'source' | 'relative' | 'node'>) {
   };
 }
 
+/** The file declaring a shared LOV (by id or name) in the qualified layout. */
+export async function lovFile(ctx: ProjectContext, key: string): Promise<string> {
+  return (await locate(ctx, key)).file;
+}
+
 export async function lovContext(ctx: ProjectContext, key: string) {
   const located = await locate(ctx, key);
   return {

@@ -5,6 +5,7 @@ import { planInsert, type InsertInput } from './insert.ts';
 import { filterFragment, planFilters, type AddFilterOperation } from './filter.ts';
 import { planColumns, type AddColumnOperation, type OrderColumnsOperation } from './columns.ts';
 import { dialogDependencies, planDialogs, type AddDialogActionOperation } from './dialog.ts';
+import { bindLovDependencies, planBindLov, type BindLovOperation } from './bind-lov.ts';
 import {
   runPageTransaction,
   type ContextMode,
@@ -20,6 +21,7 @@ import {
  */
 
 export type EditOperation =
+  | BindLovOperation
   | AddDialogActionOperation
   | AddFilterOperation
   | AddColumnOperation
@@ -44,7 +46,12 @@ export function editGroups(operations: EditOperation[]): Group[] {
   const filters: AddFilterOperation[] = [];
   const columns: (AddColumnOperation | OrderColumnsOperation)[] = [];
   const dialogs: AddDialogActionOperation[] = [];
+  const bindings: BindLovOperation[] = [];
   for (const operation of operations) {
+    if (operation.op === 'bindLov') {
+      bindings.push(operation);
+      continue;
+    }
     if (operation.op === 'addDialogAction') {
       dialogs.push(operation);
       continue;
@@ -71,6 +78,7 @@ export function editGroups(operations: EditOperation[]): Group[] {
   if (filters.length) groups.push((snapshot) => planFilters(snapshot, filters));
   if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
   if (dialogs.length) groups.push((snapshot) => planDialogs(snapshot, dialogs));
+  if (bindings.length) groups.push((snapshot) => planBindLov(snapshot, bindings));
   return groups;
 }
 
@@ -79,12 +87,16 @@ export async function editPage(ctx: ProjectContext, input: EditInput) {
     ctx,
     input,
     editGroups,
-    (operations) =>
-      dialogDependencies(
+    (operations) => [
+      ...dialogDependencies(
         operations.filter(
           (operation): operation is AddDialogActionOperation => operation.op === 'addDialogAction',
         ),
       ),
+      ...bindLovDependencies(
+        operations.filter((operation): operation is BindLovOperation => operation.op === 'bindLov'),
+      ),
+    ],
   );
   return outcome;
 }

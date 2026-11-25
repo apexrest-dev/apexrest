@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-Q3IEI5UZ.mjs";
+} from "./chunk-F5BOIK5I.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -10,6 +10,11 @@ import {
 import {
   browserPreferences
 } from "./chunk-O7MNIZXK.mjs";
+import {
+  batchCommand,
+  locateCommand,
+  runtimeState
+} from "./chunk-WYPBTRB6.mjs";
 import {
   brokerStatus,
   startBroker,
@@ -20,23 +25,25 @@ import {
   jobToolResult
 } from "./chunk-NOTPADGV.mjs";
 import {
-  ApexLangDocument,
-  DeploymentService,
-  appendChild,
-  applyEdits,
-  deployPlanSchema,
-  digestOf,
-  guardedEdit,
+  lovContext,
+  lovEdit
+} from "./chunk-5LRJHL6N.mjs";
+import {
   pageContext,
   patchPage,
   planColumns,
-  planDigest,
   planSets,
   queryEdits,
+  reportRegion
+} from "./chunk-4QD2UMQ3.mjs";
+import {
+  ApexLangDocument,
+  DeploymentService,
+  appendChild,
+  deployPlanSchema,
+  planDigest,
   readProperty,
   recordRevision,
-  removeComponent,
-  reportRegion,
   revisionOf,
   revisionStatus,
   runPageTransaction,
@@ -45,7 +52,7 @@ import {
   setProperty,
   sourceInventory,
   sourceRevision
-} from "./chunk-HCXMA5HP.mjs";
+} from "./chunk-SADOD6VT.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -58,14 +65,8 @@ import {
   group,
   indent,
   node,
-  parseApexLang,
   refreshAction
 } from "./chunk-J7SOVXCF.mjs";
-import {
-  batchCommand,
-  locateCommand,
-  runtimeState
-} from "./chunk-WYPBTRB6.mjs";
 import {
   CODE_LIMIT,
   LocalDeploymentControl,
@@ -108,7 +109,6 @@ import {
   resourceRoot,
   routingReference,
   scoreReference,
-  sourceRelease,
   sqlclConfig,
   stemmedReference
 } from "./chunk-WEBUXBUI.mjs";
@@ -153,7 +153,7 @@ import {
 
 // packages/core/src/service.ts
 import { fileURLToPath } from "node:url";
-import path12 from "node:path";
+import path11 from "node:path";
 
 // packages/core/src/doctor.ts
 import path from "node:path";
@@ -2026,7 +2026,7 @@ var ID = /^[a-z][a-z0-9_-]{0,254}$/iu;
 var ITEM = /^P\d{1,5}_[A-Z0-9_$#]{1,120}$/iu;
 var DML = /formAutomaticRowProcessing|nativeFormDml|formDml|interactiveGridAutomaticRowProcessing|plsqlCode|executeCode/u;
 var refOf = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : String(value ?? "").replace(/^@/u, "");
-var dialogDependencies = (operations) => operations.map((operation) => operation.target.page);
+var dialogDependencies = (operations) => operations.map((operation) => `page:${operation.target.page}`);
 function targetText(target) {
   const items = Object.entries(target.items ?? {});
   return group(
@@ -2211,6 +2211,184 @@ region: @${region.key}`;
   };
 }
 
+// packages/core/src/edit/bind-lov.ts
+var LIST_ITEMS = /* @__PURE__ */ new Set([
+  "selectList",
+  "radioGroup",
+  "popupLov",
+  "checkboxGroup",
+  "shuttle",
+  "selectOne",
+  "selectMany",
+  "combobox",
+  "listManager"
+]);
+var SOURCE = /* @__PURE__ */ new Set([
+  "type",
+  "lov",
+  "staticValues",
+  "sqlQuery",
+  "plsqlFunctionBody",
+  "javaScriptFunctionBody",
+  "language",
+  "location",
+  "tableName",
+  "tableOwner",
+  "whereClause",
+  "orderByClause",
+  "displayColumn",
+  "returnColumn",
+  "remoteServer",
+  "restSource"
+]);
+var SETTINGS = /* @__PURE__ */ new Set(["displayNullValue", "nullDisplayValue", "nullReturnValue", "displayExtraValues"]);
+var bindLovDependencies = (operations) => operations.map((operation) => `lov:${operation.lov}`);
+var refOf2 = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : String(value ?? "").replace(/^@/u, "");
+function groupLines(doc, owner, name) {
+  const range = owner.groups.get(name);
+  if (!range) return [];
+  const lines = [];
+  for (const [path12, property] of owner.properties) {
+    if (!path12.startsWith(name + ".")) continue;
+    const key = path12.slice(name.length + 1);
+    if (key.includes("."))
+      throw new Fault(
+        "TRANSFORM_UNSUPPORTED",
+        `${owner.key} ${name}.${key} is nested; edit it in source.`,
+        5
+      );
+    if (property.opaque && !SOURCE.has(key))
+      throw new Fault(
+        "TRANSFORM_UNSUPPORTED",
+        `${owner.key} ${path12} holds a multi-line value; edit it in source.`,
+        5
+      );
+    lines.push({ key, text: doc.lines[property.line].text.trim() });
+  }
+  return lines;
+}
+function replaceGroup2(doc, owner, name, text) {
+  const existing = owner.groups.get(name);
+  const body = text ? indent(text, owner.indent + 4).split("\n").join(doc.eol) + doc.eol : "";
+  if (existing) {
+    const open2 = doc.lines[existing.open];
+    const close = doc.lines[existing.close];
+    return { start: open2.offset, end: close.offset + close.text.length + close.eol.length, content: body };
+  }
+  if (!body) return void 0;
+  const before = doc.lines[owner.children[0]?.open ?? owner.close];
+  return { start: before.offset, end: before.offset, content: body };
+}
+function planBindLov(snapshot, operations) {
+  const { doc, node: page, parsed, release, related } = snapshot;
+  if (release !== "26.2")
+    throw new Fault(
+      "OPERATION_UNSUPPORTED",
+      "bindLov is qualified for 26.2 sources; edit 26.1 items in source.",
+      2
+    );
+  const edits = [];
+  const checks = [];
+  const items = new Set(parsed.children.filter((c) => c.type === "pageItem").map((c) => c.id.toUpperCase()));
+  const seen = /* @__PURE__ */ new Set();
+  for (const operation of operations) {
+    const item = ApexLangDocument.one(page.children, "pageItem", operation.item, `Page ${page.key}`);
+    if (seen.has(item.key.toUpperCase()))
+      throw new Fault("TRANSFORM_CONFLICT", `${item.key} is bound twice.`, 5);
+    seen.add(item.key.toUpperCase());
+    const type = String(item.properties.get("type")?.value ?? "");
+    if (!LIST_ITEMS.has(type))
+      throw new Fault(
+        "OPERATION_UNSUPPORTED",
+        `${item.key} is a ${type || "item without a type"}, not a list item.`,
+        2
+      );
+    const lov = related.get(`lov:${operation.lov}`);
+    if (!lov) throw new Fault("TARGET_NOT_FOUND", `No shared LOV ${operation.lov}.`, 2);
+    if (operation.expectedLovDigest && operation.expectedLovDigest !== lov.digest)
+      throw new Fault(
+        "TRANSFORM_CONFLICT",
+        `${lov.file} changed since it was read; read it again and retry.`,
+        5,
+        "conflict",
+        {
+          file: lov.file,
+          currentDigest: lov.digest
+        }
+      );
+    const id = lov.parsed.id;
+    const kept = groupLines(doc, item, "lov").filter((line) => !SOURCE.has(line.key));
+    const settings = new Map(kept.map((line) => [line.key, line.text]));
+    if (operation.nullValue === false) {
+      for (const key of ["displayNullValue", "nullDisplayValue", "nullReturnValue"]) settings.delete(key);
+      settings.set("displayNullValue", "displayNullValue: false");
+    } else if (operation.nullValue) {
+      settings.set("displayNullValue", "displayNullValue: true");
+      settings.set("nullDisplayValue", `nullDisplayValue: ${scalarText(operation.nullValue.display)}`);
+      if (operation.nullValue.return !== void 0)
+        settings.set("nullReturnValue", `nullReturnValue: ${scalarText(operation.nullValue.return)}`);
+      else settings.delete("nullReturnValue");
+    }
+    if (operation.displayExtraValues !== void 0)
+      settings.set("displayExtraValues", `displayExtraValues: ${operation.displayExtraValues}`);
+    const ordered = [
+      ...[...SETTINGS].filter((key) => settings.has(key)).map((key) => settings.get(key)),
+      ...[...settings].filter(([key]) => !SETTINGS.has(key)).map(([, text]) => text)
+    ];
+    edits.push(
+      replaceGroup2(
+        doc,
+        item,
+        "lov",
+        group("lov", ["type: sharedComponent", `lov: @${id}`, ...ordered].join("\n"))
+      )
+    );
+    if (operation.cascade !== void 0) {
+      if (operation.cascade === null) {
+        const removal = replaceGroup2(doc, item, "cascadingLov", "");
+        if (removal) edits.push(removal);
+      } else {
+        const parents = operation.cascade.parentItems.map((name) => name.toUpperCase());
+        const submitted2 = (operation.cascade.itemsToSubmit ?? []).map((name) => name.toUpperCase());
+        if (!parents.length) throw new Fault("INVALID_INPUT", "cascade needs parentItems.", 2);
+        for (const name of [...parents, ...submitted2]) {
+          if (name === item.key.toUpperCase())
+            throw new Fault("INVALID_INPUT", `${item.key} cannot cascade from itself.`, 2);
+          if (!items.has(name))
+            throw new Fault("TARGET_NOT_FOUND", `Page ${page.key} has no item ${name}.`, 2);
+        }
+        edits.push(
+          replaceGroup2(
+            doc,
+            item,
+            "cascadingLov",
+            group(
+              "cascadingLov",
+              [
+                `parentItems: ${parents.join(",")}`,
+                submitted2.length ? `itemsToSubmit: ${submitted2.join(",")}` : "",
+                operation.cascade.parentRequired !== void 0 ? `parentRequired: ${operation.cascade.parentRequired}` : ""
+              ].filter(Boolean).join("\n")
+            )
+          )
+        );
+      }
+    }
+    checks.push((after) => {
+      const component = after.children.find(
+        (c) => c.type === "pageItem" && c.id.toUpperCase() === item.key.toUpperCase()
+      );
+      if (!component || readProperty(component, "lov.type") !== "sharedComponent" || refOf2(readProperty(component, "lov.lov")) !== id)
+        throw new Fault("TRANSFORM_INVALID", `${item.key} LOV binding did not read back.`, 5);
+    });
+  }
+  return {
+    edits,
+    verify: (after) => checks.forEach((check2) => check2(after)),
+    targets: operations.map((operation) => `item:${operation.item.toUpperCase()}`)
+  };
+}
+
 // packages/core/src/edit/page-edit.ts
 function editGroups(operations) {
   const sets = [];
@@ -2218,7 +2396,12 @@ function editGroups(operations) {
   const filters = [];
   const columns = [];
   const dialogs = [];
+  const bindings = [];
   for (const operation of operations) {
+    if (operation.op === "bindLov") {
+      bindings.push(operation);
+      continue;
+    }
     if (operation.op === "addDialogAction") {
       dialogs.push(operation);
       continue;
@@ -2244,6 +2427,7 @@ function editGroups(operations) {
   if (filters.length) groups.push((snapshot) => planFilters(snapshot, filters));
   if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
   if (dialogs.length) groups.push((snapshot) => planDialogs(snapshot, dialogs));
+  if (bindings.length) groups.push((snapshot) => planBindLov(snapshot, bindings));
   return groups;
 }
 async function editPage(ctx, input) {
@@ -2251,250 +2435,22 @@ async function editPage(ctx, input) {
     ctx,
     input,
     editGroups,
-    (operations) => dialogDependencies(
-      operations.filter(
-        (operation) => operation.op === "addDialogAction"
+    (operations) => [
+      ...dialogDependencies(
+        operations.filter(
+          (operation) => operation.op === "addDialogAction"
+        )
+      ),
+      ...bindLovDependencies(
+        operations.filter((operation) => operation.op === "bindLov")
       )
-    )
+    ]
   );
   return outcome;
 }
 
-// packages/core/src/edit/lov.ts
-import path5 from "node:path";
-import { readFile as readFile4, readdir } from "node:fs/promises";
-var slug = (value) => value.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "").slice(0, 60) || "entry";
-async function lovFiles(app, release) {
-  if (release === "26.1") {
-    const file2 = "shared-components/lovs.apx";
-    return await exists(path5.join(app, file2)) ? [file2] : [];
-  }
-  if (release !== "26.2")
-    throw new Fault(
-      "LAYOUT_UNSUPPORTED",
-      "Shared LOV editing needs an Oracle-generated 26.1 or 26.2 application.",
-      2
-    );
-  const dir = path5.join(app, "shared-components/lovs");
-  if (!await exists(dir)) return [];
-  return (await readdir(dir)).filter((name) => name.endsWith(".apx")).sort().map((name) => `shared-components/lovs/${name}`);
-}
-async function locate(ctx, key) {
-  const app = await contained(ctx.root, ctx.config.application.sourceDir);
-  const release = await sourceRelease(app);
-  const matches = [];
-  for (const name of await lovFiles(app, release)) {
-    const file2 = path5.join(app, name);
-    const source = await readFile4(file2, "utf8");
-    if (!/^\s*lov\s/mu.test(source)) continue;
-    const doc = new ApexLangDocument(source);
-    const lovs = doc.roots.filter((root) => root.kind === "lov");
-    if (release === "26.2" && lovs.length > 1)
-      throw new Fault(
-        "LAYOUT_UNSUPPORTED",
-        `${name} declares ${lovs.length} LOVs; 26.2 keeps one per file.`,
-        2
-      );
-    for (const node2 of lovs) {
-      const named2 = String(node2.properties.get("name")?.value ?? "").replace(/^"|"$/gu, "");
-      if (node2.key.toUpperCase() === key.toUpperCase() || named2.toUpperCase() === key.toUpperCase())
-        matches.push({
-          app,
-          file: file2,
-          relative: path5.relative(ctx.root, file2).split(path5.sep).join("/"),
-          source,
-          doc,
-          node: node2
-        });
-    }
-  }
-  if (matches.length !== 1)
-    throw new Fault(
-      matches.length ? "TARGET_AMBIGUOUS" : "TARGET_NOT_FOUND",
-      matches.length ? `Several shared LOVs match ${key}.` : `No shared LOV ${key}.`,
-      matches.length ? 5 : 2
-    );
-  return matches[0];
-}
-async function consumers(app, id) {
-  const dir = path5.join(app, "pages");
-  if (!await exists(dir)) return [];
-  const pattern = new RegExp(`^\\s*lov:\\s*@${id.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\s*$`, "mu");
-  const pages = [];
-  for (const name of (await readdir(dir)).filter((file2) => file2.endsWith(".apx")).sort()) {
-    const page = /^p(\d{1,5})/u.exec(name);
-    if (page && pattern.test(await readFile4(path5.join(dir, name), "utf8")))
-      pages.push(String(Number(page[1])));
-  }
-  return pages;
-}
-function describe(located) {
-  const parsed = parseApexLang(located.source, located.relative).find(
-    (c) => c.type === "lov" && c.id === located.node.key
-  );
-  const text = (dotted) => {
-    const value = readProperty(parsed, dotted);
-    return typeof value === "string" && value ? value : void 0;
-  };
-  const entries = parsed.children.filter((c) => c.type === "entry").map((entry) => ({
-    id: entry.id,
-    sequence: Number(readProperty(entry, "sequence")) || 0,
-    display: String(readProperty(entry, "display") ?? ""),
-    return: String(readProperty(entry, "return") ?? "")
-  })).sort((a, b) => a.sequence - b.sequence);
-  return {
-    id: parsed.id,
-    name: text("name"),
-    location: text("source.location"),
-    type: text("source.type"),
-    ...entries.length ? { entries } : {},
-    ...text("source.sqlQuery") ? { query: text("source.sqlQuery") } : {},
-    ...text("columnMapping.display") ? { display: text("columnMapping.display") } : {},
-    ...text("columnMapping.return") ? { return: text("columnMapping.return") } : {}
-  };
-}
-async function lovContext(ctx, key) {
-  const located = await locate(ctx, key);
-  return {
-    file: located.relative,
-    digest: digestOf(located.source),
-    lov: describe(located),
-    consumers: await consumers(located.app, located.node.key),
-    scope: "sharedComponent",
-    next: "Edit with project action:lov_edit and this digest."
-  };
-}
-function plan(located, input) {
-  const { doc, node: node2 } = located;
-  if (Boolean(input.entries) === Boolean(input.query))
-    throw new Fault("INVALID_INPUT", "Give entries (static LOV) or query (SQL LOV).", 2);
-  const location = String(node2.properties.get("source.location")?.value ?? "");
-  const edits = [];
-  if (input.entries) {
-    if (location !== "staticValues")
-      throw new Fault("OPERATION_UNSUPPORTED", `${node2.key} is not a static LOV (${location}).`, 2);
-    if (!input.entries.length || input.entries.length > 500)
-      throw new Fault("INVALID_INPUT", "Give 1-500 entries.", 2);
-    const returns = input.entries.map((entry) => entry.return);
-    if (new Set(returns).size !== returns.length)
-      throw new Fault("INVALID_INPUT", "Entry return values must be unique.", 2);
-    const existing = node2.children.filter((child) => child.kind === "entry");
-    if (node2.children.some((child) => child.kind !== "entry"))
-      throw new Fault(
-        "OPERATION_UNSUPPORTED",
-        `${node2.key} has components other than entries; edit it in source.`,
-        2
-      );
-    const returnOf = (entry) => String(entry.properties.get("return")?.value ?? "");
-    const ids = new Set(existing.map((entry) => entry.key.toLowerCase()));
-    let added = "";
-    input.entries.forEach((entry, index) => {
-      const sequence = String(index + 1);
-      const kept = existing.find((current) => unquote(returnOf(current)) === entry.return);
-      if (kept) {
-        if (unquote(String(kept.properties.get("display")?.value ?? "")) !== entry.display)
-          edits.push(setProperty(doc, kept, "display", entry.display));
-        if (String(kept.properties.get("sequence")?.value ?? "") !== sequence)
-          edits.push(setProperty(doc, kept, "sequence", sequence));
-        return;
-      }
-      let id = slug(entry.return);
-      for (let n = 2; ids.has(id); n++) id = `${slug(entry.return)}-${n}`;
-      ids.add(id);
-      const indent2 = " ".repeat(node2.indent + 4);
-      added += [
-        `entry ${id} (`,
-        `    sequence: ${sequence}`,
-        `    display: ${scalarText(entry.display)}`,
-        `    return: ${scalarText(entry.return)}`,
-        ")"
-      ].map((line) => indent2 + line).join(doc.eol) + doc.eol;
-    });
-    for (const entry of existing)
-      if (!returns.includes(unquote(returnOf(entry)))) edits.push(removeComponent(doc, entry));
-    if (added) {
-      const last = existing.at(-1);
-      const line = doc.lines[last ? last.close : node2.close];
-      const at = last ? line.offset + line.text.length + line.eol.length : line.offset;
-      edits.push({ start: at, end: at, content: added });
-    }
-  } else {
-    const query = input.query;
-    if (location !== "localDatabase" || String(node2.properties.get("source.type")?.value) !== "sqlQuery")
-      throw new Fault("OPERATION_UNSUPPORTED", `${node2.key} is not a local SQL query LOV.`, 2);
-    if (!/^\s*(select|with)\b/iu.test(query.sql))
-      throw new Fault("INVALID_INPUT", "Supply a SELECT query.", 2);
-    const property = node2.properties.get("source.sqlQuery");
-    edits.push(
-      property?.fence ? setFencedText(doc, node2, "source.sqlQuery", query.sql) : setProperty(doc, node2, "source.sqlQuery", query.sql)
-    );
-    if (query.display)
-      edits.push(setProperty(doc, node2, "columnMapping.display", query.display.toUpperCase()));
-    if (query.return) edits.push(setProperty(doc, node2, "columnMapping.return", query.return.toUpperCase()));
-  }
-  const result = applyEdits(located.source, edits);
-  let after;
-  try {
-    after = describe({ source: result, relative: located.relative, node: node2 });
-  } catch (error) {
-    throw new Fault("TRANSFORM_INVALID", `The edited LOV does not parse: ${error.message}`, 5);
-  }
-  new ApexLangDocument(result);
-  if (input.entries) {
-    const read = (after.entries ?? []).map((entry) => [entry.display, entry.return]);
-    if (JSON.stringify(read) !== JSON.stringify(input.entries.map((entry) => [entry.display, entry.return])))
-      throw new Fault("TRANSFORM_INVALID", `${node2.key} entries did not read back.`, 5);
-  } else if (String(after.query ?? "").trim() !== input.query.sql.trim())
-    throw new Fault("TRANSFORM_INVALID", `${node2.key} query did not read back.`, 5);
-  return result;
-}
-var unquote = (value) => {
-  if (!value.startsWith('"')) return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-};
-async function lovEdit(ctx, input) {
-  const first = await locate(ctx, input.lov);
-  const outcome = await guardedEdit(ctx, {
-    file: first.file,
-    relative: first.relative,
-    expectedDigest: input.expectedDigest,
-    dryRun: input.dryRun,
-    plan: async () => {
-      const located = await locate(ctx, input.lov);
-      if (located.file !== first.file)
-        throw new Fault("TRANSFORM_CONFLICT", `${input.lov} moved to ${located.relative}; read it again.`, 5);
-      return {
-        source: located.source,
-        digest: digestOf(located.source),
-        result: plan(located, input),
-        node: located.node
-      };
-    }
-  });
-  const { planned } = outcome;
-  const pages = await consumers(first.app, first.node.key);
-  return {
-    file: first.relative,
-    beforeDigest: planned.digest,
-    afterDigest: digestOf(planned.result),
-    written: outcome.written,
-    ...outcome.change ? { change: outcome.change } : {},
-    lov: describe({ source: planned.result, relative: first.relative, node: planned.node }),
-    digest: digestOf(planned.result),
-    // Shared-component scope: these pages use the LOV, but other references (PL/SQL, columns of
-    // other components) are not resolved, so the change is never reported as page-only.
-    scope: "sharedComponent",
-    consumers: pages,
-    next: outcome.written ? "Source edited only. Ship with importMode auto or full; a shared LOV is not a page-only change." : `Apply with expectedDigest ${planned.digest}.`
-  };
-}
-
 // packages/core/src/deploy-reconcile.ts
-import path6 from "node:path";
+import path5 from "node:path";
 import { appendFile } from "node:fs/promises";
 async function reconcileRun(ctx, input) {
   if (!input.userRequest.trim())
@@ -2504,32 +2460,32 @@ async function reconcileRun(ctx, input) {
       2
     );
   const runDir = await contained(ctx.root, ".apexrest/deployments/" + input.run);
-  if (!await exists(path6.join(runDir, "plan.json")))
+  if (!await exists(path5.join(runDir, "plan.json")))
     throw new Fault(
       "RUN_NOT_FOUND",
       `No deployment run ${input.run} exists in this project.`,
       2,
       "not_found"
     );
-  const plan2 = await readJson(path6.join(runDir, "plan.json"));
-  const state = await readJson(path6.join(runDir, "state.json"));
+  const plan = await readJson(path5.join(runDir, "plan.json"));
+  const state = await readJson(path5.join(runDir, "state.json"));
   if (!["outcome_unknown", "failed"].includes(String(state.state)))
     throw new Fault(
       "RUN_NOT_HELD",
       `Run ${input.run} is ${state.state}; only interrupted runs are reconciled.`,
       5
     );
-  if (plan2.environment !== input.env)
+  if (plan.environment !== input.env)
     throw new Fault(
       "PLAN_TARGET_MISMATCH",
-      `Run ${input.run} deployed to ${plan2.environment}, not ${input.env}.`,
+      `Run ${input.run} deployed to ${plan.environment}, not ${input.env}.`,
       5
     );
   const env = environment(ctx, input.env);
-  await refuseProductionDeployment(env, input.env, plan2.targetDigest);
-  if (targetDigest(env) !== plan2.targetDigest)
+  await refuseProductionDeployment(env, input.env, plan.targetDigest);
+  if (targetDigest(env) !== plan.targetDigest)
     throw new Fault("PLAN_TARGET_MISMATCH", "The environment configuration changed since this run.", 5);
-  const scripts = plan2.operations.filter((op) => op.kind === "migration" || op.kind === "package");
+  const scripts = plan.operations.filter((op) => op.kind === "migration" || op.kind === "package");
   const files = new Set(scripts.map((op) => op.file));
   const stated = new Map(input.statements.map((entry) => [entry.file, entry.outcome]));
   const missing = [...files].filter((file2) => !stated.has(file2));
@@ -2544,7 +2500,7 @@ async function reconcileRun(ctx, input) {
     );
   if ([...stated.values()].some((outcome) => outcome !== "applied" && outcome !== "not_applied"))
     throw new Fault("INVALID_INPUT", "Each outcome is applied or not_applied.", 2);
-  const expected = `${input.run}:${plan2.digest.slice(0, 12)}`;
+  const expected = `${input.run}:${plan.digest.slice(0, 12)}`;
   if (input.confirm !== expected)
     throw new Fault(
       "RECONCILIATION_CONFIRMATION_REQUIRED",
@@ -2556,7 +2512,7 @@ async function reconcileRun(ctx, input) {
   const statements = scripts.map((op) => ({
     kind: op.kind,
     file: op.file,
-    version: path6.basename(op.file),
+    version: path5.basename(op.file),
     checksum: op.sha256,
     applied: stated.get(op.file) === "applied"
   }));
@@ -2568,16 +2524,16 @@ async function reconcileRun(ctx, input) {
   const at = (/* @__PURE__ */ new Date()).toISOString();
   const record = {
     runId: input.run,
-    planDigest: plan2.digest,
+    planDigest: plan.digest,
     environment: input.env,
     at,
     userRequest: input.userRequest,
     statements: input.statements,
     releasedOwner: owner
   };
-  await writeJson(path6.join(runDir, "reconciliation.json"), record);
+  await writeJson(path5.join(runDir, "reconciliation.json"), record);
   await appendFile(
-    path6.join(runDir, "journal.jsonl"),
+    path5.join(runDir, "journal.jsonl"),
     JSON.stringify({ runId: input.run, state: "reconciled", at }) + "\n"
   );
   return {
@@ -2592,8 +2548,8 @@ async function reconcileRun(ctx, input) {
 }
 
 // packages/core/src/panel.ts
-import path7 from "node:path";
-import { readdir as readdir2, realpath as realpath3, stat as stat3 } from "node:fs/promises";
+import path6 from "node:path";
+import { readdir, realpath as realpath3, stat as stat3 } from "node:fs/promises";
 var safe = (value) => sanitized(value);
 var historyLimit = 2e3;
 var PanelService = class {
@@ -2607,7 +2563,7 @@ var PanelService = class {
   async records(folder) {
     const base = await contained(this.root, ".apexrest/" + folder);
     if (!await exists(base)) return { rows: [], omitted: 0 };
-    let entries = (await readdir2(base, { withFileTypes: true })).filter(
+    let entries = (await readdir(base, { withFileTypes: true })).filter(
       (e) => e.isDirectory() && external_exports.uuid().safeParse(e.name).success
     );
     let omitted = 0;
@@ -2615,7 +2571,7 @@ var PanelService = class {
       const dated = await Promise.all(
         entries.map(async (entry) => ({
           entry,
-          at: (await stat3(path7.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
+          at: (await stat3(path6.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
         }))
       );
       omitted = entries.length - historyLimit;
@@ -2771,7 +2727,7 @@ var PanelService = class {
 // packages/core/src/usage.ts
 import { AsyncLocalStorage } from "node:async_hooks";
 import { constants, lstat, open } from "node:fs/promises";
-import path8 from "node:path";
+import path7 from "node:path";
 var count2 = external_exports.number().int().nonnegative().safe();
 var duration = external_exports.number().finite().nonnegative().max(7 * 864e5);
 var modelName = external_exports.string().max(120).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/);
@@ -2831,7 +2787,7 @@ function retain(store) {
   store.entries = store.entries.slice(discarded);
   return store;
 }
-var file = () => path8.join(managedHome(), "usage-log.json");
+var file = () => path7.join(managedHome(), "usage-log.json");
 async function readPrivate(file2, maximum) {
   const before = await lstat(file2);
   if (!before.isFile() || before.isSymbolicLink() || before.size > maximum)
@@ -2862,7 +2818,7 @@ async function readStore() {
 async function saveLocked(entry) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await withLock(path8.join(managedHome(), "usage-log.lock"), async () => {
+      return await withLock(path7.join(managedHome(), "usage-log.lock"), async () => {
         const store = await readStore();
         const existing = entry.importDigest && store.entries.find((old) => old.importDigest === entry.importDigest);
         if (existing) return { recorded: false, duplicate: true, entry: existing };
@@ -3156,7 +3112,7 @@ async function importUsage(host, source, elapsedMs, counterMode) {
       "Enable local usage logging with settings configure --usage-log on.",
       2
     );
-  const contents = await readPrivate(path8.resolve(source), 8 * 1024 * 1024);
+  const contents = await readPrivate(path7.resolve(source), 8 * 1024 * 1024);
   const native = nativeUsage(host, records(contents), counterMode);
   const elapsed = elapsedMs === void 0 ? native.elapsed : parse(duration, elapsedMs);
   const entry = parse(entrySchema2, {
@@ -3234,14 +3190,14 @@ async function usageStatus(limit = 20) {
 }
 
 // packages/core/src/peer-review.ts
-import path11 from "node:path";
+import path10 from "node:path";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile as readFile6, rm } from "node:fs/promises";
+import { mkdir, readFile as readFile5, rm } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/cli-command.ts
-import path9 from "node:path";
-import { readFile as readFile5, stat as stat4 } from "node:fs/promises";
+import path8 from "node:path";
+import { readFile as readFile4, stat as stat4 } from "node:fs/promises";
 var SHIM_LIMIT = 64 * 1024;
 var NODE_FLAG = /^--?[A-Za-z0-9][\w-]*(?:=[\w./:-]*)?$/u;
 function npmShimTarget(text) {
@@ -3277,12 +3233,12 @@ async function resolveCliCommand(command, args, host = {}) {
       3,
       "dependency_missing"
     );
-  const extension = path9.extname(located).toLowerCase();
+  const extension = path8.extname(located).toLowerCase();
   if (extension === ".cmd" || extension === ".bat") {
-    const content = await readFile5(located);
+    const content = await readFile4(located);
     const shim = content.length <= SHIM_LIMIT ? npmShimTarget(content.toString("utf8")) : void 0;
     if (shim) {
-      const target = path9.join(path9.dirname(located), ...shim.target.split(/[\\/]/u));
+      const target = path8.join(path8.dirname(located), ...shim.target.split(/[\\/]/u));
       if (await isFile(target))
         return shim.node ? { executable: host.execPath ?? process.execPath, args: [...shim.nodeArgs, target, ...args] } : { executable: target, args };
     }
@@ -3296,7 +3252,7 @@ async function resolveCliCommand(command, args, host = {}) {
 }
 
 // packages/core/src/ship.ts
-import path10 from "node:path";
+import path9 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -3341,23 +3297,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source = path10.resolve(root, input.sourceDir);
-  if (!await exists(path10.join(source, "application.apx")))
+  const source = path9.resolve(root, input.sourceDir);
+  if (!await exists(path9.join(source, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path10.join(source, ".apex", "apexlang.json");
+  const own = path9.join(source, ".apex", "apexlang.json");
   if (await exists(own)) return { source, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path10.resolve(input.project));
-  for (let dir = path10.dirname(source); ; dir = path10.dirname(dir)) {
-    if (await exists(path10.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path9.resolve(input.project));
+  for (let dir = path9.dirname(source); ; dir = path9.dirname(dir)) {
+    if (await exists(path9.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path10.dirname(dir) === dir) break;
+    if (path9.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -3366,7 +3322,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file2 = path10.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file2 = path9.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file2)) return { source, metadata: { origin: "project", file: file2 } };
   }
   throw new Fault(
@@ -3420,20 +3376,20 @@ async function validateApplication(oracle, target, parseDiagnostics2, signal) {
     outputTruncated: false
   };
 }
-function sourceCounts(ctx, plan2) {
-  const under = (dir) => Object.keys(plan2.sources).filter((f) => f.startsWith(dir + "/"));
+function sourceCounts(ctx, plan) {
+  const under = (dir) => Object.keys(plan.sources).filter((f) => f.startsWith(dir + "/"));
   const application = under(ctx.config.application.sourceDir);
   const pages = application.filter((f) => /\/pages\/[^/]+\.apx$/.test(f));
   return {
     application: application.length,
     pages: pages.length,
     pageFiles: pages.slice(0, 50).map((f) => f.slice(ctx.config.application.sourceDir.length + 1)),
-    migrations: plan2.operations.filter((o) => o.kind === "migration").length,
-    packages: plan2.operations.filter((o) => o.kind === "package").length
+    migrations: plan.operations.filter((o) => o.kind === "migration").length,
+    packages: plan.operations.filter((o) => o.kind === "package").length
   };
 }
-function planPreview(ctx, plan2, options) {
-  const selection = plan2.schemaVersion === 4 ? plan2.importSelection : {
+function planPreview(ctx, plan, options) {
+  const selection = plan.schemaVersion === 4 ? plan.importSelection : {
     requestedMode: options?.importMode ?? "full",
     resolvedMode: "full",
     files: [],
@@ -3443,11 +3399,11 @@ function planPreview(ctx, plan2, options) {
     ]
   };
   return {
-    planId: plan2.id,
-    planDigest: plan2.digest,
-    environment: plan2.environment,
-    targetDigest: plan2.targetDigest,
-    planMode: plan2.schemaVersion === 1 ? "full-export" : plan2.mode,
+    planId: plan.id,
+    planDigest: plan.digest,
+    environment: plan.environment,
+    targetDigest: plan.targetDigest,
+    planMode: plan.schemaVersion === 1 ? "full-export" : plan.mode,
     importSelection: {
       requestedMode: selection.requestedMode,
       resolvedMode: selection.resolvedMode,
@@ -3457,17 +3413,17 @@ function planPreview(ctx, plan2, options) {
       dependencies: selection.dependencies.slice(0, 50),
       dependencyCount: selection.dependencies.length,
       reasons: selection.reasons,
-      ...plan2.schemaVersion === 4 && plan2.importSelection.readbackPolicy ? { readbackPolicy: plan2.importSelection.readbackPolicy } : {}
+      ...plan.schemaVersion === 4 && plan.importSelection.readbackPolicy ? { readbackPolicy: plan.importSelection.readbackPolicy } : {}
     },
-    backupRequired: plan2.backupRequired,
-    compiler: plan2.compiler,
-    createdAt: plan2.createdAt,
-    expiresAt: plan2.expiresAt,
-    risks: plan2.risks,
-    databaseReview: plan2.databaseReview,
-    approval: plan2.approval,
-    sources: sourceCounts(ctx, plan2),
-    target: JSON.stringify(plan2.target).length <= 1200 ? plan2.target : { omitted: true }
+    backupRequired: plan.backupRequired,
+    compiler: plan.compiler,
+    createdAt: plan.createdAt,
+    expiresAt: plan.expiresAt,
+    risks: plan.risks,
+    databaseReview: plan.databaseReview,
+    approval: plan.approval,
+    sources: sourceCounts(ctx, plan),
+    target: JSON.stringify(plan.target).length <= 1200 ? plan.target : { omitted: true }
   };
 }
 function applicationLink(ctx, name) {
@@ -3482,16 +3438,16 @@ function applicationLink(ctx, name) {
 async function shipPlan(ctx, name, deployment, parseDiagnostics2, progress, options = { importMode: "auto" }) {
   const started = Date.now();
   progress?.("validating");
-  let plan2;
+  let plan;
   try {
-    plan2 = await deployment.plan(ctx, name, options);
+    plan = await deployment.plan(ctx, name, options);
   } catch (error) {
     throw compilerFault(error, parseDiagnostics2);
   }
-  const planPath = ".apexrest/plans/ship-" + plan2.id + ".json";
-  await writeJson(await contained(ctx.root, planPath), plan2);
+  const planPath = ".apexrest/plans/ship-" + plan.id + ".json";
+  await writeJson(await contained(ctx.root, planPath), plan);
   const phases = [{ phase: "planning", ms: Date.now() - started }];
-  return { plan: plan2, planPath, phases, preview: planPreview(ctx, plan2, options) };
+  return { plan, planPath, phases, preview: planPreview(ctx, plan, options) };
 }
 var phaseFor = {
   backing_up: "backing_up",
@@ -3499,14 +3455,14 @@ var phaseFor = {
   importing: "importing",
   verifying: "verifying"
 };
-function shipGrant(ctx, plan2, userRequest, confirmation) {
+function shipGrant(ctx, plan, userRequest, confirmation) {
   return {
     projectRoot: ctx.root,
-    targetDigest: plan2.targetDigest,
-    planDigest: plan2.digest,
-    expiresAt: new Date(Math.min(Date.parse(plan2.expiresAt), Date.now() + 10 * 60 * 1e3)).toISOString(),
+    targetDigest: plan.targetDigest,
+    planDigest: plan.digest,
+    expiresAt: new Date(Math.min(Date.parse(plan.expiresAt), Date.now() + 10 * 60 * 1e3)).toISOString(),
     workerPid: process.pid,
-    ...confirmation ? { confirmedRisks: plan2.risks, confirmationRequest: confirmation.userRequest } : {},
+    ...confirmation ? { confirmedRisks: plan.risks, confirmationRequest: confirmation.userRequest } : {},
     operations: ["deploy"],
     note: userRequest.slice(0, 16e3),
     grantedBy: "ship",
@@ -3528,31 +3484,31 @@ async function reconcileShipGrants() {
     })
   }));
 }
-var ownGrant = (ctx, plan2) => (g) => g.grantedBy === "ship" && g.projectRoot === ctx.root && g.planDigest === plan2.digest;
-async function checkShipTarget(ctx, plan2, local = false, confirmation) {
-  const env = environment(ctx, plan2.environment);
-  if (await isProductionTarget(env, plan2.targetDigest))
+var ownGrant = (ctx, plan) => (g) => g.grantedBy === "ship" && g.projectRoot === ctx.root && g.planDigest === plan.digest;
+async function checkShipTarget(ctx, plan, local = false, confirmation) {
+  const env = environment(ctx, plan.environment);
+  if (await isProductionTarget(env, plan.targetDigest))
     throw new Fault(
       "PRODUCTION_DEPLOY_DENIED",
       "The plugin never deploys or restores production-marked targets.",
       4,
       "blocked"
     );
-  if (confirmation && (confirmation.planDigest !== plan2.digest || confirmation.userRequest.trim().length < 1))
+  if (confirmation && (confirmation.planDigest !== plan.digest || confirmation.userRequest.trim().length < 1))
     throw new Fault(
       "CONFIRMATION_PLAN_MISMATCH",
       "Human confirmation must name this exact reviewed plan digest.",
       4,
       "blocked"
     );
-  if (!local && plan2.risks.some((r) => r !== "application-restore") && !confirmation)
+  if (!local && plan.risks.some((r) => r !== "application-restore") && !confirmation)
     throw new Fault(
       "DATABASE_CONFIRMATION_REQUIRED",
       "Describe the actual remote database operations and consequences, then obtain human confirmation for this exact saved plan.",
       4,
       "blocked",
       {
-        nextActions: plan2.risks.map((r) => "Review operation: " + r)
+        nextActions: plan.risks.map((r) => "Review operation: " + r)
       }
     );
   return env;
@@ -3566,17 +3522,17 @@ var CLIENT_STOPPED_CAUSES = /* @__PURE__ */ new Set([
   "SCRIPT_INCOMPLETE"
 ]);
 async function shipApply(ctx, planValue, userRequest, deployment, signal, progress, confirmation, recoveryAttempt = 0) {
-  const plan2 = parse(deployPlanSchema, planValue);
-  if (await isProductionTarget(environment(ctx, plan2.environment), plan2.targetDigest))
+  const plan = parse(deployPlanSchema, planValue);
+  if (await isProductionTarget(environment(ctx, plan.environment), plan.targetDigest))
     throw new Fault(
       "PRODUCTION_DEPLOY_DENIED",
       "The plugin never deploys or restores production-marked targets.",
       4,
       "blocked"
     );
-  await deployment.checkLocal(ctx, plan2);
-  const locality = plan2.risks.length ? await deployment.localTarget(ctx, plan2) : { local: false };
-  await checkShipTarget(ctx, plan2, locality.local, confirmation);
+  await deployment.checkLocal(ctx, plan);
+  const locality = plan.risks.length ? await deployment.localTarget(ctx, plan) : { local: false };
+  await checkShipTarget(ctx, plan, locality.local, confirmation);
   await reconcileShipGrants();
   const phases = [];
   let current;
@@ -3585,13 +3541,13 @@ async function shipApply(ctx, planValue, userRequest, deployment, signal, progre
     current = { phase, at: Date.now() };
     progress?.(phase);
   };
-  const grant = shipGrant(ctx, plan2, userRequest, confirmation);
-  await updatePolicy((p) => ({ ...p, grants: [...p.grants.filter((g) => !ownGrant(ctx, plan2)(g)), grant] }));
+  const grant = shipGrant(ctx, plan, userRequest, confirmation);
+  await updatePolicy((p) => ({ ...p, grants: [...p.grants.filter((g) => !ownGrant(ctx, plan)(g)), grant] }));
   let grantRemoved = false;
   let applied;
   try {
     mark("backing_up");
-    applied = await deployment.apply(ctx, plan2, signal, (state) => {
+    applied = await deployment.apply(ctx, plan, signal, (state) => {
       const phase = phaseFor[state];
       if (phase && phase !== current?.phase) mark(phase);
     });
@@ -3635,7 +3591,7 @@ async function shipApply(ctx, planValue, userRequest, deployment, signal, progre
   } finally {
     grantRemoved = await updatePolicy((p) => ({
       ...p,
-      grants: p.grants.filter((g) => !ownGrant(ctx, plan2)(g))
+      grants: p.grants.filter((g) => !ownGrant(ctx, plan)(g))
     })).then(
       () => true,
       () => false
@@ -3645,15 +3601,15 @@ async function shipApply(ctx, planValue, userRequest, deployment, signal, progre
   return {
     status: "succeeded",
     runId: applied.runId,
-    planId: plan2.id,
-    planDigest: plan2.digest,
-    environment: plan2.environment,
-    application: applicationLink(ctx, plan2.environment),
-    sources: sourceCounts(ctx, plan2),
+    planId: plan.id,
+    planDigest: plan.digest,
+    environment: plan.environment,
+    application: applicationLink(ctx, plan.environment),
+    sources: sourceCounts(ctx, plan),
     phases,
     ...applied.recovered ? { recovery: "server-readback-confirmed" } : {},
     verification: { identity: "confirmed", state: applied.state, directory: applied.directory },
-    grant: { recorded: true, removed: grantRemoved, expiresAt: grant.expiresAt, planDigest: plan2.digest },
+    grant: { recorded: true, removed: grantRemoved, expiresAt: grant.expiresAt, planDigest: plan.digest },
     nextActions: grantRemoved ? [] : [
       "The grant cleanup failed; retain this diagnostic and let runtime grant reconciliation handle it before the next attempt."
     ]
@@ -3871,8 +3827,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID());
   await mkdir(scratch, { recursive: true });
   try {
-    const schemaFile = path11.join(scratch, "verdict.schema.json");
-    const lastFile = path11.join(scratch, "last-message.json");
+    const schemaFile = path10.join(scratch, "verdict.schema.json");
+    const lastFile = path10.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -3923,7 +3879,7 @@ async function runPeer(vendor, ctx, prompt, options) {
         `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
         1
       );
-    if (vendor === "codex") return parseVerdict(await readFile6(lastFile, "utf8"));
+    if (vendor === "codex") return parseVerdict(await readFile5(lastFile, "utf8"));
     const envelope = JSON.parse(result.stdout);
     if (envelope.is_error)
       throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
@@ -3965,15 +3921,15 @@ async function peerReview(ctx, input, verify, signal) {
       "The saved plan does not match its digest; create a new plan before review.",
       5
     );
-  const plan2 = saved ? (await verify(saved)).plan : void 0;
+  const plan = saved ? (await verify(saved)).plan : void 0;
   const host = hostAgent();
-  if (plan2 && ctx.config.peerReview?.mode === "required" && host && resolvePeer(ctx, input.vendor) === host)
+  if (plan && ctx.config.peerReview?.mode === "required" && host && resolvePeer(ctx, input.vendor) === host)
     throw new Fault(
       "PEER_REVIEW_SAME_VENDOR",
       `peerReview.mode is required, so the plan must be reviewed by the other vendor, not by ${host} itself.`,
       2
     );
-  const sources = plan2 ? void 0 : await sourceInventory(ctx);
+  const sources = plan ? void 0 : await sourceInventory(ctx);
   if (sources && !Object.keys(sources).length)
     throw new Fault("INPUT_INVALID", "The project has no application or database sources to review.", 2);
   const vendor = resolvePeer(ctx, input.vendor);
@@ -3984,7 +3940,7 @@ async function peerReview(ctx, input, verify, signal) {
     ctx,
     peerPrompt(
       ctx,
-      plan2 ? { plan: plan2, planPath: input.plan } : { sources: Object.keys(sources) },
+      plan ? { plan, planPath: input.plan } : { sources: Object.keys(sources) },
       await sourceDiff(ctx, signal),
       input.focus
     ),
@@ -4003,37 +3959,37 @@ async function peerReview(ctx, input, verify, signal) {
   const sourceDigest = sources ? hash(canonical(sources)) : void 0;
   const record = {
     schemaVersion: 1,
-    ...plan2 ? { planDigest: plan2.digest, planId: plan2.id, environment: plan2.environment } : { sourceDigest },
+    ...plan ? { planDigest: plan.digest, planId: plan.id, environment: plan.environment } : { sourceDigest },
     vendor,
     cliVersion: version?.stdout.trim().split("\n")[0]?.slice(0, 200) ?? "unknown",
     reviewedAt: (/* @__PURE__ */ new Date()).toISOString(),
     durationMs: Math.round(performance2.now() - started),
     ...verdict
   };
-  const file2 = plan2 ? reviewPath(plan2.digest) : sourceReviewPath(sourceDigest);
+  const file2 = plan ? reviewPath(plan.digest) : sourceReviewPath(sourceDigest);
   await writeJson(await contained(ctx.root, file2), record);
   return {
     ...record,
     reviewPath: file2,
     gate: ctx.config.peerReview?.mode ?? "off",
-    nextActions: !plan2 ? [
+    nextActions: !plan ? [
       record.verdict === "approve" ? "Source review approved. It is advisory: a deployment still needs apexrest_ship mode:plan and, when peerReview.mode is required, a review of that plan." : "Address the findings and rerun apexrest_peer_review on the updated sources. Report every finding to the user."
     ] : record.verdict === "approve" ? ["Apply this exact saved plan with apexrest_ship mode:apply plan:" + input.plan] : [
       "Address the findings, rerun apexrest_ship mode:plan, then review the new plan. Report every finding to the user."
     ]
   };
 }
-async function peerReviewGate(ctx, plan2) {
+async function peerReviewGate(ctx, plan) {
   const mode = ctx.config.peerReview?.mode ?? "off";
   if (mode === "off") return void 0;
-  const record = await readPeerReview(ctx, plan2.digest);
+  const record = await readPeerReview(ctx, plan.digest);
   if (mode === "required" && !record)
     throw new Fault(
       "PEER_REVIEW_REQUIRED",
       "peerReview.mode is required and this exact plan has no peer review.",
       4,
       "blocked",
-      { planDigest: plan2.digest }
+      { planDigest: plan.digest }
     );
   const host = hostAgent();
   if (mode === "required" && host && record.vendor === host)
@@ -4042,7 +3998,7 @@ async function peerReviewGate(ctx, plan2) {
       `peerReview.mode is required, but this plan was reviewed by ${host}, the host agent itself.`,
       4,
       "blocked",
-      { planDigest: plan2.digest }
+      { planDigest: plan.digest }
     );
   if (mode === "required" && record.verdict !== "approve")
     throw new Fault(
@@ -4050,7 +4006,7 @@ async function peerReviewGate(ctx, plan2) {
       `The ${record.vendor} peer review requested changes to this plan: ${record.summary.slice(0, 600)}`,
       4,
       "blocked",
-      { planDigest: plan2.digest }
+      { planDigest: plan.digest }
     );
   return {
     mode,
@@ -4068,10 +4024,10 @@ async function peerReviewGate(ctx, plan2) {
 var engine = oracle_exports;
 var parseDiagnostics = (output) => (engine.parseCompilerDiagnostics ?? fallbackCompilerDiagnostics)(output);
 async function readRequestedPlan(root, file2, env) {
-  const plan2 = parse(deployPlanSchema, await readJson(await contained(root, file2)));
-  if (env !== plan2.environment)
+  const plan = parse(deployPlanSchema, await readJson(await contained(root, file2)));
+  if (env !== plan.environment)
     throw new Fault("PLAN_ENVIRONMENT_MISMATCH", "The saved plan belongs to another environment.", 5);
-  return plan2;
+  return plan;
 }
 async function sharedOracle() {
   return new OracleAdapter();
@@ -4085,7 +4041,7 @@ function prewarmCompiler(project) {
       try {
         const ctx = await loadProject(project);
         const source = await contained(ctx.root, ctx.config.application.sourceDir);
-        if (!await exists(path12.join(source, ".apex/apexlang.json"))) {
+        if (!await exists(path11.join(source, ".apex/apexlang.json"))) {
           compilerPrewarms.delete(project);
           return;
         }
@@ -4298,7 +4254,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-PLOFLEDX.mjs");
+      const { previewDispatch } = await import("./chunk-G4OXTD5Y.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4340,17 +4296,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-YYSWI55E.mjs");
+        const { setup } = await import("./chunk-ITGXF3UD.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-YYSWI55E.mjs");
+        const { validateNative } = await import("./chunk-ITGXF3UD.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-YYSWI55E.mjs");
+        const { uninstallNative } = await import("./chunk-ITGXF3UD.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
@@ -4360,7 +4316,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text("directory"),
           text("template"),
-          text("alias") ?? path12.basename(path12.resolve(text("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text("alias") ?? path11.basename(path11.resolve(text("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "project.scaffold": {
@@ -4484,7 +4440,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           case "dev.start":
             data = await startBroker(
               ctx,
-              path12.join(path12.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
+              path11.join(path11.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
             );
             break;
           case "dev.status":
@@ -4606,11 +4562,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
                 2
               );
             const planned = parsed.plan ? await (async () => {
-              const { plan: plan2 } = await deployment.checkLocal(
+              const { plan } = await deployment.checkLocal(
                 ctx,
                 await readRequestedPlan(ctx.root, text("plan"), text("env"))
               );
-              return { plan: plan2, planPath: text("plan"), phases: [], preview: planPreview(ctx, plan2) };
+              return { plan, planPath: text("plan"), phases: [], preview: planPreview(ctx, plan) };
             })() : await shipPlan(ctx, text("env"), deployment, parseDiagnostics, progress, {
               importMode: parsed.importMode,
               ...parsed.files ? { files: parsed.files } : {}
@@ -4645,11 +4601,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "ship.apply": {
-            const plan2 = await readRequestedPlan(ctx.root, text("plan"), text("env"));
-            const peer = await peerReviewGate(ctx, plan2);
+            const plan = await readRequestedPlan(ctx.root, text("plan"), text("env"));
+            const peer = await peerReviewGate(ctx, plan);
             data = await shipApply(
               ctx,
-              plan2,
+              plan,
               text("userRequest"),
               deployment,
               signal,
@@ -4691,12 +4647,12 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             data = await deployment.plan(ctx, text("env"));
             break;
           case "deploy.plan": {
-            const plan2 = await deployment.plan(ctx, text("env"), {
+            const plan = await deployment.plan(ctx, text("env"), {
               importMode: parsed.importMode,
               ...parsed.files ? { files: parsed.files } : {}
             });
-            await writeJson(await contained(ctx.root, text("out")), plan2);
-            data = plan2;
+            await writeJson(await contained(ctx.root, text("out")), plan);
+            data = plan;
             break;
           }
           case "deploy.apply":
@@ -4713,9 +4669,9 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             data = await deployment.reconcile(ctx, text("run"));
             break;
           case "deploy.restore-plan": {
-            const plan2 = await deployment.restorePlan(ctx, text("backup"));
-            await writeJson(await contained(ctx.root, text("out")), plan2);
-            data = plan2;
+            const plan = await deployment.restorePlan(ctx, text("backup"));
+            await writeJson(await contained(ctx.root, text("out")), plan);
+            data = plan;
             break;
           }
           case "browser.open": {
@@ -4767,7 +4723,7 @@ var observationOnly = /* @__PURE__ */ new Set([
 ]);
 async function rememberProject(root) {
   try {
-    const ctx = await loadProject(path12.resolve(root));
+    const ctx = await loadProject(path11.resolve(root));
     await recordProject(ctx.root, ctx.config.projectId);
   } catch {
   }

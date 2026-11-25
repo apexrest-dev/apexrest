@@ -260,6 +260,30 @@ export const schemas = {
               .optional(),
           }),
           z.strictObject({
+            op: z.literal('bindLov'),
+            item: z.string().min(1).max(128),
+            lov: z.string().min(1).max(255).describe('Shared LOV id or name'),
+            expectedLovDigest: z
+              .string()
+              .regex(/^[a-f0-9]{64}$/u)
+              .optional(),
+            nullValue: z
+              .union([
+                z.literal(false),
+                z.strictObject({ display: z.string().max(4000), return: z.string().max(4000).optional() }),
+              ])
+              .optional(),
+            displayExtraValues: z.boolean().optional(),
+            cascade: z
+              .strictObject({
+                parentItems: z.array(z.string().min(1).max(128)).min(1).max(20),
+                itemsToSubmit: z.array(z.string().min(1).max(128)).max(50).optional(),
+                parentRequired: z.boolean().optional(),
+              })
+              .nullable()
+              .optional(),
+          }),
+          z.strictObject({
             op: z.literal('addDialogAction'),
             target: z.strictObject({
               page: z.number().int().min(1).max(99999),

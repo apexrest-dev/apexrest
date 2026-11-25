@@ -1633,6 +1633,24 @@
       ],
       "evidence": ["sanitized result code", "LOV file digest before and after", "compiler diagnostics count"],
       "budgetMs": 10000
+    },
+    {
+      "id": "A261-077",
+      "title": "Bind an item to a shared LOV",
+      "acceptance": ["FASTDEV-A07"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Read a page with a static select list and a shared LOV.",
+        "Send bindLov with a cascade and the LOV digest.",
+        "Validate."
+      ],
+      "expected": [
+        "The item references the shared LOV; superseded source properties are gone; other item properties are unchanged; the compiler passes."
+      ],
+      "evidence": ["sanitized result code", "compiler diagnostics count"],
+      "budgetMs": 10000
     }
   ],
   "metrics": "quality-performance.json"

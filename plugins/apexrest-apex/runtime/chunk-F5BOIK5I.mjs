@@ -194,6 +194,22 @@ var schemas = {
           ).max(200).optional()
         }),
         external_exports.strictObject({
+          op: external_exports.literal("bindLov"),
+          item: external_exports.string().min(1).max(128),
+          lov: external_exports.string().min(1).max(255).describe("Shared LOV id or name"),
+          expectedLovDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional(),
+          nullValue: external_exports.union([
+            external_exports.literal(false),
+            external_exports.strictObject({ display: external_exports.string().max(4e3), return: external_exports.string().max(4e3).optional() })
+          ]).optional(),
+          displayExtraValues: external_exports.boolean().optional(),
+          cascade: external_exports.strictObject({
+            parentItems: external_exports.array(external_exports.string().min(1).max(128)).min(1).max(20),
+            itemsToSubmit: external_exports.array(external_exports.string().min(1).max(128)).max(50).optional(),
+            parentRequired: external_exports.boolean().optional()
+          }).nullable().optional()
+        }),
+        external_exports.strictObject({
           op: external_exports.literal("addDialogAction"),
           target: external_exports.strictObject({
             page: external_exports.number().int().min(1).max(99999),

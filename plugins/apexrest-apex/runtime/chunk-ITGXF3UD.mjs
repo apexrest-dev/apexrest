@@ -1,11 +1,8 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   toolCatalog
-} from "./chunk-Q3IEI5UZ.mjs";
+} from "./chunk-F5BOIK5I.mjs";
 import "./chunk-O7MNIZXK.mjs";
-import "./chunk-NOTPADGV.mjs";
-import "./chunk-Y2XCPATG.mjs";
-import "./chunk-J7SOVXCF.mjs";
 import {
   ToolchainService,
   canonicalHome,
@@ -13,6 +10,9 @@ import {
   runCommand,
   runtimeState
 } from "./chunk-WYPBTRB6.mjs";
+import "./chunk-NOTPADGV.mjs";
+import "./chunk-Y2XCPATG.mjs";
+import "./chunk-J7SOVXCF.mjs";
 import {
   resourceRoot
 } from "./chunk-WEBUXBUI.mjs";

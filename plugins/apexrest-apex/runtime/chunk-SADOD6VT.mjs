@@ -218,10 +218,10 @@ function sqlTokens(sql) {
       tokens.push({ value, start, end: i });
       continue;
     }
-    const word2 = /^[A-Za-z][\w$#]*/.exec(sql.slice(i));
-    if (word2) {
-      i += word2[0].length;
-      tokens.push({ value: word2[0].toUpperCase(), start, end: i });
+    const word = /^[A-Za-z][\w$#]*/.exec(sql.slice(i));
+    if (word) {
+      i += word[0].length;
+      tokens.push({ value: word[0].toUpperCase(), start, end: i });
     } else {
       const value = sql[i++];
       tokens.push({ value, start, end: i });
@@ -339,9 +339,9 @@ function inspectSql(sql, depth = 0) {
   let anonymousBlock = false;
   let inspectedQuery = false;
   for (let i = 0; i < tokens.length; i++) {
-    const word2 = at(i);
-    if (word2 === ";") inspectedQuery = false;
-    if (word2 === "EXECUTE" && at(i + 1) === "IMMEDIATE") {
+    const word = at(i);
+    if (word === ";") inspectedQuery = false;
+    if (word === "EXECUTE" && at(i + 1) === "IMMEDIATE") {
       const literal = tokens[i + 2];
       if (literal?.literal && at(i + 3) !== "|" && depth < 4)
         operations.push(...inspectSql(literal.value, depth + 1));
@@ -352,16 +352,16 @@ function inspectSql(sql, depth = 0) {
           true,
           "Dynamic SQL cannot be resolved statically; review the complete script."
         );
-    } else if ((word2 === "EXEC" || word2 === "EXECUTE") && statementStart(i)) {
+    } else if ((word === "EXEC" || word === "EXECUTE") && statementStart(i)) {
       add(
         "plsql-block",
         null,
         true,
         "Executes a database block or routine; review its data and schema effects."
       );
-    } else if ((word2 === "DECLARE" || word2 === "BEGIN") && statementStart(i)) {
+    } else if ((word === "DECLARE" || word === "BEGIN") && statementStart(i)) {
       anonymousBlock = true;
-    } else if (word2 === "DROP") {
+    } else if (word === "DROP") {
       const found = kindAt(i + 1);
       add(
         "drop-" + (found?.kind.toLowerCase() ?? "object"),
@@ -369,14 +369,14 @@ function inspectSql(sql, depth = 0) {
         true,
         "Removes the database object; dependent code can become invalid. Dropping a table removes its data and constraints."
       );
-    } else if (word2 === "TRUNCATE" && ["TABLE", "CLUSTER"].includes(at(i + 1))) {
+    } else if (word === "TRUNCATE" && ["TABLE", "CLUSTER"].includes(at(i + 1))) {
       add(
         "truncate-" + at(i + 1).toLowerCase(),
         objectAt(i + 2),
         true,
         "Removes all table rows with DDL commit semantics; application metadata backup does not restore data."
       );
-    } else if (word2 === "ALTER" && at(i + 1) === "TABLE") {
+    } else if (word === "ALTER" && at(i + 1) === "TABLE") {
       const object = objectAt(i + 2), cursor = at(i + 3) === "." ? i + 5 : i + 3;
       if (at(cursor) === "RENAME" && at(cursor + 1) === "COLUMN")
         add(
@@ -393,7 +393,7 @@ function inspectSql(sql, depth = 0) {
           true,
           "Changes the table definition; inspect constraints, stored data and dependent application queries."
         );
-    } else if (word2 === "RENAME") {
+    } else if (word === "RENAME") {
       if (at(i - 1) !== "TABLE" && at(i + 1) !== "COLUMN")
         add(
           "rename-object",
@@ -401,23 +401,23 @@ function inspectSql(sql, depth = 0) {
           true,
           "Renames an object; dependent references require review."
         );
-    } else if (["INSERT", "UPDATE", "DELETE", "MERGE"].includes(word2) && // Not DML: a foreign key's ON DELETE CASCADE/SET NULL clause and a SELECT ... FOR UPDATE lock.
-    !(at(i - 1) === "ON" && word2 === "DELETE") && !(at(i - 1) === "FOR" && word2 === "UPDATE")) {
+    } else if (["INSERT", "UPDATE", "DELETE", "MERGE"].includes(word) && // Not DML: a foreign key's ON DELETE CASCADE/SET NULL clause and a SELECT ... FOR UPDATE lock.
+    !(at(i - 1) === "ON" && word === "DELETE") && !(at(i - 1) === "FOR" && word === "UPDATE")) {
       const cursor = ["INTO", "FROM"].includes(at(i + 1)) ? i + 2 : i + 1;
       add(
-        word2.toLowerCase(),
+        word.toLowerCase(),
         objectAt(cursor),
         true,
         "Mutates business data; an APEX application backup does not restore affected rows."
       );
-    } else if (["GRANT", "REVOKE", "AUDIT", "NOAUDIT", "ADMINISTER"].includes(word2) || word2 === "ALTER" && ["USER", "SYSTEM", "DATABASE", "SESSION", "PROFILE", "ROLE"].includes(at(i + 1))) {
+    } else if (["GRANT", "REVOKE", "AUDIT", "NOAUDIT", "ADMINISTER"].includes(word) || word === "ALTER" && ["USER", "SYSTEM", "DATABASE", "SESSION", "PROFILE", "ROLE"].includes(at(i + 1))) {
       add(
         "privileged-sql",
         null,
         true,
         "Changes database privileges, session context or administration settings."
       );
-    } else if (word2 === "ALTER" && statementStart(i)) {
+    } else if (word === "ALTER" && statementStart(i)) {
       const found = kindAt(i + 1);
       add(
         "alter-" + (found?.kind.toLowerCase() ?? "object"),
@@ -425,14 +425,14 @@ function inspectSql(sql, depth = 0) {
         true,
         "Changes an existing database object; dependent code, triggers or constraints can change behavior."
       );
-    } else if (["PURGE", "FLASHBACK"].includes(word2) && statementStart(i)) {
+    } else if (["PURGE", "FLASHBACK"].includes(word) && statementStart(i)) {
       add(
-        word2.toLowerCase(),
+        word.toLowerCase(),
         null,
         true,
         "Permanently removes or rewinds database objects; review the affected data."
       );
-    } else if (word2 === "CREATE" && statementStart(i)) {
+    } else if (word === "CREATE" && statementStart(i)) {
       const found = kindAt(i + 1);
       const replaces = at(i + 1) === "OR" && at(i + 2) === "REPLACE";
       if (!found) continue;
@@ -466,7 +466,7 @@ function inspectSql(sql, depth = 0) {
           true,
           "Creates a privileged or executable database object (users, roles, links, jobs, directories, contexts); review its scope."
         );
-    } else if (word2 === "SELECT" && !inspectedQuery) {
+    } else if (word === "SELECT" && !inspectedQuery) {
       inspectQuery(i);
       inspectedQuery = true;
     }
@@ -780,15 +780,15 @@ function sqlclControlLines(sql) {
       found.push(index + 1);
       return;
     }
-    const word2 = /^[A-Za-z][A-Za-z0-9_$#]*/.exec(line)?.[0].toLowerCase();
-    if (!word2) return;
-    const rest = line.slice(word2.length).trimStart();
-    if (word2.length >= 3 && "remark".startsWith(word2)) return;
+    const word = /^[A-Za-z][A-Za-z0-9_$#]*/.exec(line)?.[0].toLowerCase();
+    if (!word) return;
+    const rest = line.slice(word.length).trimStart();
+    if (word.length >= 3 && "remark".startsWith(word)) return;
     if (plsqlBlockStart.test(line)) block = true;
-    if ("start".startsWith(word2) && word2.length >= 3 && /^with\b/i.test(rest)) return;
-    if ("connect".startsWith(word2) && word2.length >= 4 && /^by\b/i.test(rest)) return;
-    if (block && word2 === "exit") return;
-    if (word2 === "whenever" && /\bcontinue\b/i.test(rest) || word2 === "set" && /^(?:logsource|editfile)\b/i.test(rest) || clientCommands.some(([name, min]) => word2.length >= min && name.startsWith(word2)))
+    if ("start".startsWith(word) && word.length >= 3 && /^with\b/i.test(rest)) return;
+    if ("connect".startsWith(word) && word.length >= 4 && /^by\b/i.test(rest)) return;
+    if (block && word === "exit") return;
+    if (word === "whenever" && /\bcontinue\b/i.test(rest) || word === "set" && /^(?:logsource|editfile)\b/i.test(rest) || clientCommands.some(([name, min]) => word.length >= min && name.startsWith(word)))
       found.push(index + 1);
   });
   return found;
@@ -3086,30 +3086,6 @@ ${error.message}`,
   }
 };
 
-// packages/core/src/edit/patch.ts
-import path6 from "node:path";
-import { readFile as readFile5 } from "node:fs/promises";
-
-// packages/core/src/edit/page-file.ts
-import path4 from "node:path";
-import { readFile as readFile3, readdir as readdir2 } from "node:fs/promises";
-async function pageFile(ctx, page) {
-  const app = await contained(ctx.root, ctx.config.application.sourceDir);
-  const dir = path4.join(app, "pages");
-  const matches = [];
-  for (const name of (await readdir2(dir)).filter((file) => file.endsWith(".apx")).sort()) {
-    const head = (await readFile3(path4.join(dir, name), "utf8")).slice(0, 4096);
-    if (new RegExp(`^page\\s+${page}\\s*\\(`, "mu").test(head)) matches.push(path4.join(dir, name));
-  }
-  if (matches.length !== 1)
-    throw new Fault(
-      matches.length ? "TARGET_AMBIGUOUS" : "TARGET_NOT_FOUND",
-      matches.length ? `Several files declare page ${page}.` : `No page file declares page ${page}.`,
-      matches.length ? 5 : 2
-    );
-  return matches[0];
-}
-
 // packages/core/src/edit/apexlang-edit.ts
 import { createHash } from "node:crypto";
 var MAX_BYTES = 8 * 1024 * 1024;
@@ -3256,7 +3232,7 @@ var ApexLangDocument = class {
         if (!owner) throw unsupported(`Property outside a component at line ${index + 1}.`);
         const key = unquote(property[2]);
         const prefix = groupPath();
-        const path7 = prefix ? `${prefix}.${key}` : key;
+        const path6 = prefix ? `${prefix}.${key}` : key;
         const value = property[4] ?? "";
         const colon = text2.indexOf(":", property[1].length + property[2].length);
         const valueStart = property[3] ? line.offset + colon + 1 + property[3].length : line.offset + colon + 1;
@@ -3267,8 +3243,8 @@ var ApexLangDocument = class {
           value,
           opaque: value === "" || value === "{" || value === "[" || value.startsWith("```")
         };
-        if (owner.properties.has(path7)) throw unsupported(`Duplicate property ${path7} at line ${index + 1}.`);
-        owner.properties.set(path7, entry);
+        if (owner.properties.has(path6)) throw unsupported(`Duplicate property ${path6} at line ${index + 1}.`);
+        owner.properties.set(path6, entry);
         if (value === "") pendingFence = entry;
         else if (value === "{") stack.push({ type: "value", close: "}" });
         else if (value === "[") stack.push({ type: "value", close: "]" });
@@ -3295,15 +3271,15 @@ function scalarText(value) {
   const plain = value !== "" && value === value.trim() && !["true", "false", "{", "["].includes(value) && !/^["@\\[{]|^```|^\/\/|^\/\*/u.test(value);
   return plain ? value : JSON.stringify(value);
 }
-function setProperty(doc, node, path7, value) {
+function setProperty(doc, node, path6, value) {
   const text2 = scalarText(value);
-  const existing = node.properties.get(path7);
+  const existing = node.properties.get(path6);
   if (existing) {
-    if (existing.opaque) throw unsupported(`${path7} holds a multi-line value; edit it in source.`);
+    if (existing.opaque) throw unsupported(`${path6} holds a multi-line value; edit it in source.`);
     return { start: existing.valueStart, end: existing.valueEnd, content: text2 };
   }
-  const parts = path7.split(".");
-  if (parts.length > 2) throw unsupported(`Nested property ${path7} is not supported.`);
+  const parts = path6.split(".");
+  if (parts.length > 2) throw unsupported(`Nested property ${path6} is not supported.`);
   const indent = " ".repeat(node.indent + 4);
   const eol = doc.eol;
   if (parts.length === 2) {
@@ -3327,7 +3303,7 @@ function setProperty(doc, node, path7, value) {
   const after = node.properties.get("name")?.line ?? node.open;
   const line = doc.lines[after];
   const at = line.offset + line.text.length + line.eol.length;
-  return { start: at, end: at, content: `${indent}${path7}: ${text2}${eol}` };
+  return { start: at, end: at, content: `${indent}${path6}: ${text2}${eol}` };
 }
 function applyEdits(source, edits) {
   let result = source;
@@ -3340,10 +3316,10 @@ function applyEdits(source, edits) {
   }
   return result;
 }
-function setFencedText(doc, node, path7, text2) {
-  const property = node.properties.get(path7);
+function setFencedText(doc, node, path6, text2) {
+  const property = node.properties.get(path6);
   if (!property?.fence || property.fence.close < 0)
-    throw unsupported(`${path7} is not a fenced literal of ${node.kind} ${node.key}.`);
+    throw unsupported(`${path6} is not a fenced literal of ${node.kind} ${node.key}.`);
   if (/^\s*```/mu.test(text2))
     throw new Fault("INVALID_INPUT", "The text cannot contain a ``` fence line.", 2);
   const open2 = doc.lines[property.fence.open];
@@ -3362,274 +3338,41 @@ function appendChild(doc, parent, text2) {
   const close = doc.lines[parent.close];
   return { start: close.offset, end: close.offset, content: text2 };
 }
-function readProperty(component, path7) {
+function readProperty(component, path6) {
   let value = component.props;
-  for (const part of path7.split(".")) {
+  for (const part of path6.split(".")) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
     value = value[part];
   }
   return value;
 }
 
-// packages/core/src/edit/columns.ts
-var REPORTS = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
-var NAME = /^[A-Z][A-Z0-9_$#]{0,127}$/u;
-var DATA_TYPES_261 = {
-  varchar2: "STRING",
-  number: "NUMBER",
-  date: "DATE",
-  timestamp: "TIMESTAMP"
-};
-var word = (name) => new RegExp(`(^|[^A-Z0-9_$#])${name.replace(/[$#]/gu, "\\$&")}([^A-Z0-9_$#]|$)`, "iu");
-var sequenceOf = (node, path7) => Number(node.properties.get(path7)?.value) || 0;
-var bySequence = (nodes, path7) => [...nodes].sort((a, b) => sequenceOf(a, path7) - sequenceOf(b, path7) || a.open - b.open);
-function reportRegion(region, operation) {
-  const type = String(region.properties.get("type")?.value ?? "");
-  if (!REPORTS.has(type))
+// packages/core/src/edit/transaction.ts
+import path5 from "node:path";
+import { readFile as readFile4 } from "node:fs/promises";
+
+// packages/core/src/edit/page-file.ts
+import path4 from "node:path";
+import { readFile as readFile3, readdir as readdir2 } from "node:fs/promises";
+async function pageFile(ctx, page) {
+  const app = await contained(ctx.root, ctx.config.application.sourceDir);
+  const dir = path4.join(app, "pages");
+  const matches = [];
+  for (const name of (await readdir2(dir)).filter((file) => file.endsWith(".apx")).sort()) {
+    const head = (await readFile3(path4.join(dir, name), "utf8")).slice(0, 4096);
+    if (new RegExp(`^page\\s+${page}\\s*\\(`, "mu").test(head)) matches.push(path4.join(dir, name));
+  }
+  if (matches.length !== 1)
     throw new Fault(
-      "OPERATION_UNSUPPORTED",
-      `${operation} is supported on interactive and classic reports, not ${type || "this region"}.`,
-      2
+      matches.length ? "TARGET_AMBIGUOUS" : "TARGET_NOT_FOUND",
+      matches.length ? `Several files declare page ${page}.` : `No page file declares page ${page}.`,
+      matches.length ? 5 : 2
     );
-  return type;
-}
-var columnsOf = (region) => region.children.filter((child) => child.kind === "column");
-var savedReports = (region) => region.children.filter((child) => child.kind === "savedReport");
-function primaryReport(region) {
-  const reports = savedReports(region);
-  return reports.find(
-    (report) => String(report.properties.get("visibility")?.value ?? "").startsWith("primary")
-  ) ?? reports[0];
-}
-function queryNames(sql, names) {
-  const missing = names.filter((name) => !word(name).test(sql));
-  if (missing.length)
-    throw new Fault("COLUMN_NOT_IN_QUERY", `The query does not name ${missing.join(", ")}.`, 2);
-}
-function checkNames(names) {
-  if (names.some((name) => !NAME.test(name)) || new Set(names).size !== names.length)
-    throw new Fault("INVALID_INPUT", "Column names must be unique Oracle identifiers.", 2);
-}
-function columnText(doc, region, column, sequence, release) {
-  const dataType = column.dataType && (release === "26.1" ? DATA_TYPES_261[column.dataType] : column.dataType);
-  const lines = [
-    `column ${column.name.toUpperCase()} (`,
-    "    type: plainText",
-    "    heading {",
-    `        heading: ${scalarText(column.heading ?? column.name)}`,
-    "    }",
-    "    layout {",
-    `        sequence: ${sequence}`,
-    "    }",
-    ...column.format ? ["    appearance {", `        formatMask: ${scalarText(column.format)}`, "    }"] : [],
-    ...dataType ? ["    source {", `        dataType: ${dataType}`, "    }"] : [],
-    ")"
-  ];
-  const indent = " ".repeat(region.indent + 4);
-  return lines.map((line) => indent + line).join(doc.eol) + doc.eol;
-}
-function afterColumns(doc, region, text2) {
-  const last = columnsOf(region).at(-1);
-  if (!last) {
-    const line2 = doc.lines[savedReports(region)[0]?.open ?? region.close];
-    return { start: line2.offset, end: line2.offset, content: text2 };
-  }
-  const line = doc.lines[last.close];
-  const at = line.offset + line.text.length + line.eol.length;
-  return { start: at, end: at, content: text2 };
-}
-function placeInOrder(doc, order, path7, step) {
-  const current = order.map((node) => node ? sequenceOf(node, path7) : void 0);
-  const index = current.indexOf(void 0);
-  const existing = current.filter((value) => value !== void 0);
-  const increasing = existing.every((value, i) => i === 0 || value > existing[i - 1]);
-  if (increasing && existing.every((value) => value > 0)) {
-    if (index === -1) return { edits: [], sequence: 0 };
-    const previous = index > 0 ? current[index - 1] : 0;
-    const next2 = index < current.length - 1 ? current[index + 1] : void 0;
-    if (next2 === void 0) return { edits: [], sequence: previous + step };
-    if (next2 - previous >= 2) return { edits: [], sequence: Math.floor((previous + next2) / 2) };
-  }
-  const edits = [];
-  let sequence = 0;
-  order.forEach((node, i) => {
-    const value = (i + 1) * step;
-    if (!node) sequence = value;
-    else if (sequenceOf(node, path7) !== value) edits.push(setProperty(doc, node, path7, String(value)));
-  });
-  return { edits, sequence };
-}
-function references(doc, report, name) {
-  const found = [];
-  for (const child of report.children) {
-    if (child.kind === "displayColumn") continue;
-    for (let line = child.open; line <= child.close; line++)
-      if (word(name).test(doc.lines[line].text)) {
-        found.push(`${child.kind} ${child.key}`.trim());
-        break;
-      }
-  }
-  return found;
-}
-function savedReportEdits(doc, region, dropped, added) {
-  const edits = [];
-  for (const report of savedReports(region))
-    for (const name of dropped) {
-      const used = references(doc, report, name);
-      if (used.length)
-        throw new Fault(
-          "COLUMN_REFERENCED",
-          `Saved report ${report.key} still uses ${name} in ${used.join(", ")}. Remove that use in source first.`,
-          5
-        );
-      for (const display of report.children.filter(
-        (child) => child.kind === "displayColumn" && child.key.toUpperCase() === name
-      ))
-        edits.push(removeComponent(doc, display));
-    }
-  const primary = primaryReport(region);
-  if (!primary || !added.length) return edits;
-  const displayed = bySequence(
-    primary.children.filter(
-      (child) => child.kind === "displayColumn" && !dropped.includes(child.key.toUpperCase())
-    ),
-    "sequence"
-  );
-  let order = [...displayed];
-  const news = [];
-  for (const column of added) {
-    const at2 = column.before ? order.findIndex((node) => node?.key.toUpperCase() === column.before) : column.after ? order.findIndex((node) => node?.key.toUpperCase() === column.after) + 1 : order.length;
-    order.splice(at2 < 0 ? order.length : at2, 0, void 0);
-    news.push(column.name);
-  }
-  const holes = order.filter((node) => !node).length;
-  let sequences;
-  if (holes === 1) {
-    const placed = placeInOrder(doc, order, "sequence", 1);
-    edits.push(...placed.edits);
-    sequences = [placed.sequence];
-  } else {
-    sequences = [];
-    order.forEach((node, i) => {
-      if (!node) sequences.push(i + 1);
-      else if (sequenceOf(node, "sequence") !== i + 1)
-        edits.push(setProperty(doc, node, "sequence", String(i + 1)));
-    });
-  }
-  const indent = " ".repeat(primary.indent + 4);
-  const text2 = news.map(
-    (name, i) => [`displayColumn ${name} (`, `    sequence: ${sequences[i]}`, ")"].map((line) => indent + line).join(doc.eol) + doc.eol
-  ).join("");
-  const last = primary.children.filter((child) => child.kind === "displayColumn").at(-1);
-  const anchor = last ? doc.lines[last.close] : doc.lines[primary.close];
-  const at = last ? anchor.offset + anchor.text.length + anchor.eol.length : anchor.offset;
-  edits.push({ start: at, end: at, content: text2 });
-  return edits;
-}
-function planColumns(snapshot, operations) {
-  const { doc, node: page, release } = snapshot;
-  const edits = [];
-  const checks = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const operation of operations) {
-    const region = ApexLangDocument.one(page.children, "region", operation.region, `Page ${page.key}`);
-    if (seen.has(region.key.toUpperCase()))
-      throw new Fault("TRANSFORM_CONFLICT", `Two column operations change region ${operation.region}.`, 5);
-    seen.add(region.key.toUpperCase());
-    const type = reportRegion(region, operation.op);
-    const columns = bySequence(columnsOf(region), "layout.sequence");
-    const key = (name2) => name2.toUpperCase();
-    const find = (name2) => name2 === void 0 ? void 0 : columns.findIndex((column) => column.key.toUpperCase() === key(name2));
-    if (operation.op === "orderColumns") {
-      const order2 = operation.order.map(key);
-      checkNames(order2);
-      const declared = columns.map((column) => column.key.toUpperCase());
-      if (order2.length !== declared.length || order2.some((name2) => !declared.includes(name2)))
-        throw new Fault(
-          "INVALID_INPUT",
-          `order must list every column of ${region.key} once: ${declared.join(", ")}.`,
-          2
-        );
-      const nodes = order2.map((name2) => columns[find(name2)]);
-      edits.push(...placeInOrder(doc, nodes, "layout.sequence", 10).edits);
-      const primary = type === "interactiveReport" ? primaryReport(region) : void 0;
-      if (primary) {
-        const displayed = primary.children.filter((child) => child.kind === "displayColumn");
-        const shown = order2.map((name2) => displayed.find((child) => child.key.toUpperCase() === name2)).filter((node) => Boolean(node));
-        edits.push(...placeInOrder(doc, shown, "sequence", 1).edits);
-      }
-      checks.push((after) => {
-        const parsed = after.children.find(
-          (c) => c.type === "region" && c.id.toUpperCase() === region.key.toUpperCase()
-        );
-        const now = (parsed?.children ?? []).filter((c) => c.type === "column").sort(
-          (a, b) => Number(readProperty(a, "layout.sequence")) - Number(readProperty(b, "layout.sequence"))
-        ).map((c) => c.id.toUpperCase());
-        if (JSON.stringify(now) !== JSON.stringify(order2))
-          throw new Fault(
-            "TRANSFORM_INVALID",
-            `${region.key} columns did not read back in the requested order.`,
-            5
-          );
-      });
-      continue;
-    }
-    const name = key(operation.column.name);
-    checkNames([name]);
-    if (find(name) !== -1)
-      throw new Fault("TARGET_EXISTS", `Column ${name} already exists in ${region.key}.`, 5);
-    if (operation.after && operation.before)
-      throw new Fault("INVALID_INPUT", "Give after or before, not both.", 2);
-    const anchor = operation.after ?? operation.before;
-    const at = find(anchor);
-    if (anchor !== void 0 && at === -1)
-      throw new Fault("TARGET_NOT_FOUND", `No column ${anchor} in ${region.key}.`, 2);
-    queryNames(operation.sql, [...columns.map((column) => column.key.toUpperCase()), name]);
-    const index = at === void 0 ? columns.length : operation.after ? at + 1 : at;
-    const order = [...columns];
-    order.splice(index, 0, void 0);
-    const placed = placeInOrder(doc, order, "layout.sequence", 10);
-    edits.push(setFencedText(doc, region, "source.sqlQuery", operation.sql), ...placed.edits);
-    edits.push(
-      afterColumns(doc, region, columnText(doc, region, operation.column, placed.sequence, release))
-    );
-    if (type === "interactiveReport") {
-      const primary = primaryReport(region);
-      const displayed = new Set(
-        (primary?.children ?? []).filter((c) => c.kind === "displayColumn").map((c) => c.key.toUpperCase())
-      );
-      const before = columns.slice(0, index).reverse().find((column) => displayed.has(column.key.toUpperCase()));
-      const next2 = columns.slice(index).find((column) => displayed.has(column.key.toUpperCase()));
-      edits.push(
-        ...savedReportEdits(
-          doc,
-          region,
-          [],
-          [before ? { name, after: before.key.toUpperCase() } : { name, before: next2?.key.toUpperCase() }]
-        )
-      );
-    }
-    const expected = order.map((node) => node ? node.key.toUpperCase() : name);
-    checks.push((after) => {
-      const parsed = after.children.find(
-        (c) => c.type === "region" && c.id.toUpperCase() === region.key.toUpperCase()
-      );
-      const now = (parsed?.children ?? []).filter((c) => c.type === "column").sort(
-        (a, b) => Number(readProperty(a, "layout.sequence")) - Number(readProperty(b, "layout.sequence"))
-      ).map((c) => c.id.toUpperCase());
-      if (JSON.stringify(now) !== JSON.stringify(expected) || String(readProperty(parsed, "source.sqlQuery") ?? "").trim() !== operation.sql.trim())
-        throw new Fault("TRANSFORM_INVALID", `${region.key} query or column order did not read back.`, 5);
-    });
-  }
-  return {
-    edits,
-    verify: (after) => checks.forEach((check) => check(after)),
-    targets: operations.map((operation) => `region:${operation.region}`)
-  };
+  return matches[0];
 }
 
 // packages/core/src/edit/context.ts
-var REPORTS2 = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
+var REPORTS = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
 var DELTA_QUERY_CHARS = 2e3;
 var DELTA_ENTRIES = 40;
 var text = (component, dotted) => {
@@ -3661,7 +3404,7 @@ function contextOf(source, file) {
         title: text(region, "name"),
         sequence: text(region, "layout.sequence"),
         line: region.line,
-        query: REPORTS2.has(String(text(region, "type"))) ? text(region, "source.sqlQuery") : void 0,
+        query: REPORTS.has(String(text(region, "type"))) ? text(region, "source.sqlQuery") : void 0,
         columns: columnEntries(region)
       })
     ),
@@ -3716,8 +3459,6 @@ function contextDelta(before, after, file) {
 }
 
 // packages/core/src/edit/transaction.ts
-import path5 from "node:path";
-import { readFile as readFile4 } from "node:fs/promises";
 function combine(plans) {
   const edits = [];
   for (const plan of plans)
@@ -3768,17 +3509,9 @@ async function runPageTransaction(ctx, input, groups, dependencies = () => []) {
   const plan = async () => {
     const source = await readFile4(file, "utf8");
     const related = /* @__PURE__ */ new Map();
-    for (const page of new Set(dependencies(input.operations))) {
-      const other = await pageFile(ctx, String(page)).catch(() => void 0);
-      if (!other) continue;
-      const text2 = await readFile4(other, "utf8");
-      const parsed = parseApexLang(text2, "related").find((c) => c.type === "page");
-      if (parsed)
-        related.set(`page:${page}`, {
-          file: path5.relative(ctx.root, other).split(path5.sep).join("/"),
-          digest: digestOf(text2),
-          parsed
-        });
+    for (const key of new Set(dependencies(input.operations))) {
+      const found2 = await loadRelated(ctx, key);
+      if (found2) related.set(key, found2);
     }
     return {
       source,
@@ -3809,6 +3542,19 @@ async function runPageTransaction(ctx, input, groups, dependencies = () => []) {
     ...planned.warnings.length ? { warnings: planned.warnings } : {},
     next: outcome.written ? "Source edited only. Validate or ship to check it with the compiler and import it." : `Apply with expectedDigest ${planned.digest}.`
   };
+}
+async function loadRelated(ctx, key) {
+  const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
+  let file;
+  if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-FOBY42NN.mjs")).lovFile(ctx, id).catch(() => void 0);
+  if (!file) return void 0;
+  const text2 = await readFile4(file, "utf8");
+  const parsed = parseApexLang(text2, "related").find(
+    (c) => c.type === kind && (kind === "page" || c.id.toUpperCase() === id.toUpperCase() || String(c.props.name ?? "").toUpperCase() === id.toUpperCase())
+  );
+  if (!parsed) return void 0;
+  return { file: path5.relative(ctx.root, file).split(path5.sep).join("/"), digest: digestOf(text2), parsed };
 }
 async function guardedEdit(ctx, input) {
   const { file, relative } = input;
@@ -3841,153 +3587,6 @@ async function guardedEdit(ctx, input) {
   });
 }
 
-// packages/core/src/edit/patch.ts
-var PATCH_PROPERTIES = ["title", "label", "heading", "format", "sequence", "query"];
-var PATHS = {
-  page: { title: "title" },
-  region: { title: "name", sequence: "layout.sequence", query: "source.sqlQuery" },
-  pageItem: { label: "label.label", sequence: "layout.sequence" },
-  button: { label: "label", sequence: "layout.sequence" },
-  column: { heading: "heading.heading", format: "appearance.formatMask", sequence: "layout.sequence" }
-};
-var KINDS = {
-  region: "region",
-  item: "pageItem",
-  button: "button",
-  column: "column"
-};
-function resolve(page, operation) {
-  const where = `Page ${page.key}`;
-  const [kindToken, rest = ""] = operation.target.includes(":") ? [
-    operation.target.slice(0, operation.target.indexOf(":")),
-    operation.target.slice(operation.target.indexOf(":") + 1)
-  ] : [operation.target, ""];
-  let node;
-  let find;
-  if (kindToken === "page" && !rest) {
-    node = page;
-    find = (parsed) => parsed;
-  } else if (kindToken === "column") {
-    const [region, column] = rest.split(".");
-    if (!region || !column) throw new Fault("INVALID_INPUT", "Column targets are column:REGION.COLUMN.", 2);
-    const owner = ApexLangDocument.one(page.children, "region", region, where);
-    node = ApexLangDocument.one(owner.children, "column", column, `Region ${owner.key}`);
-    find = (parsed) => parsed.children.find((c) => c.type === "region" && c.id.toUpperCase() === owner.key.toUpperCase())?.children.find((c) => c.type === "column" && c.id.toUpperCase() === node.key.toUpperCase());
-  } else if (KINDS[kindToken] && rest) {
-    node = ApexLangDocument.one(page.children, KINDS[kindToken], rest, where);
-    find = (parsed) => parsed.children.find((c) => c.type === node.kind && c.id.toUpperCase() === node.key.toUpperCase());
-  } else
-    throw new Fault(
-      "INVALID_INPUT",
-      `Unknown target ${operation.target}; use page, region:ID, item:NAME, button:ID or column:REGION.COLUMN.`,
-      2
-    );
-  const pathFor = PATHS[node.kind]?.[operation.property];
-  if (!pathFor)
-    throw new Fault(
-      "OPERATION_UNSUPPORTED",
-      `${operation.property} is not supported on ${node.kind}; supported: ${Object.keys(PATHS[node.kind] ?? {}).join(", ")}.`,
-      2
-    );
-  if (operation.property === "sequence" && !/^[1-9]\d{0,8}$/u.test(operation.value))
-    throw new Fault("INVALID_INPUT", "sequence must be a positive integer.", 2);
-  return { node, path: pathFor, find };
-}
-function planSets(snapshot, operations) {
-  const { doc, node: page } = snapshot;
-  const resolved = operations.map((operation) => ({ operation, ...resolve(page, operation) }));
-  const seen = /* @__PURE__ */ new Set();
-  for (const entry of resolved) {
-    const key = `${entry.node.open}:${entry.path}`;
-    if (seen.has(key))
-      throw new Fault("TRANSFORM_CONFLICT", `Two operations set ${entry.path} of the same component.`, 5);
-    seen.add(key);
-  }
-  const edits = [];
-  for (const entry of resolved) {
-    if (entry.operation.property === "query")
-      edits.push(...queryEdits(doc, entry.node, entry.operation, snapshot.release));
-    else edits.push(setProperty(doc, entry.node, entry.path, entry.operation.value));
-  }
-  const verify = (parsedPage) => {
-    for (const entry of resolved) {
-      const component = entry.find(parsedPage);
-      const value = component && readProperty(component, entry.path);
-      if (entry.operation.property === "query") {
-        const names = component?.children.filter((child) => child.type === "column").map((child) => child.id.toUpperCase());
-        const expected = (entry.operation.columns ?? []).map((column) => column.name.toUpperCase());
-        if (String(value ?? "").trim() !== entry.operation.value.trim() || JSON.stringify(names) !== JSON.stringify(expected))
-          throw new Fault(
-            "TRANSFORM_INVALID",
-            `${entry.operation.target} query or columns did not read back.`,
-            5
-          );
-        continue;
-      }
-      if (value !== entry.operation.value)
-        throw new Fault(
-          "TRANSFORM_INVALID",
-          `${entry.operation.target} ${entry.operation.property} did not read back.`,
-          5
-        );
-    }
-  };
-  return { edits, verify, targets: resolved.map((entry) => entry.operation.target) };
-}
-function queryEdits(doc, region, operation, release = "26.2") {
-  const type = reportRegion(region, "query");
-  const columns = operation.columns ?? [];
-  if (!columns.length) throw new Fault("INVALID_INPUT", "query needs the complete columns contract.", 2);
-  const names = columns.map((column) => column.name.toUpperCase());
-  checkNames(names);
-  queryNames(operation.value, names);
-  const edits = [setFencedText(doc, region, "source.sqlQuery", operation.value)];
-  const existing = columnsOf(region);
-  const dropped = existing.map((column) => column.key.toUpperCase()).filter((name) => !names.includes(name));
-  for (const column of existing)
-    if (dropped.includes(column.key.toUpperCase())) edits.push(removeComponent(doc, column));
-  let sequence = Math.max(
-    0,
-    ...existing.map((column) => Number(column.properties.get("layout.sequence")?.value) || 0)
-  );
-  let added = "";
-  const news = [];
-  for (const column of columns) {
-    const kept = existing.find((entry) => entry.key.toUpperCase() === column.name.toUpperCase());
-    if (kept) {
-      if (column.heading !== void 0) edits.push(setProperty(doc, kept, "heading.heading", column.heading));
-      continue;
-    }
-    sequence += 10;
-    added += columnText(doc, region, column, sequence, release);
-    news.push(column.name.toUpperCase());
-  }
-  if (added) edits.push(afterColumns(doc, region, added));
-  if (type === "interactiveReport")
-    edits.push(
-      ...savedReportEdits(
-        doc,
-        region,
-        dropped,
-        news.map((name) => ({ name }))
-      )
-    );
-  return edits;
-}
-async function pageContext(ctx, page) {
-  if (!/^\d{1,5}$/u.test(page)) throw new Fault("INVALID_INPUT", "page is a page number.", 2);
-  const file = await pageFile(ctx, String(Number(page)));
-  return contextOf(await readFile5(file, "utf8"), path6.relative(ctx.root, file).split(path6.sep).join("/"));
-}
-async function patchPage(ctx, input) {
-  const {
-    result: _text,
-    targets: _targets,
-    ...outcome
-  } = await runPageTransaction(ctx, input, (operations) => [(snapshot) => planSets(snapshot, operations)]);
-  return outcome;
-}
-
 export {
   revisionOf,
   sourceRevision,
@@ -3997,6 +3596,7 @@ export {
   planDigest,
   sourceInventory,
   DeploymentService,
+  pageFile,
   digestOf,
   ApexLangDocument,
   scalarText,
@@ -4006,13 +3606,7 @@ export {
   removeComponent,
   appendChild,
   readProperty,
-  reportRegion,
-  planColumns,
+  contextOf,
   runPageTransaction,
-  guardedEdit,
-  PATCH_PROPERTIES,
-  planSets,
-  queryEdits,
-  pageContext,
-  patchPage
+  guardedEdit
 };

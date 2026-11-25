@@ -55,7 +55,7 @@ const refOf = (value: unknown) =>
     : String(value ?? '').replace(/^@/u, '');
 
 export const dialogDependencies = (operations: AddDialogActionOperation[]) =>
-  operations.map((operation) => operation.target.page);
+  operations.map((operation) => `page:${operation.target.page}`);
 
 function targetText(target: DialogTarget) {
   const items = Object.entries(target.items ?? {});

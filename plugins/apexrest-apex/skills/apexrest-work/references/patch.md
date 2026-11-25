@@ -75,3 +75,5 @@ apexrest_project action:edit page:"10" expectedDigest:"<digest>" operations:[{"o
 - `query:{sql, display?, return?}`: complete replacement SQL of a local SQL-query LOV.
 
 26.2 keeps one LOV per `shared-components/lovs/*.apx` file and 26.1 all of them in `shared-components/lovs.apx`; other layouts fail before writing. A shared LOV change is shared-component scope (`affectedPages: unknown`), never page-only: ship with `importMode:auto` or `full`.
+
+Bind an existing list item to a shared LOV in `action:edit`: `{"op":"bindLov", "item":"P10_STATUS", "lov":"STATUS", "expectedLovDigest"?, "nullValue"?:{display, return?} | false, "displayExtraValues"?, "cascade"?:{parentItems, itemsToSubmit?, parentRequired?} | null}`. The item's static or query LOV source is replaced by the shared reference; its null and extra-value settings are kept unless given, and nothing else on the item changes. Parents and submitted items must exist on the page. 26.2 sources only.
