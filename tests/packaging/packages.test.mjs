@@ -121,6 +121,11 @@ test('Skills name only current MCP tools, the work skill covers the ship loop an
     'apexrest_browser_open',
   ])
     assert.ok(work.includes(name), `apexrest-work must describe ${name}`);
+  assert.ok(work.includes('references/linear.md'), 'apexrest-work must link the Linear reference');
+  const linear = await readFile(`${root}/skills/apexrest-work/references/linear.md`, 'utf8');
+  assert.match(linear, /not authorization/);
+  assert.match(linear, /only when the user asks/);
+  assert.doesNotMatch(linear, /apexrest_linear/);
   const operations = JSON.parse(await readFile(root + '/resources/schemas/operations.schema.json', 'utf8'));
   for (const operation of ['project', 'reference', 'ship', 'job', 'status'])
     assert.ok(operation in operations, `operation schema ${operation}`);

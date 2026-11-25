@@ -6,7 +6,7 @@ Use English for code, CLI help, agent skill instructions and public documentatio
 
 Use https://github.com/apexrest-dev/apexrest as the canonical repository and Git origin.
 
-Track planning and work items in the Linear workspace https://linear.app/apexrest (available to agents through the `linear` MCP server in .mcp.json). Public bug reports stay in GitHub issues.
+Track planning and work items in the Linear workspace https://linear.app/apexrest, team APE (https://linear.app/apexrest/team/APE/overview; issue keys `APE-<n>`), available to agents through the `linear` MCP server in .mcp.json. Public bug reports stay in GitHub issues.
 
 # Engineering rules
 

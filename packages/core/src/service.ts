@@ -792,7 +792,7 @@ const observationOnly = new Set([
   'usage.import',
   'jobs.status',
   'peer.status',
-  // Polled by the Omarchy panel on every refresh.
+  // Status reads that must not change the current project.
   'connection.list',
   'preview.status',
 ]);

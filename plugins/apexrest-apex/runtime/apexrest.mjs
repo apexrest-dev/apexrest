@@ -2,38 +2,38 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   dispatch
-} from "./chunk-OJAVVKIJ.mjs";
+} from "./chunk-4UWTWKZA.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-AGSRMSNQ.mjs";
-import "./chunk-RXHSNCBH.mjs";
-import "./chunk-WSKQSGQR.mjs";
-import "./chunk-6FAGLVAZ.mjs";
+} from "./chunk-D2ICIJXH.mjs";
+import "./chunk-2ZCBZPPJ.mjs";
+import "./chunk-O7MNIZXK.mjs";
+import "./chunk-YSSNVOMD.mjs";
 import {
   executeJob,
   failQueuedJob
-} from "./chunk-U4M3RT3C.mjs";
+} from "./chunk-NOTPADGV.mjs";
 import {
   setPreviewOwner
-} from "./chunk-XUHVNFPS.mjs";
-import "./chunk-XHCNHFXO.mjs";
-import "./chunk-KXTR2S6L.mjs";
-import "./chunk-7AO4HJGA.mjs";
-import "./chunk-3YC5F6CU.mjs";
-import "./chunk-2MXW6F55.mjs";
-import "./chunk-FIBD7CLZ.mjs";
-import "./chunk-MPKKOQVI.mjs";
+} from "./chunk-4SDMRO4L.mjs";
+import "./chunk-QXSHAZH3.mjs";
+import "./chunk-Y2XCPATG.mjs";
+import "./chunk-J7SOVXCF.mjs";
+import "./chunk-WYPBTRB6.mjs";
+import "./chunk-WEBUXBUI.mjs";
+import "./chunk-NMTEJGHC.mjs";
+import "./chunk-7SGTFDEC.mjs";
 import "./chunk-IIUPXDVT.mjs";
 import {
   loadProject
-} from "./chunk-N2LQCPJ4.mjs";
-import "./chunk-ODTVYBFG.mjs";
+} from "./chunk-OZXHZF36.mjs";
+import "./chunk-VS4GLWTQ.mjs";
 import {
   Fault,
   failure
-} from "./chunk-CI5IU2PI.mjs";
+} from "./chunk-HRRL6FHO.mjs";
 
 // packages/cli/src/main.ts
 var argv = process.argv.slice(2);
@@ -90,6 +90,7 @@ var numbers = /* @__PURE__ */ new Set([
 ]);
 var BANNER = "APEXREST for Codex and Claude Code \u2014 independent Oracle APEX developer tools";
 var EXIT_CODES = "Exit codes: 0 success, 1 failed, 2 input, 3 dependency, 4 approval, 5 conflict, 6 unknown/cancelled.";
+var TOOLCHAIN_PROJECT_HELP = "--project PATH installs the Node.js/Java/SQLcl its toolchain lock pins; without it, the current folder's project lock, else the built-in baseline.";
 var command = (op) => op.replace(".", " ");
 var flag = (name) => "--" + name.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
 function unwrap(field) {
@@ -226,7 +227,14 @@ function help() {
       "Preview: apexrest dependencies install --dry-run",
       "Install: apexrest dependencies install --yes",
       "--accept-oracle-license records separate consent to the Oracle terms shown in the preview.",
-      "--offline uses cached downloads; --home and --cache-dir select managed storage."
+      "--offline uses cached downloads; --home and --cache-dir select managed storage.",
+      TOOLCHAIN_PROJECT_HELP
+    );
+  if (key === "setup" || key === "plugin.install" || key === "plugin.update")
+    lines.push(
+      "",
+      TOOLCHAIN_PROJECT_HELP,
+      "--version is the APEXREST package version, not the toolchain profile."
     );
   if (key === "dependencies.uninstall")
     lines.push(
@@ -307,12 +315,12 @@ try {
     }
   } else if (argv[0] === "--broker") {
     if (argv.length !== 2) throw new Fault("INVALID_INPUT", "Invalid internal broker request.", 2);
-    const { runBroker } = await import("./chunk-KLGEZVDE.mjs");
+    const { runBroker } = await import("./chunk-PY2DHAHL.mjs");
     await runBroker(await loadProject(argv[1]), dispatch);
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-VDVDE2ON.mjs");
+    const { startMcp } = await import("./chunk-MAR3BGZJ.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

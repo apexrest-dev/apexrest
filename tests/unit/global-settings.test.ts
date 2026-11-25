@@ -117,7 +117,7 @@ test('a project run from its folder or with a relative --project becomes current
     true,
   );
   assert.equal((await recentProjects())[0]?.path, other.ctx.root);
-  // Reads the Omarchy panel polls from its own folder never switch projects.
+  // Status reads from another folder never switch projects.
   await dispatch('connection.list', {});
   await dispatch('preview.status', {});
   assert.equal((await recentProjects())[0]?.path, other.ctx.root);

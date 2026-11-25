@@ -1,5 +1,9 @@
 # Next actions and verification limits
 
+## Linear issues (2026-11-25)
+
+- Run the Linear flow end to end in Claude Code and Codex with the official Linear MCP server connected: read an issue, ship to a local DEV target and post the results comment on request. Record the observations separately from the packaging test.
+
 ## Fast development and review comments (2026-11-22)
 
 - **Remaining fast-development tickets.** Slices A to E (with APE-404) are implemented or qualified locally, and slice F partly. In slice F, Composer and scaffold share their APEXlang writing primitives (APE-357); merging their specification models is not planned. Block compiler evidence is bound to an older generator identity and needs `composer:verify` before a block release. The modal form, interactive grid, master–detail and faceted search recipes (APE-376/383/391/393) are compiled, imported and checked in the browser on local APEX 26.2 (see implementation status). Report-region buttons in the `NEXT` slot render below an interactive report; consider `rightOfTitle` for report buttons. Slice G was measured and no change was adopted, and slice H (visual edits in review mode) is implemented locally (see implementation status). The compound P2 edits (columns with projection, SQL replacement, recipe insertion, filters) belong to slice F.
@@ -27,14 +31,10 @@
 - Keep future browser-requested checks of calendar customization, Session State Protection and business scenarios separate from the completed compiler, server parse, import and local SQLite evidence. The current experiment has fourteen imported pages per app and thirteen locally rendered pages per app, including Login.
 - Extend private usage-journal qualification across supported native hosts. Fifty-three historical and nineteen optimized-series Codex phases were imported and reconciled. Local tests cover backend time, native counter import, invalid and incomplete captures, concurrent writes and byte retention. Keep any separately requested local Oracle qualification distinct from the current ATP results.
 
-## Machine-wide settings and Omarchy panel
+## Machine-wide settings
 
-- Click through every Omarchy panel control in a running shell (both switches, SQLcl choices, connection test, preview start/stop, validate, agent, terminal, recent-project switch) and record observations; only rendering and helper-level calls were checked.
-- Verify the final updated runtime through the Omarchy panel on its supported host. The review machine's Codex and project-local Claude installations now use the verified managed bundle and shared settings home.
 - Decide whether the global Decisions default should support a private ENV file (today only the environment variable) and whether `settings` needs an MCP tool for agents.
 - Preview operations return before current-project recording; decide whether preview start should make a project current.
-- Decide whether to publish the Omarchy plugin as its own Git repository so `omarchy plugin add <git-url>` and `omarchy plugin update` work.
-- Qualify against later Omarchy shell releases; the panel relies on the `qs.Ui` `Panel`, `KeyboardPanel`, `Button`, `ButtonGroup`, `ToggleSwitch` and `PanelActionButton` contracts. A changed `Panel.qml` needs `omarchy restart shell`; a plugin rescan kept the old compiled component.
 
 ## Creation/update optimization qualification
 
