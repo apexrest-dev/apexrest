@@ -285,6 +285,7 @@ var schemas = {
     dryRun: external_exports.boolean().default(false),
     context: external_exports.enum(["delta", "full", "none"]).default("delta").describe("Edited page context in the result: changed/inserted/removed targets (default), whole, none")
   }),
+  "entity.list": external_exports.strictObject({ ...base }),
   "lov.context": external_exports.strictObject({
     ...base,
     lov: external_exports.string().min(1).max(255).describe("Shared LOV id or name")
@@ -459,6 +460,7 @@ var schemas = {
       "edit",
       "lov_context",
       "lov_edit",
+      "entities",
       "connection_add",
       "connection_list",
       "connection_test"

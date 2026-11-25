@@ -394,6 +394,7 @@ export const schemas = {
       .default('delta')
       .describe('Edited page context in the result: changed/inserted/removed targets (default), whole, none'),
   }),
+  'entity.list': z.strictObject({ ...base }),
   'lov.context': z.strictObject({
     ...base,
     lov: z.string().min(1).max(255).describe('Shared LOV id or name'),
@@ -627,6 +628,7 @@ export const schemas = {
       'edit',
       'lov_context',
       'lov_edit',
+      'entities',
       'connection_add',
       'connection_list',
       'connection_test',

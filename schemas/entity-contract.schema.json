@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "pluralLabel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "read": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "sql": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64000
+            }
+          },
+          "required": [
+            "sql"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "table": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+            },
+            "owner": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+            }
+          },
+          "required": [
+            "table"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "key": {
+      "minItems": 1,
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+      }
+    },
+    "fields": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "varchar2",
+              "number",
+              "date",
+              "timestamp"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "required": {
+            "default": false,
+            "type": "boolean"
+          },
+          "readOnly": {
+            "default": false,
+            "type": "boolean"
+          },
+          "maxLength": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 32767
+          },
+          "formatMask": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "lov": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "shared": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255
+                  }
+                },
+                "required": [
+                  "shared"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "values": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 255
+                        },
+                        "value": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 255
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "values"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "label"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "properties": {
+        "read": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "scheme": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.-]{0,254}$"
+                }
+              },
+              "required": [
+                "scheme"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "public": {
+                  "type": "boolean",
+                  "const": true
+                }
+              },
+              "required": [
+                "public"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "write": {
+          "type": "object",
+          "properties": {
+            "scheme": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9 _.-]{0,254}$"
+            }
+          },
+          "required": [
+            "scheme"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "read"
+      ],
+      "additionalProperties": false
+    },
+    "write": {
+      "type": "object",
+      "properties": {
+        "table": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+        },
+        "operations": {
+          "minItems": 1,
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "insert",
+              "update",
+              "delete"
+            ]
+          }
+        },
+        "lostUpdate": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "rowVersion": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_$#]{0,127}$"
+                }
+              },
+              "required": [
+                "rowVersion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "string",
+              "const": "rowValues"
+            }
+          ]
+        }
+      },
+      "required": [
+        "table",
+        "operations",
+        "lostUpdate"
+      ],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "label",
+    "pluralLabel",
+    "read",
+    "key",
+    "fields",
+    "authorization"
+  ],
+  "additionalProperties": false
+}

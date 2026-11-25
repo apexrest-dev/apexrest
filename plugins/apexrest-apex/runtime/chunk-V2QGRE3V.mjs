@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   toolCatalog
-} from "./chunk-WKE6XXG3.mjs";
+} from "./chunk-HAPO33HC.mjs";
 import "./chunk-O7MNIZXK.mjs";
 import {
   ToolchainService,

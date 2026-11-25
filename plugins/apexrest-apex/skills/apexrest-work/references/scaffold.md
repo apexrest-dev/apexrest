@@ -138,3 +138,9 @@ The operation returns generated files and staged before/after source. Regenerati
 Run `apexrest_preview action:check` for requested local control. Validate the complete application once with `apexrest_apex_validate`, or continue to `apexrest_ship mode:apply` when the task includes deployment. Fix actionable diagnostics and repeat the necessary step. Source-only benchmark instructions assign deployment to the operator. Preview identifies JavaScript and native APEX features requiring host-browser observation. Treat `notAppliedLocally` as a coverage limit: preserve required native behavior and record browser behavior as unobserved until requested and performed.
 
 For independently requested server observations, an exact `env` can return a target-bound `readback.sqlFile` on the supported release. After import the operator can execute that private script with the authorized saved connection and compare its metadata/query observations to the task. The release-specific observation helper supplies its compatibility checks.
+
+## Entity contracts
+
+A reviewed, reusable data binding for page recipes lives in `entities/<id>.json` next to `apexrest.json` (JSON schema `entity-contract` in `resources/schemas`). It holds `schemaVersion: 1`, `id` (the file name), `label`, `pluralLabel`, `read` (`{sql}` or `{table, owner?}`), the ordered `key`, typed and labelled `fields` (`type` `varchar2`/`number`/`date`/`timestamp`, `required`, `readOnly`, `maxLength`, `formatMask`, `lov` `{shared}` or `{values}`), `authorization` (`read`: `{scheme}` or `{public: true}`; `write`: `{scheme}`), and optional `write` (`table`, `operations`, `lostUpdate` `{rowVersion}` or `"rowValues"`). Nothing is inferred from table names; SQL is reviewed text and never run by the contract.
+
+`apexrest_project action:entities` lists the contracts with their digest and diagnostics (duplicate fields, invalid keys, incomplete write contracts). Fix diagnostics before generating from a contract.

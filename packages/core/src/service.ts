@@ -23,6 +23,7 @@ import { pageContext, patchPage } from './edit/patch.ts';
 import { insertComponents } from './edit/insert.ts';
 import { editPage } from './edit/page-edit.ts';
 import { lovContext, lovEdit } from './edit/lov.ts';
+import { listEntities } from './entities.ts';
 import { brokerStatus, startBroker, stopBroker } from './broker.ts';
 import { reconcileRun } from './deploy-reconcile.ts';
 import { ArtifactService } from './artifacts.ts';
@@ -152,6 +153,8 @@ function routeProject(parsed: Record<string, unknown>) {
       };
     case 'context':
       return { operation: 'project.context', input: pick('project', 'page') };
+    case 'entities':
+      return { operation: 'entity.list', input: pick('project') };
     case 'lov_context':
       return { operation: 'lov.context', input: pick('project', 'lov') };
     case 'lov_edit':
@@ -543,6 +546,9 @@ async function dispatchObserved(
             break;
           case 'project.patch':
             data = await patchPage(ctx, schemas['project.patch'].parse(parsed));
+            break;
+          case 'entity.list':
+            data = await listEntities(ctx);
             break;
           case 'lov.context':
             data = await lovContext(ctx, String(parsed.lov));

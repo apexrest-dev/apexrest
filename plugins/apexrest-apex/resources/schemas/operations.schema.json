@@ -1356,6 +1356,18 @@
     ],
     "additionalProperties": false
   },
+  "entity.list": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "additionalProperties": false
+  },
   "lov.context": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -2669,6 +2681,7 @@
           "edit",
           "lov_context",
           "lov_edit",
+          "entities",
           "connection_add",
           "connection_list",
           "connection_test"

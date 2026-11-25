@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-WKE6XXG3.mjs";
+} from "./chunk-HAPO33HC.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -156,7 +156,7 @@ import {
 
 // packages/core/src/service.ts
 import { fileURLToPath } from "node:url";
-import path11 from "node:path";
+import path12 from "node:path";
 
 // packages/core/src/doctor.ts
 import path from "node:path";
@@ -273,10 +273,10 @@ var nameAliases = {
 var named = (phrase, name) => [name.replace(/-/g, " "), ...nameAliases[name] ?? []].some(
   (words) => phrase.includes(stemmedReference(words))
 );
-function componentNameBoost(id, phrase) {
-  const at = id.indexOf("inventory/");
+function componentNameBoost(id2, phrase) {
+  const at = id2.indexOf("inventory/");
   if (at < 0) return 0;
-  const segments = id.slice(at).split("/").filter((segment) => !structural.has(segment));
+  const segments = id2.slice(at).split("/").filter((segment) => !structural.has(segment));
   const name = segments.at(-1);
   if (!name) return 0;
   const parent = [...segments].reverse().find((segment) => segment !== name);
@@ -401,8 +401,8 @@ function createReferenceCatalog(definition) {
         };
       });
       for (const entry of entries)
-        for (const id of [...entry.requires, ...entry.related])
-          if (id.startsWith(definition.prefix) && !byId.has(id))
+        for (const id2 of [...entry.requires, ...entry.related])
+          if (id2.startsWith(definition.prefix) && !byId.has(id2))
             invalid(
               `${definition.label} catalog contains an unresolved ${definition.label.toLowerCase()} reference.`
             );
@@ -454,9 +454,9 @@ function createReferenceCatalog(definition) {
     };
   }
   function links(entry, count3, byId, resolved) {
-    const link = (id) => {
-      const target = byId.get(id);
-      return { id, title: target?.title ?? null, kind: target?.kind ?? null };
+    const link = (id2) => {
+      const target = byId.get(id2);
+      return { id: id2, title: target?.title ?? null, kind: target?.kind ?? null };
     };
     return {
       requires: entry.requires.slice(0, count3),
@@ -477,11 +477,11 @@ function createReferenceCatalog(definition) {
       invalid(`${definition.label} document length does not match the catalog.`);
     return raw;
   }
-  function window(text, start, length) {
-    let end = Math.min(text.length, start + length);
-    if (end > start && /[\uD800-\uDBFF]/.test(text[end - 1]) && /[\uDC00-\uDFFF]/.test(text[end] ?? ""))
+  function window(text2, start, length) {
+    let end = Math.min(text2.length, start + length);
+    if (end > start && /[\uD800-\uDBFF]/.test(text2[end - 1]) && /[\uDC00-\uDFFF]/.test(text2[end] ?? ""))
       end += end - start === 1 ? 1 : -1;
-    return text.slice(start, end);
+    return text2.slice(start, end);
   }
   async function search(query, version, options = {}) {
     const terms = referenceQueryTerms(query);
@@ -490,7 +490,7 @@ function createReferenceCatalog(definition) {
     const phrase = queryPhrase(terms);
     const navigational = navigationalQuery(query);
     const exactId = query.trim();
-    const identifier = identifierQuery(query);
+    const identifier2 = identifierQuery(query);
     const ranked = index.searchable.filter(
       ({ entry }) => (!version || entry.version === version || !version.includes("@") && entry.version.split("@")[0] === version) && (entry.id === exactId || (!options.kind || entry.kind === options.kind) && (!options.family || entry.family === options.family || entry.family.startsWith(options.family + "/")) && // Unresolved records have no usable recipe; they stay discoverable on request.
       (options.includeUnresolved || entry.readiness !== "unresolved"))
@@ -509,7 +509,7 @@ function createReferenceCatalog(definition) {
         titleWeight: 2e3,
         bodyText: () => candidate.bodyText ??= stemmedReference(candidate.entry.searchText),
         // Ready recipes first; parameter contracts for property-name lookups.
-        prior: (candidate.entry.readiness === "ready" ? 10 : 0) + (candidate.entry.kind === "template" ? 10 : 0) + (candidate.entry.kind === "contract" ? 5 + (identifier ? 100 : 0) : 0),
+        prior: (candidate.entry.readiness === "ready" ? 10 : 0) + (candidate.entry.kind === "template" ? 10 : 0) + (candidate.entry.kind === "contract" ? 5 + (identifier2 ? 100 : 0) : 0),
         routing: false,
         canonical: canonicalReference(candidate.entry.id),
         length: candidate.entry.searchText.length
@@ -524,12 +524,12 @@ function createReferenceCatalog(definition) {
       let snippetOffset = Math.max(0, (matchOffset ?? 0) - 80);
       if (snippetOffset && /[\uDC00-\uDFFF]/.test(entry.searchText[snippetOffset] ?? "") && /[\uD800-\uDBFF]/.test(entry.searchText[snippetOffset - 1] ?? ""))
         snippetOffset--;
-      const text = window(entry.searchText, snippetOffset, 600);
+      const text2 = window(entry.searchText, snippetOffset, 600);
       const code = codeWanted(options.include, offset, i) ? await documentCode(index, entry) : void 0;
       candidates2.push({
         ...metadata(entry),
         ...links(entry, 2, index.byId, SEARCH_LINKS),
-        text,
+        text: text2,
         ...code ? { code } : {},
         // Index summaries are intentionally independent of documents; read a result at offset 0.
         snippetSource: "index",
@@ -569,9 +569,9 @@ function createReferenceCatalog(definition) {
     }
     return candidate.code ? boundCode(candidate.code, CODE_LIMIT) : void 0;
   }
-  async function read(id, offset, limit, version) {
+  async function read(id2, offset, limit, version) {
     const index = await catalogIndex();
-    const entry = index.byId.get(id);
+    const entry = index.byId.get(id2);
     if (!entry || version && entry.version !== version && (version.includes("@") || entry.version.split("@")[0] !== version))
       throw new Fault(
         "REFERENCE_NOT_FOUND",
@@ -592,7 +592,7 @@ function createReferenceCatalog(definition) {
     const document = safeRaw + redact(navigation);
     const start = Math.max(0, offset);
     let count3 = Math.max(1, Math.min(8192, limit));
-    const create = () => artifactPage(document, "text", id, start, count3, {
+    const create = () => artifactPage(document, "text", id2, start, count3, {
       ...metadata(entry),
       ...links(entry, 16, index.byId, 16),
       length: document.length,
@@ -610,12 +610,12 @@ function createReferenceCatalog(definition) {
     if (bytes(result) > 3e4) invalid(`${definition.label} document metadata exceeds the response budget.`);
     return result;
   }
-  async function recipeGroups(id, version) {
+  async function recipeGroups(id2, version) {
     const index = await catalogIndex();
-    const selected = index.byId.get(id);
+    const selected = index.byId.get(id2);
     if (!selected || selected.version !== version && (version.includes("@") || selected.version.split("@")[0] !== version))
       throw new Fault("REFERENCE_NOT_FOUND", "No registered compatible component contract.", 2);
-    await read(id, 0, 1, version);
+    await read(id2, 0, 1, version);
     const info = (entry) => ({
       ...metadata(entry),
       compatibility: { ...entry.compatibility },
@@ -628,17 +628,17 @@ function createReferenceCatalog(definition) {
     const roots = [
       selected,
       ...selected.related.map((target) => index.byId.get(target)).filter(
-        (entry) => !!entry && entry.kind === "contract" && entry.requires.includes(id)
+        (entry) => !!entry && entry.kind === "contract" && entry.requires.includes(id2)
       )
     ];
     const groups = [];
     for (const root of new Map(roots.map((entry) => [entry.id, entry])).values()) {
       if (root.kind !== "contract" || !compatible(root)) continue;
       const recipes = root.related.map((target) => index.byId.get(target)).filter(
-        (entry) => !!entry && entry.kind === "template" && entry.readiness === "ready" && compatible(entry) && entry.requires.some((target) => target === id || root.requires.includes(target))
+        (entry) => !!entry && entry.kind === "template" && entry.readiness === "ready" && compatible(entry) && entry.requires.some((target) => target === id2 || root.requires.includes(target))
       );
       if (!recipes.length) continue;
-      if (root.id !== id) await read(root.id, 0, 1, version);
+      if (root.id !== id2) await read(root.id, 0, 1, version);
       groups.push({ root: info(root), recipes: recipes.map(info) });
     }
     return { selected: info(selected), groups };
@@ -720,30 +720,30 @@ async function referenceText2(entry) {
   if (!relative || relative.startsWith(".." + path3.sep) || path3.isAbsolute(relative)) throw invalid();
   const info = await stat2(file2);
   if (info.size > 4 * 1024 * 1024) throw invalid();
-  const text = await readFile2(file2, "utf8");
-  if (text.length !== entry.contentLength || hash(text) !== entry.contentSha256) throw invalid();
-  return text;
+  const text2 = await readFile2(file2, "utf8");
+  if (text2.length !== entry.contentLength || hash(text2) !== entry.contentSha256) throw invalid();
+  return text2;
 }
 function versionMatches(actual, requested) {
   if (!requested) return true;
   return actual === requested || !requested.includes("@") && actual.split("@")[0] === requested;
 }
-function grammarSymbols(text) {
-  const declaration = text.match(/^<[^>\n]+>\s*::=/);
+function grammarSymbols(text2) {
+  const declaration = text2.match(/^<[^>\n]+>\s*::=/);
   if (!declaration) return [];
   const symbols = /* @__PURE__ */ new Set();
   let comment = 0;
   let quote = "";
-  for (let i = declaration[0].length; i < text.length; i++) {
-    const char = text[i];
-    const pair = text.slice(i, i + 2);
+  for (let i = declaration[0].length; i < text2.length; i++) {
+    const char = text2[i];
+    const pair = text2.slice(i, i + 2);
     if (comment) {
       if (pair === "(*") comment++, i++;
       else if (pair === "*)") comment--, i++;
     } else if (quote) {
       if (char === "\\") i++;
       else if (char === quote) {
-        if (text[i + 1] === quote) i++;
+        if (text2[i + 1] === quote) i++;
         else quote = "";
       }
     } else if (pair === "(*") {
@@ -751,7 +751,7 @@ function grammarSymbols(text) {
       i++;
     } else if (char === '"' || char === "'") quote = char;
     else if (char === "<") {
-      const symbol = text.slice(i).match(/^<([A-Za-z][\w-]*)>/);
+      const symbol = text2.slice(i).match(/^<([A-Za-z][\w-]*)>/);
       if (symbol) {
         symbols.add(symbol[1]);
         i += symbol[0].length - 1;
@@ -798,8 +798,8 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
       const queue = [owner];
       let bounded = true;
       for (let cursor = 0; cursor < queue.length && bounded; cursor++) {
-        const id = bySymbol.get(queue[cursor]);
-        const production = id ? byId.get(id) : void 0;
+        const id2 = bySymbol.get(queue[cursor]);
+        const production = id2 ? byId.get(id2) : void 0;
         if (production?.kind !== "grammar") continue;
         for (const child of grammarSymbols(production.text)) {
           if (!child.startsWith(owner + "-") || seen.has(child)) continue;
@@ -883,10 +883,10 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
     stemSets.set(stem, set);
     return set;
   };
-  const link = (id) => {
-    const position = positionById.get(id);
+  const link = (id2) => {
+    const position = positionById.get(id2);
     const entry = position === void 0 ? void 0 : searchable[position];
-    return { id, title: entry?.title ?? null, kind: entry?.reference.kind ?? null };
+    return { id: id2, title: entry?.title ?? null, kind: entry?.reference.kind ?? null };
   };
   return {
     upstream,
@@ -958,7 +958,7 @@ async function referenceIndex(version = "26.1") {
     throw error;
   }
 }
-function snippet(text, lower, query, terms) {
+function snippet(text2, lower, query, terms) {
   let matchOffset = lower.indexOf(query.trim().toLowerCase());
   if (matchOffset < 0) {
     const pattern = referenceWords(query).join("[\\s._:-]*");
@@ -968,13 +968,13 @@ function snippet(text, lower, query, terms) {
     const locations = terms.map((term) => lower.indexOf(term)).filter((offset2) => offset2 >= 0);
     matchOffset = locations.length ? Math.min(...locations) : -1;
   }
-  const offset = Math.max(0, Math.min(matchOffset - 160, text.length - 1200));
+  const offset = Math.max(0, Math.min(matchOffset - 160, text2.length - 1200));
   return {
-    text: text.slice(offset, offset + 1200),
+    text: text2.slice(offset, offset + 1200),
     offset,
     matchOffset: matchOffset < 0 ? null : matchOffset,
-    length: text.length,
-    nextOffset: offset + 1200 < text.length ? offset + 1200 : null
+    length: text2.length,
+    nextOffset: offset + 1200 < text2.length ? offset + 1200 : null
   };
 }
 async function referenceSearch(query, version, options = {}) {
@@ -1043,15 +1043,15 @@ async function referenceSearch(query, version, options = {}) {
     }
     const phrase = queryPhrase(terms);
     const navigational = navigationalQuery(query);
-    const identifier = identifierQuery(query);
-    const symbolic = identifier || options.kind === "grammar" || query.trim().startsWith("grammar:");
+    const identifier2 = identifierQuery(query);
+    const symbolic = identifier2 || options.kind === "grammar" || query.trim().startsWith("grammar:");
     const exactId = index.byId.get(query.trim()) ?? (symbolic ? index.byId.get(index.bySymbol.get(query.trim().replace(/^grammar:/, "")) ?? "") : void 0);
     const quotedQuery = '"' + query.trim() + '"';
-    const quotable = identifier || options.kind === "grammar";
+    const quotable = identifier2 || options.kind === "grammar";
     const normalizedQuery = queryPhrase(terms);
     const propertyMatches = /* @__PURE__ */ new Map();
     const propertyIntent = options.kind === "grammar" || terms.some((term) => ["property", "attribute", "grammar", "syntax"].includes(term.stem));
-    for (const [position, facet] of exactId || identifier ? [] : index.propertyFacets) {
+    for (const [position, facet] of exactId || identifier2 ? [] : index.propertyFacets) {
       if (facet.terms.length < 2 && !propertyIntent) continue;
       const labelMatches = normalizedQuery.includes(" " + facet.terms.join(" ") + " ") || terms.some((term) => term.stem === facet.terms.join(""));
       if (!labelMatches) continue;
@@ -1082,10 +1082,10 @@ async function referenceSearch(query, version, options = {}) {
         titleText: entry.titleText,
         titleStems: entry.titleStems,
         // A production name wins outright; in prose queries the template of that family does.
-        titleWeight: kind === "grammar" && !identifier && options.kind !== "grammar" ? 150 : 2e3,
+        titleWeight: kind === "grammar" && !identifier2 && options.kind !== "grammar" ? 150 : 2e3,
         // Prefer concrete templates, then the owning contract; grammar wrappers and incidental
         // productions rank below unless a production or property name is being looked up.
-        prior: kind === "template" ? 100 : kind === "contract" ? 5 + (identifier ? 100 : 0) : kind === "grammar" ? (identifier || options.kind === "grammar" ? 0 : -40) + (entry.title.endsWith("-line") ? -20 : 0) : 0,
+        prior: kind === "template" ? 100 : kind === "contract" ? 5 + (identifier2 ? 100 : 0) : kind === "grammar" ? (identifier2 || options.kind === "grammar" ? 0 : -40) + (entry.title.endsWith("-line") ? -20 : 0) : 0,
         routing: entry.routing,
         canonical: entry.canonical,
         length: reference.text.length,
@@ -1130,10 +1130,10 @@ async function referenceSearch(query, version, options = {}) {
     ranked.slice(offset, offset + limit).map(async (position, i) => {
       const entry = index.searchable[position];
       const { reference: r, title } = entry;
-      const text = await referenceText2(r);
+      const text2 = await referenceText2(r);
       const requires = r.requires ?? [];
       const related = [.../* @__PURE__ */ new Set([...index.propertyOwners.get(r.id) ?? [], ...r.related ?? []])];
-      const code = codeWanted(options.include, offset, i) ? entry.code ??= r.kind === "grammar" ? null : primaryCodeBlock(text, CODE_LIMIT) : void 0;
+      const code = codeWanted(options.include, offset, i) ? entry.code ??= r.kind === "grammar" ? null : primaryCodeBlock(text2, CODE_LIMIT) : void 0;
       return {
         id: r.id,
         title,
@@ -1142,7 +1142,7 @@ async function referenceSearch(query, version, options = {}) {
         kind: r.kind ?? "guide",
         family: r.family ?? "workflow",
         ...r.verification ? { verification: r.verification } : {},
-        ...snippet(text, text.toLowerCase(), query, words),
+        ...snippet(text2, text2.toLowerCase(), query, words),
         ...code ? { code: boundCode(code, CODE_LIMIT) } : {},
         requires,
         requiresReferences: requires.slice(0, SEARCH_LINKS).map(link),
@@ -1180,26 +1180,26 @@ async function referenceCandidates(request, version) {
   ]);
   return [...components, ...patterns].sort((a, b) => b.score - a.score || a.id.localeCompare(b.id, "en")).slice(0, 64);
 }
-async function referenceRead(id, offset, limit, project, version) {
-  if (id.startsWith("block:") || id.startsWith("blueprint:")) return catalogRead(id, offset, limit, project);
-  const qualifiedVersion = id.startsWith("oracle:26.2:") ? "26.2" : void 0;
+async function referenceRead(id2, offset, limit, project, version) {
+  if (id2.startsWith("block:") || id2.startsWith("blueprint:")) return catalogRead(id2, offset, limit, project);
+  const qualifiedVersion = id2.startsWith("oracle:26.2:") ? "26.2" : void 0;
   if (version && qualifiedVersion && !versionMatches(version, qualifiedVersion))
     throw new Fault("REFERENCE_NOT_FOUND", "The reference ID belongs to a different APEX release.", 2);
   const selectedVersion = await resolveReferenceVersion(project, version ?? qualifiedVersion);
-  if (id.startsWith("oracle:26.2:public-template/"))
-    return publicTemplateRead(id, offset, limit, selectedVersion);
-  if (id === "apexlang-lifecycle" && selectedVersion.split("@")[0] === "26.2")
-    id = "oracle:26.2:guide/file-import";
-  if (id.startsWith("component:"))
-    return componentRead(id, offset, limit, version ?? (project ? void 0 : selectedVersion));
-  if (id.startsWith("pattern:"))
-    return patternRead(id, offset, limit, version ?? (project ? void 0 : selectedVersion));
+  if (id2.startsWith("oracle:26.2:public-template/"))
+    return publicTemplateRead(id2, offset, limit, selectedVersion);
+  if (id2 === "apexlang-lifecycle" && selectedVersion.split("@")[0] === "26.2")
+    id2 = "oracle:26.2:guide/file-import";
+  if (id2.startsWith("component:"))
+    return componentRead(id2, offset, limit, version ?? (project ? void 0 : selectedVersion));
+  if (id2.startsWith("pattern:"))
+    return patternRead(id2, offset, limit, version ?? (project ? void 0 : selectedVersion));
   const index = await referenceIndex(selectedVersion);
-  const item = index.byId.get(id) ?? index.byId.get(index.bySymbol.get(id.replace(/^grammar:/, "")) ?? "");
+  const item = index.byId.get(id2) ?? index.byId.get(index.bySymbol.get(id2.replace(/^grammar:/, "")) ?? "");
   if (!item || version && !versionMatches(item.version, version))
     throw new Fault("REFERENCE_NOT_FOUND", "No registered reference with this ID or grammar symbol.", 2);
-  const text = await referenceText2(item);
-  const content = text.slice(offset, offset + limit);
+  const text2 = await referenceText2(item);
+  const content = text2.slice(offset, offset + limit);
   const symbols = [...content.matchAll(/<([^>\n]+)>/g)].map((match) => index.bySymbol.get(match[1]));
   const related = [
     ...new Set(
@@ -1219,8 +1219,8 @@ async function referenceRead(id, offset, limit, project, version) {
     ...item.verification ? { verification: item.verification } : {},
     content,
     offset,
-    length: text.length,
-    nextOffset: offset + limit < text.length ? offset + limit : null,
+    length: text2.length,
+    nextOffset: offset + limit < text2.length ? offset + limit : null,
     requires,
     requiresReferences: requires.slice(0, 16).map(link),
     related: related.slice(0, 16),
@@ -1714,9 +1714,9 @@ async function referenceSelect(input, signal, fetcher = fetch) {
   for (const result of results) {
     if (result.kind !== "contract" || "example" in result || !String(result.version).startsWith("26.2"))
       continue;
-    const id = String(result.id);
-    if (!id.includes("inventory/app/") || id.includes("inventory/app/page/")) continue;
-    const skeleton = await contractSkeleton(id);
+    const id2 = String(result.id);
+    if (!id2.includes("inventory/app/") || id2.includes("inventory/app/page/")) continue;
+    const skeleton = await contractSkeleton(id2);
     if (skeleton) Object.assign(result, { skeleton });
   }
   for (const result of results)
@@ -1818,7 +1818,7 @@ function planInsert(snapshot, list) {
         throw new Fault("TARGET_NOT_FOUND", `Refresh region ${region} does not exist.`, 2);
   }
   const offset = parsed.children.filter((c) => c.type === "region").length;
-  let text = page.regions.map((region, index) => renderRegion(region, offset + index, release)).join("\n");
+  let text2 = page.regions.map((region, index) => renderRegion(region, offset + index, release)).join("\n");
   let rest = renderPageBody(page, release, { regions: false });
   const actions = existing("dynamicAction");
   const refreshNames = [];
@@ -1830,8 +1830,8 @@ function planInsert(snapshot, list) {
     rest = rest.replace(`dynamicAction refresh-${index + 1} (`, `dynamicAction refresh-${n} (\0`).replace(`name: Refresh dependent regions ${index + 1}`, `name: Refresh dependent regions ${n}`);
   });
   rest = rest.replaceAll("\0", "");
-  text = [text, rest].filter(Boolean).join("\n");
-  const lines = text.split("\n").join(doc.eol) + doc.eol;
+  text2 = [text2, rest].filter(Boolean).join("\n");
+  const lines = text2.split("\n").join(doc.eol) + doc.eol;
   const verify = (after) => {
     for (const region of page.regions)
       if (!after.children.some((c) => c.type === "region" && c.id === region.id))
@@ -2002,8 +2002,8 @@ function planFilters(snapshot, operations) {
     for (const { source, item } of checks) {
       const component = source.find(after);
       const items = submitted(component && readProperty(component, "source.pageItemsToSubmit"));
-      const sql = String((component && readProperty(component, "source.sqlQuery")) ?? "");
-      if (!items.some((name) => name.toUpperCase() === item) || !bind(item).test(sql))
+      const sql2 = String((component && readProperty(component, "source.sqlQuery")) ?? "");
+      if (!items.some((name) => name.toUpperCase() === item) || !bind(item).test(sql2))
         throw new Fault("TRANSFORM_INVALID", `${source.label} does not submit and bind ${item}.`, 5);
     }
   };
@@ -2044,9 +2044,9 @@ function targetText(target) {
     ].filter(Boolean).join("\n")
   );
 }
-function replaceGroup(doc, owner, name, text) {
+function replaceGroup(doc, owner, name, text2) {
   const existing = owner.groups.get(name);
-  const body = indent(text, owner.indent + 4).split("\n").join(doc.eol) + doc.eol;
+  const body = indent(text2, owner.indent + 4).split("\n").join(doc.eol) + doc.eol;
   if (existing) {
     const open2 = doc.lines[existing.open];
     const close = doc.lines[existing.close];
@@ -2251,9 +2251,9 @@ function groupLines(doc, owner, name) {
   const range = owner.groups.get(name);
   if (!range) return [];
   const lines = [];
-  for (const [path12, property] of owner.properties) {
-    if (!path12.startsWith(name + ".")) continue;
-    const key = path12.slice(name.length + 1);
+  for (const [path13, property] of owner.properties) {
+    if (!path13.startsWith(name + ".")) continue;
+    const key = path13.slice(name.length + 1);
     if (key.includes("."))
       throw new Fault(
         "TRANSFORM_UNSUPPORTED",
@@ -2263,16 +2263,16 @@ function groupLines(doc, owner, name) {
     if (property.opaque && !SOURCE.has(key))
       throw new Fault(
         "TRANSFORM_UNSUPPORTED",
-        `${owner.key} ${path12} holds a multi-line value; edit it in source.`,
+        `${owner.key} ${path13} holds a multi-line value; edit it in source.`,
         5
       );
     lines.push({ key, text: doc.lines[property.line].text.trim() });
   }
   return lines;
 }
-function replaceGroup2(doc, owner, name, text) {
+function replaceGroup2(doc, owner, name, text2) {
   const existing = owner.groups.get(name);
-  const body = text ? indent(text, owner.indent + 4).split("\n").join(doc.eol) + doc.eol : "";
+  const body = text2 ? indent(text2, owner.indent + 4).split("\n").join(doc.eol) + doc.eol : "";
   if (existing) {
     const open2 = doc.lines[existing.open];
     const close = doc.lines[existing.close];
@@ -2319,7 +2319,7 @@ function planBindLov(snapshot, operations) {
           currentDigest: lov.digest
         }
       );
-    const id = lov.parsed.id;
+    const id2 = lov.parsed.id;
     const kept = groupLines(doc, item, "lov").filter((line) => !SOURCE.has(line.key));
     const settings = new Map(kept.map((line) => [line.key, line.text]));
     if (operation.nullValue === false) {
@@ -2336,14 +2336,14 @@ function planBindLov(snapshot, operations) {
       settings.set("displayExtraValues", `displayExtraValues: ${operation.displayExtraValues}`);
     const ordered = [
       ...[...SETTINGS].filter((key) => settings.has(key)).map((key) => settings.get(key)),
-      ...[...settings].filter(([key]) => !SETTINGS.has(key)).map(([, text]) => text)
+      ...[...settings].filter(([key]) => !SETTINGS.has(key)).map(([, text2]) => text2)
     ];
     edits.push(
       replaceGroup2(
         doc,
         item,
         "lov",
-        group("lov", ["type: sharedComponent", `lov: @${id}`, ...ordered].join("\n"))
+        group("lov", ["type: sharedComponent", `lov: @${id2}`, ...ordered].join("\n"))
       )
     );
     if (operation.cascade !== void 0) {
@@ -2381,7 +2381,7 @@ function planBindLov(snapshot, operations) {
       const component = after.children.find(
         (c) => c.type === "pageItem" && c.id.toUpperCase() === item.key.toUpperCase()
       );
-      if (!component || readProperty(component, "lov.type") !== "sharedComponent" || refOf2(readProperty(component, "lov.lov")) !== id)
+      if (!component || readProperty(component, "lov.type") !== "sharedComponent" || refOf2(readProperty(component, "lov.lov")) !== id2)
         throw new Fault("TRANSFORM_INVALID", `${item.key} LOV binding did not read back.`, 5);
     });
   }
@@ -2426,10 +2426,10 @@ function planMoves(snapshot, operations) {
   for (const operation of operations) {
     const at = operation.component.indexOf(":");
     const kind = KINDS[operation.component.slice(0, at)];
-    const id = operation.component.slice(at + 1);
-    if (at < 1 || !kind || !id)
+    const id2 = operation.component.slice(at + 1);
+    if (at < 1 || !kind || !id2)
       throw new Fault("INVALID_INPUT", "component is item:NAME, button:ID or region:ID.", 2);
-    const node2 = ApexLangDocument.one(page.children, kind, id, `Page ${page.key}`);
+    const node2 = ApexLangDocument.one(page.children, kind, id2, `Page ${page.key}`);
     if (seen.has(`${kind}:${node2.key.toUpperCase()}`))
       throw new Fault("TRANSFORM_CONFLICT", `${operation.component} is moved twice.`, 5);
     seen.add(`${kind}:${node2.key.toUpperCase()}`);
@@ -2575,8 +2575,222 @@ async function editPage(ctx, input) {
   return outcome;
 }
 
-// packages/core/src/deploy-reconcile.ts
+// packages/core/src/entities.ts
 import path5 from "node:path";
+import { readFile as readFile4, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
+var ENTITY_SCHEMA_VERSION = 1;
+var identifier = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_$#]{0,127}$/u, "Oracle identifier");
+var id = external_exports.string().regex(/^[a-z][a-z0-9-]{0,62}$/u, "Lowercase id: letters, digits and hyphens");
+var text = external_exports.string().min(1).max(255);
+var sql = external_exports.string().min(1).max(64e3).refine((value) => /^\s*(select|with)\b/iu.test(value), "Supply a SELECT query").refine(
+  (value) => !value.includes("```") && !/[\x00\r]/u.test(value),
+  "No fence delimiters or control characters"
+);
+var scheme = external_exports.string().regex(/^[A-Za-z0-9][A-Za-z0-9 _.-]{0,254}$/u, "Authorization scheme name");
+var entityFieldSchema = external_exports.strictObject({
+  type: external_exports.enum(["varchar2", "number", "date", "timestamp"]),
+  label: text,
+  required: external_exports.boolean().default(false),
+  readOnly: external_exports.boolean().default(false),
+  maxLength: external_exports.number().int().positive().max(32767).optional(),
+  formatMask: external_exports.string().min(1).max(255).optional(),
+  /** A reviewed shared LOV (id or name) or explicit static values. */
+  lov: external_exports.union([
+    external_exports.strictObject({ shared: external_exports.string().min(1).max(255) }),
+    external_exports.strictObject({
+      values: external_exports.array(external_exports.strictObject({ label: text, value: external_exports.string().min(1).max(255) })).min(1).max(100)
+    })
+  ]).optional()
+});
+var entityContractSchema = external_exports.strictObject({
+  schemaVersion: external_exports.literal(ENTITY_SCHEMA_VERSION),
+  id,
+  label: text,
+  pluralLabel: text,
+  /** Where rows are read from: complete reviewed SQL or a table/view. */
+  read: external_exports.union([
+    external_exports.strictObject({ sql }),
+    external_exports.strictObject({ table: identifier, owner: identifier.optional() })
+  ]),
+  /** Ordered key columns; every one is a declared, required field. */
+  key: external_exports.array(identifier).min(1).max(8),
+  fields: external_exports.record(identifier, entityFieldSchema),
+  authorization: external_exports.strictObject({
+    read: external_exports.union([external_exports.strictObject({ scheme }), external_exports.strictObject({ public: external_exports.literal(true) })]),
+    write: external_exports.strictObject({ scheme }).optional()
+  }),
+  /** Omit for a read-only entity. */
+  write: external_exports.strictObject({
+    table: identifier,
+    operations: external_exports.array(external_exports.enum(["insert", "update", "delete"])).min(1).max(3),
+    lostUpdate: external_exports.union([external_exports.strictObject({ rowVersion: identifier }), external_exports.literal("rowValues")])
+  }).optional(),
+  /** Where the contract came from (a review, a ticket); recorded, not interpreted. */
+  provenance: external_exports.string().min(1).max(512).optional()
+});
+function checkEntity(contract) {
+  const diagnostics = [];
+  const add = (code, message, at) => diagnostics.push({ code, message, ...at ? { path: at } : {} });
+  const names = Object.keys(contract.fields);
+  const upper = /* @__PURE__ */ new Map();
+  for (const name of names) upper.set(name.toUpperCase(), [...upper.get(name.toUpperCase()) ?? [], name]);
+  for (const [, duplicates] of upper)
+    if (duplicates.length > 1)
+      add("ENTITY_DUPLICATE_FIELD", `Fields ${duplicates.join(", ")} differ only in case.`, "fields");
+  const field = (name) => names.find((candidate) => candidate.toUpperCase() === name.toUpperCase());
+  const keys = contract.key.map((name) => name.toUpperCase());
+  if (new Set(keys).size !== keys.length) add("ENTITY_KEY_INVALID", "Key columns repeat.", "key");
+  for (const name of contract.key) {
+    const declared = field(name);
+    if (!declared) add("ENTITY_KEY_INVALID", `Key column ${name} is not a declared field.`, "key");
+    else {
+      const definition = contract.fields[declared];
+      if (!definition.required)
+        add("ENTITY_KEY_INVALID", `Key column ${name} must be required.`, `fields.${declared}`);
+      if (definition.type === "date" || definition.type === "timestamp")
+        add(
+          "ENTITY_KEY_INVALID",
+          `Key column ${name} is a ${definition.type}; use a number or varchar2 key.`,
+          `fields.${declared}`
+        );
+    }
+  }
+  for (const [name, definition] of Object.entries(contract.fields)) {
+    if (definition.maxLength !== void 0 && definition.type !== "varchar2")
+      add("ENTITY_FIELD_INVALID", `${name}: maxLength applies to varchar2 fields.`, `fields.${name}`);
+    if (definition.formatMask !== void 0 && definition.type === "varchar2")
+      add("ENTITY_FIELD_INVALID", `${name}: formatMask applies to number and date fields.`, `fields.${name}`);
+  }
+  if (contract.write) {
+    if (!contract.authorization.write)
+      add(
+        "ENTITY_WRITE_INCOMPLETE",
+        "A write contract needs authorization.write (its own scheme).",
+        "authorization.write"
+      );
+    const lost = contract.write.lostUpdate;
+    if (typeof lost === "object") {
+      const declared = field(lost.rowVersion);
+      if (!declared)
+        add(
+          "ENTITY_WRITE_INCOMPLETE",
+          `Row version column ${lost.rowVersion} is not a declared field.`,
+          "write.lostUpdate"
+        );
+      else if (contract.fields[declared].type !== "number")
+        add(
+          "ENTITY_WRITE_INCOMPLETE",
+          `Row version column ${lost.rowVersion} must be a number.`,
+          `fields.${declared}`
+        );
+    }
+    if (new Set(contract.write.operations).size !== contract.write.operations.length)
+      add("ENTITY_WRITE_INCOMPLETE", "Write operations repeat.", "write.operations");
+    const unset = Object.entries(contract.fields).filter(
+      ([name, definition]) => definition.required && definition.readOnly && !keys.includes(name.toUpperCase())
+    ).map(([name]) => name);
+    if (contract.write.operations.includes("insert") && unset.length)
+      add(
+        "ENTITY_WRITE_INCOMPLETE",
+        `Inserts cannot set required read-only fields ${unset.join(", ")}.`,
+        "fields"
+      );
+  } else if (contract.authorization.write)
+    add(
+      "ENTITY_WRITE_INCOMPLETE",
+      "authorization.write is set but the entity has no write contract.",
+      "authorization.write"
+    );
+  if ("table" in contract.read && contract.write && contract.write.table.toUpperCase() !== contract.read.table.toUpperCase())
+    diagnostics.push({
+      code: "ENTITY_WRITE_TABLE",
+      message: `Rows are read from ${contract.read.table} but written to ${contract.write.table}; review that both describe the same rows.`,
+      path: "write.table"
+    });
+  return diagnostics;
+}
+function canonical2(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical2).join(",")}]`;
+  if (value && typeof value === "object")
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical2(value[key])}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+var entityDigest = (contract) => createHash("sha256").update(canonical2(contract), "utf8").digest("hex");
+var directory = (ctx) => path5.join(ctx.root, "entities");
+async function loadEntity(ctx, entity) {
+  if (!/^[a-z][a-z0-9-]{0,62}$/u.test(entity))
+    throw new Fault("INVALID_INPUT", `${entity} is not an entity id.`, 2);
+  const file2 = path5.join(directory(ctx), `${entity}.json`);
+  if (!await exists(file2))
+    throw new Fault("TARGET_NOT_FOUND", `No entity contract entities/${entity}.json.`, 2);
+  const raw = await readFile4(file2, "utf8");
+  if (Buffer.byteLength(raw) > 256 * 1024)
+    throw new Fault("INVALID_INPUT", "Entity contracts are limited to 256 KiB.", 2);
+  let input;
+  try {
+    input = JSON.parse(raw);
+  } catch {
+    throw new Fault("INVALID_INPUT", `entities/${entity}.json is not valid JSON.`, 2);
+  }
+  const parsed = entityContractSchema.safeParse(input);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new Fault(
+      "ENTITY_INVALID",
+      `entities/${entity}.json: ${issue?.path.join(".")} ${issue?.message}`,
+      2
+    );
+  }
+  if (parsed.data.id !== entity)
+    throw new Fault(
+      "ENTITY_INVALID",
+      `entities/${entity}.json declares id ${parsed.data.id}; the file name is the id.`,
+      2
+    );
+  return {
+    id: entity,
+    file: path5.relative(ctx.root, file2).split(path5.sep).join("/"),
+    schemaVersion: parsed.data.schemaVersion,
+    digest: entityDigest(parsed.data),
+    contract: parsed.data,
+    diagnostics: checkEntity(parsed.data)
+  };
+}
+async function listEntities(ctx) {
+  const dir = directory(ctx);
+  const files = await exists(dir) ? (await readdir(dir)).filter((name) => name.endsWith(".json")).sort() : [];
+  const entities = [];
+  for (const name of files) {
+    const entity = name.slice(0, -".json".length);
+    try {
+      const loaded = await loadEntity(ctx, entity);
+      entities.push({
+        id: loaded.id,
+        file: loaded.file,
+        schemaVersion: loaded.schemaVersion,
+        digest: loaded.digest,
+        label: loaded.contract.label,
+        writable: loaded.contract.write?.operations ?? [],
+        diagnostics: loaded.diagnostics
+      });
+    } catch (error) {
+      entities.push({
+        id: entity,
+        file: `entities/${name}`,
+        diagnostics: [{ code: error.code ?? "ENTITY_INVALID", message: error.message }]
+      });
+    }
+  }
+  return {
+    directory: "entities",
+    entities,
+    next: entities.length ? "Use an entity id and digest in a recipe request; fix diagnostics first." : "Add reviewed contracts as entities/<id>.json."
+  };
+}
+
+// packages/core/src/deploy-reconcile.ts
+import path6 from "node:path";
 import { appendFile } from "node:fs/promises";
 async function reconcileRun(ctx, input) {
   if (!input.userRequest.trim())
@@ -2586,15 +2800,15 @@ async function reconcileRun(ctx, input) {
       2
     );
   const runDir = await contained(ctx.root, ".apexrest/deployments/" + input.run);
-  if (!await exists(path5.join(runDir, "plan.json")))
+  if (!await exists(path6.join(runDir, "plan.json")))
     throw new Fault(
       "RUN_NOT_FOUND",
       `No deployment run ${input.run} exists in this project.`,
       2,
       "not_found"
     );
-  const plan = await readJson(path5.join(runDir, "plan.json"));
-  const state = await readJson(path5.join(runDir, "state.json"));
+  const plan = await readJson(path6.join(runDir, "plan.json"));
+  const state = await readJson(path6.join(runDir, "state.json"));
   if (!["outcome_unknown", "failed"].includes(String(state.state)))
     throw new Fault(
       "RUN_NOT_HELD",
@@ -2638,7 +2852,7 @@ async function reconcileRun(ctx, input) {
   const statements = scripts.map((op) => ({
     kind: op.kind,
     file: op.file,
-    version: path5.basename(op.file),
+    version: path6.basename(op.file),
     checksum: op.sha256,
     applied: stated.get(op.file) === "applied"
   }));
@@ -2657,9 +2871,9 @@ async function reconcileRun(ctx, input) {
     statements: input.statements,
     releasedOwner: owner
   };
-  await writeJson(path5.join(runDir, "reconciliation.json"), record);
+  await writeJson(path6.join(runDir, "reconciliation.json"), record);
   await appendFile(
-    path5.join(runDir, "journal.jsonl"),
+    path6.join(runDir, "journal.jsonl"),
     JSON.stringify({ runId: input.run, state: "reconciled", at }) + "\n"
   );
   return {
@@ -2674,8 +2888,8 @@ async function reconcileRun(ctx, input) {
 }
 
 // packages/core/src/panel.ts
-import path6 from "node:path";
-import { readdir, realpath as realpath3, stat as stat3 } from "node:fs/promises";
+import path7 from "node:path";
+import { readdir as readdir2, realpath as realpath3, stat as stat3 } from "node:fs/promises";
 var safe = (value) => sanitized(value);
 var historyLimit = 2e3;
 var PanelService = class {
@@ -2689,7 +2903,7 @@ var PanelService = class {
   async records(folder) {
     const base = await contained(this.root, ".apexrest/" + folder);
     if (!await exists(base)) return { rows: [], omitted: 0 };
-    let entries = (await readdir(base, { withFileTypes: true })).filter(
+    let entries = (await readdir2(base, { withFileTypes: true })).filter(
       (e) => e.isDirectory() && external_exports.uuid().safeParse(e.name).success
     );
     let omitted = 0;
@@ -2697,7 +2911,7 @@ var PanelService = class {
       const dated = await Promise.all(
         entries.map(async (entry) => ({
           entry,
-          at: (await stat3(path6.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
+          at: (await stat3(path7.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
         }))
       );
       omitted = entries.length - historyLimit;
@@ -2853,7 +3067,7 @@ var PanelService = class {
 // packages/core/src/usage.ts
 import { AsyncLocalStorage } from "node:async_hooks";
 import { constants, lstat, open } from "node:fs/promises";
-import path7 from "node:path";
+import path8 from "node:path";
 var count2 = external_exports.number().int().nonnegative().safe();
 var duration = external_exports.number().finite().nonnegative().max(7 * 864e5);
 var modelName = external_exports.string().max(120).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/);
@@ -2913,7 +3127,7 @@ function retain(store) {
   store.entries = store.entries.slice(discarded);
   return store;
 }
-var file = () => path7.join(managedHome(), "usage-log.json");
+var file = () => path8.join(managedHome(), "usage-log.json");
 async function readPrivate(file2, maximum) {
   const before = await lstat(file2);
   if (!before.isFile() || before.isSymbolicLink() || before.size > maximum)
@@ -2944,7 +3158,7 @@ async function readStore() {
 async function saveLocked(entry) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await withLock(path7.join(managedHome(), "usage-log.lock"), async () => {
+      return await withLock(path8.join(managedHome(), "usage-log.lock"), async () => {
         const store = await readStore();
         const existing = entry.importDigest && store.entries.find((old) => old.importDigest === entry.importDigest);
         if (existing) return { recorded: false, duplicate: true, entry: existing };
@@ -3060,14 +3274,14 @@ async function observeUsage(operation, execute, sqlclMs) {
     return result;
   });
 }
-function records(text) {
+function records(text2) {
   try {
     try {
-      const value = JSON.parse(text);
+      const value = JSON.parse(text2);
       if (value && typeof value === "object" && !Array.isArray(value)) return [value];
     } catch {
     }
-    return text.trim().split(/\r?\n/).filter(Boolean).map((line) => {
+    return text2.trim().split(/\r?\n/).filter(Boolean).map((line) => {
       const value = JSON.parse(line);
       if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
       return value;
@@ -3238,7 +3452,7 @@ async function importUsage(host, source, elapsedMs, counterMode) {
       "Enable local usage logging with settings configure --usage-log on.",
       2
     );
-  const contents = await readPrivate(path7.resolve(source), 8 * 1024 * 1024);
+  const contents = await readPrivate(path8.resolve(source), 8 * 1024 * 1024);
   const native = nativeUsage(host, records(contents), counterMode);
   const elapsed = elapsedMs === void 0 ? native.elapsed : parse(duration, elapsedMs);
   const entry = parse(entrySchema2, {
@@ -3316,24 +3530,24 @@ async function usageStatus(limit = 20) {
 }
 
 // packages/core/src/peer-review.ts
-import path10 from "node:path";
+import path11 from "node:path";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile as readFile5, rm } from "node:fs/promises";
+import { mkdir, readFile as readFile6, rm } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/cli-command.ts
-import path8 from "node:path";
-import { readFile as readFile4, stat as stat4 } from "node:fs/promises";
+import path9 from "node:path";
+import { readFile as readFile5, stat as stat4 } from "node:fs/promises";
 var SHIM_LIMIT = 64 * 1024;
 var NODE_FLAG = /^--?[A-Za-z0-9][\w-]*(?:=[\w./:-]*)?$/u;
-function npmShimTarget(text) {
-  const line = text.split(/\r?\n/u).map((entry) => entry.trim()).filter((entry) => entry.includes("%*")).at(-1);
+function npmShimTarget(text2) {
+  const line = text2.split(/\r?\n/u).map((entry) => entry.trim()).filter((entry) => entry.includes("%*")).at(-1);
   if (!line) return void 0;
   const target = /"%dp0%\\([^"%]+)"\s+%\*$/iu.exec(line)?.[1];
   if (!target) return void 0;
   const prog = line.lastIndexOf('"%_prog%"');
   if (prog >= 0) {
-    if (!/SET "_prog=(?:%dp0%\\)?node(?:\.exe)?"/iu.test(text)) return void 0;
+    if (!/SET "_prog=(?:%dp0%\\)?node(?:\.exe)?"/iu.test(text2)) return void 0;
     const flags = line.slice(prog + '"%_prog%"'.length, line.lastIndexOf('"%dp0%\\')).trim().split(/\s+/u).filter(Boolean);
     if (!flags.every((flag) => NODE_FLAG.test(flag))) return void 0;
     return { target, node: true, nodeArgs: flags };
@@ -3359,12 +3573,12 @@ async function resolveCliCommand(command, args, host = {}) {
       3,
       "dependency_missing"
     );
-  const extension = path8.extname(located).toLowerCase();
+  const extension = path9.extname(located).toLowerCase();
   if (extension === ".cmd" || extension === ".bat") {
-    const content = await readFile4(located);
+    const content = await readFile5(located);
     const shim = content.length <= SHIM_LIMIT ? npmShimTarget(content.toString("utf8")) : void 0;
     if (shim) {
-      const target = path8.join(path8.dirname(located), ...shim.target.split(/[\\/]/u));
+      const target = path9.join(path9.dirname(located), ...shim.target.split(/[\\/]/u));
       if (await isFile(target))
         return shim.node ? { executable: host.execPath ?? process.execPath, args: [...shim.nodeArgs, target, ...args] } : { executable: target, args };
     }
@@ -3378,7 +3592,7 @@ async function resolveCliCommand(command, args, host = {}) {
 }
 
 // packages/core/src/ship.ts
-import path9 from "node:path";
+import path10 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -3423,23 +3637,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source = path9.resolve(root, input.sourceDir);
-  if (!await exists(path9.join(source, "application.apx")))
+  const source = path10.resolve(root, input.sourceDir);
+  if (!await exists(path10.join(source, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path9.join(source, ".apex", "apexlang.json");
+  const own = path10.join(source, ".apex", "apexlang.json");
   if (await exists(own)) return { source, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path9.resolve(input.project));
-  for (let dir = path9.dirname(source); ; dir = path9.dirname(dir)) {
-    if (await exists(path9.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path10.resolve(input.project));
+  for (let dir = path10.dirname(source); ; dir = path10.dirname(dir)) {
+    if (await exists(path10.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path9.dirname(dir) === dir) break;
+    if (path10.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -3448,7 +3662,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file2 = path9.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file2 = path10.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file2)) return { source, metadata: { origin: "project", file: file2 } };
   }
   throw new Fault(
@@ -3938,8 +4152,8 @@ function peerPrompt(ctx, subject, diff, focus) {
     "Answer only with the JSON object required by the output schema."
   ].join("\n");
 }
-function parseVerdict(text) {
-  const value = JSON.parse(text);
+function parseVerdict(text2) {
+  const value = JSON.parse(text2);
   const parsed = peerVerdictSchema.safeParse(value);
   if (!parsed.success)
     throw new Fault(
@@ -3953,8 +4167,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID());
   await mkdir(scratch, { recursive: true });
   try {
-    const schemaFile = path10.join(scratch, "verdict.schema.json");
-    const lastFile = path10.join(scratch, "last-message.json");
+    const schemaFile = path11.join(scratch, "verdict.schema.json");
+    const lastFile = path11.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -4005,7 +4219,7 @@ async function runPeer(vendor, ctx, prompt, options) {
         `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
         1
       );
-    if (vendor === "codex") return parseVerdict(await readFile5(lastFile, "utf8"));
+    if (vendor === "codex") return parseVerdict(await readFile6(lastFile, "utf8"));
     const envelope = JSON.parse(result.stdout);
     if (envelope.is_error)
       throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
@@ -4167,7 +4381,7 @@ function prewarmCompiler(project) {
       try {
         const ctx = await loadProject(project);
         const source = await contained(ctx.root, ctx.config.application.sourceDir);
-        if (!await exists(path11.join(source, ".apex/apexlang.json"))) {
+        if (!await exists(path12.join(source, ".apex/apexlang.json"))) {
           compilerPrewarms.delete(project);
           return;
         }
@@ -4218,6 +4432,8 @@ function routeProject(parsed) {
       };
     case "context":
       return { operation: "project.context", input: pick("project", "page") };
+    case "entities":
+      return { operation: "entity.list", input: pick("project") };
     case "lov_context":
       return { operation: "lov.context", input: pick("project", "lov") };
     case "lov_edit":
@@ -4257,7 +4473,7 @@ function routeProject(parsed) {
   }
 }
 function routeReference(parsed) {
-  const { mode, query, id, request, limit, offset, ...rest } = parsed;
+  const { mode, query, id: id2, request, limit, offset, ...rest } = parsed;
   if (mode === "select") {
     if (!rest.project) throw new Fault("INVALID_INPUT", "project: required for mode select", 2);
     return {
@@ -4272,13 +4488,13 @@ function routeReference(parsed) {
   }
   if (request !== void 0) throw new Fault("INVALID_INPUT", "request: supported only for mode select", 2);
   if (mode === "read") {
-    if (typeof id !== "string") throw new Fault("INVALID_INPUT", "id: required for mode read", 2);
+    if (typeof id2 !== "string") throw new Fault("INVALID_INPUT", "id: required for mode read", 2);
     return {
       operation: "docs.read",
       input: {
         project: rest.project,
         version: rest.version,
-        id,
+        id: id2,
         offset,
         ...typeof limit === "number" ? { limit: Math.min(limit, 8192) } : {}
       }
@@ -4342,8 +4558,8 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       schemas[operation],
       input
     );
-    const text = (key) => parsed[key];
-    const root = text("project") ?? process.cwd();
+    const text2 = (key) => parsed[key];
+    const root = text2("project") ?? process.cwd();
     if (operation === "project" || operation === "reference") {
       const route = operation === "project" ? routeProject(parsed) : routeReference(parsed);
       return { ...await dispatch(route.operation, route.input, signal, progress), operation };
@@ -4404,7 +4620,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         break;
       case "sqlcl.configure":
         data = await configureSqlcl(
-          text("mode"),
+          text2("mode"),
           parsed.mcpRestrictLevel,
           parsed.databaseTransport
         );
@@ -4422,49 +4638,49 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-FWCLKGGY.mjs");
+        const { setup } = await import("./chunk-V2QGRE3V.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-FWCLKGGY.mjs");
-        data = await validateNative(text("from"));
+        const { validateNative } = await import("./chunk-V2QGRE3V.mjs");
+        data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-FWCLKGGY.mjs");
-        data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
-          ...text("codex") ? { codex: text("codex") } : {}
+        const { uninstallNative } = await import("./chunk-V2QGRE3V.mjs");
+        data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
+          ...text2("codex") ? { codex: text2("codex") } : {}
         });
         break;
       }
       case "project.init":
         data = await projectInit(
-          text("directory"),
-          text("template"),
-          text("alias") ?? path11.basename(path11.resolve(text("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text2("directory"),
+          text2("template"),
+          text2("alias") ?? path12.basename(path12.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "project.scaffold": {
         const { scaffold } = await import("./chunk-UZKIYPEJ.mjs");
-        data = await scaffold(await loadProject(root), text("specFile"), text("env"));
+        data = await scaffold(await loadProject(root), text2("specFile"), text2("env"));
         break;
       }
       case "connection.add":
-        data = await configureConnection(text("name"), {
-          project: text("project"),
-          sqlclName: text("sqlclName"),
-          ordsUrl: text("ordsUrl"),
-          ordsUsername: text("ordsUsername"),
-          passwordFile: text("passwordFile"),
-          envFile: text("envFile"),
-          usernameKey: text("usernameKey"),
-          passwordKey: text("passwordKey"),
-          urlKey: text("urlKey")
+        data = await configureConnection(text2("name"), {
+          project: text2("project"),
+          sqlclName: text2("sqlclName"),
+          ordsUrl: text2("ordsUrl"),
+          ordsUsername: text2("ordsUsername"),
+          passwordFile: text2("passwordFile"),
+          envFile: text2("envFile"),
+          usernameKey: text2("usernameKey"),
+          passwordKey: text2("passwordKey"),
+          urlKey: text2("urlKey")
         });
         break;
       case "connection.remove":
-        data = await editConnection(text("name"));
+        data = await editConnection(text2("name"));
         break;
       case "connection.list":
         data = parsed.saved ? await oracle.savedConnections(signal) : await connections();
@@ -4478,10 +4694,10 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             "blocked"
           );
         data = await oracle.identity(
-          parsed.saved ? { kind: "sqlcl-store", name: text("name") } : await resolveConnection(text("name")),
+          parsed.saved ? { kind: "sqlcl-store", name: text2("name") } : await resolveConnection(text2("name")),
           signal
         );
-        if (parsed.saved) data = { name: text("name"), ...data };
+        if (parsed.saved) data = { name: text2("name"), ...data };
         break;
       case "settings.status":
         data = await settingsStatus();
@@ -4489,7 +4705,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "settings.configure":
         data = await configureGlobalSettings({
           ...parsed.decisionApi ? { decisionApi: parsed.decisionApi === "on" } : {},
-          ...parsed.apiKeyEnv ? { apiKeyEnv: text("apiKeyEnv") } : {},
+          ...parsed.apiKeyEnv ? { apiKeyEnv: text2("apiKeyEnv") } : {},
           ...parsed.decisionTimeoutMs !== void 0 ? { decisionTimeoutMs: Number(parsed.decisionTimeoutMs) } : {},
           ...parsed.catalog ? { catalog: parsed.catalog === "on" } : {},
           ...parsed.usageLog ? { usageLog: parsed.usageLog === "on" } : {}
@@ -4501,14 +4717,14 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "usage.import":
         data = await importUsage(
           parsed.host,
-          text("file"),
+          text2("file"),
           parsed.elapsedMs,
           parsed.counterMode
         );
         break;
       case "docs.search":
         await requireCatalog();
-        data = await referenceSearch(text("query"), text("version"), schemas["docs.search"].parse(parsed));
+        data = await referenceSearch(text2("query"), text2("version"), schemas["docs.search"].parse(parsed));
         break;
       case "docs.select":
         await requireCatalog();
@@ -4517,15 +4733,15 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "docs.read":
         await requireCatalog();
         data = await referenceRead(
-          text("id"),
+          text2("id"),
           Number(parsed.offset),
           Number(parsed.limit),
-          text("project"),
-          text("version")
+          text2("project"),
+          text2("version")
         );
         break;
       case "docs.sync":
-        data = await referenceSync(text("version"), Boolean(parsed.dryRun));
+        data = await referenceSync(text2("version"), Boolean(parsed.dryRun));
         break;
       case "peer.status":
         data = await peerStatus(parsed.project ? await loadProject(root) : void 0);
@@ -4566,7 +4782,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           case "dev.start":
             data = await startBroker(
               ctx,
-              path11.join(path11.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
+              path12.join(path12.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
             );
             break;
           case "dev.status":
@@ -4584,6 +4800,9 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           case "project.patch":
             data = await patchPage(ctx, schemas["project.patch"].parse(parsed));
             break;
+          case "entity.list":
+            data = await listEntities(ctx);
+            break;
           case "lov.context":
             data = await lovContext(ctx, String(parsed.lov));
             break;
@@ -4597,7 +4816,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             data = await projectInspect(ctx, parsed.detail);
             break;
           case "metadata.read": {
-            const env = environment(ctx, text("env"));
+            const env = environment(ctx, text2("env"));
             const { project: _p, env: _e, debugTimings: _debug, ...request } = parsed;
             data = await metadataRead(
               oracle,
@@ -4610,30 +4829,30 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           }
           case "apex.generate": {
             const generated = await oracle.generate(
-              text("name"),
-              text("alias") ?? ctx.config.application.alias
+              text2("name"),
+              text2("alias") ?? ctx.config.application.alias
             );
             data = {
-              ...await installSources(generated.directory, ctx.root, text("output")),
+              ...await installSources(generated.directory, ctx.root, text2("output")),
               compiler: generated.compiler
             };
             break;
           }
           case "apex.sync":
             if (parsed.action === "changes") {
-              data = await deployment.serverChanges(ctx, text("env"));
+              data = await deployment.serverChanges(ctx, text2("env"));
               break;
             }
             data = await deployment.sync(
               ctx,
-              text("env"),
+              text2("env"),
               parsed.action,
               signal
             );
             break;
           case "project.adopt":
           case "apex.export": {
-            const env = environment(ctx, text("env"));
+            const env = environment(ctx, text2("env"));
             if (operation === "project.adopt" && env.applicationId !== parsed.appId)
               throw new Fault(
                 "APPLICATION_TARGET_MISMATCH",
@@ -4641,7 +4860,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
                 5
               );
             if (operation === "project.adopt" && parsed.workingCopy) {
-              data = await deployment.sync(ctx, text("env"), "init", signal);
+              data = await deployment.sync(ctx, text2("env"), "init", signal);
               break;
             }
             const connection = await resolveConnection(env.readConnectionRef);
@@ -4650,7 +4869,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             data = await installSources(
               exported.directory,
               ctx.root,
-              operation === "project.adopt" ? ctx.config.application.sourceDir : text("output")
+              operation === "project.adopt" ? ctx.config.application.sourceDir : text2("output")
             );
             break;
           }
@@ -4670,11 +4889,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             if (parsed.mode === "recover") {
               if (!parsed.run)
                 throw new Fault("INVALID_INPUT", "Recover requires the original deployment run UUID.", 2);
-              const recovered = await deployment.recover(ctx, text("run"), text("env"));
+              const recovered = await deployment.recover(ctx, text2("run"), text2("env"));
               data = recovered.status === "succeeded" ? recovered : await shipApply(
                 ctx,
                 recovered.retryPlan,
-                text("userRequest"),
+                text2("userRequest"),
                 deployment,
                 signal,
                 progress
@@ -4690,10 +4909,10 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             const planned = parsed.plan ? await (async () => {
               const { plan } = await deployment.checkLocal(
                 ctx,
-                await readRequestedPlan(ctx.root, text("plan"), text("env"))
+                await readRequestedPlan(ctx.root, text2("plan"), text2("env"))
               );
-              return { plan, planPath: text("plan"), phases: [], preview: planPreview(ctx, plan) };
-            })() : await shipPlan(ctx, text("env"), deployment, parseDiagnostics, progress, {
+              return { plan, planPath: text2("plan"), phases: [], preview: planPreview(ctx, plan) };
+            })() : await shipPlan(ctx, text2("env"), deployment, parseDiagnostics, progress, {
               importMode: parsed.importMode,
               ...parsed.files ? { files: parsed.files } : {}
             });
@@ -4711,7 +4930,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             const applied = await shipApply(
               ctx,
               planned.plan,
-              text("userRequest"),
+              text2("userRequest"),
               deployment,
               signal,
               progress,
@@ -4727,12 +4946,12 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "ship.apply": {
-            const plan = await readRequestedPlan(ctx.root, text("plan"), text("env"));
+            const plan = await readRequestedPlan(ctx.root, text2("plan"), text2("env"));
             const peer = await peerReviewGate(ctx, plan);
             data = await shipApply(
               ctx,
               plan,
-              text("userRequest"),
+              text2("userRequest"),
               deployment,
               signal,
               progress,
@@ -4742,8 +4961,8 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "apex.diff": {
-            const env = environment(ctx, text("env"));
-            const store = new SyncStore(ctx, env, text("env"));
+            const env = environment(ctx, text2("env"));
+            const store = new SyncStore(ctx, env, text2("env"));
             const state = parsed.comparison === "live" ? null : await store.read();
             let exported, provenance;
             if (state && state.status !== "invalidated" && parsed.comparison !== "live") {
@@ -4770,21 +4989,21 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             break;
           }
           case "db.plan":
-            data = await deployment.plan(ctx, text("env"));
+            data = await deployment.plan(ctx, text2("env"));
             break;
           case "deploy.plan": {
-            const plan = await deployment.plan(ctx, text("env"), {
+            const plan = await deployment.plan(ctx, text2("env"), {
               importMode: parsed.importMode,
               ...parsed.files ? { files: parsed.files } : {}
             });
-            await writeJson(await contained(ctx.root, text("out")), plan);
+            await writeJson(await contained(ctx.root, text2("out")), plan);
             data = plan;
             break;
           }
           case "deploy.apply":
             data = await deployment.apply(
               ctx,
-              await readJson(await contained(ctx.root, text("plan"))),
+              await readJson(await contained(ctx.root, text2("plan"))),
               signal
             );
             break;
@@ -4792,11 +5011,11 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             data = await reconcileRun(ctx, schemas["deploy.reconcile"].parse(parsed));
             break;
           case "deploy.status":
-            data = await deployment.reconcile(ctx, text("run"));
+            data = await deployment.reconcile(ctx, text2("run"));
             break;
           case "deploy.restore-plan": {
-            const plan = await deployment.restorePlan(ctx, text("backup"));
-            await writeJson(await contained(ctx.root, text("out")), plan);
+            const plan = await deployment.restorePlan(ctx, text2("backup"));
+            await writeJson(await contained(ctx.root, text2("out")), plan);
             data = plan;
             break;
           }
@@ -4804,20 +5023,20 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
             const { openVerificationBrowser } = await import("./chunk-TTSSN3PA.mjs");
             data = await openVerificationBrowser(
               ctx,
-              text("env"),
+              text2("env"),
               parsed.browserMode
             );
             break;
           }
           case "jobs.status":
-            data = await new JobService(ctx).status(text("id"), Number(parsed.waitSeconds), signal);
+            data = await new JobService(ctx).status(text2("id"), Number(parsed.waitSeconds), signal);
             break;
           case "jobs.cancel":
-            data = await new JobService(ctx).cancel(text("id"));
+            data = await new JobService(ctx).cancel(text2("id"));
             break;
           case "artifacts.read":
             data = await new ArtifactService(ctx).read(
-              text("id"),
+              text2("id"),
               Number(parsed.offset),
               Number(parsed.limit)
             );
@@ -4849,7 +5068,7 @@ var observationOnly = /* @__PURE__ */ new Set([
 ]);
 async function rememberProject(root) {
   try {
-    const ctx = await loadProject(path11.resolve(root));
+    const ctx = await loadProject(path12.resolve(root));
     await recordProject(ctx.root, ctx.config.projectId);
   } catch {
   }

@@ -1125,6 +1125,14 @@
         "docs/evidence/fast-dev/visibility-compiler-2026-11-25.json"
       ],
       "blocker": "Repository tests, the local preview render and the offline Oracle compiler (26.2) pass. Native import and 26.1 are not yet observed."
+    },
+    {
+      "id": "FASTDEV-A09",
+      "criterion": "Versioned project-owned entity contracts declare reviewed read sources, ordered keys, typed labelled fields, explicit read and write authorization and lost-update semantics, have stable ids and content digests, and report duplicate fields, invalid keys and incomplete write contracts before any generation",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": ["packages/core/src/entities.ts", "tests/unit/entities.test.ts"],
+      "blocker": "Local repository tests. Connected validation (FASTDEV-A10) and generation from contracts (FASTDEV-A11) are separate."
     }
   ]
 }

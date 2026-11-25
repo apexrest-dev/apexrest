@@ -1686,6 +1686,23 @@
       ],
       "evidence": ["sanitized result code", "context visible flags", "compiler diagnostics count"],
       "budgetMs": 10000
+    },
+    {
+      "id": "A261-080",
+      "title": "Entity contracts",
+      "acceptance": ["FASTDEV-A09"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Add a reviewed entities/<id>.json contract and one with an incomplete write contract.",
+        "Run project action:entities."
+      ],
+      "expected": [
+        "Each contract is listed with its id, schema version and digest; the incomplete one reports ENTITY_WRITE_INCOMPLETE; nothing is generated or executed."
+      ],
+      "evidence": ["sanitized result code", "entity digests", "diagnostic codes"],
+      "budgetMs": 3000
     }
   ],
   "metrics": "quality-performance.json"
