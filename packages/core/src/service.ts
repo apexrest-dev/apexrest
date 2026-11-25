@@ -18,6 +18,7 @@ import { projectInit, projectInspect } from './project.ts';
 import { metadataRead } from './metadata.ts';
 import { SyncStore, checkpoint } from './sync.ts';
 import { DeploymentService, deployPlanSchema, sourceInventory } from './deploy.ts';
+import { traceReport, withTrace, type TraceReport } from './spans.ts';
 import { recordRevision, revisionOf } from './revision.ts';
 import { pageContext, patchPage } from './edit/patch.ts';
 import { insertComponents } from './edit/insert.ts';
@@ -249,7 +250,19 @@ export async function dispatch(
     observeUsage(
       operation,
       async () => {
-        const result = await dispatchObserved(operation, input, signal, progress);
+        // A ship runs in one operation trace (spans.ts): planning, a job's queue and worker, apply.
+        const shipping = operation === 'ship' || operation === 'ship.apply';
+        let operations: TraceReport | undefined;
+        const result = shipping
+          ? await withTrace(async () => {
+              const value = await dispatchObserved(operation, input, signal, progress);
+              // A successful ship reports its spans. A failure keeps its shape: it carries the
+              // correlation id as a fact, and a started run keeps the spans in its journal.
+              const report = traceReport();
+              if (value.ok && report?.spans.length) operations = report;
+              return value;
+            })
+          : await dispatchObserved(operation, input, signal, progress);
         const timings = sqlclTimings().map(({ statementMs, ...r }) => ({
           ...r,
           ...(input.debugTimings === true && statementMs ? { statementMs } : {}),
@@ -265,12 +278,13 @@ export async function dispatch(
             },
           };
         }
-        if ((operation === 'ship' || operation === 'ship.apply') && (result.ok || timings.length)) {
+        if (shipping && (result.ok || timings.length)) {
           const data = (result.data ?? {}) as Record<string, unknown>;
           return {
             ...result,
             data: {
               ...data,
+              ...(operations ? { correlationId: operations.correlationId, operations } : {}),
               details: {
                 ...((data.details as object) ?? {}),
                 sqlclTimings: timings,

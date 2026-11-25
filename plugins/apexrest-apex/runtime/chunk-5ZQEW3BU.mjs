@@ -4,10 +4,10 @@ import {
   insertComponents,
   pageContext,
   patchPage
-} from "./chunk-4QBKHSVA.mjs";
+} from "./chunk-7PLJZRO4.mjs";
 import {
   schemas
-} from "./chunk-4BPGLB73.mjs";
+} from "./chunk-HCF2VM4K.mjs";
 import {
   browserPreferences
 } from "./chunk-S4NYTED6.mjs";
@@ -15,21 +15,21 @@ import {
   batchCommand,
   locateCommand,
   runtimeState
-} from "./chunk-35EGR64M.mjs";
+} from "./chunk-6DN7RAI6.mjs";
 import {
   brokerStatus,
   startBroker,
   stopBroker
-} from "./chunk-FPW2XLPV.mjs";
+} from "./chunk-RPD4VAE7.mjs";
 import {
   JobService,
   jobToolResult
-} from "./chunk-QUG35XZ7.mjs";
+} from "./chunk-D7LI6RDR.mjs";
 import {
   lovContext,
   lovEdit,
   lovFile
-} from "./chunk-BZIPI54F.mjs";
+} from "./chunk-PRSF5ANR.mjs";
 import {
   DeploymentService,
   deployPlanSchema,
@@ -42,7 +42,7 @@ import {
   sourceInventory,
   sourceRevision,
   undoEdit
-} from "./chunk-ED46SLPH.mjs";
+} from "./chunk-52E2USZJ.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -52,10 +52,17 @@ import {
   metadataRead,
   oracleType,
   readMetadataBatch
-} from "./chunk-VOYRQ4YG.mjs";
+} from "./chunk-MQFEOF3A.mjs";
+import {
+  correlationId,
+  openSpan,
+  spanned,
+  traceReport,
+  withTrace
+} from "./chunk-KUKVCAPO.mjs";
 import {
   scaffoldSpec
-} from "./chunk-XH2MRLFC.mjs";
+} from "./chunk-SIHBA2TI.mjs";
 import {
   scaffoldSchema
 } from "./chunk-BBZ43UIE.mjs";
@@ -103,7 +110,7 @@ import {
   scoreReference,
   sqlclConfig,
   stemmedReference
-} from "./chunk-PU24NTLU.mjs";
+} from "./chunk-JI42DR2Q.mjs";
 import {
   runProcess,
   sqlclTimings,
@@ -3511,7 +3518,7 @@ async function shipPlan(ctx, name, deployment, parseDiagnostics2, progress, opti
   progress?.("validating");
   let plan;
   try {
-    plan = await deployment.plan(ctx, name, options);
+    plan = await spanned("planning", () => deployment.plan(ctx, name, options));
   } catch (error) {
     throw compilerFault(error, parseDiagnostics2);
   }
@@ -3593,6 +3600,27 @@ var CLIENT_STOPPED_CAUSES = /* @__PURE__ */ new Set([
   "SCRIPT_INCOMPLETE"
 ]);
 async function shipApply(ctx, planValue, userRequest, deployment, signal, progress, confirmation, recoveryAttempt = 0) {
+  return withTrace(async () => {
+    try {
+      return await shipApplyTraced(
+        ctx,
+        planValue,
+        userRequest,
+        deployment,
+        signal,
+        progress,
+        confirmation,
+        recoveryAttempt
+      );
+    } catch (error) {
+      if (error instanceof Fault && correlationId())
+        error.details = { ...error.details, correlationId: correlationId() };
+      throw error;
+    }
+  });
+}
+async function shipApplyTraced(ctx, planValue, userRequest, deployment, signal, progress, confirmation, recoveryAttempt = 0) {
+  const setup = openSpan("setup", { stage: "ship" });
   const plan = parse(deployPlanSchema, planValue);
   if (await isProductionTarget(environment(ctx, plan.environment), plan.targetDigest))
     throw new Fault(
@@ -3616,6 +3644,7 @@ async function shipApply(ctx, planValue, userRequest, deployment, signal, progre
   await updatePolicy((p) => ({ ...p, grants: [...p.grants.filter((g) => !ownGrant(ctx, plan)(g)), grant] }));
   let grantRemoved = false;
   let applied;
+  setup.end();
   try {
     mark("backing_up");
     applied = await deployment.apply(ctx, plan, signal, (state) => {
@@ -3648,7 +3677,7 @@ async function shipApply(ctx, planValue, userRequest, deployment, signal, progre
       }
       if (recovered.status === "succeeded") applied = recovered;
       else
-        return await shipApply(
+        return await shipApplyTraced(
           ctx,
           recovered.retryPlan,
           userRequest,
@@ -3678,6 +3707,7 @@ async function shipApply(ctx, planValue, userRequest, deployment, signal, progre
     application: applicationLink(ctx, plan.environment),
     sources: sourceCounts(ctx, plan),
     phases,
+    ...correlationId() ? { correlationId: correlationId(), operations: traceReport() } : {},
     ...applied.recovered ? { recovery: "server-readback-confirmed" } : {},
     verification: { identity: "confirmed", state: applied.state, directory: applied.directory },
     grant: { recorded: true, removed: grantRemoved, expiresAt: grant.expiresAt, planDigest: plan.digest },
@@ -4251,7 +4281,14 @@ async function dispatch(operation, input = {}, signal, progress) {
     () => observeUsage(
       operation,
       async () => {
-        const result = await dispatchObserved(operation, input, signal, progress);
+        const shipping = operation === "ship" || operation === "ship.apply";
+        let operations;
+        const result = shipping ? await withTrace(async () => {
+          const value = await dispatchObserved(operation, input, signal, progress);
+          const report = traceReport();
+          if (value.ok && report?.spans.length) operations = report;
+          return value;
+        }) : await dispatchObserved(operation, input, signal, progress);
         const timings = sqlclTimings().map(({ statementMs, ...r }) => ({
           ...r,
           ...input.debugTimings === true && statementMs ? { statementMs } : {}
@@ -4267,12 +4304,13 @@ async function dispatch(operation, input = {}, signal, progress) {
             }
           };
         }
-        if ((operation === "ship" || operation === "ship.apply") && (result.ok || timings.length)) {
+        if (shipping && (result.ok || timings.length)) {
           const data = result.data ?? {};
           return {
             ...result,
             data: {
               ...data,
+              ...operations ? { correlationId: operations.correlationId, operations } : {},
               details: {
                 ...data.details ?? {},
                 sqlclTimings: timings
@@ -4335,7 +4373,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-4UDOAFNO.mjs");
+      const { previewDispatch } = await import("./chunk-YNYR6BOV.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4365,29 +4403,29 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "dependencies.install": {
-        const { ToolchainService } = await import("./chunk-7G6XXGEY.mjs");
+        const { ToolchainService } = await import("./chunk-CPN526LN.mjs");
         data = await new ToolchainService().apply(parsed);
         break;
       }
       case "dependencies.uninstall": {
-        const { uninstallTools } = await import("./chunk-SIKYQH4K.mjs");
+        const { uninstallTools } = await import("./chunk-2CFSZX2W.mjs");
         data = await uninstallTools(parsed);
         break;
       }
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-3LADWQVM.mjs");
+        const { setup } = await import("./chunk-MZ37SOH2.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-3LADWQVM.mjs");
+        const { validateNative } = await import("./chunk-MZ37SOH2.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-3LADWQVM.mjs");
+        const { uninstallNative } = await import("./chunk-MZ37SOH2.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -4401,7 +4439,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-NGRNRDLH.mjs");
+        const { scaffold } = await import("./chunk-Y4OZNIP7.mjs");
         data = await scaffold(await loadProject(root), text2("specFile"), text2("env"));
         break;
       }

@@ -20,6 +20,7 @@ import type { OracleAdapter } from './oracle.ts';
 import type { JobPhase } from './jobs.ts';
 import { Fault, type StructuredDiagnostic } from './result.ts';
 import { auditUpgradeSource } from './upgrade-audit.ts';
+import { correlationId, openSpan, spanned, traceReport, withTrace } from './spans.ts';
 
 // apexrest_ship: validate -> plan -> (apply) record a plan-bound grant -> deploy
 // -> verify -> remove the grant. The grant records the user's literal request
@@ -278,7 +279,7 @@ export async function shipPlan(
   try {
     // Planning compiles the sources and reads the target in parallel; a
     // compiler failure is reported as structured validation diagnostics.
-    plan = await deployment.plan(ctx, name, options);
+    plan = await spanned('planning', () => deployment.plan(ctx, name, options));
   } catch (error) {
     throw compilerFault(error, parseDiagnostics);
   }
@@ -399,6 +400,37 @@ export async function shipApply(
   confirmation?: PlanConfirmation,
   recoveryAttempt = 0,
 ) {
+  // One correlation id spans planning, queueing, the worker and the apply; a failure carries it.
+  return withTrace(async () => {
+    try {
+      return await shipApplyTraced(
+        ctx,
+        planValue,
+        userRequest,
+        deployment,
+        signal,
+        progress,
+        confirmation,
+        recoveryAttempt,
+      );
+    } catch (error) {
+      if (error instanceof Fault && correlationId())
+        error.details = { ...error.details, correlationId: correlationId()! };
+      throw error;
+    }
+  });
+}
+async function shipApplyTraced(
+  ctx: ProjectContext,
+  planValue: unknown,
+  userRequest: string,
+  deployment: DeploymentService,
+  signal?: AbortSignal,
+  progress?: (phase: JobPhase) => void,
+  confirmation?: PlanConfirmation,
+  recoveryAttempt = 0,
+) {
+  const setup = openSpan('setup', { stage: 'ship' });
   const plan = parse(deployPlanSchema, planValue);
   if (await isProductionTarget(environment(ctx, plan.environment), plan.targetDigest))
     throw new Fault(
@@ -428,7 +460,10 @@ export async function shipApply(
     backupId?: string;
     recovered?: boolean;
   };
+  setup.end();
   try {
+    // `phases` keep their names for clients: backing_up spans apply setup through backup; the
+    // operation spans (`operations`) attribute each part to the work that ran.
     mark('backing_up');
     applied = await deployment.apply(ctx, plan, signal, (state) => {
       const phase = phaseFor[state];
@@ -477,7 +512,7 @@ export async function shipApply(
       }
       if (recovered.status === 'succeeded') applied = recovered;
       else
-        return await shipApply(
+        return await shipApplyTraced(
           ctx,
           recovered.retryPlan,
           userRequest,
@@ -508,6 +543,7 @@ export async function shipApply(
     application: applicationLink(ctx, plan.environment),
     sources: sourceCounts(ctx, plan),
     phases,
+    ...(correlationId() ? { correlationId: correlationId()!, operations: traceReport() } : {}),
     ...(applied.recovered ? { recovery: 'server-readback-confirmed' } : {}),
     verification: { identity: 'confirmed', state: applied.state, directory: applied.directory },
     grant: { recorded: true, removed: grantRemoved, expiresAt: grant.expiresAt, planDigest: plan.digest },

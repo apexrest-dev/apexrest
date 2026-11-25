@@ -1948,6 +1948,23 @@
       ],
       "evidence": ["live event payloads", "browser-visible result"],
       "budgetMs": 30000
+    },
+    {
+      "id": "A261-095",
+      "title": "Ship operation spans and correlation",
+      "acceptance": ["FASTDEV-D01"],
+      "execution": "harness",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Ship a reviewed plan to a fixture target with deterministic delays in setup, the prewrite observation and the import.",
+        "Make the import end with an unknown outcome."
+      ],
+      "expected": [
+        "Spans attribute each delay to its operation, the backup path is recorded, totals separate wall, sequential, overlap and background time, and an unknown import keeps no end time; results and the journal share one correlation id."
+      ],
+      "evidence": ["ship result operations", "run journal"],
+      "budgetMs": 30000
     }
   ],
   "metrics": "quality-performance.json"

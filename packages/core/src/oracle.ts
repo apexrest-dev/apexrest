@@ -1625,7 +1625,11 @@ export class OracleAdapter {
    * starts in it and serves only a selected-file import of exactly that directory.
    * Without it the server serves a full import.
    */
-  async prepareImport(source: string, connection: Connection, importDirectory?: string) {
+  async prepareImport(
+    source: string,
+    connection: Connection,
+    importDirectory?: string,
+  ): Promise<{ ready?: Promise<boolean>; close: () => Promise<void> } | undefined> {
     if (warmImportDisabled() || this.runner !== runProcess || this.warmImport) return undefined;
     const settings = await this.settings();
     if (settings.mode !== 'cli' || (settings.databaseTransport ?? 'direct') !== 'direct') return undefined;
@@ -1659,6 +1663,7 @@ export class OracleAdapter {
     };
     this.warmImport = entry;
     return {
+      ready: server.readiness,
       close: async () => {
         if (this.warmImport === entry) this.warmImport = undefined;
         await server.close();

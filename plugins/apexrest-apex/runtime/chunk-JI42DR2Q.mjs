@@ -2569,6 +2569,10 @@ var WarmImportServer = class {
   client;
   started = performance.now();
   ready;
+  /** Settles when preparation finished: true when the server can take the import. */
+  get readiness() {
+    return this.ready;
+  }
   taken = false;
   closed = false;
   warmMs;
@@ -4485,6 +4489,7 @@ ${debugTimings ? "set timing off\n" : ""}prompt ${token}_${index}`
     };
     this.warmImport = entry;
     return {
+      ready: server.readiness,
       close: async () => {
         if (this.warmImport === entry) this.warmImport = void 0;
         await server.close();

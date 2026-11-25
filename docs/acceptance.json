@@ -1315,6 +1315,21 @@
         "tests/unit/preview-live.test.ts"
       ],
       "blocker": "Defect reproduced in repository protocol fixtures and fixed. No real-browser qualification was run."
+    },
+    {
+      "id": "FASTDEV-D01",
+      "criterion": "Ship results and run journals attribute latency to nested operation spans under one correlation id, separate wall, sequential, overlapping and background time, record the backup path taken, and keep unfinished or unknown spans without an end time",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/spans.ts",
+        "packages/core/src/ship.ts",
+        "packages/core/src/deploy.ts",
+        "packages/core/src/jobs.ts",
+        "packages/core/src/service.ts",
+        "tests/unit/ship-spans.test.ts"
+      ],
+      "blocker": "Repository fixtures with deterministic delays. Native Oracle span timings remain to be recorded with the D-series measurements."
     }
   ]
 }

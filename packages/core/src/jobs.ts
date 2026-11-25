@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { measuredSpan, withTrace } from './spans.ts';
 import { open } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -43,6 +44,8 @@ export class JobService {
       id,
       operation,
       input: { ...input, project: this.ctx.root },
+      // Origin of the job's operation trace (queue delay and worker startup are measured from it).
+      enqueuedAt: Date.now(),
     });
     await writeJson(path.join(root, 'state.json'), {
       id,
@@ -244,9 +247,11 @@ export async function executeJob(
   const root = await contained(ctx.root, '.apexrest/jobs/' + id);
   if (!(await claimJob(root, runner)))
     throw new Fault('JOB_ALREADY_CLAIMED', 'Another runner already took this job.', 5, 'conflict');
+  const claimedAt = Date.now();
   const request = (await readJson(path.join(root, 'request.json'))) as {
     operation: string;
     input: Record<string, unknown>;
+    enqueuedAt?: number;
   };
   const controller = new AbortController();
   let done = false;
@@ -290,7 +295,24 @@ export async function executeJob(
   try {
     let result: unknown;
     try {
-      result = await execute(request.operation, request.input, controller.signal, progress);
+      // The job id is the correlation id of its operation spans. Queue delay runs from enqueue to
+      // claim; a detached worker's process startup lies inside it and is its child span.
+      const enqueuedAt = typeof request.enqueuedAt === 'number' ? request.enqueuedAt : claimedAt;
+      result = await withTrace(
+        async () => {
+          const queued = measuredSpan('queue', enqueuedAt, claimedAt, { runner });
+          if (runner === 'detached-worker')
+            measuredSpan(
+              'workerStartup',
+              Math.max(enqueuedAt, claimedAt - process.uptime() * 1000),
+              claimedAt,
+              undefined,
+              queued,
+            );
+          return execute(request.operation, request.input, controller.signal, progress);
+        },
+        { correlationId: id, origin: enqueuedAt },
+      );
     } catch (error) {
       // dispatch never throws; an executor exception is an infrastructure
       // failure and is recorded as the job outcome instead of a lost heartbeat.

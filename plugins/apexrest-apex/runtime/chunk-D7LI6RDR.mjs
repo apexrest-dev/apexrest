@@ -1,5 +1,9 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  measuredSpan,
+  withTrace
+} from "./chunk-KUKVCAPO.mjs";
+import {
   parse
 } from "./chunk-O3XZW7YC.mjs";
 import {
@@ -47,7 +51,9 @@ var JobService = class {
     await writeJson(path.join(root, "request.json"), {
       id,
       operation,
-      input: { ...input, project: this.ctx.root }
+      input: { ...input, project: this.ctx.root },
+      // Origin of the job's operation trace (queue delay and worker startup are measured from it).
+      enqueuedAt: Date.now()
     });
     await writeJson(path.join(root, "state.json"), {
       id,
@@ -79,7 +85,7 @@ var JobService = class {
   }
   async start(operation, input, runtime) {
     const id = await this.enqueue(operation, input);
-    const { submitToBroker } = await import("./chunk-SWI6GCYB.mjs");
+    const { submitToBroker } = await import("./chunk-HSRH7SDA.mjs");
     if (await submitToBroker(this.ctx.root, id).catch(() => false))
       return {
         jobId: id,
@@ -208,6 +214,7 @@ async function executeJob(ctx, id, execute, runner = "detached-worker") {
   const root = await contained(ctx.root, ".apexrest/jobs/" + id);
   if (!await claimJob(root, runner))
     throw new Fault("JOB_ALREADY_CLAIMED", "Another runner already took this job.", 5, "conflict");
+  const claimedAt = Date.now();
   const request = await readJson(path.join(root, "request.json"));
   const controller = new AbortController();
   let done = false;
@@ -242,7 +249,22 @@ async function executeJob(ctx, id, execute, runner = "detached-worker") {
   try {
     let result;
     try {
-      result = await execute(request.operation, request.input, controller.signal, progress);
+      const enqueuedAt = typeof request.enqueuedAt === "number" ? request.enqueuedAt : claimedAt;
+      result = await withTrace(
+        async () => {
+          const queued = measuredSpan("queue", enqueuedAt, claimedAt, { runner });
+          if (runner === "detached-worker")
+            measuredSpan(
+              "workerStartup",
+              Math.max(enqueuedAt, claimedAt - process.uptime() * 1e3),
+              claimedAt,
+              void 0,
+              queued
+            );
+          return execute(request.operation, request.input, controller.signal, progress);
+        },
+        { correlationId: id, origin: enqueuedAt }
+      );
     } catch (error) {
       result = failure(request.operation, error);
     }

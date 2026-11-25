@@ -1,4 +1,5 @@
 import { withSqlclTimings, sqlclTimings } from './sqlcl-timings.ts';
+import { correlationId, openSpan, spanned, traceReport } from './spans.ts';
 import { withConnectedReads } from './sqlcl-read-scope.ts';
 import path from 'node:path';
 import { readFile, mkdir, cp, open, readdir, rename, rm, rmdir } from 'node:fs/promises';
@@ -1968,14 +1969,25 @@ export class DeploymentService {
     progress?: (state: DeployState) => void,
   ) {
     const applyTimingStart = sqlclTimings().length;
-    const { env, plan } = await this.checkLocal(ctx, value);
-    // Locality probing connects; refuse production-marked targets first.
-    await refuseProductionDeployment(env, plan.environment, plan.targetDigest);
-    const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
-    await authorizePlan(ctx, plan, env, locality.local);
-    await this.oracle.requireMutationSupport();
+    const { env, plan } = await spanned(
+      'setup',
+      async () => {
+        const checked = await this.checkLocal(ctx, value);
+        // Locality probing connects; refuse production-marked targets first.
+        await refuseProductionDeployment(checked.env, checked.plan.environment, checked.plan.targetDigest);
+        const locality = checked.plan.risks.length
+          ? await this.localTarget(ctx, checked.plan)
+          : { local: false };
+        await authorizePlan(ctx, checked.plan, checked.env, locality.local);
+        await this.oracle.requireMutationSupport();
+        return checked;
+      },
+      { stage: 'apply' },
+    );
     const runId = randomUUID();
+    const waiting = openSpan('ownershipWait');
     return withLock(await contained(ctx.root, '.apexrest/composer/ownership.lock'), async () => {
+      waiting.end();
       // Ownership starts before the live comparison, closing the local check/write race.
       await this.lease(env, runId, true);
       try {
@@ -2024,6 +2036,8 @@ export class DeploymentService {
     const importDirectory =
       prepare && selection ? path.join(runDir, 'snapshot', ctx.config.application.sourceDir) : undefined;
     if (importDirectory) await mkdir(importDirectory, { recursive: true, mode: 0o700 });
+    // Compiler preparation runs alongside target observation: a background span, never sequential.
+    const preparing = prepare ? openSpan('compilerPreparation', undefined, { background: true }) : undefined;
     const warmImport = prepare
       ? await this.oracle.prepareImport!(
           await contained(ctx.root, ctx.config.application.sourceDir),
@@ -2031,6 +2045,14 @@ export class DeploymentService {
           importDirectory,
         ).catch(() => undefined)
       : undefined;
+    const ready = warmImport?.ready;
+    if (!warmImport) preparing?.end({ prepared: false });
+    else if (ready)
+      void ready.then(
+        (usable) => preparing?.end({ prepared: usable !== false }),
+        (error: unknown) => preparing?.fail(error),
+      );
+    else preparing?.end({ prepared: true });
     try {
       return await this.applyPrepared(
         ctx,
@@ -2095,6 +2117,7 @@ export class DeploymentService {
       const kept = fresh ? await this.planObservation(ctx, plan, env, readConnection, !!selection) : null;
       return kept ?? this.fingerprint(env, readConnection, scoped);
     })();
+    const observing = openSpan('targetObservation');
     const [deployTargetCheck, fingerprintCheck, capabilityCheck] = await Promise.allSettled([
       canonical(readConnection) === canonical(deployConnection)
         ? freshTarget.then((observation) => observation.target)
@@ -2102,11 +2125,22 @@ export class DeploymentService {
       freshTarget,
       this.oracle.requireCapability('import'),
     ]);
+    observing.end({
+      observation:
+        fingerprintCheck.status === 'fulfilled' && 'kept' in fingerprintCheck.value
+          ? 'retained-plan-observation'
+          : working && !selection && !fresh
+            ? 'working-copy'
+            : 'fresh-export',
+    });
     const liveStage =
       (!working || selection || fresh) && fingerprintCheck.status === 'fulfilled'
         ? (fingerprintCheck.value.exported as { stage?: string } | null)?.stage
         : undefined;
     let backupSource: Awaited<ReturnType<typeof persistSnapshot>> | null = null;
+    // Where a fresh-export plan's backup comes from: the copy kept at planning, or this run's
+    // start observation when that copy is unusable.
+    let backupOrigin: 'retained-plan-observation' | 'start-observation-export' | undefined;
     try {
       if (deployTargetCheck.status === 'rejected') throw deployTargetCheck.reason;
       if (fingerprintCheck.status === 'rejected') throw fingerprintCheck.reason;
@@ -2114,6 +2148,7 @@ export class DeploymentService {
       if (live.fingerprint !== plan.fingerprint)
         throw new Fault('TARGET_DRIFT', 'Target or migration history changed after review.', 5);
       if (fresh && live.exported) {
+        backupOrigin = 'kept' in live ? 'retained-plan-observation' : 'start-observation-export';
         if ('kept' in live)
           backupSource = {
             directory: planObservationDirectory(plan.id),
@@ -2221,10 +2256,17 @@ export class DeploymentService {
         /* The journal is the deployment record; the revision report is derived from it. */
       }
     };
+    let readback: ReturnType<typeof openSpan> | undefined;
     const record = async (nextState: DeployState, details: unknown = {}) => {
       assertTransition(state, nextState);
       const timingPhase = state;
       state = nextState;
+      if (nextState === 'verifying') readback = openSpan('readback');
+      else if (timingPhase === 'verifying' && nextState === 'succeeded') readback?.end();
+      else if (timingPhase === 'verifying')
+        readback?.fail(new Fault(nextState === 'failed' ? 'FAILED' : 'OUTCOME_UNKNOWN', '', 1, nextState));
+      const terminal = ['succeeded', 'failed', 'outcome_unknown'].includes(nextState);
+      const trace = correlationId();
       // Progress is informational for job status; the journal stays the record.
       try {
         progress?.(nextState);
@@ -2238,7 +2280,14 @@ export class DeploymentService {
         targetDigest: plan.targetDigest,
         state,
         at: new Date().toISOString(),
-        details: { ...(details as object), sqlclTimings: sqlclTimings().slice(timingCursor), timingPhase },
+        ...(trace ? { correlationId: trace } : {}),
+        details: {
+          ...(details as object),
+          sqlclTimings: sqlclTimings().slice(timingCursor),
+          timingPhase,
+          // The operation spans so far, on the run's last event (unfinished ones without an end).
+          ...(terminal && trace ? { operations: traceReport() } : {}),
+        },
       };
       timingCursor = sqlclTimings().length;
       await appendJournal(runDir, event);
@@ -2249,11 +2298,31 @@ export class DeploymentService {
     await this.lease(env, runId, false);
     try {
       await record('backing_up');
+      const backingUp = openSpan('backup');
       working = await this.checkWorkingPlan(ctx, plan);
       if (working) await checkSyncBackup(ctx, working.backup, plan.targetDigest, plan.environment);
       const databaseOnly = plan.scope === 'database-only';
+      // The recorded path is the code path taken, never inferred from a duration.
+      backingUp.set({
+        path:
+          databaseOnly || !(plan.backupRequired || liveApplication)
+            ? 'none'
+            : working && !selection && !fresh
+              ? 'working-copy-baseline'
+              : backupSource
+                ? (backupOrigin ?? 'retained-plan-observation')
+                : 'fresh-export',
+      });
       if (!databaseOnly && (plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
-        const backup = backupSource ?? (await this.oracle.exportApplication(env, readConnection, 'APEXLANG'));
+        const backup =
+          backupSource ??
+          (await spanned(
+            'backupExport',
+            () => this.oracle.exportApplication(env, readConnection, 'APEXLANG'),
+            undefined,
+            backingUp.id,
+          ));
+        const copying = openSpan('backupCopyHash', undefined, { parent: backingUp.id });
         try {
           const backupId = randomUUID(),
             directory = path.join(ctx.root, '.apexrest/backups', backupId);
@@ -2289,16 +2358,21 @@ export class DeploymentService {
             checksum: backup.digest,
             targetDigest: plan.targetDigest,
           });
+          copying.end({ files: Object.keys(files).length });
+        } catch (error) {
+          copying.fail(error);
+          throw error;
         } finally {
           await this.oracle.discardStage?.((backup as { stage?: string }).stage);
         }
       }
+      backingUp.end();
       await this.checkLocal(ctx, plan);
       // Keep this barrier only when backup performed an additional export.
       // Fresh-export plans reuse the start observation as backup and retain
       // the stronger post-freeze observation immediately before import.
       if ((!working || selection) && !fresh) {
-        const after = await this.fingerprint(env, readConnection, scoped);
+        const after = await spanned('backupDriftCheck', () => this.fingerprint(env, readConnection, scoped));
         try {
           if (after.fingerprint !== plan.fingerprint)
             throw new Fault('TARGET_DRIFT', 'Target changed during backup.', 5);
@@ -2308,6 +2382,7 @@ export class DeploymentService {
       }
       // Execute a frozen copy. A later working-tree edit cannot alter reviewed bytes.
       const snapshot = path.join(runDir, 'snapshot');
+      const freezing = openSpan('sourceFreeze', { files: Object.keys(plan.sources).length });
       // A selected-file run already created it for the prepared import server.
       await mkdir(snapshot, { recursive: true, mode: 0o700 });
       for (const [file, sha] of Object.entries(plan.sources)) {
@@ -2328,6 +2403,7 @@ export class DeploymentService {
         if (canonical(await inventory(application)) !== canonical(selection.effective!.files))
           throw new Fault('SOURCE_DRIFT', 'Selected source changed while freezing deployment.', 5);
       }
+      freezing.end();
       if (controller.signal.aborted)
         throw new Fault('CANCELLED', 'Deployment cancelled before writes.', 6, 'cancelled');
       if (working && !databaseOnly) {
@@ -2338,7 +2414,8 @@ export class DeploymentService {
         });
       }
       const completedMigrations: DeployPlan['migrationHistory'] = [];
-      const checkBeforeImport = async () => {
+      const checkBeforeImport = () => spanned('prewriteObservation', checkBeforeImportNow);
+      const checkBeforeImportNow = async () => {
         const sameConnection = canonical(readConnection) === canonical(deployConnection);
         const observation =
           working && !selection && !fresh
@@ -2383,6 +2460,7 @@ export class DeploymentService {
       // Once writes begin, ownership is never automatically reclaimed. It must be reconciled.
       await new LocalDeploymentControl(env).markWriting(runId);
       const scripts = plan.operations.filter((o) => ['migration', 'package'].includes(o.kind));
+      const scripting = scripts.length ? openSpan('scripts', { count: scripts.length }) : undefined;
       // Several scripts share one restricted, reset server (sqlcl-warm.ts ScriptSession); a single
       // script, or any script that could not use it before submission, runs in its own process.
       const scriptSession =
@@ -2454,6 +2532,10 @@ export class DeploymentService {
             });
           }
         }
+        scripting?.end();
+      } catch (error) {
+        scripting?.fail(error);
+        throw error;
       } finally {
         await scriptSession?.close();
       }
@@ -2487,7 +2569,11 @@ export class DeploymentService {
         if (controller.signal.aborted)
           throw new Fault('CANCELLED', 'Deployment cancelled before import.', 6, 'cancelled');
         writeStarted = true;
-        await this.oracle.restoreApplication(env, deployConnection, bytes, controller.signal);
+        await spanned(
+          'importSubmission',
+          () => this.oracle.restoreApplication(env, deployConnection, bytes, controller.signal),
+          { kind: 'restore' },
+        );
       } else {
         if (
           plan.restore &&
@@ -2551,6 +2637,8 @@ export class DeploymentService {
         if (controller.signal.aborted)
           throw new Fault('CANCELLED', 'Deployment cancelled before import.', 6, 'cancelled');
         writeStarted = true;
+        const importTimings = sqlclTimings().length;
+        const importing = openSpan('importSubmission', { kind: selection ? 'selected-files' : 'full' });
         try {
           await this.oracle.importApplication(
             plan.restore && !selection
@@ -2565,7 +2653,23 @@ export class DeploymentService {
             controller.signal,
             selection?.files,
           );
+          // Connection and execution of the import itself, from its SQLcl timing record.
+          const timing = sqlclTimings()
+            .slice(importTimings)
+            .find((entry) => entry.label === 'import');
+          importing.end(
+            timing
+              ? {
+                  transport: timing.transport,
+                  reusedServer: timing.reused,
+                  ...(timing.connectMs !== null ? { connectMs: Math.round(timing.connectMs) } : {}),
+                  ...(timing.spawnMs !== null ? { spawnMs: Math.round(timing.spawnMs) } : {}),
+                  executeMs: Math.round(timing.executeMs),
+                }
+              : undefined,
+          );
         } catch (error) {
+          importing.fail(error);
           // SQLcl ran the import to its end and reported an Oracle or compiler error: the batch
           // stopped and rolled back. That alone is not trusted. Only when a fresh read then shows
           // the target exactly as planned (plus this run's own migrations) is the import reported

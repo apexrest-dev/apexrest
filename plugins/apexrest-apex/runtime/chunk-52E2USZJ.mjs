@@ -2,7 +2,13 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   deploymentBinding,
   verifyDeploymentPredicates
-} from "./chunk-VOYRQ4YG.mjs";
+} from "./chunk-MQFEOF3A.mjs";
+import {
+  correlationId,
+  openSpan,
+  spanned,
+  traceReport
+} from "./chunk-KUKVCAPO.mjs";
 import {
   parseApexLang
 } from "./chunk-C66KGFY2.mjs";
@@ -35,7 +41,7 @@ import {
   supportedFile,
   syncPath,
   withConnectedReads
-} from "./chunk-PU24NTLU.mjs";
+} from "./chunk-JI42DR2Q.mjs";
 import {
   sqlclTimings,
   withSqlclTimings
@@ -2349,13 +2355,22 @@ var DeploymentService = class {
   }
   async applyObserved(ctx, value, signal, progress) {
     const applyTimingStart = sqlclTimings().length;
-    const { env, plan } = await this.checkLocal(ctx, value);
-    await refuseProductionDeployment(env, plan.environment, plan.targetDigest);
-    const locality = plan.risks.length ? await this.localTarget(ctx, plan) : { local: false };
-    await authorizePlan(ctx, plan, env, locality.local);
-    await this.oracle.requireMutationSupport();
+    const { env, plan } = await spanned(
+      "setup",
+      async () => {
+        const checked = await this.checkLocal(ctx, value);
+        await refuseProductionDeployment(checked.env, checked.plan.environment, checked.plan.targetDigest);
+        const locality = checked.plan.risks.length ? await this.localTarget(ctx, checked.plan) : { local: false };
+        await authorizePlan(ctx, checked.plan, checked.env, locality.local);
+        await this.oracle.requireMutationSupport();
+        return checked;
+      },
+      { stage: "apply" }
+    );
     const runId = randomUUID();
+    const waiting = openSpan("ownershipWait");
     return withLock(await contained(ctx.root, ".apexrest/composer/ownership.lock"), async () => {
+      waiting.end();
       await this.lease(env, runId, true);
       try {
         return await this.applyLocked(ctx, value, runId, signal, progress, applyTimingStart);
@@ -2385,11 +2400,20 @@ var DeploymentService = class {
     const runDir = path3.join(ctx.root, ".apexrest/deployments", runId);
     const importDirectory = prepare && selection ? path3.join(runDir, "snapshot", ctx.config.application.sourceDir) : void 0;
     if (importDirectory) await mkdir(importDirectory, { recursive: true, mode: 448 });
+    const preparing = prepare ? openSpan("compilerPreparation", void 0, { background: true }) : void 0;
     const warmImport = prepare ? await this.oracle.prepareImport(
       await contained(ctx.root, ctx.config.application.sourceDir),
       deployConnection,
       importDirectory
     ).catch(() => void 0) : void 0;
+    const ready = warmImport?.ready;
+    if (!warmImport) preparing?.end({ prepared: false });
+    else if (ready)
+      void ready.then(
+        (usable) => preparing?.end({ prepared: usable !== false }),
+        (error) => preparing?.fail(error)
+      );
+    else preparing?.end({ prepared: true });
     try {
       return await this.applyPrepared(
         ctx,
@@ -2424,13 +2448,18 @@ var DeploymentService = class {
       const kept = fresh ? await this.planObservation(ctx, plan, env, readConnection, !!selection) : null;
       return kept ?? this.fingerprint(env, readConnection, scoped);
     })();
+    const observing = openSpan("targetObservation");
     const [deployTargetCheck, fingerprintCheck, capabilityCheck] = await Promise.allSettled([
       canonical(readConnection) === canonical(deployConnection) ? freshTarget.then((observation) => observation.target) : this.oracle.verifyTarget(env, deployConnection),
       freshTarget,
       this.oracle.requireCapability("import")
     ]);
+    observing.end({
+      observation: fingerprintCheck.status === "fulfilled" && "kept" in fingerprintCheck.value ? "retained-plan-observation" : working && !selection && !fresh ? "working-copy" : "fresh-export"
+    });
     const liveStage = (!working || selection || fresh) && fingerprintCheck.status === "fulfilled" ? fingerprintCheck.value.exported?.stage : void 0;
     let backupSource = null;
+    let backupOrigin;
     try {
       if (deployTargetCheck.status === "rejected") throw deployTargetCheck.reason;
       if (fingerprintCheck.status === "rejected") throw fingerprintCheck.reason;
@@ -2438,6 +2467,7 @@ var DeploymentService = class {
       if (live.fingerprint !== plan.fingerprint)
         throw new Fault("TARGET_DRIFT", "Target or migration history changed after review.", 5);
       if (fresh && live.exported) {
+        backupOrigin = "kept" in live ? "retained-plan-observation" : "start-observation-export";
         if ("kept" in live)
           backupSource = {
             directory: planObservationDirectory(plan.id),
@@ -2513,10 +2543,17 @@ var DeploymentService = class {
       } catch {
       }
     };
+    let readback;
     const record = async (nextState, details = {}) => {
       assertTransition(state, nextState);
       const timingPhase = state;
       state = nextState;
+      if (nextState === "verifying") readback = openSpan("readback");
+      else if (timingPhase === "verifying" && nextState === "succeeded") readback?.end();
+      else if (timingPhase === "verifying")
+        readback?.fail(new Fault(nextState === "failed" ? "FAILED" : "OUTCOME_UNKNOWN", "", 1, nextState));
+      const terminal = ["succeeded", "failed", "outcome_unknown"].includes(nextState);
+      const trace = correlationId();
       try {
         progress?.(nextState);
       } catch {
@@ -2528,7 +2565,14 @@ var DeploymentService = class {
         targetDigest: plan.targetDigest,
         state,
         at: (/* @__PURE__ */ new Date()).toISOString(),
-        details: { ...details, sqlclTimings: sqlclTimings().slice(timingCursor), timingPhase }
+        ...trace ? { correlationId: trace } : {},
+        details: {
+          ...details,
+          sqlclTimings: sqlclTimings().slice(timingCursor),
+          timingPhase,
+          // The operation spans so far, on the run's last event (unfinished ones without an end).
+          ...terminal && trace ? { operations: traceReport() } : {}
+        }
       };
       timingCursor = sqlclTimings().length;
       await appendJournal(runDir, event);
@@ -2539,11 +2583,21 @@ var DeploymentService = class {
     await this.lease(env, runId, false);
     try {
       await record("backing_up");
+      const backingUp = openSpan("backup");
       working = await this.checkWorkingPlan(ctx, plan);
       if (working) await checkSyncBackup(ctx, working.backup, plan.targetDigest, plan.environment);
       const databaseOnly = plan.scope === "database-only";
+      backingUp.set({
+        path: databaseOnly || !(plan.backupRequired || liveApplication) ? "none" : working && !selection && !fresh ? "working-copy-baseline" : backupSource ? backupOrigin ?? "retained-plan-observation" : "fresh-export"
+      });
       if (!databaseOnly && (plan.backupRequired || liveApplication) && (!working || selection || fresh)) {
-        const backup = backupSource ?? await this.oracle.exportApplication(env, readConnection, "APEXLANG");
+        const backup = backupSource ?? await spanned(
+          "backupExport",
+          () => this.oracle.exportApplication(env, readConnection, "APEXLANG"),
+          void 0,
+          backingUp.id
+        );
+        const copying = openSpan("backupCopyHash", void 0, { parent: backingUp.id });
         try {
           const backupId = randomUUID(), directory = path3.join(ctx.root, ".apexrest/backups", backupId);
           await mkdir(directory, { recursive: true, mode: 448 });
@@ -2573,13 +2627,18 @@ var DeploymentService = class {
             checksum: backup.digest,
             targetDigest: plan.targetDigest
           });
+          copying.end({ files: Object.keys(files).length });
+        } catch (error) {
+          copying.fail(error);
+          throw error;
         } finally {
           await this.oracle.discardStage?.(backup.stage);
         }
       }
+      backingUp.end();
       await this.checkLocal(ctx, plan);
       if ((!working || selection) && !fresh) {
-        const after = await this.fingerprint(env, readConnection, scoped);
+        const after = await spanned("backupDriftCheck", () => this.fingerprint(env, readConnection, scoped));
         try {
           if (after.fingerprint !== plan.fingerprint)
             throw new Fault("TARGET_DRIFT", "Target changed during backup.", 5);
@@ -2588,6 +2647,7 @@ var DeploymentService = class {
         }
       }
       const snapshot = path3.join(runDir, "snapshot");
+      const freezing = openSpan("sourceFreeze", { files: Object.keys(plan.sources).length });
       await mkdir(snapshot, { recursive: true, mode: 448 });
       for (const [file, sha] of Object.entries(plan.sources)) {
         const source = await contained(ctx.root, file), destination = await contained(snapshot, file);
@@ -2605,6 +2665,7 @@ var DeploymentService = class {
         if (canonical(await inventory(application)) !== canonical(selection.effective.files))
           throw new Fault("SOURCE_DRIFT", "Selected source changed while freezing deployment.", 5);
       }
+      freezing.end();
       if (controller.signal.aborted)
         throw new Fault("CANCELLED", "Deployment cancelled before writes.", 6, "cancelled");
       if (working && !databaseOnly) {
@@ -2615,7 +2676,8 @@ var DeploymentService = class {
         });
       }
       const completedMigrations = [];
-      const checkBeforeImport = async () => {
+      const checkBeforeImport = () => spanned("prewriteObservation", checkBeforeImportNow);
+      const checkBeforeImportNow = async () => {
         const sameConnection = canonical(readConnection) === canonical(deployConnection);
         const observation = working && !selection && !fresh ? await this.workingFingerprint(
           ctx,
@@ -2648,6 +2710,7 @@ var DeploymentService = class {
       await record("migrating");
       await new LocalDeploymentControl(env).markWriting(runId);
       const scripts = plan.operations.filter((o) => ["migration", "package"].includes(o.kind));
+      const scripting = scripts.length ? openSpan("scripts", { count: scripts.length }) : void 0;
       const scriptSession = scripts.length > 1 ? await this.oracle.prepareScripts?.(deployConnection).catch(() => void 0) : void 0;
       try {
         for (const operation of scripts) {
@@ -2711,6 +2774,10 @@ prompt ${marker}`,
             });
           }
         }
+        scripting?.end();
+      } catch (error) {
+        scripting?.fail(error);
+        throw error;
       } finally {
         await scriptSession?.close();
       }
@@ -2739,7 +2806,11 @@ prompt ${marker}`,
         if (controller.signal.aborted)
           throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
         writeStarted = true;
-        await this.oracle.restoreApplication(env, deployConnection, bytes, controller.signal);
+        await spanned(
+          "importSubmission",
+          () => this.oracle.restoreApplication(env, deployConnection, bytes, controller.signal),
+          { kind: "restore" }
+        );
       } else {
         if (plan.restore && hash(
           canonical(
@@ -2795,6 +2866,8 @@ prompt ${marker}`,
         if (controller.signal.aborted)
           throw new Fault("CANCELLED", "Deployment cancelled before import.", 6, "cancelled");
         writeStarted = true;
+        const importTimings = sqlclTimings().length;
+        const importing = openSpan("importSubmission", { kind: selection ? "selected-files" : "full" });
         try {
           await this.oracle.importApplication(
             plan.restore && !selection ? {
@@ -2807,7 +2880,18 @@ prompt ${marker}`,
             controller.signal,
             selection?.files
           );
+          const timing = sqlclTimings().slice(importTimings).find((entry) => entry.label === "import");
+          importing.end(
+            timing ? {
+              transport: timing.transport,
+              reusedServer: timing.reused,
+              ...timing.connectMs !== null ? { connectMs: Math.round(timing.connectMs) } : {},
+              ...timing.spawnMs !== null ? { spawnMs: Math.round(timing.spawnMs) } : {},
+              executeMs: Math.round(timing.executeMs)
+            } : void 0
+          );
         } catch (error) {
+          importing.fail(error);
           if (!(error instanceof Fault) || error.code !== "ORACLE_COMMAND_FAILED" || CONNECTION_LOST.test(error.message) || controller.signal.aborted)
             throw error;
           try {
@@ -4105,7 +4189,7 @@ async function loadRelated(ctx, key) {
   const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   let file;
   if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
-  else if (kind === "lov") file = await (await import("./chunk-UJWYN6SM.mjs")).lovFile(ctx, id).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-IN7OEGSE.mjs")).lovFile(ctx, id).catch(() => void 0);
   if (!file) return void 0;
   const text2 = await readFile5(file, "utf8");
   const parsed = parseApexLang(text2, "related").find(

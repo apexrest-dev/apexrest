@@ -35,6 +35,10 @@ export class WarmImportServer {
   private readonly client: SqlclMcpClient;
   private readonly started = performance.now();
   private readonly ready: Promise<boolean>;
+  /** Settles when preparation finished: true when the server can take the import. */
+  get readiness(): Promise<boolean> {
+    return this.ready;
+  }
   private taken = false;
   private closed = false;
   warmMs: number | undefined;
