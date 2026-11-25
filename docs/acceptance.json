@@ -1167,6 +1167,19 @@
         "tests/unit/component-recipes.test.ts"
       ],
       "blocker": "Six recipes are compiler-qualified for 26.2. Native import and browser behaviour are not observed, and forms, items, buttons and lists are not yet in the 26.2 set."
+    },
+    {
+      "id": "FASTDEV-A13",
+      "criterion": "A 26.2 reference selection returns only profile-compatible qualified recipes whose current bytes match their compiler qualification, as whole examples with identity, digest and dependencies and a read path for the complete page, while 26.1 selection is unchanged and no extra remote call is made",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/reference-recipes262.ts",
+        "packages/core/src/reference-selection.ts",
+        "packages/core/src/references.ts",
+        "tests/unit/reference-recipes262.test.ts"
+      ],
+      "blocker": "Local repository tests. Recipe qualification is compiler-only (FASTDEV-A12); host-session use of the returned examples is not yet measured."
     }
   ]
 }

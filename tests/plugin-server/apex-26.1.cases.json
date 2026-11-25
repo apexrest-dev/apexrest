@@ -1756,6 +1756,24 @@
       ],
       "evidence": ["compiler-evidence.json", "registry provenance"],
       "budgetMs": 120000
+    },
+    {
+      "id": "A261-084",
+      "title": "Qualified 26.2 recipes in reference selection",
+      "acceptance": ["FASTDEV-A13"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "In a 26.2 project, select a cards region.",
+        "Read the returned recipe id.",
+        "Repeat in a 26.1 project."
+      ],
+      "expected": [
+        "The 26.2 result carries the whole qualified region block with digest and dependencies; the read digest matches; the 26.1 result has no 26.2 recipe."
+      ],
+      "evidence": ["sanitized result code", "response bytes", "recipe digest"],
+      "budgetMs": 10000
     }
   ],
   "metrics": "quality-performance.json"

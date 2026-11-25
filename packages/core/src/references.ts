@@ -26,6 +26,7 @@ import { resourceRoot } from './project.ts';
 import { loadProject, managedHome } from './config.ts';
 import { readJson, exists, writeJson, canonical, hash } from './fs.ts';
 import { Fault, verifiedVendorReferencePage } from './result.ts';
+import { qualifiedRecipes262, recipe262Read } from './reference-recipes262.ts';
 import { catalogSearch, catalogRead } from './composer/catalog.ts';
 import { componentSearch, componentRead, componentCandidates } from './components.ts';
 import { patternSearch, patternRead, patternCandidates } from './patterns.ts';
@@ -695,6 +696,13 @@ export async function referenceRead(
     return publicTemplateRead(id, offset, limit, selectedVersion);
   if (id === 'apexlang-lifecycle' && selectedVersion.split('@')[0] === '26.2')
     id = 'oracle:26.2:guide/file-import';
+  // Qualified 26.2 recipes (resources/components-26.2) read as the page they compiled in.
+  if (
+    id.startsWith('component:') &&
+    selectedVersion.split('@')[0] === '26.2' &&
+    (await qualifiedRecipes262()).some((recipe) => recipe.id === id)
+  )
+    return recipe262Read(id, offset, limit);
   // Recipes found through a 26.2 project's context stay readable under their own 26.1 version.
   if (id.startsWith('component:'))
     return componentRead(id, offset, limit, version ?? (project ? undefined : selectedVersion));

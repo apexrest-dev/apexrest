@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { hydrate261Recipes } from './reference-recipes261.ts';
+import { recipeFor262 } from './reference-recipes262.ts';
 import { componentNote, contractSkeleton, exampleValues } from './contract-hints.ts';
 import {
   componentExample,
@@ -288,8 +289,33 @@ export async function referenceSelect(
     if (result.kind !== 'contract' || !String(result.version).startsWith('26.2')) continue;
     const component = contractComponent(String(result.id));
     if (!component) continue;
-    const example = await componentExample(component.type, { kind: component.kind, request: input.request });
     const componentType = component.type ?? contractComponentType(String(result.title)) ?? component.kind;
+    // A qualified 26.2 recipe for the component wins over a sample-page block: it compiled as is.
+    const recipe = await recipeFor262(
+      component.kind,
+      component.type ?? contractComponentType(String(result.title)),
+      input.request,
+    );
+    const sample =
+      recipe && 'text' in recipe
+        ? undefined
+        : await componentExample(component.type, { kind: component.kind, request: input.request });
+    const example =
+      recipe && 'text' in recipe
+        ? {
+            id: recipe.id,
+            text: recipe.text,
+            qualifiedRecipe: {
+              sha256: recipe.sha256,
+              requires: recipe.requires,
+              dataContract: recipe.dataContract,
+              adaptation: recipe.adaptation,
+              qualification: recipe.qualification,
+            },
+          }
+        : sample && recipe
+          ? { ...sample, qualifiedRecipe: { id: recipe.id, sha256: recipe.sha256, read: recipe.read } }
+          : sample;
     const note = noteOnce(component.kind);
     if (example) Object.assign(result, { example: { componentType, ...example, ...(note ? { note } : {}) } });
     else if (note) Object.assign(result, { note });

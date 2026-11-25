@@ -160,7 +160,7 @@ import {
 
 // packages/core/src/service.ts
 import { fileURLToPath } from "node:url";
-import path12 from "node:path";
+import path13 from "node:path";
 
 // packages/core/src/doctor.ts
 import path from "node:path";
@@ -261,12 +261,131 @@ async function doctor(root = process.cwd()) {
 }
 
 // packages/core/src/references.ts
-import path3 from "node:path";
-import { stat as stat2, readFile as readFile2, realpath as realpath2 } from "node:fs/promises";
+import path4 from "node:path";
+import { stat as stat2, readFile as readFile3, realpath as realpath2 } from "node:fs/promises";
+
+// packages/core/src/reference-recipes262.ts
+import path2 from "node:path";
+import { readFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
+var sha = (value) => createHash("sha256").update(value).digest("hex");
+var sorted = (value) => Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b, "en")));
+var RECIPE_TEXT_LIMIT = 6e3;
+var loaded;
+async function files(directory2, prefix = "") {
+  const output = [];
+  for (const entry of await readdir(path2.join(directory2, prefix), { withFileTypes: true })) {
+    const relative = path2.posix.join(prefix, entry.name);
+    if (entry.isDirectory()) output.push(...await files(directory2, relative));
+    else if (entry.isFile()) output.push(relative);
+  }
+  return output.sort();
+}
+function recipeRegion(page2) {
+  const lines = page2.split("\n");
+  const starts = lines.flatMap((line, index) => /^ {4}region \S+ \($/u.test(line) ? [index] : []);
+  const start = starts.at(-1);
+  if (start === void 0) return void 0;
+  const end = lines.findIndex((line, index) => index > start && line === "    )");
+  return end > start ? lines.slice(start, end + 1).join("\n") : void 0;
+}
+async function load() {
+  const catalog4 = path2.join(resourceRoot(), "components-26.2");
+  let registry;
+  let evidence;
+  try {
+    registry = JSON.parse(await readFile(path2.join(catalog4, "recipes/registry.json"), "utf8"));
+    evidence = JSON.parse(await readFile(path2.join(catalog4, "recipes/compiler-evidence.json"), "utf8"));
+  } catch {
+    return [];
+  }
+  if (registry.apexVersion !== "26.2" || !/^26\.2\./u.test(registry.mmdVersion)) return [];
+  if (evidence.mock || evidence.mmdVersion !== registry.mmdVersion || evidence.compiler !== registry.compilerVersion)
+    return [];
+  const scaffoldDir = path2.join(catalog4, registry.scaffold.directory);
+  const scaffold = {};
+  for (const file2 of await files(scaffoldDir))
+    scaffold[file2] = sha(await readFile(path2.join(scaffoldDir, file2)));
+  if (sha(JSON.stringify(sorted(scaffold))) !== evidence.scaffoldSha256) return [];
+  const qualified = [];
+  for (const recipe of registry.recipes) {
+    const run = evidence.runs.find((entry) => entry.recipeId === recipe.id);
+    if (recipe.readiness !== "ready" || recipe.verification.compiler.status !== "passed" || !run?.passed)
+      continue;
+    const inputs = { ...scaffold };
+    const texts = {};
+    for (const file2 of recipe.files) {
+      texts[file2] = await readFile(path2.join(catalog4, recipe.directory, file2), "utf8");
+      inputs[file2] = sha(texts[file2]);
+    }
+    const digest2 = sha(JSON.stringify(sorted(inputs)));
+    if (digest2 !== run.sourceSha256 || digest2 !== recipe.verification.compiler.sourceSha256) continue;
+    const page2 = texts["pages/p00001-home.apx"];
+    const region = page2 && recipeRegion(page2);
+    if (!page2 || !region) continue;
+    qualified.push({
+      id: recipe.id,
+      title: recipe.title,
+      regionType: /^ {8}type: (\S+)$/mu.exec(region)?.[1] ?? "",
+      template: /^ {12}template: @\/(\S+)$/mu.exec(region)?.[1],
+      sha256: digest2,
+      requires: recipe.requires,
+      dataContract: recipe.dataContract,
+      adaptation: recipe.adaptation,
+      source: recipe.provenance.sourceUrl,
+      qualification: {
+        compiler: "passed",
+        compilerVersion: registry.compilerVersion,
+        mmdVersion: registry.mmdVersion,
+        import: "not-run",
+        browser: "not-run"
+      },
+      page: page2,
+      region
+    });
+  }
+  return qualified;
+}
+var qualifiedRecipes262 = () => loaded ??= load();
+async function recipeFor262(kind, type, request) {
+  if (kind !== "region" || !type) return void 0;
+  const candidates = (await qualifiedRecipes262()).filter((recipe) => recipe.regionType === type);
+  if (!candidates.length) return void 0;
+  const words = new Set(referenceStems(request));
+  const score = (recipe) => [...referenceStems(`${recipe.title} ${recipe.template ?? ""}`)].filter((stem) => words.has(stem)).length;
+  const best = candidates.reduce((a, b) => score(b) > score(a) ? b : a);
+  const { page: _page, region, ...identity } = best;
+  return region.length <= RECIPE_TEXT_LIMIT ? { ...identity, text: region } : { ...identity, read: `apexrest_reference mode:read id:${best.id}` };
+}
+async function recipe262Read(id2, offset, limit) {
+  const recipe = (await qualifiedRecipes262()).find((entry) => entry.id === id2);
+  if (!recipe) throw new Fault("REFERENCE_NOT_FOUND", "No qualified 26.2 recipe with this ID.", 2);
+  const content = recipe.page.slice(offset, offset + limit);
+  return {
+    id: recipe.id,
+    title: recipe.title,
+    version: "26.2",
+    source: recipe.source,
+    offset,
+    length: recipe.page.length,
+    requires: recipe.requires,
+    related: [],
+    relatedCount: 0,
+    relatedOmittedCount: 0,
+    classification: "vendor-reference-data",
+    sha256: recipe.sha256,
+    content,
+    nextOffset: offset + limit < recipe.page.length ? offset + limit : null,
+    dataClassification: "vendor_reference",
+    qualification: recipe.qualification,
+    dataContract: recipe.dataContract,
+    adaptation: recipe.adaptation
+  };
+}
 
 // packages/core/src/reference-catalog.ts
-import path2 from "node:path";
-import { readFile, realpath, stat } from "node:fs/promises";
+import path3 from "node:path";
+import { readFile as readFile2, realpath, stat } from "node:fs/promises";
 
 // packages/core/src/selection-index.ts
 var structural = /* @__PURE__ */ new Set(["inventory", "app", "page", "plugin-variants", "template-component"]);
@@ -356,14 +475,14 @@ function createReferenceCatalog(definition) {
     throw new Fault(`${definition.faultPrefix}_CATALOG_INVALID`, message, 3);
   }
   function relativeFile(file2) {
-    if (!/^[A-Za-z0-9_./-]+$/.test(file2) || path2.isAbsolute(file2) || file2.split("/").some((part) => !part || part === "." || part === ".."))
+    if (!/^[A-Za-z0-9_./-]+$/.test(file2) || path3.isAbsolute(file2) || file2.split("/").some((part) => !part || part === "." || part === ".."))
       invalid(`${definition.label} catalog contains an unsafe file path.`);
     return file2;
   }
   async function containedFile(root, file2) {
-    const resolved = await realpath(path2.join(root, relativeFile(file2)));
-    const relative = path2.relative(root, resolved);
-    if (!relative || relative.startsWith(".." + path2.sep) || relative === ".." || path2.isAbsolute(relative))
+    const resolved = await realpath(path3.join(root, relativeFile(file2)));
+    const relative = path3.relative(root, resolved);
+    if (!relative || relative.startsWith(".." + path3.sep) || relative === ".." || path3.isAbsolute(relative))
       invalid(`${definition.label} catalog file resolves outside its resource directory.`);
     return resolved;
   }
@@ -373,11 +492,11 @@ function createReferenceCatalog(definition) {
   }
   async function loadIndex(root, manifestFile, indexFile) {
     try {
-      const manifest = manifestSchema.parse(JSON.parse(await readFile(manifestFile, "utf8")));
+      const manifest = manifestSchema.parse(JSON.parse(await readFile2(manifestFile, "utf8")));
       for (const file2 of Object.keys(manifest.files)) relativeFile(file2);
       if (manifest.files["index.json"] !== manifest.indexSha256)
         invalid(`${definition.label} catalog manifest index hashes disagree.`);
-      const raw = await readFile(indexFile, "utf8");
+      const raw = await readFile2(indexFile, "utf8");
       if (hash(raw) !== manifest.indexSha256)
         invalid(`${definition.label} catalog index checksum does not match its manifest.`);
       const entries = external_exports.array(entrySchema).parse(JSON.parse(raw));
@@ -420,7 +539,7 @@ function createReferenceCatalog(definition) {
   async function catalogIndex() {
     let root, manifestFile, indexFile, revision;
     try {
-      root = await realpath(path2.join(resourceRoot(), definition.directory));
+      root = await realpath(path3.join(resourceRoot(), definition.directory));
       manifestFile = await containedFile(root, "manifest.json");
       indexFile = await containedFile(root, "index.json");
       revision = await stamp(manifestFile) + ":" + await stamp(indexFile);
@@ -474,7 +593,7 @@ function createReferenceCatalog(definition) {
     };
   }
   async function verifiedDocument(root, entry) {
-    const raw = await readFile(await containedFile(root, entry.document), "utf8");
+    const raw = await readFile2(await containedFile(root, entry.document), "utf8");
     if (hash(raw) !== entry.sha256)
       invalid(`${definition.label} document checksum does not match the catalog.`);
     if (entry.length !== void 0 && entry.length !== raw.length)
@@ -718,13 +837,13 @@ async function referenceText2(entry) {
   const invalid = () => new Fault("REFERENCE_CATALOG_INVALID", "The official reference document failed integrity checks.", 3);
   if (!/^documents\/[a-z0-9/.-]+\.md$/.test(entry.document) || entry.document.split("/").includes("..") || !/^[a-f0-9]{64}$/.test(entry.contentSha256 ?? "") || !Number.isInteger(entry.contentLength))
     throw invalid();
-  const root = await realpath2(path3.join(resourceRoot(), "references/26.2"));
-  const file2 = await realpath2(path3.join(root, entry.document));
-  const relative = path3.relative(root, file2);
-  if (!relative || relative.startsWith(".." + path3.sep) || path3.isAbsolute(relative)) throw invalid();
+  const root = await realpath2(path4.join(resourceRoot(), "references/26.2"));
+  const file2 = await realpath2(path4.join(root, entry.document));
+  const relative = path4.relative(root, file2);
+  if (!relative || relative.startsWith(".." + path4.sep) || path4.isAbsolute(relative)) throw invalid();
   const info = await stat2(file2);
   if (info.size > 4 * 1024 * 1024) throw invalid();
-  const text2 = await readFile2(file2, "utf8");
+  const text2 = await readFile3(file2, "utf8");
   if (text2.length !== entry.contentLength || hash(text2) !== entry.contentSha256) throw invalid();
   return text2;
 }
@@ -848,7 +967,7 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
   const postings = () => pendingPostings ??= (async () => {
     if (file2 && searchDigest && /^[a-f0-9]{64}$/.test(searchDigest)) {
       try {
-        const rawSearch = await readFile2(path3.join(path3.dirname(file2), "search.json"), "utf8");
+        const rawSearch = await readFile3(path4.join(path4.dirname(file2), "search.json"), "utf8");
         const prebuilt = JSON.parse(rawSearch);
         if (hash(rawSearch) === searchDigest && prebuilt && prebuilt.schemaVersion === 1 && prebuilt.indexSha256 === digest2 && prebuilt.postings && !Array.isArray(prebuilt.postings) && Object.keys(prebuilt.postings).length > 0 && Object.values(prebuilt.postings).every(
           (list) => Array.isArray(list) && list.every(
@@ -913,7 +1032,7 @@ async function resolveReferenceVersion(project, version) {
 }
 async function referenceIndex(version = "26.1") {
   const release = version.split("@")[0] === "26.2" ? "26.2" : "26.1";
-  const file2 = path3.join(resourceRoot(), "references", ...release === "26.2" ? ["26.2"] : [], "index.json");
+  const file2 = path4.join(resourceRoot(), "references", ...release === "26.2" ? ["26.2"] : [], "index.json");
   let info;
   try {
     info = await stat2(file2, { bigint: true });
@@ -924,11 +1043,11 @@ async function referenceIndex(version = "26.1") {
   }
   let stamp = `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
   if (release === "26.2") {
-    const manifestInfo = await stat2(path3.join(path3.dirname(file2), "oracle-snapshot.json"), { bigint: true });
+    const manifestInfo = await stat2(path4.join(path4.dirname(file2), "oracle-snapshot.json"), { bigint: true });
     stamp += `:${manifestInfo.ino}:${manifestInfo.size}:${manifestInfo.mtimeNs}:${manifestInfo.ctimeNs}`;
   }
   try {
-    const searchInfo = await stat2(path3.join(path3.dirname(file2), "search.json"), { bigint: true });
+    const searchInfo = await stat2(path4.join(path4.dirname(file2), "search.json"), { bigint: true });
     stamp += `:${searchInfo.ino}:${searchInfo.size}:${searchInfo.mtimeNs}:${searchInfo.ctimeNs}`;
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
@@ -936,11 +1055,11 @@ async function referenceIndex(version = "26.1") {
   }
   const prior = cached.get(file2);
   if (prior?.stamp === stamp) return prior.pending;
-  const pending = readFile2(file2, "utf8").then(async (raw) => {
+  const pending = readFile3(file2, "utf8").then(async (raw) => {
     const entries = JSON.parse(raw);
     let searchDigest;
     if (release === "26.2") {
-      const manifest = await readJson(path3.join(path3.dirname(file2), "oracle-snapshot.json"));
+      const manifest = await readJson(path4.join(path4.dirname(file2), "oracle-snapshot.json"));
       if (manifest.release !== release || manifest.indexSha256 !== hash(raw) || manifest.records !== entries.length || new Set(entries.map((entry) => entry.id)).size !== entries.length || entries.some(
         (entry) => !entry.id.startsWith("oracle:26.2:") || !versionMatches(entry.version, release) || typeof entry.text !== "string" || entry.text.length > 6e5 || entry.sha256 !== hash(entry.text) || entry.document !== void 0 && (!/^documents\/[a-z0-9/.-]+\.md$/.test(entry.document) || entry.document.split("/").includes("..") || !/^[a-f0-9]{64}$/.test(entry.contentSha256 ?? "") || !Number.isInteger(entry.contentLength) || entry.contentLength < 0 || entry.contentLength > 4 * 1024 * 1024)
       ))
@@ -1194,6 +1313,8 @@ async function referenceRead(id2, offset, limit, project, version) {
     return publicTemplateRead(id2, offset, limit, selectedVersion);
   if (id2 === "apexlang-lifecycle" && selectedVersion.split("@")[0] === "26.2")
     id2 = "oracle:26.2:guide/file-import";
+  if (id2.startsWith("component:") && selectedVersion.split("@")[0] === "26.2" && (await qualifiedRecipes262()).some((recipe) => recipe.id === id2))
+    return recipe262Read(id2, offset, limit);
   if (id2.startsWith("component:"))
     return componentRead(id2, offset, limit, version ?? (project ? void 0 : selectedVersion));
   if (id2.startsWith("pattern:"))
@@ -1244,7 +1365,7 @@ async function referenceSync(version, dryRun) {
       "Requested version is not in this reviewed release snapshot. Install a reviewed release containing it.",
       3
     );
-  const destination = path3.join(managedHome(), "references", version + ".json");
+  const destination = path4.join(managedHome(), "references", version + ".json");
   const before = await exists(destination) ? hash(canonical(await readJson(destination))) : null, after = hash(canonical(entries));
   if (!dryRun && before !== after) await writeJson(destination, entries);
   return {
@@ -1347,8 +1468,8 @@ async function hydrate261Recipes(results, request, profile, size, signal) {
 }
 
 // packages/core/src/global-settings.ts
-import path4 from "node:path";
-import { readFile as readFile3 } from "node:fs/promises";
+import path5 from "node:path";
+import { readFile as readFile4 } from "node:fs/promises";
 var globalSettingsSchema = external_exports.strictObject({
   schemaVersion: external_exports.literal(1),
   decisionApi: external_exports.strictObject({
@@ -1359,8 +1480,8 @@ var globalSettingsSchema = external_exports.strictObject({
   catalog: external_exports.strictObject({ enabled: external_exports.boolean().default(true) }).optional(),
   usageLog: external_exports.strictObject({ enabled: external_exports.boolean() }).optional()
 });
-var settingsFile = () => path4.join(managedHome(), "settings.json");
-var recentFile = () => path4.join(managedHome(), "recent-projects.json");
+var settingsFile = () => path5.join(managedHome(), "settings.json");
+var recentFile = () => path5.join(managedHome(), "recent-projects.json");
 var empty = { schemaVersion: 1 };
 async function globalSettings() {
   const file2 = settingsFile();
@@ -1373,7 +1494,7 @@ async function configureGlobalSettings(change) {
       "Name a setting to change: --decision-api, --api-key-env, --decision-timeout-ms, --catalog or --usage-log.",
       2
     );
-  return withLock(path4.join(managedHome(), "settings.lock"), async () => {
+  return withLock(path5.join(managedHome(), "settings.lock"), async () => {
     const previous = await globalSettings();
     const decisionChanged = change.decisionApi !== void 0 || change.apiKeyEnv !== void 0 || change.decisionTimeoutMs !== void 0;
     const next = parse(globalSettingsSchema, {
@@ -1418,7 +1539,7 @@ var recordable = async () => !usageOff() && await exists(managedHome());
 async function catalogInfo() {
   const count3 = async (...parts) => {
     try {
-      const value = JSON.parse(await readFile3(path4.join(resourceRoot(), ...parts), "utf8"));
+      const value = JSON.parse(await readFile4(path5.join(resourceRoot(), ...parts), "utf8"));
       return Array.isArray(value) ? value.length : 0;
     } catch {
       return 0;
@@ -1445,9 +1566,9 @@ var recentSchema = external_exports.strictObject({
 });
 var RECENT_LIMIT = 10;
 async function recordProject(root, projectId, at = /* @__PURE__ */ new Date()) {
-  if (!path4.isAbsolute(root) || !await recordable()) return;
+  if (!path5.isAbsolute(root) || !await recordable()) return;
   try {
-    await withLock(path4.join(managedHome(), "recent-projects.lock"), async () => {
+    await withLock(path5.join(managedHome(), "recent-projects.lock"), async () => {
       const file2 = recentFile();
       let projects = [];
       try {
@@ -1468,7 +1589,7 @@ async function recentProjects() {
     if (!await exists(file2)) return [];
     const projects = parse(recentSchema, await readJson(file2)).projects;
     const live = [];
-    for (const p of projects) if (await exists(path4.join(p.path, "apexrest.json"))) live.push(p);
+    for (const p of projects) if (await exists(path5.join(p.path, "apexrest.json"))) live.push(p);
     return live;
   } catch {
     return [];
@@ -1706,8 +1827,24 @@ async function referenceSelect(input, signal, fetcher = fetch) {
     if (result.kind !== "contract" || !String(result.version).startsWith("26.2")) continue;
     const component = contractComponent(String(result.id));
     if (!component) continue;
-    const example = await componentExample(component.type, { kind: component.kind, request: input.request });
     const componentType = component.type ?? contractComponentType(String(result.title)) ?? component.kind;
+    const recipe = await recipeFor262(
+      component.kind,
+      component.type ?? contractComponentType(String(result.title)),
+      input.request
+    );
+    const sample = recipe && "text" in recipe ? void 0 : await componentExample(component.type, { kind: component.kind, request: input.request });
+    const example = recipe && "text" in recipe ? {
+      id: recipe.id,
+      text: recipe.text,
+      qualifiedRecipe: {
+        sha256: recipe.sha256,
+        requires: recipe.requires,
+        dataContract: recipe.dataContract,
+        adaptation: recipe.adaptation,
+        qualification: recipe.qualification
+      }
+    } : sample && recipe ? { ...sample, qualifiedRecipe: { id: recipe.id, sha256: recipe.sha256, read: recipe.read } } : sample;
     const note = noteOnce(component.kind);
     if (example) Object.assign(result, { example: { componentType, ...example, ...note ? { note } : {} } });
     else if (note) Object.assign(result, { note });
@@ -2255,9 +2392,9 @@ function groupLines(doc, owner, name) {
   const range = owner.groups.get(name);
   if (!range) return [];
   const lines = [];
-  for (const [path13, property] of owner.properties) {
-    if (!path13.startsWith(name + ".")) continue;
-    const key = path13.slice(name.length + 1);
+  for (const [path14, property] of owner.properties) {
+    if (!path14.startsWith(name + ".")) continue;
+    const key = path14.slice(name.length + 1);
     if (key.includes("."))
       throw new Fault(
         "TRANSFORM_UNSUPPORTED",
@@ -2267,7 +2404,7 @@ function groupLines(doc, owner, name) {
     if (property.opaque && !SOURCE.has(key))
       throw new Fault(
         "TRANSFORM_UNSUPPORTED",
-        `${owner.key} ${path13} holds a multi-line value; edit it in source.`,
+        `${owner.key} ${path14} holds a multi-line value; edit it in source.`,
         5
       );
     lines.push({ key, text: doc.lines[property.line].text.trim() });
@@ -2580,9 +2717,9 @@ async function editPage(ctx, input) {
 }
 
 // packages/core/src/entities.ts
-import path5 from "node:path";
-import { readFile as readFile4, readdir } from "node:fs/promises";
-import { createHash } from "node:crypto";
+import path6 from "node:path";
+import { readFile as readFile5, readdir as readdir2 } from "node:fs/promises";
+import { createHash as createHash2 } from "node:crypto";
 var ENTITY_SCHEMA_VERSION = 1;
 var identifier = external_exports.string().regex(/^[A-Za-z][A-Za-z0-9_$#]{0,127}$/u, "Oracle identifier");
 var id = external_exports.string().regex(/^[a-z][a-z0-9-]{0,62}$/u, "Lowercase id: letters, digits and hyphens");
@@ -2720,15 +2857,15 @@ function canonical2(value) {
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical2(value[key])}`).join(",")}}`;
   return JSON.stringify(value);
 }
-var entityDigest = (contract) => createHash("sha256").update(canonical2(contract), "utf8").digest("hex");
-var directory = (ctx) => path5.join(ctx.root, "entities");
+var entityDigest = (contract) => createHash2("sha256").update(canonical2(contract), "utf8").digest("hex");
+var directory = (ctx) => path6.join(ctx.root, "entities");
 async function loadEntity(ctx, entity) {
   if (!/^[a-z][a-z0-9-]{0,62}$/u.test(entity))
     throw new Fault("INVALID_INPUT", `${entity} is not an entity id.`, 2);
-  const file2 = path5.join(directory(ctx), `${entity}.json`);
+  const file2 = path6.join(directory(ctx), `${entity}.json`);
   if (!await exists(file2))
     throw new Fault("TARGET_NOT_FOUND", `No entity contract entities/${entity}.json.`, 2);
-  const raw = await readFile4(file2, "utf8");
+  const raw = await readFile5(file2, "utf8");
   if (Buffer.byteLength(raw) > 256 * 1024)
     throw new Fault("INVALID_INPUT", "Entity contracts are limited to 256 KiB.", 2);
   let input;
@@ -2754,7 +2891,7 @@ async function loadEntity(ctx, entity) {
     );
   return {
     id: entity,
-    file: path5.relative(ctx.root, file2).split(path5.sep).join("/"),
+    file: path6.relative(ctx.root, file2).split(path6.sep).join("/"),
     schemaVersion: parsed.data.schemaVersion,
     digest: entityDigest(parsed.data),
     contract: parsed.data,
@@ -2763,20 +2900,20 @@ async function loadEntity(ctx, entity) {
 }
 async function listEntities(ctx) {
   const dir = directory(ctx);
-  const files = await exists(dir) ? (await readdir(dir)).filter((name) => name.endsWith(".json")).sort() : [];
+  const files2 = await exists(dir) ? (await readdir2(dir)).filter((name) => name.endsWith(".json")).sort() : [];
   const entities = [];
-  for (const name of files) {
+  for (const name of files2) {
     const entity = name.slice(0, -".json".length);
     try {
-      const loaded = await loadEntity(ctx, entity);
+      const loaded2 = await loadEntity(ctx, entity);
       entities.push({
-        id: loaded.id,
-        file: loaded.file,
-        schemaVersion: loaded.schemaVersion,
-        digest: loaded.digest,
-        label: loaded.contract.label,
-        writable: loaded.contract.write?.operations ?? [],
-        diagnostics: loaded.diagnostics
+        id: loaded2.id,
+        file: loaded2.file,
+        schemaVersion: loaded2.schemaVersion,
+        digest: loaded2.digest,
+        label: loaded2.contract.label,
+        writable: loaded2.contract.write?.operations ?? [],
+        diagnostics: loaded2.diagnostics
       });
     } catch (error) {
       entities.push({
@@ -2821,17 +2958,17 @@ function assumptions(contract) {
   return found;
 }
 async function checkEntityBinding(ctx, input, deps) {
-  const loaded = await loadEntity(ctx, input.entity);
-  if (input.expectedDigest && input.expectedDigest !== loaded.digest)
+  const loaded2 = await loadEntity(ctx, input.entity);
+  if (input.expectedDigest && input.expectedDigest !== loaded2.digest)
     throw new Fault(
       "TRANSFORM_CONFLICT",
-      `${loaded.file} changed since it was reviewed; read it again.`,
+      `${loaded2.file} changed since it was reviewed; read it again.`,
       5,
       "conflict",
-      { file: loaded.file, currentDigest: loaded.digest }
+      { file: loaded2.file, currentDigest: loaded2.digest }
     );
-  const { contract } = loaded;
-  const diagnostics = [...loaded.diagnostics];
+  const { contract } = loaded2;
+  const diagnostics = [...loaded2.diagnostics];
   for (const [name, field2] of Object.entries(contract.fields))
     if (field2.lov && "shared" in field2.lov && !await deps.lovExists(field2.lov.shared))
       diagnostics.push({
@@ -2839,7 +2976,7 @@ async function checkEntityBinding(ctx, input, deps) {
         message: `${name} uses shared LOV ${field2.lov.shared}, which the application sources do not declare.`,
         path: `fields.${name}.lov`
       });
-  const base = { entity: loaded.id, file: loaded.file, digest: loaded.digest };
+  const base = { entity: loaded2.id, file: loaded2.file, digest: loaded2.digest };
   if (!input.env)
     return {
       ...base,
@@ -3215,7 +3352,7 @@ async function runRecipe(ctx, input) {
 }
 
 // packages/core/src/deploy-reconcile.ts
-import path6 from "node:path";
+import path7 from "node:path";
 import { appendFile } from "node:fs/promises";
 async function reconcileRun(ctx, input) {
   if (!input.userRequest.trim())
@@ -3225,15 +3362,15 @@ async function reconcileRun(ctx, input) {
       2
     );
   const runDir = await contained(ctx.root, ".apexrest/deployments/" + input.run);
-  if (!await exists(path6.join(runDir, "plan.json")))
+  if (!await exists(path7.join(runDir, "plan.json")))
     throw new Fault(
       "RUN_NOT_FOUND",
       `No deployment run ${input.run} exists in this project.`,
       2,
       "not_found"
     );
-  const plan = await readJson(path6.join(runDir, "plan.json"));
-  const state = await readJson(path6.join(runDir, "state.json"));
+  const plan = await readJson(path7.join(runDir, "plan.json"));
+  const state = await readJson(path7.join(runDir, "state.json"));
   if (!["outcome_unknown", "failed"].includes(String(state.state)))
     throw new Fault(
       "RUN_NOT_HELD",
@@ -3251,17 +3388,17 @@ async function reconcileRun(ctx, input) {
   if (targetDigest(env) !== plan.targetDigest)
     throw new Fault("PLAN_TARGET_MISMATCH", "The environment configuration changed since this run.", 5);
   const scripts = plan.operations.filter((op) => op.kind === "migration" || op.kind === "package");
-  const files = new Set(scripts.map((op) => op.file));
+  const files2 = new Set(scripts.map((op) => op.file));
   const stated = new Map(input.statements.map((entry) => [entry.file, entry.outcome]));
-  const missing = [...files].filter((file2) => !stated.has(file2));
-  const unknown = [...stated.keys()].filter((file2) => !files.has(file2));
+  const missing = [...files2].filter((file2) => !stated.has(file2));
+  const unknown = [...stated.keys()].filter((file2) => !files2.has(file2));
   if (missing.length || unknown.length || stated.size !== input.statements.length)
     throw new Fault(
       "RECONCILIATION_INCOMPLETE",
       `State each script of the run exactly once as applied or not_applied.${missing.length ? ` Missing: ${missing.join(", ")}.` : ""}${unknown.length ? ` Not in the run: ${unknown.join(", ")}.` : ""}`,
       2,
       "blocked",
-      { scripts: [...files] }
+      { scripts: [...files2] }
     );
   if ([...stated.values()].some((outcome) => outcome !== "applied" && outcome !== "not_applied"))
     throw new Fault("INVALID_INPUT", "Each outcome is applied or not_applied.", 2);
@@ -3272,12 +3409,12 @@ async function reconcileRun(ctx, input) {
       `Confirm the inspected run, plan and target by passing --confirm ${expected}. The statement is recorded as the person's and releases the run.`,
       4,
       "blocked",
-      { expected, scripts: [...files] }
+      { expected, scripts: [...files2] }
     );
   const statements = scripts.map((op) => ({
     kind: op.kind,
     file: op.file,
-    version: path6.basename(op.file),
+    version: path7.basename(op.file),
     checksum: op.sha256,
     applied: stated.get(op.file) === "applied"
   }));
@@ -3296,9 +3433,9 @@ async function reconcileRun(ctx, input) {
     statements: input.statements,
     releasedOwner: owner
   };
-  await writeJson(path6.join(runDir, "reconciliation.json"), record);
+  await writeJson(path7.join(runDir, "reconciliation.json"), record);
   await appendFile(
-    path6.join(runDir, "journal.jsonl"),
+    path7.join(runDir, "journal.jsonl"),
     JSON.stringify({ runId: input.run, state: "reconciled", at }) + "\n"
   );
   return {
@@ -3313,8 +3450,8 @@ async function reconcileRun(ctx, input) {
 }
 
 // packages/core/src/panel.ts
-import path7 from "node:path";
-import { readdir as readdir2, realpath as realpath3, stat as stat3 } from "node:fs/promises";
+import path8 from "node:path";
+import { readdir as readdir3, realpath as realpath3, stat as stat3 } from "node:fs/promises";
 var safe = (value) => sanitized(value);
 var historyLimit = 2e3;
 var PanelService = class {
@@ -3328,7 +3465,7 @@ var PanelService = class {
   async records(folder) {
     const base = await contained(this.root, ".apexrest/" + folder);
     if (!await exists(base)) return { rows: [], omitted: 0 };
-    let entries = (await readdir2(base, { withFileTypes: true })).filter(
+    let entries = (await readdir3(base, { withFileTypes: true })).filter(
       (e) => e.isDirectory() && external_exports.uuid().safeParse(e.name).success
     );
     let omitted = 0;
@@ -3336,13 +3473,13 @@ var PanelService = class {
       const dated = await Promise.all(
         entries.map(async (entry) => ({
           entry,
-          at: (await stat3(path7.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
+          at: (await stat3(path8.join(base, entry.name)).catch(() => null))?.mtimeMs ?? 0
         }))
       );
       omitted = entries.length - historyLimit;
       entries = dated.sort((a, b) => b.at - a.at).slice(0, historyLimit).map((d) => d.entry);
     }
-    const files = await Promise.all(
+    const files2 = await Promise.all(
       entries.map(async (entry) => {
         const file2 = await contained(base, entry.name + "/state.json");
         const info = await stat3(file2).catch(() => null);
@@ -3350,7 +3487,7 @@ var PanelService = class {
       })
     );
     const rows = await Promise.all(
-      files.filter((f) => f.size > 0).sort((a, b) => b.at - a.at).slice(0, 12).map(async (f) => {
+      files2.filter((f) => f.size > 0).sort((a, b) => b.at - a.at).slice(0, 12).map(async (f) => {
         if (f.size > 2 * 1024 * 1024)
           return {
             id: f.id,
@@ -3461,8 +3598,8 @@ var PanelService = class {
     let revisions = null;
     if (ctx)
       try {
-        const files = await sourceInventory(ctx);
-        revisions = await revisionStatus(ctx.root, sourceRevision(files, ctx.config));
+        const files2 = await sourceInventory(ctx);
+        revisions = await revisionStatus(ctx.root, sourceRevision(files2, ctx.config));
       } catch {
         revisions = { status: "unavailable" };
       }
@@ -3492,7 +3629,7 @@ var PanelService = class {
 // packages/core/src/usage.ts
 import { AsyncLocalStorage } from "node:async_hooks";
 import { constants, lstat, open } from "node:fs/promises";
-import path8 from "node:path";
+import path9 from "node:path";
 var count2 = external_exports.number().int().nonnegative().safe();
 var duration = external_exports.number().finite().nonnegative().max(7 * 864e5);
 var modelName = external_exports.string().max(120).regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/);
@@ -3552,7 +3689,7 @@ function retain(store) {
   store.entries = store.entries.slice(discarded);
   return store;
 }
-var file = () => path8.join(managedHome(), "usage-log.json");
+var file = () => path9.join(managedHome(), "usage-log.json");
 async function readPrivate(file2, maximum) {
   const before = await lstat(file2);
   if (!before.isFile() || before.isSymbolicLink() || before.size > maximum)
@@ -3583,7 +3720,7 @@ async function readStore() {
 async function saveLocked(entry) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await withLock(path8.join(managedHome(), "usage-log.lock"), async () => {
+      return await withLock(path9.join(managedHome(), "usage-log.lock"), async () => {
         const store = await readStore();
         const existing = entry.importDigest && store.entries.find((old) => old.importDigest === entry.importDigest);
         if (existing) return { recorded: false, duplicate: true, entry: existing };
@@ -3877,7 +4014,7 @@ async function importUsage(host, source2, elapsedMs, counterMode) {
       "Enable local usage logging with settings configure --usage-log on.",
       2
     );
-  const contents = await readPrivate(path8.resolve(source2), 8 * 1024 * 1024);
+  const contents = await readPrivate(path9.resolve(source2), 8 * 1024 * 1024);
   const native = nativeUsage(host, records(contents), counterMode);
   const elapsed = elapsedMs === void 0 ? native.elapsed : parse(duration, elapsedMs);
   const entry = parse(entrySchema2, {
@@ -3955,14 +4092,14 @@ async function usageStatus(limit = 20) {
 }
 
 // packages/core/src/peer-review.ts
-import path11 from "node:path";
+import path12 from "node:path";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile as readFile6, rm } from "node:fs/promises";
+import { mkdir, readFile as readFile7, rm } from "node:fs/promises";
 import { performance as performance2 } from "node:perf_hooks";
 
 // packages/core/src/cli-command.ts
-import path9 from "node:path";
-import { readFile as readFile5, stat as stat4 } from "node:fs/promises";
+import path10 from "node:path";
+import { readFile as readFile6, stat as stat4 } from "node:fs/promises";
 var SHIM_LIMIT = 64 * 1024;
 var NODE_FLAG = /^--?[A-Za-z0-9][\w-]*(?:=[\w./:-]*)?$/u;
 function npmShimTarget(text2) {
@@ -3998,12 +4135,12 @@ async function resolveCliCommand(command, args, host = {}) {
       3,
       "dependency_missing"
     );
-  const extension = path9.extname(located).toLowerCase();
+  const extension = path10.extname(located).toLowerCase();
   if (extension === ".cmd" || extension === ".bat") {
-    const content = await readFile5(located);
+    const content = await readFile6(located);
     const shim = content.length <= SHIM_LIMIT ? npmShimTarget(content.toString("utf8")) : void 0;
     if (shim) {
-      const target = path9.join(path9.dirname(located), ...shim.target.split(/[\\/]/u));
+      const target = path10.join(path10.dirname(located), ...shim.target.split(/[\\/]/u));
       if (await isFile(target))
         return shim.node ? { executable: host.execPath ?? process.execPath, args: [...shim.nodeArgs, target, ...args] } : { executable: target, args };
     }
@@ -4017,7 +4154,7 @@ async function resolveCliCommand(command, args, host = {}) {
 }
 
 // packages/core/src/ship.ts
-import path10 from "node:path";
+import path11 from "node:path";
 var compilerFaults = /* @__PURE__ */ new Set(["ORACLE_COMMAND_FAILED", "VALIDATION_UNCONFIRMED", "VALIDATION_FAILED"]);
 function fallbackCompilerDiagnostics(output) {
   const entries = [];
@@ -4062,23 +4199,23 @@ async function validationSource(root, input) {
     const ctx = await loadProject(root);
     return { source: await contained(ctx.root, ctx.config.application.sourceDir) };
   }
-  const source2 = path10.resolve(root, input.sourceDir);
-  if (!await exists(path10.join(source2, "application.apx")))
+  const source2 = path11.resolve(root, input.sourceDir);
+  if (!await exists(path11.join(source2, "application.apx")))
     throw new Fault(
       "VALIDATION_SOURCE_MISSING",
       `${source2} has no application.apx. Pass --source-dir with the APEXlang application folder.`,
       2
     );
-  const own = path10.join(source2, ".apex", "apexlang.json");
+  const own = path11.join(source2, ".apex", "apexlang.json");
   if (await exists(own)) return { source: source2, metadata: { origin: "source", file: own } };
   const candidates = [];
-  if (input.project !== void 0) candidates.push(path10.resolve(input.project));
-  for (let dir = path10.dirname(source2); ; dir = path10.dirname(dir)) {
-    if (await exists(path10.join(dir, "apexrest.json"))) {
+  if (input.project !== void 0) candidates.push(path11.resolve(input.project));
+  for (let dir = path11.dirname(source2); ; dir = path11.dirname(dir)) {
+    if (await exists(path11.join(dir, "apexrest.json"))) {
       candidates.push(dir);
       break;
     }
-    if (path10.dirname(dir) === dir) break;
+    if (path11.dirname(dir) === dir) break;
   }
   for (const candidate of candidates) {
     let ctx;
@@ -4087,7 +4224,7 @@ async function validationSource(root, input) {
     } catch {
       continue;
     }
-    const file2 = path10.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
+    const file2 = path11.join(ctx.root, ctx.config.application.sourceDir, ".apex", "apexlang.json");
     if (await exists(file2)) return { source: source2, metadata: { origin: "project", file: file2 } };
   }
   throw new Fault(
@@ -4544,7 +4681,7 @@ async function sourceDiff(ctx, signal) {
 }
 function peerPrompt(ctx, subject, diff, focus) {
   const planned = "plan" in subject ? subject : void 0;
-  const files = planned ? planned.plan.operations.map((o) => "file" in o && typeof o.file === "string" ? `${o.kind}: ${o.file}` : void 0).filter(Boolean) : [];
+  const files2 = planned ? planned.plan.operations.map((o) => "file" in o && typeof o.file === "string" ? `${o.kind}: ${o.file}` : void 0).filter(Boolean) : [];
   const listed = planned ? "the files named in the plan" : "the source files listed above";
   return [
     "You are the peer reviewer of an Oracle APEX change prepared by another coding agent.",
@@ -4570,7 +4707,7 @@ function peerPrompt(ctx, subject, diff, focus) {
     ] : [],
     "",
     ...planned ? ["Plan preview (JSON):", JSON.stringify(planPreview(ctx, planned.plan), null, 2)] : ["Source files:", ...subject.sources.slice(0, 400)],
-    ...files.length ? ["", "Database operations:", ...files] : [],
+    ...files2.length ? ["", "Database operations:", ...files2] : [],
     "",
     diff === void 0 ? `No Git diff is available; read ${listed}.` : diff.trim() ? "Working-tree diff of deployable sources against HEAD:\n" + diff : `The deployable sources match HEAD; review ${listed}.`,
     "",
@@ -4592,8 +4729,8 @@ async function runPeer(vendor, ctx, prompt, options) {
   const scratch = await contained(ctx.root, ".apexrest/reviews/run-" + randomUUID());
   await mkdir(scratch, { recursive: true });
   try {
-    const schemaFile = path11.join(scratch, "verdict.schema.json");
-    const lastFile = path11.join(scratch, "last-message.json");
+    const schemaFile = path12.join(scratch, "verdict.schema.json");
+    const lastFile = path12.join(scratch, "last-message.json");
     await writeJson(schemaFile, verdictJsonSchema);
     const args = vendor === "codex" ? [
       "exec",
@@ -4644,7 +4781,7 @@ async function runPeer(vendor, ctx, prompt, options) {
         `The ${vendor} reviewer exited with code ${result.code}: ${result.stderr.trim().slice(-600) || "no diagnostics"}`,
         1
       );
-    if (vendor === "codex") return parseVerdict(await readFile6(lastFile, "utf8"));
+    if (vendor === "codex") return parseVerdict(await readFile7(lastFile, "utf8"));
     const envelope = JSON.parse(result.stdout);
     if (envelope.is_error)
       throw new Fault("PEER_FAILED", "The claude reviewer reported an error: " + (envelope.result ?? ""), 1);
@@ -4806,7 +4943,7 @@ function prewarmCompiler(project) {
       try {
         const ctx = await loadProject(project);
         const source2 = await contained(ctx.root, ctx.config.application.sourceDir);
-        if (!await exists(path12.join(source2, ".apex/apexlang.json"))) {
+        if (!await exists(path13.join(source2, ".apex/apexlang.json"))) {
           compilerPrewarms.delete(project);
           return;
         }
@@ -5087,7 +5224,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         data = await projectInit(
           text2("directory"),
           text2("template"),
-          text2("alias") ?? path12.basename(path12.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
+          text2("alias") ?? path13.basename(path13.resolve(text2("directory"))).toLowerCase().replace(/[^a-z0-9-]/g, "-")
         );
         break;
       case "project.scaffold": {
@@ -5211,7 +5348,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
           case "dev.start":
             data = await startBroker(
               ctx,
-              path12.join(path12.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
+              path13.join(path13.dirname(fileURLToPath(import.meta.url)), "apexrest.mjs")
             );
             break;
           case "dev.status":
@@ -5512,7 +5649,7 @@ var observationOnly = /* @__PURE__ */ new Set([
 ]);
 async function rememberProject(root) {
   try {
-    const ctx = await loadProject(path12.resolve(root));
+    const ctx = await loadProject(path13.resolve(root));
     await recordProject(ctx.root, ctx.config.projectId);
   } catch {
   }
