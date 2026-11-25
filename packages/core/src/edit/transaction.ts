@@ -197,8 +197,45 @@ export async function runPageTransaction<T>(
       context: mode === 'full' ? contextOf(result, relative) : contextDelta(source, result, relative),
     };
   };
+  const outcome = await guardedEdit(ctx, { file, relative, ...input, plan });
+  const { planned } = outcome;
+  return {
+    file: relative,
+    page: input.page,
+    beforeDigest: planned.digest,
+    afterDigest: digestOf(planned.result),
+    written: outcome.written,
+    operations: input.operations.length,
+    ...(outcome.change ? { change: outcome.change } : {}),
+    ...described(planned.source, planned.result),
+    result: planned.result,
+    targets: planned.targets,
+    ...(planned.warnings.length ? { warnings: planned.warnings } : {}),
+    next: outcome.written
+      ? 'Source edited only. Validate or ship to check it with the compiler and import it.'
+      : `Apply with expectedDigest ${planned.digest}.`,
+  };
+}
+
+/**
+ * The digest-bound write of one source file: a dry run (or a call without `expectedDigest`, which
+ * then fails with `EXPECTED_DIGEST_REQUIRED` naming the digest) only plans; otherwise the file is
+ * planned again under the project's source-edit lock, its digest compared and the result written
+ * atomically. `plan` reads the file itself and throws before anything is written.
+ */
+export async function guardedEdit<P extends { source: string; digest: string; result: string }>(
+  ctx: ProjectContext,
+  input: {
+    file: string;
+    relative: string;
+    expectedDigest?: string | undefined;
+    dryRun?: boolean | undefined;
+    plan: () => Promise<P>;
+  },
+): Promise<{ planned: P; written: boolean; change?: SourceChange }> {
+  const { file, relative } = input;
   if (input.dryRun || !input.expectedDigest) {
-    const planned = await plan();
+    const planned = await input.plan();
     if (!input.dryRun)
       throw new Fault(
         'EXPECTED_DIGEST_REQUIRED',
@@ -207,23 +244,11 @@ export async function runPageTransaction<T>(
         'blocked',
         { file: relative, currentDigest: planned.digest },
       );
-    return {
-      file: relative,
-      page: input.page,
-      beforeDigest: planned.digest,
-      afterDigest: digestOf(planned.result),
-      written: false,
-      operations: input.operations.length,
-      ...described(planned.source, planned.result),
-      result: planned.result,
-      targets: planned.targets,
-      ...(planned.warnings.length ? { warnings: planned.warnings } : {}),
-      next: `Apply with expectedDigest ${planned.digest}.`,
-    };
+    return { planned, written: false };
   }
   return withLock(path.join(ctx.root, '.apexrest', 'source-edit.lock'), async () => {
     const before = await sourceInventory(ctx);
-    const planned = await plan();
+    const planned = await input.plan();
     if (planned.digest !== input.expectedDigest)
       throw new Fault(
         'TRANSFORM_CONFLICT',
@@ -234,19 +259,6 @@ export async function runPageTransaction<T>(
       );
     await atomicWrite(file, planned.result);
     const after = await sourceInventory(ctx);
-    return {
-      file: relative,
-      page: input.page,
-      beforeDigest: planned.digest,
-      afterDigest: digestOf(planned.result),
-      written: true,
-      operations: input.operations.length,
-      change: sourceChange(before, after, ctx.config.application.sourceDir),
-      ...described(planned.source, planned.result),
-      result: planned.result,
-      targets: planned.targets,
-      ...(planned.warnings.length ? { warnings: planned.warnings } : {}),
-      next: 'Source edited only. Validate or ship to check it with the compiler and import it.',
-    };
+    return { planned, written: true, change: sourceChange(before, after, ctx.config.application.sourceDir) };
   });
 }

@@ -106,7 +106,9 @@ function optionLine(name: string, field: Field) {
             name === 'requests' ||
             name === 'operations' ||
             name === 'statements' ||
-            name === 'components'
+            name === 'components' ||
+            name === 'entries' ||
+            (name === 'query' && def.type !== 'string')
           ? ' JSON'
           : def.type === 'array'
             ? ' VALUE...'
@@ -370,7 +372,9 @@ try {
             name === 'requests' ||
             name === 'operations' ||
             name === 'statements' ||
-            name === 'components'
+            name === 'components' ||
+            name === 'entries' ||
+            (name === 'query' && selectedOp.op === 'lov.edit')
           ) {
             try {
               input[name] = JSON.parse(value);

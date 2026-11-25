@@ -1615,6 +1615,24 @@
       ],
       "evidence": ["sanitized result code", "compiler diagnostics count", "dynamic action count"],
       "budgetMs": 15000
+    },
+    {
+      "id": "A261-076",
+      "title": "Shared LOV edit",
+      "acceptance": ["FASTDEV-A06"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Read a shared LOV with project action:lov_context.",
+        "Replace its static entries with action:lov_edit and the digest.",
+        "Validate."
+      ],
+      "expected": [
+        "Kept entries keep their ids; other LOVs are unchanged; the result reports shared-component scope; the compiler passes."
+      ],
+      "evidence": ["sanitized result code", "LOV file digest before and after", "compiler diagnostics count"],
+      "budgetMs": 10000
     }
   ],
   "metrics": "quality-performance.json"

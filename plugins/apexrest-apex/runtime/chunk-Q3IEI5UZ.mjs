@@ -260,6 +260,22 @@ var schemas = {
     dryRun: external_exports.boolean().default(false),
     context: external_exports.enum(["delta", "full", "none"]).default("delta").describe("Edited page context in the result: changed/inserted/removed targets (default), whole, none")
   }),
+  "lov.context": external_exports.strictObject({
+    ...base,
+    lov: external_exports.string().min(1).max(255).describe("Shared LOV id or name")
+  }),
+  "lov.edit": external_exports.strictObject({
+    ...base,
+    lov: external_exports.string().min(1).max(255).describe("Shared LOV id or name"),
+    entries: external_exports.array(external_exports.strictObject({ display: external_exports.string().min(1).max(4e3), return: external_exports.string().min(1).max(4e3) })).min(1).max(500).optional().describe("Static LOV: every entry in display order"),
+    query: external_exports.strictObject({
+      sql: external_exports.string().min(1).max(1e5),
+      display: external_exports.string().min(1).max(128).optional(),
+      return: external_exports.string().min(1).max(128).optional()
+    }).optional().describe("SQL LOV: complete replacement query"),
+    expectedDigest: external_exports.string().regex(/^[a-f0-9]{64}$/u).optional().describe("LOV file digest you read; required to write"),
+    dryRun: external_exports.boolean().default(false)
+  }),
   "project.scaffold": external_exports.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
   "connection.add": external_exports.strictObject({
     ...base,
@@ -416,16 +432,22 @@ var schemas = {
       "context",
       "insert",
       "edit",
+      "lov_context",
+      "lov_edit",
       "connection_add",
       "connection_list",
       "connection_test"
     ]),
     specFile: relativePath.optional().describe("scaffold: JSON spec; see work skill scaffold guide"),
     page: external_exports.string().optional(),
-    operations: external_exports.array(external_exports.record(external_exports.string(), external_exports.unknown())).optional().describe("patch/insert/edit: see patch guide"),
-    components: external_exports.record(external_exports.string(), external_exports.unknown()).optional(),
+    operations: external_exports.array(external_exports.unknown()).optional().describe("patch/insert/edit: see patch guide"),
+    components: external_exports.unknown().optional(),
     expectedDigest: external_exports.string().optional(),
     context: external_exports.enum(["delta", "full", "none"]).optional(),
+    lov: external_exports.string().optional(),
+    // Validated by the routed operation's own schema (lov.edit); kept untyped here for catalog size.
+    entries: external_exports.unknown().optional(),
+    query: external_exports.unknown().optional(),
     directory: external_exports.string().min(1).optional().describe("init: new or empty directory for the project"),
     template: external_exports.enum(["blank-app", "customer-crm", "existing-app"]).optional(),
     alias: refName.optional(),

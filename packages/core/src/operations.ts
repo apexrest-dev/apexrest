@@ -361,6 +361,34 @@ export const schemas = {
       .default('delta')
       .describe('Edited page context in the result: changed/inserted/removed targets (default), whole, none'),
   }),
+  'lov.context': z.strictObject({
+    ...base,
+    lov: z.string().min(1).max(255).describe('Shared LOV id or name'),
+  }),
+  'lov.edit': z.strictObject({
+    ...base,
+    lov: z.string().min(1).max(255).describe('Shared LOV id or name'),
+    entries: z
+      .array(z.strictObject({ display: z.string().min(1).max(4000), return: z.string().min(1).max(4000) }))
+      .min(1)
+      .max(500)
+      .optional()
+      .describe('Static LOV: every entry in display order'),
+    query: z
+      .strictObject({
+        sql: z.string().min(1).max(100000),
+        display: z.string().min(1).max(128).optional(),
+        return: z.string().min(1).max(128).optional(),
+      })
+      .optional()
+      .describe('SQL LOV: complete replacement query'),
+    expectedDigest: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional()
+      .describe('LOV file digest you read; required to write'),
+    dryRun: z.boolean().default(false),
+  }),
   'project.scaffold': z.strictObject({ ...base, specFile: relativePath, env: env.optional() }),
   'connection.add': z
     .strictObject({
@@ -564,19 +592,22 @@ export const schemas = {
       'context',
       'insert',
       'edit',
+      'lov_context',
+      'lov_edit',
       'connection_add',
       'connection_list',
       'connection_test',
     ]),
     specFile: relativePath.optional().describe('scaffold: JSON spec; see work skill scaffold guide'),
     page: z.string().optional(),
-    operations: z
-      .array(z.record(z.string(), z.unknown()))
-      .optional()
-      .describe('patch/insert/edit: see patch guide'),
-    components: z.record(z.string(), z.unknown()).optional(),
+    operations: z.array(z.unknown()).optional().describe('patch/insert/edit: see patch guide'),
+    components: z.unknown().optional(),
     expectedDigest: z.string().optional(),
     context: z.enum(['delta', 'full', 'none']).optional(),
+    lov: z.string().optional(),
+    // Validated by the routed operation's own schema (lov.edit); kept untyped here for catalog size.
+    entries: z.unknown().optional(),
+    query: z.unknown().optional(),
     directory: z.string().min(1).optional().describe('init: new or empty directory for the project'),
     template: z.enum(['blank-app', 'customer-crm', 'existing-app']).optional(),
     alias: refName.optional(),

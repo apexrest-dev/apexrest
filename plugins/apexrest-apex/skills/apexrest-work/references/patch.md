@@ -66,3 +66,12 @@ apexrest_project action:edit page:"10" expectedDigest:"<digest>" operations:[{"o
 - `items` maps modal page items to `#COLUMN#` (a column of the linked report), `&ITEM.` or a literal; unknown items or columns are refused.
 - The target must be a modal dialog page (`TARGET_NOT_MODAL`). Pass its file digest as `expectedTargetDigest` to bind the edit to the modal page you read.
 - Authorization is never added: a modal page that runs processes without a page authorization scheme returns a warning. Create a new modal page with scaffold.
+
+## Shared LOVs
+
+`apexrest_project action:lov_context lov:"STATUS"` returns the LOV (id or name), its entries or query, the file `digest` and the pages that use it. `action:lov_edit lov:"STATUS" expectedDigest:"<digest>"` with either:
+
+- `entries:[{display, return}, ...]`: every entry of a static LOV in display order. Entries whose return value is kept keep their id and bytes.
+- `query:{sql, display?, return?}`: complete replacement SQL of a local SQL-query LOV.
+
+26.2 keeps one LOV per `shared-components/lovs/*.apx` file and 26.1 all of them in `shared-components/lovs.apx`; other layouts fail before writing. A shared LOV change is shared-component scope (`affectedPages: unknown`), never page-only: ship with `importMode:auto` or `full`.

@@ -1213,6 +1213,108 @@
     ],
     "additionalProperties": false
   },
+  "lov.context": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "lov": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255,
+        "description": "Shared LOV id or name"
+      }
+    },
+    "required": [
+      "lov"
+    ],
+    "additionalProperties": false
+  },
+  "lov.edit": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "project": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "lov": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255,
+        "description": "Shared LOV id or name"
+      },
+      "entries": {
+        "description": "Static LOV: every entry in display order",
+        "minItems": 1,
+        "maxItems": 500,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "display": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "return": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            }
+          },
+          "required": [
+            "display",
+            "return"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "query": {
+        "description": "SQL LOV: complete replacement query",
+        "type": "object",
+        "properties": {
+          "sql": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100000
+          },
+          "display": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "return": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "sql"
+        ],
+        "additionalProperties": false
+      },
+      "expectedDigest": {
+        "description": "LOV file digest you read; required to write",
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "dryRun": {
+        "default": false,
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "lov"
+    ],
+    "additionalProperties": false
+  },
   "project.scaffold": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -2422,6 +2524,8 @@
           "context",
           "insert",
           "edit",
+          "lov_context",
+          "lov_edit",
           "connection_add",
           "connection_list",
           "connection_test"
@@ -2439,21 +2543,9 @@
       "operations": {
         "description": "patch/insert/edit: see patch guide",
         "type": "array",
-        "items": {
-          "type": "object",
-          "propertyNames": {
-            "type": "string"
-          },
-          "additionalProperties": {}
-        }
+        "items": {}
       },
-      "components": {
-        "type": "object",
-        "propertyNames": {
-          "type": "string"
-        },
-        "additionalProperties": {}
-      },
+      "components": {},
       "expectedDigest": {
         "type": "string"
       },
@@ -2465,6 +2557,11 @@
           "none"
         ]
       },
+      "lov": {
+        "type": "string"
+      },
+      "entries": {},
+      "query": {},
       "directory": {
         "description": "init: new or empty directory for the project",
         "type": "string",

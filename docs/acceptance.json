@@ -1075,6 +1075,18 @@
         "docs/evidence/fast-dev/dialog-compiler-2026-11-25.json"
       ],
       "blocker": "Repository tests and the offline Oracle compiler (26.2 profile) pass. Native import and dialog open/close behaviour in a browser are not yet observed."
+    },
+    {
+      "id": "FASTDEV-A06",
+      "criterion": "A named shared LOV is read and updated with an expected file digest in the release's qualified source layout: static entries as a complete ordered list or complete replacement SQL, preserving the LOV identity and every unrelated declaration and reporting shared-component scope",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/edit/lov.ts",
+        "tests/unit/source-edit-lov.test.ts",
+        "docs/evidence/fast-dev/lov-compiler-2026-11-25.json"
+      ],
+      "blocker": "Repository tests pass for 26.1 and 26.2 layouts; the offline Oracle compiler passed a 26.2 static LOV edit. 26.1 compilation and native import are not yet observed."
     }
   ]
 }
