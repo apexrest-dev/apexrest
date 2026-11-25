@@ -264,7 +264,23 @@ export function setProperty(
   path: string,
   value: string,
 ): TextEdit {
-  const text = scalarText(value);
+  return setPropertyText(doc, node, path, scalarText(value));
+}
+
+/** A component reference value (`@id`), written unquoted; the id is validated, never escaped. */
+export function referenceText(id: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.$#-]{0,254}$/u.test(id))
+    throw new Fault('INVALID_INPUT', `${id} is not a component id.`, 2);
+  return '@' + id;
+}
+
+/** Like `setProperty`, with value text already in APEXlang form (a reference or a number). */
+export function setPropertyText(
+  doc: ApexLangDocument,
+  node: ComponentNode,
+  path: string,
+  text: string,
+): TextEdit {
   const existing = node.properties.get(path);
   if (existing) {
     if (existing.opaque) throw unsupported(`${path} holds a multi-line value; edit it in source.`);
@@ -298,6 +314,19 @@ export function setProperty(
   const line = doc.lines[after]!;
   const at = line.offset + line.text.length + line.eol.length;
   return { start: at, end: at, content: `${indent}${path}: ${text}${eol}` };
+}
+
+/** Removes one single-line property line (a no-op `undefined` when the component lacks it). */
+export function removeProperty(
+  doc: ApexLangDocument,
+  node: ComponentNode,
+  path: string,
+): TextEdit | undefined {
+  const property = node.properties.get(path);
+  if (!property) return undefined;
+  if (property.opaque) throw unsupported(`${path} holds a multi-line value; edit it in source.`);
+  const line = doc.lines[property.line]!;
+  return { start: line.offset, end: line.offset + line.text.length + line.eol.length, content: '' };
 }
 
 export function applyEdits(source: string, edits: TextEdit[]): string {

@@ -1099,6 +1099,18 @@
         "docs/evidence/fast-dev/bind-lov-compiler-2026-11-25.json"
       ],
       "blocker": "Repository tests and the offline Oracle compiler (26.2) pass. 26.1 is refused, not qualified. Native import and cascading behaviour in a browser are not yet observed."
+    },
+    {
+      "id": "FASTDEV-A08",
+      "criterion": "A moveComponent edit moves an item, button or region within one page to an explicit destination and supported slot, changing only its layout lines so its identity and references are preserved, and refuses invalid slots, missing or cyclic destinations and stale sources",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/edit/move.ts",
+        "tests/unit/source-edit-move.test.ts",
+        "docs/evidence/fast-dev/move-compiler-2026-11-25.json"
+      ],
+      "blocker": "Repository tests and the offline Oracle compiler (26.2) pass. Template-specific slots are left to the preview lint; native import and rendered placement are not yet observed."
     }
   ]
 }

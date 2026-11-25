@@ -260,6 +260,15 @@ export const schemas = {
               .optional(),
           }),
           z.strictObject({
+            op: z.literal('moveComponent'),
+            component: z.string().min(1).max(300).describe('item:NAME, button:ID or region:ID'),
+            to: z.strictObject({
+              region: z.string().min(1).max(255).optional(),
+              slot: z.string().min(1).max(64),
+              sequence: z.number().int().positive().optional(),
+            }),
+          }),
+          z.strictObject({
             op: z.literal('bindLov'),
             item: z.string().min(1).max(128),
             lov: z.string().min(1).max(255).describe('Shared LOV id or name'),

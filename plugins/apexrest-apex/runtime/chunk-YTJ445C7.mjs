@@ -194,6 +194,15 @@ var schemas = {
           ).max(200).optional()
         }),
         external_exports.strictObject({
+          op: external_exports.literal("moveComponent"),
+          component: external_exports.string().min(1).max(300).describe("item:NAME, button:ID or region:ID"),
+          to: external_exports.strictObject({
+            region: external_exports.string().min(1).max(255).optional(),
+            slot: external_exports.string().min(1).max(64),
+            sequence: external_exports.number().int().positive().optional()
+          })
+        }),
+        external_exports.strictObject({
           op: external_exports.literal("bindLov"),
           item: external_exports.string().min(1).max(128),
           lov: external_exports.string().min(1).max(255).describe("Shared LOV id or name"),

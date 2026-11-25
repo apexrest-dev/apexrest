@@ -6,6 +6,7 @@ import { filterFragment, planFilters, type AddFilterOperation } from './filter.t
 import { planColumns, type AddColumnOperation, type OrderColumnsOperation } from './columns.ts';
 import { dialogDependencies, planDialogs, type AddDialogActionOperation } from './dialog.ts';
 import { bindLovDependencies, planBindLov, type BindLovOperation } from './bind-lov.ts';
+import { planMoves, type MoveComponentOperation } from './move.ts';
 import {
   runPageTransaction,
   type ContextMode,
@@ -21,6 +22,7 @@ import {
  */
 
 export type EditOperation =
+  | MoveComponentOperation
   | BindLovOperation
   | AddDialogActionOperation
   | AddFilterOperation
@@ -47,7 +49,12 @@ export function editGroups(operations: EditOperation[]): Group[] {
   const columns: (AddColumnOperation | OrderColumnsOperation)[] = [];
   const dialogs: AddDialogActionOperation[] = [];
   const bindings: BindLovOperation[] = [];
+  const moves: MoveComponentOperation[] = [];
   for (const operation of operations) {
+    if (operation.op === 'moveComponent') {
+      moves.push(operation);
+      continue;
+    }
     if (operation.op === 'bindLov') {
       bindings.push(operation);
       continue;
@@ -79,6 +86,7 @@ export function editGroups(operations: EditOperation[]): Group[] {
   if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
   if (dialogs.length) groups.push((snapshot) => planDialogs(snapshot, dialogs));
   if (bindings.length) groups.push((snapshot) => planBindLov(snapshot, bindings));
+  if (moves.length) groups.push((snapshot) => planMoves(snapshot, moves));
   return groups;
 }
 

@@ -1651,6 +1651,23 @@
       ],
       "evidence": ["sanitized result code", "compiler diagnostics count"],
       "budgetMs": 10000
+    },
+    {
+      "id": "A261-078",
+      "title": "Move a component on a page",
+      "acceptance": ["FASTDEV-A08"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Move an item into another region and a region under a parent with moveComponent.",
+        "Validate and run the preview check."
+      ],
+      "expected": [
+        "Only layout lines change; references still resolve; the compiler passes; the preview reports no slot finding."
+      ],
+      "evidence": ["sanitized result code", "compiler diagnostics count", "preview slot findings"],
+      "budgetMs": 10000
     }
   ],
   "metrics": "quality-performance.json"

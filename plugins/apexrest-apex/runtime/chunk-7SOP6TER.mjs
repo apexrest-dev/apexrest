@@ -3272,7 +3272,14 @@ function scalarText(value) {
   return plain ? value : JSON.stringify(value);
 }
 function setProperty(doc, node, path6, value) {
-  const text2 = scalarText(value);
+  return setPropertyText(doc, node, path6, scalarText(value));
+}
+function referenceText(id) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.$#-]{0,254}$/u.test(id))
+    throw new Fault("INVALID_INPUT", `${id} is not a component id.`, 2);
+  return "@" + id;
+}
+function setPropertyText(doc, node, path6, text2) {
   const existing = node.properties.get(path6);
   if (existing) {
     if (existing.opaque) throw unsupported(`${path6} holds a multi-line value; edit it in source.`);
@@ -3304,6 +3311,13 @@ function setProperty(doc, node, path6, value) {
   const line = doc.lines[after];
   const at = line.offset + line.text.length + line.eol.length;
   return { start: at, end: at, content: `${indent}${path6}: ${text2}${eol}` };
+}
+function removeProperty(doc, node, path6) {
+  const property = node.properties.get(path6);
+  if (!property) return void 0;
+  if (property.opaque) throw unsupported(`${path6} holds a multi-line value; edit it in source.`);
+  const line = doc.lines[property.line];
+  return { start: line.offset, end: line.offset + line.text.length + line.eol.length, content: "" };
 }
 function applyEdits(source, edits) {
   let result = source;
@@ -3547,7 +3561,7 @@ async function loadRelated(ctx, key) {
   const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   let file;
   if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
-  else if (kind === "lov") file = await (await import("./chunk-FOBY42NN.mjs")).lovFile(ctx, id).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-7UK3WOW2.mjs")).lovFile(ctx, id).catch(() => void 0);
   if (!file) return void 0;
   const text2 = await readFile4(file, "utf8");
   const parsed = parseApexLang(text2, "related").find(
@@ -3601,6 +3615,9 @@ export {
   ApexLangDocument,
   scalarText,
   setProperty,
+  referenceText,
+  setPropertyText,
+  removeProperty,
   applyEdits,
   setFencedText,
   removeComponent,

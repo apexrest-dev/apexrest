@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-F5BOIK5I.mjs";
+} from "./chunk-YTJ445C7.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -27,7 +27,7 @@ import {
 import {
   lovContext,
   lovEdit
-} from "./chunk-5LRJHL6N.mjs";
+} from "./chunk-CQPDDY7A.mjs";
 import {
   pageContext,
   patchPage,
@@ -35,7 +35,7 @@ import {
   planSets,
   queryEdits,
   reportRegion
-} from "./chunk-4QD2UMQ3.mjs";
+} from "./chunk-QFWCODEX.mjs";
 import {
   ApexLangDocument,
   DeploymentService,
@@ -44,15 +44,18 @@ import {
   planDigest,
   readProperty,
   recordRevision,
+  referenceText,
+  removeProperty,
   revisionOf,
   revisionStatus,
   runPageTransaction,
   scalarText,
   setFencedText,
   setProperty,
+  setPropertyText,
   sourceInventory,
   sourceRevision
-} from "./chunk-SADOD6VT.mjs";
+} from "./chunk-7SOP6TER.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -706,7 +709,7 @@ var references = [
     text: "Use an explicit environment. Plans bind source hashes and target identity. Recheck drift, acquire local coordination and create an export backup before writes. Clean APEX deployment needs no service tables. Local runners must share one managed home; independent machines need external serialization. DDL cannot be generally rolled back. Interrupted writes require reconciliation. Production deployment and restore are forbidden. The identified DEV/QA/TEST application task authorizes its import; actual local task-scoped DB changes need no separate risk prompt, while remote dangerous operations require exact-plan human confirmation. Browser checks are requested separately."
   }
 ];
-async function referenceText(entry) {
+async function referenceText2(entry) {
   if (!entry.document) return entry.text;
   const invalid = () => new Fault("REFERENCE_CATALOG_INVALID", "The official reference document failed integrity checks.", 3);
   if (!/^documents\/[a-z0-9/.-]+\.md$/.test(entry.document) || entry.document.split("/").includes("..") || !/^[a-f0-9]{64}$/.test(entry.contentSha256 ?? "") || !Number.isInteger(entry.contentLength))
@@ -857,7 +860,7 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
       }
     }
     return buildReferencePostings(
-      await Promise.all(entries.map(async (entry) => ({ ...entry, text: await referenceText(entry) })))
+      await Promise.all(entries.map(async (entry) => ({ ...entry, text: await referenceText2(entry) })))
     );
   })();
   let stemWords;
@@ -1127,7 +1130,7 @@ async function referenceSearch(query, version, options = {}) {
     ranked.slice(offset, offset + limit).map(async (position, i) => {
       const entry = index.searchable[position];
       const { reference: r, title } = entry;
-      const text = await referenceText(r);
+      const text = await referenceText2(r);
       const requires = r.requires ?? [];
       const related = [.../* @__PURE__ */ new Set([...index.propertyOwners.get(r.id) ?? [], ...r.related ?? []])];
       const code = codeWanted(options.include, offset, i) ? entry.code ??= r.kind === "grammar" ? null : primaryCodeBlock(text, CODE_LIMIT) : void 0;
@@ -1195,7 +1198,7 @@ async function referenceRead(id, offset, limit, project, version) {
   const item = index.byId.get(id) ?? index.byId.get(index.bySymbol.get(id.replace(/^grammar:/, "")) ?? "");
   if (!item || version && !versionMatches(item.version, version))
     throw new Fault("REFERENCE_NOT_FOUND", "No registered reference with this ID or grammar symbol.", 2);
-  const text = await referenceText(item);
+  const text = await referenceText2(item);
   const content = text.slice(offset, offset + limit);
   const symbols = [...content.matchAll(/<([^>\n]+)>/g)].map((match) => index.bySymbol.get(match[1]));
   const related = [
@@ -2389,6 +2392,123 @@ function planBindLov(snapshot, operations) {
   };
 }
 
+// packages/core/src/edit/move.ts
+var ITEM_SLOTS = ["regionBody", "body", "contentBody"];
+var BUTTON_SLOTS = [
+  "next",
+  "previous",
+  "edit",
+  "create",
+  "close",
+  "change",
+  "delete",
+  "copy",
+  "up",
+  "regionBody",
+  "belowBox",
+  "top",
+  "bottom"
+];
+var SUB_REGION_SLOTS = ["subRegions", "regionBody", "body"];
+var PAGE_SLOTS = {
+  normal: ["body", "breadcrumbBar", "leftColumn", "rightSideColumn"],
+  modal: ["contentBody", "dialogFooter"]
+};
+var KINDS = { item: "pageItem", button: "button", region: "region" };
+var refOf3 = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : value === void 0 ? void 0 : String(value).replace(/^@/u, "");
+function planMoves(snapshot, operations) {
+  const { doc, node: page, parsed } = snapshot;
+  const modal = readProperty(parsed, "appearance.pageMode") === "modalDialog";
+  const edits = [];
+  const checks = [];
+  const seen = /* @__PURE__ */ new Set();
+  const regions = page.children.filter((child) => child.kind === "region");
+  for (const operation of operations) {
+    const at = operation.component.indexOf(":");
+    const kind = KINDS[operation.component.slice(0, at)];
+    const id = operation.component.slice(at + 1);
+    if (at < 1 || !kind || !id)
+      throw new Fault("INVALID_INPUT", "component is item:NAME, button:ID or region:ID.", 2);
+    const node2 = ApexLangDocument.one(page.children, kind, id, `Page ${page.key}`);
+    if (seen.has(`${kind}:${node2.key.toUpperCase()}`))
+      throw new Fault("TRANSFORM_CONFLICT", `${operation.component} is moved twice.`, 5);
+    seen.add(`${kind}:${node2.key.toUpperCase()}`);
+    const { region: destination, slot, sequence } = operation.to;
+    const parentPath = kind === "region" ? "layout.parentRegion" : "layout.region";
+    let target;
+    if (destination !== void 0) {
+      target = ApexLangDocument.one(regions, "region", destination, `Page ${page.key}`);
+      if (kind === "region") {
+        for (let current = target; current; ) {
+          if (current === node2)
+            throw new Fault("INVALID_INPUT", `${node2.key} cannot move into itself or a sub-region.`, 2);
+          const parent = refOf3(current.properties.get("layout.parentRegion")?.value);
+          current = parent ? regions.find((region) => region.key.toUpperCase() === parent.toUpperCase()) : void 0;
+        }
+      }
+    } else if (kind !== "region")
+      throw new Fault("INVALID_INPUT", `${operation.component} needs a destination region.`, 2);
+    const targetType = target ? String(target.properties.get("type")?.value ?? "") : "";
+    const allowed = kind === "pageItem" ? ITEM_SLOTS : kind === "button" ? [
+      ...BUTTON_SLOTS,
+      ...targetType === "interactiveReport" ? ["rightOfInteractiveReportSearchBar"] : []
+    ] : target ? SUB_REGION_SLOTS : PAGE_SLOTS[modal ? "modal" : "normal"];
+    if (!allowed.includes(slot))
+      throw new Fault(
+        "OPERATION_UNSUPPORTED",
+        `Slot ${slot} is not supported for this move; use one of ${allowed.join(", ")} or edit the source.`,
+        2
+      );
+    if (sequence !== void 0 && !(Number.isInteger(sequence) && sequence > 0 && sequence < 1e9))
+      throw new Fault("INVALID_INPUT", "sequence must be a positive integer.", 2);
+    const currentParent = refOf3(node2.properties.get(parentPath)?.value);
+    if (!node2.groups.has("layout")) {
+      const lines = [
+        target ? `${parentPath.slice("layout.".length)}: ${referenceText(target.key)}` : "",
+        `slot: ${slot}`,
+        sequence !== void 0 ? `sequence: ${sequence}` : ""
+      ].filter(Boolean);
+      const indent2 = " ".repeat(node2.indent + 4);
+      const before = doc.lines[node2.children[0]?.open ?? node2.close];
+      edits.push({
+        start: before.offset,
+        end: before.offset,
+        content: [`${indent2}layout {`, ...lines.map((line) => `${indent2}    ${line}`), `${indent2}}`].join(doc.eol) + doc.eol
+      });
+    } else {
+      if (target) {
+        if (currentParent?.toUpperCase() !== target.key.toUpperCase())
+          edits.push(setPropertyText(doc, node2, parentPath, referenceText(target.key)));
+      } else if (currentParent !== void 0) {
+        const removal = removeProperty(doc, node2, parentPath);
+        if (removal) edits.push(removal);
+      }
+      if (String(node2.properties.get("layout.slot")?.value ?? "") !== slot)
+        edits.push(setPropertyText(doc, node2, "layout.slot", slot));
+      if (sequence !== void 0 && Number(node2.properties.get("layout.sequence")?.value) !== sequence)
+        edits.push(setPropertyText(doc, node2, "layout.sequence", String(sequence)));
+    }
+    checks.push((after) => {
+      const type = kind;
+      const moved = after.children.find(
+        (c) => c.type === type && c.id.toUpperCase() === node2.key.toUpperCase()
+      );
+      const parent = moved && refOf3(readProperty(moved, parentPath));
+      if (!moved || readProperty(moved, "layout.slot") !== slot || (target ? parent?.toUpperCase() !== target.key.toUpperCase() : parent !== void 0) || after.children.filter((c) => c.type === type && c.id.toUpperCase() === node2.key.toUpperCase()).length !== 1)
+        throw new Fault(
+          "TRANSFORM_INVALID",
+          `${operation.component} did not read back at its destination.`,
+          5
+        );
+    });
+  }
+  return {
+    edits,
+    verify: (after) => checks.forEach((check2) => check2(after)),
+    targets: operations.map((operation) => operation.component)
+  };
+}
+
 // packages/core/src/edit/page-edit.ts
 function editGroups(operations) {
   const sets = [];
@@ -2397,7 +2517,12 @@ function editGroups(operations) {
   const columns = [];
   const dialogs = [];
   const bindings = [];
+  const moves = [];
   for (const operation of operations) {
+    if (operation.op === "moveComponent") {
+      moves.push(operation);
+      continue;
+    }
     if (operation.op === "bindLov") {
       bindings.push(operation);
       continue;
@@ -2428,6 +2553,7 @@ function editGroups(operations) {
   if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
   if (dialogs.length) groups.push((snapshot) => planDialogs(snapshot, dialogs));
   if (bindings.length) groups.push((snapshot) => planBindLov(snapshot, bindings));
+  if (moves.length) groups.push((snapshot) => planMoves(snapshot, moves));
   return groups;
 }
 async function editPage(ctx, input) {
@@ -4254,7 +4380,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-G4OXTD5Y.mjs");
+      const { previewDispatch } = await import("./chunk-YHOC6JUC.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4296,17 +4422,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-ITGXF3UD.mjs");
+        const { setup } = await import("./chunk-RH53IJWI.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-ITGXF3UD.mjs");
+        const { validateNative } = await import("./chunk-RH53IJWI.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-ITGXF3UD.mjs");
+        const { uninstallNative } = await import("./chunk-RH53IJWI.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });
