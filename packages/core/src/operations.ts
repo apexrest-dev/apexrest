@@ -366,6 +366,7 @@ export const schemas = {
               .min(1)
               .max(200)
               .describe('Every column, new display order'),
+            visible: z.record(z.string().min(1).max(128), z.boolean()).optional(),
           }),
           z.strictObject({
             op: z.literal('addFilter'),

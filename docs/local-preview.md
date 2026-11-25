@@ -119,6 +119,8 @@ The preview binds each selection to its source revision. It records the componen
 
 Template, template options and grid placement are offered for 26.2 sources. Their pickers list the templates and options of the theme the preview renders with: a template list with **Theme default**, one choice per option group plus the template's other options for the template being set, **Automatic** or 1-12 for column and span, and **Default**, **Yes** or **No** for a new row. A choice joins the proposed changes like any other edit; the patch service checks it again before writing. For other releases the form says the controls need 26.2 sources.
 
+**Columns…** (in Edit, on an interactive or classic report or one of its columns) opens the report's columns as they are in the source, including columns with no rows to show: a **Shown** checkbox, the heading and the format mask per column, and ↑/↓ to change the order. **Save columns** writes the order, visibility, heading and format changes in one edit; the SQL and data types are not touched. An interactive report's shown columns are its default saved report's. If a change is invalid or the file changed meanwhile, nothing is written and the editor keeps your values. After a save the page reloads, so report filters and sorting start again.
+
 The edit goes through the same digest-bound patch service as `project patch` and `apexrest_project action:patch`:
 
 - **Add to changes** collects a change and lets you pick another component or property of the same page file; the list shows every proposed change before you save. **Save** writes them all, with the field you are editing, as one atomic change.

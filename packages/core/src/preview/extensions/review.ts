@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadProject } from '../../config.ts';
-import { patchPage, PATCH_PROPERTIES, type PatchProperty } from '../../edit/patch.ts';
+import { pageContext, patchPage, PATCH_PROPERTIES, type PatchProperty } from '../../edit/patch.ts';
+import { editPage } from '../../edit/page-edit.ts';
 import { Fault } from '../../result.ts';
 import { get, str, type ApxComponent } from '../apexlang.ts';
 import { registerExtension, type RouteRequest, type RouteResponse } from '../extensions.ts';
@@ -318,7 +319,23 @@ async function patchRoute(file: string, input: Record<string, unknown>): Promise
     return json({ error: 'patch needs page, target, property, value and the file digest' }, 400);
   if (!raw.length || raw.length > MAX_BATCH) return json({ error: `Give 1-${MAX_BATCH} operations.` }, 400);
   const operations: { target: string; property: PatchProperty; value: string }[] = [];
+  const orders: { op: 'orderColumns'; region: string; order: string[]; visible?: Record<string, boolean> }[] =
+    [];
   for (const [index, entry] of raw.entries()) {
+    if (entry?.op === 'orderColumns') {
+      const order = Array.isArray(entry.order) ? entry.order.map(String) : [];
+      const visible =
+        entry.visible && typeof entry.visible === 'object' && !Array.isArray(entry.visible)
+          ? Object.fromEntries(Object.entries(entry.visible).map(([name, value]) => [name, value === true]))
+          : undefined;
+      if (typeof entry.region !== 'string' || !order.length || order.length > 200)
+        return json(
+          { error: 'orderColumns needs the region and every column in order', operation: index },
+          400,
+        );
+      orders.push({ op: 'orderColumns', region: entry.region, order, ...(visible ? { visible } : {}) });
+      continue;
+    }
     const property = String(entry?.property ?? '') as PatchProperty;
     const target = String(entry?.target ?? '');
     const value = typeof entry?.value === 'string' ? entry.value : '';
@@ -336,7 +353,14 @@ async function patchRoute(file: string, input: Record<string, unknown>): Promise
   let ctx;
   try {
     ctx = await loadProject(path.resolve(path.dirname(file), '..', '..'));
-    const result = await patchPage(ctx, { page, operations, expectedDigest: digest });
+    // Column order (with its visibility) runs in the same page transaction as the property edits.
+    const result = orders.length
+      ? await editPage(ctx, {
+          page,
+          operations: [...operations.map((operation) => ({ op: 'set' as const, ...operation })), ...orders],
+          expectedDigest: digest,
+        })
+      : await patchPage(ctx, { page, operations, expectedDigest: digest });
     return json({ ok: true, result });
   } catch (error) {
     if (error instanceof Fault) {
@@ -349,9 +373,10 @@ async function patchRoute(file: string, input: Record<string, unknown>): Promise
       // Point at the operation that fails by itself (a dry run writes nothing); a pair that
       // only conflicts together has no single culprit.
       let operation: number | undefined;
-      if (ctx && status !== 409 && operations.length > 1)
-        for (const [index, entry] of operations.entries()) {
-          const alone = await patchPage(ctx, { page, operations: [entry], dryRun: true }).then(
+      const all = [...operations.map((operation) => ({ op: 'set' as const, ...operation })), ...orders];
+      if (ctx && status !== 409 && all.length > 1)
+        for (const [index, entry] of all.entries()) {
+          const alone = await editPage(ctx, { page, operations: [entry], dryRun: true }).then(
             () => undefined,
             () => index,
           );
@@ -375,6 +400,39 @@ async function patchRoute(file: string, input: Record<string, unknown>): Promise
 }
 
 /**
+ * The column editor's view of a report, read from the page file as it is now (not the rendered
+ * rows, so columns without rows are listed): columns in effective display order with their
+ * visibility, heading, format and sequence, and the file digest to save against.
+ */
+async function columnsRoute(file: string, page: string, region: string): Promise<RouteResponse> {
+  if (!/^\d{1,5}$/u.test(page) || !/^[A-Za-z][A-Za-z0-9_-]{0,127}$/u.test(region))
+    return json({ error: 'columns needs page and region' }, 400);
+  try {
+    const ctx = await loadProject(path.resolve(path.dirname(file), '..', '..'));
+    const context = await pageContext(ctx, page);
+    const entry = context.regions.find((candidate) => candidate.target === `region:${region}`);
+    if (!entry) return json({ error: `No region ${region} on page ${page}.` }, 404);
+    if (entry.type !== 'interactiveReport' && entry.type !== 'classicReport')
+      return json({ error: 'The column editor supports interactive and classic reports.' }, 400);
+    const columns = entry.columns.map((column) => ({
+      name: column.target.slice(column.target.indexOf('.') + 1),
+      heading: column.heading ?? '',
+      format: column.format ?? '',
+      sequence: column.sequence ?? '',
+      visible: column.visible,
+    }));
+    const order = [...columns]
+      .sort((a, b) => Number(a.sequence || 0) - Number(b.sequence || 0))
+      .map((column) => column.name);
+    return json({ file: context.file, digest: context.digest, region, type: entry.type, order, columns });
+  } catch (error) {
+    if (error instanceof Fault)
+      return json({ error: error.message, code: error.code }, error.exitCode === 2 ? 400 : 422);
+    return json({ error: (error as Error).message }, 500);
+  }
+}
+
+/**
  * `GET ?page=<id>[&status=open|resolved|all][&format=text]` lists comments.
  * `POST { op: add | edit | resolve | reopen | delete, ... }` changes them;
  * `POST { op: patch, page, digest, target, property, value | operations: [...] }` edits the source (see patchRoute).
@@ -390,6 +448,8 @@ function reviewRoute(
   try {
     if (request.method === 'GET') {
       if (request.params.get('choices') === '1') return json(choices(renderer));
+      const columnsOf = request.params.get('columns');
+      if (columnsOf) return columnsRoute(file, request.params.get('page') ?? '', columnsOf);
       const status = request.params.get('status') ?? 'all';
       if (!['open', 'resolved', 'all'].includes(status))
         return json({ error: 'status must be open, resolved or all' }, 400);

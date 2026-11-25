@@ -1184,6 +1184,17 @@
                     "maxLength": 128
                   },
                   "description": "Every column, new display order"
+                },
+                "visible": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "additionalProperties": {
+                    "type": "boolean"
+                  }
                 }
               },
               "required": [

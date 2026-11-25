@@ -1,13 +1,13 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
+  editPage,
+  insertComponents,
   pageContext,
-  patchPage,
-  planSets,
-  queryEdits
-} from "./chunk-D7XOUOFP.mjs";
+  patchPage
+} from "./chunk-IPR345CC.mjs";
 import {
   schemas
-} from "./chunk-SWDIUDVJ.mjs";
+} from "./chunk-VXYDSEDO.mjs";
 import {
   browserPreferences
 } from "./chunk-O7MNIZXK.mjs";
@@ -29,29 +29,17 @@ import {
   lovContext,
   lovEdit,
   lovFile
-} from "./chunk-22GQ5JVK.mjs";
+} from "./chunk-WMMNF7VE.mjs";
 import {
-  ApexLangDocument,
   DeploymentService,
-  appendChild,
   deployPlanSchema,
-  planColumns,
   planDigest,
-  readProperty,
   recordRevision,
-  referenceText,
-  removeProperty,
-  reportRegion,
   revisionOf,
   revisionStatus,
-  runPageTransaction,
-  scalarText,
-  setFencedText,
-  setProperty,
-  setPropertyText,
   sourceInventory,
   sourceRevision
-} from "./chunk-33ZG6DXL.mjs";
+} from "./chunk-RE4TE6OG.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -63,17 +51,11 @@ import {
   readMetadataBatch
 } from "./chunk-VN3PQCGH.mjs";
 import {
-  renderPageBody,
-  renderRegion,
-  scaffoldSchema,
   scaffoldSpec
-} from "./chunk-JRP3DTWQ.mjs";
+} from "./chunk-L7WGGCLG.mjs";
 import {
-  group,
-  indent,
-  node,
-  refreshAction
-} from "./chunk-J7SOVXCF.mjs";
+  scaffoldSchema
+} from "./chunk-2ZCBZPPJ.mjs";
 import {
   CODE_LIMIT,
   LocalDeploymentControl,
@@ -832,7 +814,7 @@ var references = [
     text: "Use an explicit environment. Plans bind source hashes and target identity. Recheck drift, acquire local coordination and create an export backup before writes. Clean APEX deployment needs no service tables. Local runners must share one managed home; independent machines need external serialization. DDL cannot be generally rolled back. Interrupted writes require reconciliation. Production deployment and restore are forbidden. The identified DEV/QA/TEST application task authorizes its import; actual local task-scoped DB changes need no separate risk prompt, while remote dangerous operations require exact-plan human confirmation. Browser checks are requested separately."
   }
 ];
-async function referenceText2(entry) {
+async function referenceText(entry) {
   if (!entry.document) return entry.text;
   const invalid = () => new Fault("REFERENCE_CATALOG_INVALID", "The official reference document failed integrity checks.", 3);
   if (!/^documents\/[a-z0-9/.-]+\.md$/.test(entry.document) || entry.document.split("/").includes("..") || !/^[a-f0-9]{64}$/.test(entry.contentSha256 ?? "") || !Number.isInteger(entry.contentLength))
@@ -915,7 +897,7 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
   const propertyFacets = /* @__PURE__ */ new Map();
   const propertyOwners = /* @__PURE__ */ new Map();
   const ownerReachability = /* @__PURE__ */ new Map();
-  const ownsGroup = (owner, group2) => {
+  const ownsGroup = (owner, group) => {
     if (!ownerReachability.has(owner)) {
       const seen = /* @__PURE__ */ new Set([owner]);
       const queue = [owner];
@@ -936,7 +918,7 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
       }
       ownerReachability.set(owner, bounded ? seen : null);
     }
-    return ownerReachability.get(owner)?.has(group2) ?? false;
+    return ownerReachability.get(owner)?.has(group) ?? false;
   };
   for (const [position, { reference }] of searchable.entries()) {
     if (reference.kind !== "grammar") continue;
@@ -944,12 +926,12 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
     if (!symbol) continue;
     const groupId = bySymbol.get(symbol);
     if (!groupId) continue;
-    const group2 = byId.get(groupId);
-    const label2 = group2?.text.match(/^<[^>\n]+>\s*::=\s*<indent>\s*"([A-Za-z][\w]*)"/)?.[1];
-    if (!group2 || !label2 || !group2.text.includes('"{"')) continue;
+    const group = byId.get(groupId);
+    const label2 = group?.text.match(/^<[^>\n]+>\s*::=\s*<indent>\s*"([A-Za-z][\w]*)"/)?.[1];
+    if (!group || !label2 || !group.text.includes('"{"')) continue;
     const propertyLineId = bySymbol.get(symbol + "-property-line");
     const propertyLine = propertyLineId ? byId.get(propertyLineId) : void 0;
-    const groupSymbols = grammarSymbols(group2.text);
+    const groupSymbols = grammarSymbols(group.text);
     if (!groupSymbols.includes(symbol + "-property") && !(groupSymbols.includes(symbol + "-property-line") && propertyLine && grammarSymbols(propertyLine.text).includes(symbol + "-property")))
       continue;
     const suffix = "-" + referenceWords(label2).join("-");
@@ -983,7 +965,7 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
       }
     }
     return buildReferencePostings(
-      await Promise.all(entries.map(async (entry) => ({ ...entry, text: await referenceText2(entry) })))
+      await Promise.all(entries.map(async (entry) => ({ ...entry, text: await referenceText(entry) })))
     );
   })();
   let stemWords;
@@ -996,8 +978,8 @@ function indexReferences(upstream, file2, digest2, release = "26.1", searchDiges
       stemWords = /* @__PURE__ */ new Map();
       for (const word of Object.keys(lists)) {
         const key = referenceStem(word);
-        const group2 = stemWords.get(key);
-        if (group2) group2.push(word);
+        const group = stemWords.get(key);
+        if (group) group.push(word);
         else stemWords.set(key, [word]);
       }
     }
@@ -1253,7 +1235,7 @@ async function referenceSearch(query, version, options = {}) {
     ranked.slice(offset, offset + limit).map(async (position, i) => {
       const entry = index.searchable[position];
       const { reference: r, title } = entry;
-      const text2 = await referenceText2(r);
+      const text2 = await referenceText(r);
       const requires = r.requires ?? [];
       const related = [.../* @__PURE__ */ new Set([...index.propertyOwners.get(r.id) ?? [], ...r.related ?? []])];
       const code = codeWanted(options.include, offset, i) ? entry.code ??= r.kind === "grammar" ? null : primaryCodeBlock(text2, CODE_LIMIT) : void 0;
@@ -1323,7 +1305,7 @@ async function referenceRead(id2, offset, limit, project, version) {
   const item = index.byId.get(id2) ?? index.byId.get(index.bySymbol.get(id2.replace(/^grammar:/, "")) ?? "");
   if (!item || version && !versionMatches(item.version, version))
     throw new Fault("REFERENCE_NOT_FOUND", "No registered reference with this ID or grammar symbol.", 2);
-  const text2 = await referenceText2(item);
+  const text2 = await referenceText(item);
   const content = text2.slice(offset, offset + limit);
   const symbols = [...content.matchAll(/<([^>\n]+)>/g)].map((match) => index.bySymbol.get(match[1]));
   const related = [
@@ -1409,41 +1391,41 @@ async function hydrate261Recipes(results, request, profile, size, signal) {
     const context = await componentRecipeGroups(hit.id, profile);
     check(signal);
     if (!compatible(context.selected, hit)) continue;
-    for (const group2 of context.groups) {
-      if (owned.has(group2.root.id)) continue;
-      owned.add(group2.root.id);
-      const explicit = group2.recipes.filter(named2);
-      const recipes = explicit.length ? explicit.slice(0, 4) : [group2.recipes.find((recipe) => canonicalReference(recipe.id)) ?? group2.recipes[0]];
-      groups.push({ owner: hit, root: group2.root, recipes });
+    for (const group of context.groups) {
+      if (owned.has(group.root.id)) continue;
+      owned.add(group.root.id);
+      const explicit = group.recipes.filter(named2);
+      const recipes = explicit.length ? explicit.slice(0, 4) : [group.recipes.find((recipe) => canonicalReference(recipe.id)) ?? group.recipes[0]];
+      groups.push({ owner: hit, root: group.root, recipes });
     }
   }
   if (!groups.length) return;
   for (const hit of working)
-    if (groups.some((group2) => group2.root.id === hit.id || group2.root.requires.includes(hit.id))) {
+    if (groups.some((group) => group.root.id === hit.id || group.root.requires.includes(hit.id))) {
       delete hit.text;
       delete hit.code;
     }
   if (size(working) > BUDGET) return;
   const accepted = [];
-  for (const group2 of groups)
-    for (const recipe of group2.recipes) {
+  for (const group of groups)
+    for (const recipe of group.recipes) {
       const document = await componentRead(recipe.id, 0, 8192, profile);
       check(signal);
-      if (document.sha256 !== recipe.sha256 || !compatible(document, group2.owner))
+      if (document.sha256 !== recipe.sha256 || !compatible(document, group.owner))
         throw new Fault(
           "COMPONENT_CATALOG_INVALID",
           "Ready recipe metadata changed while hydrating selection.",
           3
         );
-      const previousLinks = group2.owner.recipes ?? [];
+      const previousLinks = group.owner.recipes ?? [];
       if (previousLinks.some((link) => link.id === recipe.id)) continue;
-      group2.owner.recipes = [...previousLinks, { id: recipe.id, title: recipe.title, kind: recipe.kind }];
+      group.owner.recipes = [...previousLinks, { id: recipe.id, title: recipe.title, kind: recipe.kind }];
       if (size(working) > BUDGET) {
-        if (previousLinks.length) group2.owner.recipes = previousLinks;
-        else delete group2.owner.recipes;
+        if (previousLinks.length) group.owner.recipes = previousLinks;
+        else delete group.owner.recipes;
         continue;
       }
-      accepted.push({ owner: group2.owner, recipe, document });
+      accepted.push({ owner: group.owner, recipe, document });
     }
   for (const { owner, recipe, document } of accepted) {
     if (owner.code) continue;
@@ -1898,822 +1880,6 @@ async function referenceSelect(input, signal, fetcher = fetch) {
   shareValues(/* @__PURE__ */ new Set([...results, ...pages]));
   cancelled(signal);
   return { selection, results, ...pages.length ? { pageExamples: pages } : {} };
-}
-
-// packages/core/src/edit/insert.ts
-function merged(list) {
-  return {
-    regions: list.flatMap((c) => c.regions ?? []),
-    items: list.flatMap((c) => c.items ?? []),
-    refreshes: list.flatMap((c) => c.refreshes ?? [])
-  };
-}
-function planInsert(snapshot, list) {
-  const { doc, node: node2, parsed, pageId, release } = snapshot;
-  const components = merged(list);
-  const spec = scaffoldSchema.safeParse({
-    applicationName: "insert",
-    pages: [
-      {
-        id: Number(pageId),
-        name: "insert",
-        regions: components.regions ?? [],
-        ...components.items?.length ? { items: components.items } : {},
-        ...components.refreshes?.length ? { refreshes: components.refreshes } : {}
-      }
-    ]
-  });
-  if (!spec.success)
-    throw new Fault(
-      "INVALID_INPUT",
-      `Invalid components: ${spec.error.issues[0]?.path.join(".")} ${spec.error.issues[0]?.message}`,
-      2
-    );
-  const page2 = spec.data.pages[0];
-  if (!page2.regions.length && !page2.items?.length && !page2.refreshes?.length)
-    throw new Fault("INVALID_INPUT", "Give regions, items or refreshes to insert.", 2);
-  const existing = (type) => new Set(parsed.children.filter((c) => c.type === type).map((c) => c.id.toUpperCase()));
-  const regions = existing("region");
-  for (const region of page2.regions) {
-    if (!region.id) throw new Fault("INVALID_INPUT", "Inserted regions need an explicit id.", 2);
-    if (regions.has(region.id.toUpperCase()))
-      throw new Fault("TARGET_EXISTS", `Region ${region.id} already exists.`, 5);
-    regions.add(region.id.toUpperCase());
-  }
-  const items = existing("pageItem");
-  for (const item of page2.items ?? []) {
-    if (!new RegExp(`^P${pageId}_`, "u").test(item.name.toUpperCase()))
-      throw new Fault("INVALID_INPUT", `Item ${item.name} must start with P${pageId}_.`, 2);
-    if (items.has(item.name.toUpperCase()))
-      throw new Fault("TARGET_EXISTS", `Item ${item.name} already exists.`, 5);
-    if (!regions.has(item.region.toUpperCase()))
-      throw new Fault("TARGET_NOT_FOUND", `No region ${item.region} for ${item.name}.`, 2);
-    items.add(item.name.toUpperCase());
-  }
-  for (const refresh of page2.refreshes ?? []) {
-    for (const item of refresh.items)
-      if (!items.has(item.toUpperCase()))
-        throw new Fault("TARGET_NOT_FOUND", `Refresh item ${item} does not exist.`, 2);
-    for (const region of refresh.regions)
-      if (!regions.has(region.toUpperCase()))
-        throw new Fault("TARGET_NOT_FOUND", `Refresh region ${region} does not exist.`, 2);
-  }
-  const offset = parsed.children.filter((c) => c.type === "region").length;
-  let text2 = page2.regions.map((region, index) => renderRegion(region, offset + index, release)).join("\n");
-  let rest = renderPageBody(page2, release, { regions: false });
-  const actions = existing("dynamicAction");
-  const refreshNames = [];
-  (page2.refreshes ?? []).forEach((_refresh, index) => {
-    let n = index + 1;
-    while (actions.has(`REFRESH-${n}`)) n++;
-    actions.add(`REFRESH-${n}`);
-    refreshNames.push(`refresh-${n}`);
-    rest = rest.replace(`dynamicAction refresh-${index + 1} (`, `dynamicAction refresh-${n} (\0`).replace(`name: Refresh dependent regions ${index + 1}`, `name: Refresh dependent regions ${n}`);
-  });
-  rest = rest.replaceAll("\0", "");
-  text2 = [text2, rest].filter(Boolean).join("\n");
-  const lines = text2.split("\n").join(doc.eol) + doc.eol;
-  const verify = (after) => {
-    for (const region of page2.regions)
-      if (!after.children.some((c) => c.type === "region" && c.id === region.id))
-        throw new Fault("TRANSFORM_INVALID", `Region ${region.id} did not read back.`, 5);
-    for (const item of page2.items ?? [])
-      if (!after.children.some((c) => c.type === "pageItem" && c.id.toUpperCase() === item.name.toUpperCase()))
-        throw new Fault("TRANSFORM_INVALID", `Item ${item.name} did not read back.`, 5);
-  };
-  return {
-    edits: [appendChild(doc, node2, lines)],
-    verify,
-    targets: [
-      ...page2.regions.map((region) => `region:${region.id}`),
-      ...(page2.items ?? []).map((item) => `item:${item.name.toUpperCase()}`),
-      ...refreshNames.map((name) => `dynamicAction:${name}`)
-    ]
-  };
-}
-async function insertComponents(ctx, input) {
-  const outcome = await runPageTransaction(
-    ctx,
-    {
-      page: input.page,
-      operations: [input.components],
-      expectedDigest: input.expectedDigest,
-      dryRun: input.dryRun
-    },
-    (list) => [(snapshot) => planInsert(snapshot, list)]
-  );
-  return {
-    file: outcome.file,
-    beforeDigest: outcome.beforeDigest,
-    afterDigest: outcome.afterDigest,
-    written: outcome.written,
-    ...outcome.change ? { change: outcome.change } : {},
-    ...outcome.context ? { context: outcome.context } : {},
-    ...outcome.written ? { next: outcome.next } : {}
-  };
-}
-
-// packages/core/src/edit/filter.ts
-var FAMILIES = /* @__PURE__ */ new Set(["interactiveReport", "classicReport", "cards", "chart"]);
-var REPORTS = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
-function filterFragment(operation) {
-  if (!operation.targets?.length) throw new Fault("INVALID_INPUT", "addFilter needs at least one target.", 2);
-  return {
-    regions: operation.region ? [operation.region] : [],
-    items: [operation.item],
-    refreshes: [{ items: [operation.item.name], regions: operation.targets.map((target) => target.region) }]
-  };
-}
-var bind = (item) => new RegExp(`:${item.replace(/[$#]/gu, "\\$&")}(?![A-Z0-9_$#])`, "iu");
-var submitted = (value) => (Array.isArray(value) ? value.map(String) : String(value ?? "").split(",")).map((name) => name.trim()).filter(Boolean);
-function submitEdit(doc, owner, item) {
-  const property = owner.properties.get("source.pageItemsToSubmit");
-  if (!property) return setProperty(doc, owner, "source.pageItemsToSubmit", item);
-  if (property.value !== "[") {
-    const items = submitted(property.value);
-    if (items.some((name) => name.toUpperCase() === item)) return void 0;
-    return setProperty(doc, owner, "source.pageItemsToSubmit", [...items, item].join(","));
-  }
-  const elements = [];
-  for (let index = property.line + 1; index < doc.lines.length; index++) {
-    const line = doc.lines[index];
-    const trimmed = line.text.trim();
-    if (trimmed === "]") {
-      if (elements.some((name) => name.toUpperCase() === item)) return void 0;
-      const first = doc.lines[property.line + 1];
-      const indent2 = index > property.line + 1 ? first.text.slice(0, first.text.length - first.text.trimStart().length) : line.text.slice(0, line.text.length - line.text.trimStart().length) + "    ";
-      return { start: line.offset, end: line.offset, content: `${indent2}${item}${doc.eol}` };
-    }
-    if (!/^[A-Za-z0-9_$#]+,?$/u.test(trimmed))
-      throw new Fault(
-        "TRANSFORM_UNSUPPORTED",
-        `pageItemsToSubmit of ${owner.kind} ${owner.key} has an unsupported value; edit it in source.`,
-        5
-      );
-    elements.push(trimmed.replace(/,$/u, ""));
-  }
-  throw new Fault("TRANSFORM_UNSUPPORTED", `Unclosed pageItemsToSubmit of ${owner.kind} ${owner.key}.`, 5);
-}
-function planFilters(snapshot, operations) {
-  const { doc, node: page2 } = snapshot;
-  const edits = [];
-  const checks = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const operation of operations) {
-    const item = operation.item.name.toUpperCase();
-    for (const target of operation.targets) {
-      const key = `${target.region.toUpperCase()}:${item}`;
-      if (seen.has(key)) throw new Fault("INVALID_INPUT", `Region ${target.region} is listed twice.`, 2);
-      seen.add(key);
-      const region = ApexLangDocument.one(page2.children, "region", target.region, `Page ${page2.key}`);
-      const type = String(region.properties.get("type")?.value ?? "");
-      if (!FAMILIES.has(type))
-        throw new Fault(
-          "OPERATION_UNSUPPORTED",
-          `addFilter supports interactive and classic reports, cards and charts, not ${type || "this region"} (${target.region}). Add the item with insert and edit the region in source.`,
-          2
-        );
-      const sources = [];
-      if (type === "chart") {
-        if (target.sql || target.columns)
-          throw new Fault("INVALID_INPUT", `Chart ${target.region}: give replacement SQL per series.`, 2);
-        const series = region.children.filter((child) => child.kind === "series");
-        if (!series.length)
-          throw new Fault("OPERATION_UNSUPPORTED", `Chart ${target.region} has no series to filter.`, 2);
-        for (const given of target.series ?? [])
-          if (!series.some((entry) => entry.key.toUpperCase() === given.id.toUpperCase()))
-            throw new Fault("TARGET_NOT_FOUND", `Chart ${target.region} has no series ${given.id}.`, 2);
-        for (const entry of series) {
-          const replacement = target.series?.find(
-            (given) => given.id.toUpperCase() === entry.key.toUpperCase()
-          );
-          if (replacement) edits.push(setFencedText(doc, entry, "source.sqlQuery", replacement.sql));
-          sources.push({
-            owner: entry,
-            label: `${target.region} series ${entry.key}`,
-            sql: replacement?.sql ?? fenced(doc, entry),
-            find: (parsed) => parsed.children.find((c) => c.type === "region" && c.id.toUpperCase() === region.key.toUpperCase())?.children.find((c) => c.type === "series" && c.id.toUpperCase() === entry.key.toUpperCase())
-          });
-        }
-      } else {
-        if (target.series) throw new Fault("INVALID_INPUT", `${target.region} is not a chart.`, 2);
-        if (target.sql !== void 0) {
-          if (REPORTS.has(type))
-            edits.push(
-              ...queryEdits(
-                doc,
-                region,
-                {
-                  target: `region:${region.key}`,
-                  property: "query",
-                  value: target.sql,
-                  columns: target.columns
-                },
-                snapshot.release
-              )
-            );
-          else {
-            if (target.columns) throw new Fault("INVALID_INPUT", "columns apply to reports only.", 2);
-            edits.push(setFencedText(doc, region, "source.sqlQuery", target.sql));
-          }
-        }
-        sources.push({
-          owner: region,
-          label: target.region,
-          sql: target.sql ?? fenced(doc, region),
-          find: (parsed) => parsed.children.find(
-            (c) => c.type === "region" && c.id.toUpperCase() === region.key.toUpperCase()
-          )
-        });
-      }
-      for (const source2 of sources) {
-        if (!bind(item).test(source2.sql))
-          throw new Fault(
-            "FILTER_NOT_BOUND",
-            `The ${source2.label} query does not reference :${item}. Pass complete replacement SQL that filters on it; predicates are not rewritten.`,
-            2
-          );
-        const edit = submitEdit(doc, source2.owner, item);
-        if (edit) edits.push(edit);
-        checks.push({ source: source2, item });
-      }
-    }
-  }
-  const verify = (after) => {
-    for (const { source: source2, item } of checks) {
-      const component = source2.find(after);
-      const items = submitted(component && readProperty(component, "source.pageItemsToSubmit"));
-      const sql2 = String((component && readProperty(component, "source.sqlQuery")) ?? "");
-      if (!items.some((name) => name.toUpperCase() === item) || !bind(item).test(sql2))
-        throw new Fault("TRANSFORM_INVALID", `${source2.label} does not submit and bind ${item}.`, 5);
-    }
-  };
-  return {
-    edits,
-    verify,
-    targets: operations.flatMap((operation) => operation.targets.map((target) => `region:${target.region}`))
-  };
-}
-function fenced(doc, node2) {
-  const property = node2.properties.get("source.sqlQuery");
-  if (!property?.fence || property.fence.close < 0)
-    throw new Fault(
-      "OPERATION_UNSUPPORTED",
-      `${node2.kind} ${node2.key} has no SQL query literal; pass complete replacement SQL.`,
-      2
-    );
-  return doc.lines.slice(property.fence.open + 1, property.fence.close).map((line) => line.text).join("\n");
-}
-
-// packages/core/src/edit/dialog.ts
-var ID = /^[a-z][a-z0-9_-]{0,254}$/iu;
-var ITEM = /^P\d{1,5}_[A-Z0-9_$#]{1,120}$/iu;
-var DML = /formAutomaticRowProcessing|nativeFormDml|formDml|interactiveGridAutomaticRowProcessing|plsqlCode|executeCode/u;
-var refOf = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : String(value ?? "").replace(/^@/u, "");
-var dialogDependencies = (operations) => operations.map((operation) => `page:${operation.target.page}`);
-function targetText(target) {
-  const items = Object.entries(target.items ?? {});
-  return group(
-    "target:",
-    [
-      `page: ${target.page}`,
-      items.length ? group(
-        "items:",
-        items.map(([key, value]) => `${key.toUpperCase()}: ${JSON.stringify(value)}`).join("\n")
-      ) : "",
-      target.clearCache?.length ? `clearCache: ${target.clearCache.join(",")}` : ""
-    ].filter(Boolean).join("\n")
-  );
-}
-function replaceGroup(doc, owner, name, text2) {
-  const existing = owner.groups.get(name);
-  const body = indent(text2, owner.indent + 4).split("\n").join(doc.eol) + doc.eol;
-  if (existing) {
-    const open2 = doc.lines[existing.open];
-    const close = doc.lines[existing.close];
-    return { start: open2.offset, end: close.offset + close.text.length + close.eol.length, content: body };
-  }
-  const before = doc.lines[owner.children[0]?.open ?? owner.close];
-  return { start: before.offset, end: before.offset, content: body };
-}
-function planDialogs(snapshot, operations) {
-  const { doc, node: page2, parsed, release, related } = snapshot;
-  const edits = [];
-  const warnings = [];
-  const checks = [];
-  const targets = [];
-  const buttons = new Set(page2.children.filter((c) => c.kind === "button").map((c) => c.key.toUpperCase()));
-  const actions = new Set(
-    page2.children.filter((c) => c.kind === "dynamicAction").map((c) => c.key.toUpperCase())
-  );
-  let appended = "";
-  for (const operation of operations) {
-    if (Boolean(operation.button) === Boolean(operation.link))
-      throw new Fault("INVALID_INPUT", "addDialogAction needs either button or link.", 2);
-    const modal = related.get(`page:${operation.target.page}`);
-    if (!modal)
-      throw new Fault("TARGET_NOT_FOUND", `No page file declares page ${operation.target.page}.`, 2);
-    if (operation.expectedTargetDigest && operation.expectedTargetDigest !== modal.digest)
-      throw new Fault(
-        "TRANSFORM_CONFLICT",
-        `${modal.file} changed since it was read; read it again and retry.`,
-        5,
-        "conflict",
-        {
-          file: modal.file,
-          currentDigest: modal.digest
-        }
-      );
-    if (readProperty(modal.parsed, "appearance.pageMode") !== "modalDialog")
-      throw new Fault("TARGET_NOT_MODAL", `Page ${operation.target.page} is not a modal dialog page.`, 2);
-    const modalItems = new Set(
-      modal.parsed.children.filter((c) => c.type === "pageItem").map((c) => c.id.toUpperCase())
-    );
-    for (const name of Object.keys(operation.target.items ?? {})) {
-      if (!ITEM.test(name)) throw new Fault("INVALID_INPUT", `${name} is not a page item name.`, 2);
-      if (!modalItems.has(name.toUpperCase()))
-        throw new Fault("TARGET_NOT_FOUND", `Page ${operation.target.page} has no item ${name}.`, 2);
-    }
-    if (!readProperty(modal.parsed, "security.authorizationScheme") && modal.parsed.children.some(
-      (c) => c.type === "process" && DML.test(String(readProperty(c, "type") ?? ""))
-    ))
-      warnings.push(
-        `Page ${operation.target.page} runs processes without a page authorization scheme; review its authorization (none was added).`
-      );
-    const target = targetText(operation.target);
-    let refreshRegion = operation.refresh;
-    let when;
-    if (operation.button) {
-      const button = operation.button;
-      if (!ID.test(button.id)) throw new Fault("INVALID_INPUT", `${button.id} is not a valid button id.`, 2);
-      if (buttons.has(button.id.toUpperCase()))
-        throw new Fault("TARGET_EXISTS", `Button ${button.id} already exists.`, 5);
-      buttons.add(button.id.toUpperCase());
-      ApexLangDocument.one(page2.children, "region", button.region, `Page ${page2.key}`);
-      if (!refreshRegion)
-        throw new Fault("INVALID_INPUT", "A dialog button needs refresh: the region to update.", 2);
-      const sequence = Math.max(
-        0,
-        ...parsed.children.filter((c) => c.type === "button" && refOf(readProperty(c, "layout.region")) === button.region).map((c) => Number(readProperty(c, "layout.sequence")) || 0)
-      ) + 10;
-      appended += node("button", button.id, [
-        `buttonName: ${button.id.replaceAll("-", "_").toUpperCase()}`,
-        `label: ${scalarText(button.label)}`,
-        group(
-          "layout",
-          `sequence: ${sequence}
-region: @${button.region}
-slot: ${release === "26.1" ? "next" : "NEXT"}`
-        ),
-        group("appearance", "buttonTemplate: @/text\ntemplateOptions: #DEFAULT#"),
-        group("behavior", `action: redirectThisApp
-${target}`)
-      ]);
-      when = `event: apexafterclosedialog
-selectionType: button
-button: @${button.id}`;
-      targets.push(`button:${button.id}`);
-      checks.push((after) => {
-        if (!after.children.some((c) => c.type === "button" && c.id === button.id))
-          throw new Fault("TRANSFORM_INVALID", `Button ${button.id} did not read back.`, 5);
-      });
-    } else {
-      const link = operation.link;
-      const region = ApexLangDocument.one(page2.children, "region", link.region, `Page ${page2.key}`);
-      const type = reportRegion(region, "A row link");
-      const rowColumns = new Set(
-        region.children.filter((c) => c.kind === "column").map((c) => c.key.toUpperCase())
-      );
-      for (const value of Object.values(operation.target.items ?? {}))
-        for (const [, column] of value.matchAll(/#([A-Z0-9_$]+)#/giu))
-          if (!rowColumns.has(column.toUpperCase()))
-            throw new Fault("TARGET_NOT_FOUND", `${region.key} has no column ${column} for #${column}#.`, 2);
-      if (type === "interactiveReport") {
-        if (link.column)
-          throw new Fault("INVALID_INPUT", "Interactive reports link the whole row; omit column.", 2);
-        edits.push(replaceGroup(doc, region, "link", group("link", `linkColumn: customTarget
-${target}`)));
-      } else {
-        if (!link.column)
-          throw new Fault("INVALID_INPUT", "Classic report links need the column to link.", 2);
-        const column = ApexLangDocument.one(region.children, "column", link.column, `Region ${region.key}`);
-        edits.push(setProperty(doc, column, "type", "link"));
-        edits.push(
-          replaceGroup(
-            doc,
-            column,
-            "link",
-            group(
-              "link",
-              `linkText: ${scalarText(link.linkText ?? `#${column.key.toUpperCase()}#`)}
-${target}`
-            )
-          )
-        );
-      }
-      refreshRegion ??= region.key;
-      when = `event: apexafterclosedialog
-selectionType: region
-region: @${region.key}`;
-      targets.push(`region:${region.key}`);
-      checks.push((after) => {
-        const parsedRegion = after.children.find((c) => c.type === "region" && c.id === region.key);
-        const owner = type === "interactiveReport" ? parsedRegion : parsedRegion?.children.find(
-          (c) => c.type === "column" && c.id.toUpperCase() === link.column.toUpperCase()
-        );
-        const page3 = owner && readProperty(owner, "link.target")?.page;
-        if (String(page3) !== String(operation.target.page))
-          throw new Fault("TRANSFORM_INVALID", `${link.region} link did not read back.`, 5);
-      });
-    }
-    ApexLangDocument.one(page2.children, "region", refreshRegion, `Page ${page2.key}`);
-    const reused = parsed.children.some(
-      (c) => c.type === "dynamicAction" && readProperty(c, "when.event") === "apexafterclosedialog" && (operation.button ? refOf(readProperty(c, "when.button")) === operation.button.id : refOf(readProperty(c, "when.region")) === operation.link.region) && c.children.some(
-        (action) => readProperty(action, "action") === "refresh" && readProperty(action, "affectedElements.region")?.ref === refreshRegion
-      )
-    );
-    if (!reused) {
-      let name = `dialog-closed-${refreshRegion}`;
-      for (let n = 2; actions.has(name.toUpperCase()); n++) name = `dialog-closed-${refreshRegion}-${n}`;
-      actions.add(name.toUpperCase());
-      appended += node("dynamicAction", name, [
-        `name: ${JSON.stringify(`Refresh ${refreshRegion} after dialog`)}`,
-        group("execution", "sequence: 10"),
-        group("when", when),
-        refreshAction("refresh", refreshRegion, 10)
-      ]);
-      targets.push(`dynamicAction:${name}`);
-    }
-  }
-  if (appended)
-    edits.push(appendChild(doc, page2, indent(appended.trimEnd()).split("\n").join(doc.eol) + doc.eol));
-  return {
-    edits,
-    verify: (after) => checks.forEach((check2) => check2(after)),
-    targets,
-    warnings: [...new Set(warnings)]
-  };
-}
-
-// packages/core/src/edit/bind-lov.ts
-var LIST_ITEMS = /* @__PURE__ */ new Set([
-  "selectList",
-  "radioGroup",
-  "popupLov",
-  "checkboxGroup",
-  "shuttle",
-  "selectOne",
-  "selectMany",
-  "combobox",
-  "listManager"
-]);
-var SOURCE = /* @__PURE__ */ new Set([
-  "type",
-  "lov",
-  "staticValues",
-  "sqlQuery",
-  "plsqlFunctionBody",
-  "javaScriptFunctionBody",
-  "language",
-  "location",
-  "tableName",
-  "tableOwner",
-  "whereClause",
-  "orderByClause",
-  "displayColumn",
-  "returnColumn",
-  "remoteServer",
-  "restSource"
-]);
-var SETTINGS = /* @__PURE__ */ new Set(["displayNullValue", "nullDisplayValue", "nullReturnValue", "displayExtraValues"]);
-var bindLovDependencies = (operations) => operations.map((operation) => `lov:${operation.lov}`);
-var refOf2 = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : String(value ?? "").replace(/^@/u, "");
-function groupLines(doc, owner, name) {
-  const range = owner.groups.get(name);
-  if (!range) return [];
-  const lines = [];
-  for (const [path14, property] of owner.properties) {
-    if (!path14.startsWith(name + ".")) continue;
-    const key = path14.slice(name.length + 1);
-    if (key.includes("."))
-      throw new Fault(
-        "TRANSFORM_UNSUPPORTED",
-        `${owner.key} ${name}.${key} is nested; edit it in source.`,
-        5
-      );
-    if (property.opaque && !SOURCE.has(key))
-      throw new Fault(
-        "TRANSFORM_UNSUPPORTED",
-        `${owner.key} ${path14} holds a multi-line value; edit it in source.`,
-        5
-      );
-    lines.push({ key, text: doc.lines[property.line].text.trim() });
-  }
-  return lines;
-}
-function replaceGroup2(doc, owner, name, text2) {
-  const existing = owner.groups.get(name);
-  const body = text2 ? indent(text2, owner.indent + 4).split("\n").join(doc.eol) + doc.eol : "";
-  if (existing) {
-    const open2 = doc.lines[existing.open];
-    const close = doc.lines[existing.close];
-    return { start: open2.offset, end: close.offset + close.text.length + close.eol.length, content: body };
-  }
-  if (!body) return void 0;
-  const before = doc.lines[owner.children[0]?.open ?? owner.close];
-  return { start: before.offset, end: before.offset, content: body };
-}
-function planBindLov(snapshot, operations) {
-  const { doc, node: page2, parsed, release, related } = snapshot;
-  if (release !== "26.2")
-    throw new Fault(
-      "OPERATION_UNSUPPORTED",
-      "bindLov is qualified for 26.2 sources; edit 26.1 items in source.",
-      2
-    );
-  const edits = [];
-  const checks = [];
-  const items = new Set(parsed.children.filter((c) => c.type === "pageItem").map((c) => c.id.toUpperCase()));
-  const seen = /* @__PURE__ */ new Set();
-  for (const operation of operations) {
-    const item = ApexLangDocument.one(page2.children, "pageItem", operation.item, `Page ${page2.key}`);
-    if (seen.has(item.key.toUpperCase()))
-      throw new Fault("TRANSFORM_CONFLICT", `${item.key} is bound twice.`, 5);
-    seen.add(item.key.toUpperCase());
-    const type = String(item.properties.get("type")?.value ?? "");
-    if (!LIST_ITEMS.has(type))
-      throw new Fault(
-        "OPERATION_UNSUPPORTED",
-        `${item.key} is a ${type || "item without a type"}, not a list item.`,
-        2
-      );
-    const lov = related.get(`lov:${operation.lov}`);
-    if (!lov) throw new Fault("TARGET_NOT_FOUND", `No shared LOV ${operation.lov}.`, 2);
-    if (operation.expectedLovDigest && operation.expectedLovDigest !== lov.digest)
-      throw new Fault(
-        "TRANSFORM_CONFLICT",
-        `${lov.file} changed since it was read; read it again and retry.`,
-        5,
-        "conflict",
-        {
-          file: lov.file,
-          currentDigest: lov.digest
-        }
-      );
-    const id2 = lov.parsed.id;
-    const kept = groupLines(doc, item, "lov").filter((line) => !SOURCE.has(line.key));
-    const settings = new Map(kept.map((line) => [line.key, line.text]));
-    if (operation.nullValue === false) {
-      for (const key of ["displayNullValue", "nullDisplayValue", "nullReturnValue"]) settings.delete(key);
-      settings.set("displayNullValue", "displayNullValue: false");
-    } else if (operation.nullValue) {
-      settings.set("displayNullValue", "displayNullValue: true");
-      settings.set("nullDisplayValue", `nullDisplayValue: ${scalarText(operation.nullValue.display)}`);
-      if (operation.nullValue.return !== void 0)
-        settings.set("nullReturnValue", `nullReturnValue: ${scalarText(operation.nullValue.return)}`);
-      else settings.delete("nullReturnValue");
-    }
-    if (operation.displayExtraValues !== void 0)
-      settings.set("displayExtraValues", `displayExtraValues: ${operation.displayExtraValues}`);
-    const ordered = [
-      ...[...SETTINGS].filter((key) => settings.has(key)).map((key) => settings.get(key)),
-      ...[...settings].filter(([key]) => !SETTINGS.has(key)).map(([, text2]) => text2)
-    ];
-    edits.push(
-      replaceGroup2(
-        doc,
-        item,
-        "lov",
-        group("lov", ["type: sharedComponent", `lov: @${id2}`, ...ordered].join("\n"))
-      )
-    );
-    if (operation.cascade !== void 0) {
-      if (operation.cascade === null) {
-        const removal = replaceGroup2(doc, item, "cascadingLov", "");
-        if (removal) edits.push(removal);
-      } else {
-        const parents = operation.cascade.parentItems.map((name) => name.toUpperCase());
-        const submitted2 = (operation.cascade.itemsToSubmit ?? []).map((name) => name.toUpperCase());
-        if (!parents.length) throw new Fault("INVALID_INPUT", "cascade needs parentItems.", 2);
-        for (const name of [...parents, ...submitted2]) {
-          if (name === item.key.toUpperCase())
-            throw new Fault("INVALID_INPUT", `${item.key} cannot cascade from itself.`, 2);
-          if (!items.has(name))
-            throw new Fault("TARGET_NOT_FOUND", `Page ${page2.key} has no item ${name}.`, 2);
-        }
-        edits.push(
-          replaceGroup2(
-            doc,
-            item,
-            "cascadingLov",
-            group(
-              "cascadingLov",
-              [
-                `parentItems: ${parents.join(",")}`,
-                submitted2.length ? `itemsToSubmit: ${submitted2.join(",")}` : "",
-                operation.cascade.parentRequired !== void 0 ? `parentRequired: ${operation.cascade.parentRequired}` : ""
-              ].filter(Boolean).join("\n")
-            )
-          )
-        );
-      }
-    }
-    checks.push((after) => {
-      const component = after.children.find(
-        (c) => c.type === "pageItem" && c.id.toUpperCase() === item.key.toUpperCase()
-      );
-      if (!component || readProperty(component, "lov.type") !== "sharedComponent" || refOf2(readProperty(component, "lov.lov")) !== id2)
-        throw new Fault("TRANSFORM_INVALID", `${item.key} LOV binding did not read back.`, 5);
-    });
-  }
-  return {
-    edits,
-    verify: (after) => checks.forEach((check2) => check2(after)),
-    targets: operations.map((operation) => `item:${operation.item.toUpperCase()}`)
-  };
-}
-
-// packages/core/src/edit/move.ts
-var ITEM_SLOTS = ["regionBody", "body", "contentBody"];
-var BUTTON_SLOTS = [
-  "next",
-  "previous",
-  "edit",
-  "create",
-  "close",
-  "change",
-  "delete",
-  "copy",
-  "up",
-  "regionBody",
-  "belowBox",
-  "top",
-  "bottom"
-];
-var SUB_REGION_SLOTS = ["subRegions", "regionBody", "body"];
-var PAGE_SLOTS = {
-  normal: ["body", "breadcrumbBar", "leftColumn", "rightSideColumn"],
-  modal: ["contentBody", "dialogFooter"]
-};
-var KINDS = { item: "pageItem", button: "button", region: "region" };
-var refOf3 = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : value === void 0 ? void 0 : String(value).replace(/^@/u, "");
-function planMoves(snapshot, operations) {
-  const { doc, node: page2, parsed } = snapshot;
-  const modal = readProperty(parsed, "appearance.pageMode") === "modalDialog";
-  const edits = [];
-  const checks = [];
-  const seen = /* @__PURE__ */ new Set();
-  const regions = page2.children.filter((child) => child.kind === "region");
-  for (const operation of operations) {
-    const at = operation.component.indexOf(":");
-    const kind = KINDS[operation.component.slice(0, at)];
-    const id2 = operation.component.slice(at + 1);
-    if (at < 1 || !kind || !id2)
-      throw new Fault("INVALID_INPUT", "component is item:NAME, button:ID or region:ID.", 2);
-    const node2 = ApexLangDocument.one(page2.children, kind, id2, `Page ${page2.key}`);
-    if (seen.has(`${kind}:${node2.key.toUpperCase()}`))
-      throw new Fault("TRANSFORM_CONFLICT", `${operation.component} is moved twice.`, 5);
-    seen.add(`${kind}:${node2.key.toUpperCase()}`);
-    const { region: destination, slot, sequence } = operation.to;
-    const parentPath = kind === "region" ? "layout.parentRegion" : "layout.region";
-    let target;
-    if (destination !== void 0) {
-      target = ApexLangDocument.one(regions, "region", destination, `Page ${page2.key}`);
-      if (kind === "region") {
-        for (let current = target; current; ) {
-          if (current === node2)
-            throw new Fault("INVALID_INPUT", `${node2.key} cannot move into itself or a sub-region.`, 2);
-          const parent = refOf3(current.properties.get("layout.parentRegion")?.value);
-          current = parent ? regions.find((region) => region.key.toUpperCase() === parent.toUpperCase()) : void 0;
-        }
-      }
-    } else if (kind !== "region")
-      throw new Fault("INVALID_INPUT", `${operation.component} needs a destination region.`, 2);
-    const targetType = target ? String(target.properties.get("type")?.value ?? "") : "";
-    const allowed = kind === "pageItem" ? ITEM_SLOTS : kind === "button" ? [
-      ...BUTTON_SLOTS,
-      ...targetType === "interactiveReport" ? ["rightOfInteractiveReportSearchBar"] : []
-    ] : target ? SUB_REGION_SLOTS : PAGE_SLOTS[modal ? "modal" : "normal"];
-    if (!allowed.includes(slot))
-      throw new Fault(
-        "OPERATION_UNSUPPORTED",
-        `Slot ${slot} is not supported for this move; use one of ${allowed.join(", ")} or edit the source.`,
-        2
-      );
-    if (sequence !== void 0 && !(Number.isInteger(sequence) && sequence > 0 && sequence < 1e9))
-      throw new Fault("INVALID_INPUT", "sequence must be a positive integer.", 2);
-    const currentParent = refOf3(node2.properties.get(parentPath)?.value);
-    if (!node2.groups.has("layout")) {
-      const lines = [
-        target ? `${parentPath.slice("layout.".length)}: ${referenceText(target.key)}` : "",
-        `slot: ${slot}`,
-        sequence !== void 0 ? `sequence: ${sequence}` : ""
-      ].filter(Boolean);
-      const indent2 = " ".repeat(node2.indent + 4);
-      const before = doc.lines[node2.children[0]?.open ?? node2.close];
-      edits.push({
-        start: before.offset,
-        end: before.offset,
-        content: [`${indent2}layout {`, ...lines.map((line) => `${indent2}    ${line}`), `${indent2}}`].join(doc.eol) + doc.eol
-      });
-    } else {
-      if (target) {
-        if (currentParent?.toUpperCase() !== target.key.toUpperCase())
-          edits.push(setPropertyText(doc, node2, parentPath, referenceText(target.key)));
-      } else if (currentParent !== void 0) {
-        const removal = removeProperty(doc, node2, parentPath);
-        if (removal) edits.push(removal);
-      }
-      if (String(node2.properties.get("layout.slot")?.value ?? "") !== slot)
-        edits.push(setPropertyText(doc, node2, "layout.slot", slot));
-      if (sequence !== void 0 && Number(node2.properties.get("layout.sequence")?.value) !== sequence)
-        edits.push(setPropertyText(doc, node2, "layout.sequence", String(sequence)));
-    }
-    checks.push((after) => {
-      const type = kind;
-      const moved = after.children.find(
-        (c) => c.type === type && c.id.toUpperCase() === node2.key.toUpperCase()
-      );
-      const parent = moved && refOf3(readProperty(moved, parentPath));
-      if (!moved || readProperty(moved, "layout.slot") !== slot || (target ? parent?.toUpperCase() !== target.key.toUpperCase() : parent !== void 0) || after.children.filter((c) => c.type === type && c.id.toUpperCase() === node2.key.toUpperCase()).length !== 1)
-        throw new Fault(
-          "TRANSFORM_INVALID",
-          `${operation.component} did not read back at its destination.`,
-          5
-        );
-    });
-  }
-  return {
-    edits,
-    verify: (after) => checks.forEach((check2) => check2(after)),
-    targets: operations.map((operation) => operation.component)
-  };
-}
-
-// packages/core/src/edit/page-edit.ts
-function editGroups(operations) {
-  const sets = [];
-  const inserts = [];
-  const filters = [];
-  const columns = [];
-  const dialogs = [];
-  const bindings = [];
-  const moves = [];
-  for (const operation of operations) {
-    if (operation.op === "moveComponent") {
-      moves.push(operation);
-      continue;
-    }
-    if (operation.op === "bindLov") {
-      bindings.push(operation);
-      continue;
-    }
-    if (operation.op === "addDialogAction") {
-      dialogs.push(operation);
-      continue;
-    }
-    if (operation.op === "addColumn" || operation.op === "orderColumns") {
-      columns.push(operation);
-      continue;
-    }
-    if (operation.op === "addFilter") {
-      inserts.push(filterFragment(operation));
-      filters.push(operation);
-      continue;
-    }
-    if (operation.op === "set") {
-      const { op: _op, ...set } = operation;
-      sets.push(set);
-    } else if (operation.op === "insert") inserts.push(operation.components);
-    else throw new Fault("INVALID_INPUT", `Unknown edit op ${operation.op}.`, 2);
-  }
-  const groups = [];
-  if (sets.length) groups.push((snapshot) => planSets(snapshot, sets));
-  if (inserts.length) groups.push((snapshot) => planInsert(snapshot, inserts));
-  if (filters.length) groups.push((snapshot) => planFilters(snapshot, filters));
-  if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
-  if (dialogs.length) groups.push((snapshot) => planDialogs(snapshot, dialogs));
-  if (bindings.length) groups.push((snapshot) => planBindLov(snapshot, bindings));
-  if (moves.length) groups.push((snapshot) => planMoves(snapshot, moves));
-  return groups;
-}
-async function editPage(ctx, input) {
-  const { result: _text, ...outcome } = await runPageTransaction(
-    ctx,
-    input,
-    editGroups,
-    (operations) => [
-      ...dialogDependencies(
-        operations.filter(
-          (operation) => operation.op === "addDialogAction"
-        )
-      ),
-      ...bindLovDependencies(
-        operations.filter((operation) => operation.op === "bindLov")
-      )
-    ]
-  );
-  return outcome;
 }
 
 // packages/core/src/entities.ts
@@ -5162,7 +4328,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-2ERCXWOY.mjs");
+      const { previewDispatch } = await import("./chunk-7GKKBE2U.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -5204,17 +4370,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-VSDLBXWP.mjs");
+        const { setup } = await import("./chunk-HACRL3FR.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-VSDLBXWP.mjs");
+        const { validateNative } = await import("./chunk-HACRL3FR.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-VSDLBXWP.mjs");
+        const { uninstallNative } = await import("./chunk-HACRL3FR.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -5228,7 +4394,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-S7MZDMUG.mjs");
+        const { scaffold } = await import("./chunk-NZTI2FFR.mjs");
         data = await scaffold(await loadProject(root), text2("specFile"), text2("env"));
         break;
       }

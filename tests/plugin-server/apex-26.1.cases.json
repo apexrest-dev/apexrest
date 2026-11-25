@@ -1831,6 +1831,24 @@
       ],
       "evidence": ["page file digest before and after", "screenshot of the pickers"],
       "budgetMs": 60000
+    },
+    {
+      "id": "A261-088",
+      "title": "Report column editor",
+      "acceptance": ["FASTDEV-V04"],
+      "execution": "manual",
+      "surface": "browser",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Open Columns… on an interactive report with an empty result.",
+        "Hide one column, show another, rename a heading and move a column; save.",
+        "Reopen the editor."
+      ],
+      "expected": [
+        "Every source column is listed; one edit saves; the reopened editor and the default report show the committed order and visibility; the SQL is unchanged."
+      ],
+      "evidence": ["page file digest before and after", "screenshot of the editor"],
+      "budgetMs": 60000
     }
   ],
   "metrics": "quality-performance.json"

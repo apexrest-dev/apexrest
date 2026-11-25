@@ -280,7 +280,8 @@ var schemas = {
         external_exports.strictObject({
           op: external_exports.literal("orderColumns"),
           region: external_exports.string().min(1).max(255),
-          order: external_exports.array(external_exports.string().min(1).max(128)).min(1).max(200).describe("Every column, new display order")
+          order: external_exports.array(external_exports.string().min(1).max(128)).min(1).max(200).describe("Every column, new display order"),
+          visible: external_exports.record(external_exports.string().min(1).max(128), external_exports.boolean()).optional()
         }),
         external_exports.strictObject({
           op: external_exports.literal("addFilter"),

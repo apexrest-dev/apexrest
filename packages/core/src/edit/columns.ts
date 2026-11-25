@@ -261,6 +261,8 @@ export interface OrderColumnsOperation {
   region: string;
   /** Every declared column, in the new display order. The SQL is not touched. */
   order: string[];
+  /** Optional default visibility per column, planned together with the order. */
+  visible?: Record<string, boolean> | undefined;
 }
 
 export function planColumns(
@@ -293,13 +295,83 @@ export function planColumns(
         );
       const nodes = order.map((name) => columns[find(name)!]!);
       edits.push(...placeInOrder(doc, nodes, 'layout.sequence', 10).edits);
+      // Optional visibility, planned with the order so both never touch the same lines twice.
+      const visible = Object.fromEntries(
+        Object.entries(operation.visible ?? {}).map(([name, value]) => [key(name), value]),
+      );
+      for (const name of Object.keys(visible))
+        if (!declared.includes(name))
+          throw new Fault('TARGET_NOT_FOUND', `No column ${name} in ${region.key}.`, 2);
       const primary = type === 'interactiveReport' ? primaryReport(region) : undefined;
+      if (type === 'classicReport' && Object.keys(visible).length)
+        edits.push(
+          ...visibilityEdits(
+            doc,
+            region,
+            Object.entries(visible).map(([name, value]) => ({
+              column: nodes[order.indexOf(name)]!,
+              visible: value,
+            })),
+          ),
+        );
+      if (type === 'interactiveReport' && Object.keys(visible).length && !primary)
+        throw new Fault(
+          'OPERATION_UNSUPPORTED',
+          `${region.key} has no default saved report; its displayed columns are not declared in source.`,
+          2,
+        );
       if (primary) {
+        for (const [name, value] of Object.entries(visible))
+          if (value && String(nodes[order.indexOf(name)]!.properties.get('type')?.value ?? '') === 'hidden')
+            throw new Fault(
+              'OPERATION_UNSUPPORTED',
+              `${region.key}.${name} is declared type hidden, so users cannot show it; change its type in source.`,
+              2,
+            );
         const displayed = primary.children.filter((child) => child.kind === 'displayColumn');
-        const shown = order
-          .map((name) => displayed.find((child) => child.key.toUpperCase() === name))
-          .filter((node): node is ComponentNode => Boolean(node));
-        edits.push(...placeInOrder(doc, shown, 'sequence', 1).edits);
+        for (const node of displayed)
+          if (visible[node.key.toUpperCase()] === false) edits.push(removeComponent(doc, node));
+        // The default report shows, in the new column order, what stays shown plus what is shown now.
+        const shown = order.filter((name) =>
+          visible[name] === undefined
+            ? displayed.some((node) => node.key.toUpperCase() === name)
+            : visible[name],
+        );
+        const existing = (name: string) => displayed.find((child) => child.key.toUpperCase() === name);
+        const added = shown.filter((name) => !existing(name));
+        if (!added.length) {
+          // Only reordering or hiding: sequences that already follow the order are kept.
+          edits.push(
+            ...placeInOrder(
+              doc,
+              shown.map((name) => existing(name)!),
+              'sequence',
+              1,
+            ).edits,
+          );
+        } else {
+          shown.forEach((name, index) => {
+            const node = existing(name);
+            if (node && sequenceOf(node, 'sequence') !== index + 1)
+              edits.push(setProperty(doc, node, 'sequence', String(index + 1)));
+          });
+          const indent = ' '.repeat(primary.indent + 4);
+          const last = displayed.at(-1);
+          const anchor = doc.lines[last ? last.close : primary.close]!;
+          const at = last ? anchor.offset + anchor.text.length + anchor.eol.length : anchor.offset;
+          edits.push({
+            start: at,
+            end: at,
+            content: added
+              .map(
+                (name) =>
+                  [`displayColumn ${name} (`, `    sequence: ${shown.indexOf(name) + 1}`, ')']
+                    .map((line) => indent + line)
+                    .join(doc.eol) + doc.eol,
+              )
+              .join(''),
+          });
+        }
       }
       checks.push((after) => {
         const parsed = after.children.find(

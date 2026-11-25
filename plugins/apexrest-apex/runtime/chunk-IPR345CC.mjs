@@ -2,15 +2,19 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   ApexLangDocument,
   afterColumns,
+  appendChild,
   checkNames,
   columnText,
   columnVisible,
   columnsOf,
   contextOf,
   pageFile,
+  planColumns,
   queryNames,
   readProperty,
+  referenceText,
   removeComponent,
+  removeProperty,
   reportRegion,
   runPageTransaction,
   savedReportEdits,
@@ -19,7 +23,18 @@ import {
   setProperty,
   setPropertyText,
   visibilityEdits
-} from "./chunk-33ZG6DXL.mjs";
+} from "./chunk-RE4TE6OG.mjs";
+import {
+  renderPageBody,
+  renderRegion,
+  scaffoldSchema
+} from "./chunk-2ZCBZPPJ.mjs";
+import {
+  group,
+  indent,
+  node,
+  refreshAction
+} from "./chunk-J7SOVXCF.mjs";
 import {
   managedHome
 } from "./chunk-OZXHZF36.mjs";
@@ -930,8 +945,8 @@ function themeCatalog() {
 }
 var refOf = (raw) => raw?.replace(/^@\/?/u, "");
 var TEMPLATE = /^[a-z][a-z0-9-]{0,127}$/u;
-function propertySpan(doc, node, path3) {
-  const property = node.properties.get(path3);
+function propertySpan(doc, node2, path3) {
+  const property = node2.properties.get(path3);
   if (!property) return void 0;
   let end = property.line;
   if (property.value === "[") while (doc.lines[end].text.trim() !== "]") end++;
@@ -945,14 +960,14 @@ function propertySpan(doc, node, path3) {
     values: doc.lines.slice(property.line + 1, end).map((line) => line.text.trim())
   };
 }
-function layoutEdit(doc, node, property, value, context) {
+function layoutEdit(doc, node2, property, value, context) {
   if (context.release !== "26.2")
     throw new Fault(
       "OPERATION_UNSUPPORTED",
       `${property} edits are qualified for 26.2 sources; edit 26.1 pages in source.`,
       2
     );
-  const kind = node.kind === "page" ? "page" : node.kind === "region" ? "region" : node.kind === "pageItem" ? "item" : "";
+  const kind = node2.kind === "page" ? "page" : node2.kind === "region" ? "region" : node2.kind === "pageItem" ? "item" : "";
   const path3 = {
     template: kind === "page" ? "appearance.pageTemplate" : "appearance.template",
     templateOptions: "appearance.templateOptions",
@@ -961,7 +976,7 @@ function layoutEdit(doc, node, property, value, context) {
     startNewRow: "layout.startNewRow"
   }[property];
   const reset = () => {
-    const span2 = propertySpan(doc, node, path3);
+    const span2 = propertySpan(doc, node2, path3);
     return { edit: span2 ? { start: span2.start, end: span2.end, content: "" } : void 0 };
   };
   if (property === "template") {
@@ -969,7 +984,7 @@ function layoutEdit(doc, node, property, value, context) {
       throw new Fault("OPERATION_UNSUPPORTED", "template applies to pages and regions.", 2);
     if (value === "") return reset();
     if (!TEMPLATE.test(value)) throw new Fault("INVALID_INPUT", `${value} is not a template id.`, 2);
-    if (kind === "page" && String(node.properties.get("appearance.pageMode")?.value ?? "") === "modalDialog")
+    if (kind === "page" && String(node2.properties.get("appearance.pageMode")?.value ?? "") === "modalDialog")
       throw new Fault(
         "OPERATION_UNSUPPORTED",
         "Modal dialog templates are not supported; edit them in source.",
@@ -982,7 +997,7 @@ function layoutEdit(doc, node, property, value, context) {
         `${value} is not a ${kind} template of the ${context.catalog.source} Universal Theme 26.2.`,
         2
       );
-    const type = String(node.properties.get("type")?.value ?? "");
+    const type = String(node2.properties.get("type")?.value ?? "");
     if (kind === "region" && REGION_TYPES[value] && !REGION_TYPES[value].includes(type))
       throw new Fault(
         "TEMPLATE_INCOMPATIBLE",
@@ -997,7 +1012,7 @@ function layoutEdit(doc, node, property, value, context) {
     if (value === "") return reset();
     const tokens = [...new Set(value.split(/[\s,]+/u).filter(Boolean))];
     const template = context.template ?? refOf(
-      node.properties.get(kind === "page" ? "appearance.pageTemplate" : "appearance.template")?.value
+      node2.properties.get(kind === "page" ? "appearance.pageTemplate" : "appearance.template")?.value
     ) ?? "standard";
     const valid = context.catalog.options?.(kind, template);
     if (!valid)
@@ -1011,19 +1026,19 @@ function layoutEdit(doc, node, property, value, context) {
       if (token === "#DEFAULT#") continue;
       if (!valid.has(token))
         throw new Fault("TEMPLATE_OPTION_UNKNOWN", `${token} is not an option of template ${template}.`, 2);
-      const group = valid.get(token);
-      if (group && groups.has(group))
+      const group2 = valid.get(token);
+      if (group2 && groups.has(group2))
         throw new Fault(
           "TEMPLATE_OPTION_CONFLICT",
-          `${token} and ${groups.get(group)} belong to the same option group.`,
+          `${token} and ${groups.get(group2)} belong to the same option group.`,
           2
         );
-      if (group) groups.set(group, token);
+      if (group2) groups.set(group2, token);
     }
-    const indent = " ".repeat(node.indent + 8);
-    const text2 = tokens.length === 1 ? `templateOptions: ${tokens[0]}` : ["templateOptions: [", ...tokens.map((token) => `    ${token}`), "]"].join(doc.eol + indent);
-    const span2 = propertySpan(doc, node, path3);
-    if (span2) return { edit: { start: span2.start, end: span2.end, content: indent + text2 + doc.eol } };
+    const indent2 = " ".repeat(node2.indent + 8);
+    const text2 = tokens.length === 1 ? `templateOptions: ${tokens[0]}` : ["templateOptions: [", ...tokens.map((token) => `    ${token}`), "]"].join(doc.eol + indent2);
+    const span2 = propertySpan(doc, node2, path3);
+    if (span2) return { edit: { start: span2.start, end: span2.end, content: indent2 + text2 + doc.eol } };
     return { path: path3, text: text2.slice("templateOptions: ".length) };
   }
   if (kind !== "region" && kind !== "item")
@@ -1037,10 +1052,10 @@ function layoutEdit(doc, node, property, value, context) {
   if (!/^(?:[1-9]|1[0-2])$/u.test(value))
     throw new Fault("INVALID_INPUT", `${property} is a grid column from 1 to 12.`, 2);
   const column = Number(
-    property === "column" ? value : context.grid?.column ?? node.properties.get("layout.column")?.value ?? 0
+    property === "column" ? value : context.grid?.column ?? node2.properties.get("layout.column")?.value ?? 0
   );
   const span = Number(
-    property === "columnSpan" ? value : context.grid?.columnSpan ?? node.properties.get("layout.columnSpan")?.value ?? 0
+    property === "columnSpan" ? value : context.grid?.columnSpan ?? node2.properties.get("layout.columnSpan")?.value ?? 0
   );
   if (column && span && column - 1 + span > 12)
     throw new Fault(
@@ -1105,38 +1120,38 @@ function resolve(page, operation) {
     operation.target.slice(0, operation.target.indexOf(":")),
     operation.target.slice(operation.target.indexOf(":") + 1)
   ] : [operation.target, ""];
-  let node;
+  let node2;
   let find;
   if (kindToken === "page" && !rest) {
-    node = page;
+    node2 = page;
     find = (parsed) => parsed;
   } else if (kindToken === "column") {
     const [region, column] = rest.split(".");
     if (!region || !column) throw new Fault("INVALID_INPUT", "Column targets are column:REGION.COLUMN.", 2);
     const owner = ApexLangDocument.one(page.children, "region", region, where);
-    node = ApexLangDocument.one(owner.children, "column", column, `Region ${owner.key}`);
-    find = (parsed) => parsed.children.find((c) => c.type === "region" && c.id.toUpperCase() === owner.key.toUpperCase())?.children.find((c) => c.type === "column" && c.id.toUpperCase() === node.key.toUpperCase());
+    node2 = ApexLangDocument.one(owner.children, "column", column, `Region ${owner.key}`);
+    find = (parsed) => parsed.children.find((c) => c.type === "region" && c.id.toUpperCase() === owner.key.toUpperCase())?.children.find((c) => c.type === "column" && c.id.toUpperCase() === node2.key.toUpperCase());
   } else if (KINDS[kindToken] && rest) {
-    node = ApexLangDocument.one(page.children, KINDS[kindToken], rest, where);
-    find = (parsed) => parsed.children.find((c) => c.type === node.kind && c.id.toUpperCase() === node.key.toUpperCase());
+    node2 = ApexLangDocument.one(page.children, KINDS[kindToken], rest, where);
+    find = (parsed) => parsed.children.find((c) => c.type === node2.kind && c.id.toUpperCase() === node2.key.toUpperCase());
   } else
     throw new Fault(
       "INVALID_INPUT",
       `Unknown target ${operation.target}; use page, region:ID, item:NAME, button:ID or column:REGION.COLUMN.`,
       2
     );
-  const pathFor = PATHS[node.kind]?.[operation.property];
+  const pathFor = PATHS[node2.kind]?.[operation.property];
   if (!pathFor)
     throw new Fault(
       "OPERATION_UNSUPPORTED",
-      `${operation.property} is not supported on ${node.kind}; supported: ${Object.keys(PATHS[node.kind] ?? {}).join(", ")}.`,
+      `${operation.property} is not supported on ${node2.kind}; supported: ${Object.keys(PATHS[node2.kind] ?? {}).join(", ")}.`,
       2
     );
   if (operation.property === "sequence" && !/^[1-9]\d{0,8}$/u.test(operation.value))
     throw new Fault("INVALID_INPUT", "sequence must be a positive integer.", 2);
   if (operation.property === "visible" && !["true", "false"].includes(operation.value))
     throw new Fault("INVALID_INPUT", 'visible is "true" or "false".', 2);
-  return { node, path: pathFor, find };
+  return { node: node2, path: pathFor, find };
 }
 function planSets(snapshot, operations) {
   const { doc, node: page } = snapshot;
@@ -1151,14 +1166,14 @@ function planSets(snapshot, operations) {
   const edits = [];
   const visibility = /* @__PURE__ */ new Map();
   const grouped = /* @__PURE__ */ new Map();
-  const set = (node, path3, text2) => {
-    const [group, key] = path3.split(".");
-    if (key && !node.groups.has(group) && !node.properties.has(path3)) {
-      const id = `${node.open}:${group}`;
-      const entry = grouped.get(id) ?? { node, group, lines: [] };
+  const set = (node2, path3, text2) => {
+    const [group2, key] = path3.split(".");
+    if (key && !node2.groups.has(group2) && !node2.properties.has(path3)) {
+      const id = `${node2.open}:${group2}`;
+      const entry = grouped.get(id) ?? { node: node2, group: group2, lines: [] };
       entry.lines.push(`${key}: ${text2}`);
       grouped.set(id, entry);
-    } else edits.push(setPropertyText(doc, node, path3, text2));
+    } else edits.push(setPropertyText(doc, node2, path3, text2));
   };
   const catalog = resolved.some((entry) => isLayoutProperty(entry.operation.property)) ? themeCatalog() : void 0;
   for (const entry of resolved) {
@@ -1190,14 +1205,14 @@ function planSets(snapshot, operations) {
       } else set(entry.node, change.path, change.text);
     } else set(entry.node, entry.path, scalarText(entry.operation.value));
   }
-  for (const { node, group, lines } of grouped.values()) {
-    const indent = " ".repeat(node.indent + 4);
-    const anchor = doc.lines[node.children[0]?.open ?? node.close];
-    const body = lines.flatMap((line) => line.split(doc.eol)).map((line, index) => index === 0 || !line.startsWith(" ") ? `${indent}    ${line}` : line);
+  for (const { node: node2, group: group2, lines } of grouped.values()) {
+    const indent2 = " ".repeat(node2.indent + 4);
+    const anchor = doc.lines[node2.children[0]?.open ?? node2.close];
+    const body = lines.flatMap((line) => line.split(doc.eol)).map((line, index) => index === 0 || !line.startsWith(" ") ? `${indent2}    ${line}` : line);
     edits.push({
       start: anchor.offset,
       end: anchor.offset,
-      content: [`${indent}${group} {`, ...body, `${indent}}`].join(doc.eol) + doc.eol
+      content: [`${indent2}${group2} {`, ...body, `${indent2}}`].join(doc.eol) + doc.eol
     });
   }
   for (const [region, changes] of visibility) edits.push(...visibilityEdits(doc, region, changes));
@@ -1299,6 +1314,822 @@ async function patchPage(ctx, input) {
   return outcome;
 }
 
+// packages/core/src/edit/insert.ts
+function merged(list) {
+  return {
+    regions: list.flatMap((c) => c.regions ?? []),
+    items: list.flatMap((c) => c.items ?? []),
+    refreshes: list.flatMap((c) => c.refreshes ?? [])
+  };
+}
+function planInsert(snapshot, list) {
+  const { doc, node: node2, parsed, pageId, release } = snapshot;
+  const components = merged(list);
+  const spec = scaffoldSchema.safeParse({
+    applicationName: "insert",
+    pages: [
+      {
+        id: Number(pageId),
+        name: "insert",
+        regions: components.regions ?? [],
+        ...components.items?.length ? { items: components.items } : {},
+        ...components.refreshes?.length ? { refreshes: components.refreshes } : {}
+      }
+    ]
+  });
+  if (!spec.success)
+    throw new Fault(
+      "INVALID_INPUT",
+      `Invalid components: ${spec.error.issues[0]?.path.join(".")} ${spec.error.issues[0]?.message}`,
+      2
+    );
+  const page = spec.data.pages[0];
+  if (!page.regions.length && !page.items?.length && !page.refreshes?.length)
+    throw new Fault("INVALID_INPUT", "Give regions, items or refreshes to insert.", 2);
+  const existing = (type) => new Set(parsed.children.filter((c) => c.type === type).map((c) => c.id.toUpperCase()));
+  const regions = existing("region");
+  for (const region of page.regions) {
+    if (!region.id) throw new Fault("INVALID_INPUT", "Inserted regions need an explicit id.", 2);
+    if (regions.has(region.id.toUpperCase()))
+      throw new Fault("TARGET_EXISTS", `Region ${region.id} already exists.`, 5);
+    regions.add(region.id.toUpperCase());
+  }
+  const items = existing("pageItem");
+  for (const item of page.items ?? []) {
+    if (!new RegExp(`^P${pageId}_`, "u").test(item.name.toUpperCase()))
+      throw new Fault("INVALID_INPUT", `Item ${item.name} must start with P${pageId}_.`, 2);
+    if (items.has(item.name.toUpperCase()))
+      throw new Fault("TARGET_EXISTS", `Item ${item.name} already exists.`, 5);
+    if (!regions.has(item.region.toUpperCase()))
+      throw new Fault("TARGET_NOT_FOUND", `No region ${item.region} for ${item.name}.`, 2);
+    items.add(item.name.toUpperCase());
+  }
+  for (const refresh of page.refreshes ?? []) {
+    for (const item of refresh.items)
+      if (!items.has(item.toUpperCase()))
+        throw new Fault("TARGET_NOT_FOUND", `Refresh item ${item} does not exist.`, 2);
+    for (const region of refresh.regions)
+      if (!regions.has(region.toUpperCase()))
+        throw new Fault("TARGET_NOT_FOUND", `Refresh region ${region} does not exist.`, 2);
+  }
+  const offset = parsed.children.filter((c) => c.type === "region").length;
+  let text2 = page.regions.map((region, index) => renderRegion(region, offset + index, release)).join("\n");
+  let rest = renderPageBody(page, release, { regions: false });
+  const actions = existing("dynamicAction");
+  const refreshNames = [];
+  (page.refreshes ?? []).forEach((_refresh, index) => {
+    let n = index + 1;
+    while (actions.has(`REFRESH-${n}`)) n++;
+    actions.add(`REFRESH-${n}`);
+    refreshNames.push(`refresh-${n}`);
+    rest = rest.replace(`dynamicAction refresh-${index + 1} (`, `dynamicAction refresh-${n} (\0`).replace(`name: Refresh dependent regions ${index + 1}`, `name: Refresh dependent regions ${n}`);
+  });
+  rest = rest.replaceAll("\0", "");
+  text2 = [text2, rest].filter(Boolean).join("\n");
+  const lines = text2.split("\n").join(doc.eol) + doc.eol;
+  const verify = (after) => {
+    for (const region of page.regions)
+      if (!after.children.some((c) => c.type === "region" && c.id === region.id))
+        throw new Fault("TRANSFORM_INVALID", `Region ${region.id} did not read back.`, 5);
+    for (const item of page.items ?? [])
+      if (!after.children.some((c) => c.type === "pageItem" && c.id.toUpperCase() === item.name.toUpperCase()))
+        throw new Fault("TRANSFORM_INVALID", `Item ${item.name} did not read back.`, 5);
+  };
+  return {
+    edits: [appendChild(doc, node2, lines)],
+    verify,
+    targets: [
+      ...page.regions.map((region) => `region:${region.id}`),
+      ...(page.items ?? []).map((item) => `item:${item.name.toUpperCase()}`),
+      ...refreshNames.map((name) => `dynamicAction:${name}`)
+    ]
+  };
+}
+async function insertComponents(ctx, input) {
+  const outcome = await runPageTransaction(
+    ctx,
+    {
+      page: input.page,
+      operations: [input.components],
+      expectedDigest: input.expectedDigest,
+      dryRun: input.dryRun
+    },
+    (list) => [(snapshot) => planInsert(snapshot, list)]
+  );
+  return {
+    file: outcome.file,
+    beforeDigest: outcome.beforeDigest,
+    afterDigest: outcome.afterDigest,
+    written: outcome.written,
+    ...outcome.change ? { change: outcome.change } : {},
+    ...outcome.context ? { context: outcome.context } : {},
+    ...outcome.written ? { next: outcome.next } : {}
+  };
+}
+
+// packages/core/src/edit/filter.ts
+var FAMILIES = /* @__PURE__ */ new Set(["interactiveReport", "classicReport", "cards", "chart"]);
+var REPORTS = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
+function filterFragment(operation) {
+  if (!operation.targets?.length) throw new Fault("INVALID_INPUT", "addFilter needs at least one target.", 2);
+  return {
+    regions: operation.region ? [operation.region] : [],
+    items: [operation.item],
+    refreshes: [{ items: [operation.item.name], regions: operation.targets.map((target) => target.region) }]
+  };
+}
+var bind = (item) => new RegExp(`:${item.replace(/[$#]/gu, "\\$&")}(?![A-Z0-9_$#])`, "iu");
+var submitted = (value) => (Array.isArray(value) ? value.map(String) : String(value ?? "").split(",")).map((name) => name.trim()).filter(Boolean);
+function submitEdit(doc, owner, item) {
+  const property = owner.properties.get("source.pageItemsToSubmit");
+  if (!property) return setProperty(doc, owner, "source.pageItemsToSubmit", item);
+  if (property.value !== "[") {
+    const items = submitted(property.value);
+    if (items.some((name) => name.toUpperCase() === item)) return void 0;
+    return setProperty(doc, owner, "source.pageItemsToSubmit", [...items, item].join(","));
+  }
+  const elements = [];
+  for (let index = property.line + 1; index < doc.lines.length; index++) {
+    const line = doc.lines[index];
+    const trimmed = line.text.trim();
+    if (trimmed === "]") {
+      if (elements.some((name) => name.toUpperCase() === item)) return void 0;
+      const first = doc.lines[property.line + 1];
+      const indent2 = index > property.line + 1 ? first.text.slice(0, first.text.length - first.text.trimStart().length) : line.text.slice(0, line.text.length - line.text.trimStart().length) + "    ";
+      return { start: line.offset, end: line.offset, content: `${indent2}${item}${doc.eol}` };
+    }
+    if (!/^[A-Za-z0-9_$#]+,?$/u.test(trimmed))
+      throw new Fault(
+        "TRANSFORM_UNSUPPORTED",
+        `pageItemsToSubmit of ${owner.kind} ${owner.key} has an unsupported value; edit it in source.`,
+        5
+      );
+    elements.push(trimmed.replace(/,$/u, ""));
+  }
+  throw new Fault("TRANSFORM_UNSUPPORTED", `Unclosed pageItemsToSubmit of ${owner.kind} ${owner.key}.`, 5);
+}
+function planFilters(snapshot, operations) {
+  const { doc, node: page } = snapshot;
+  const edits = [];
+  const checks = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const operation of operations) {
+    const item = operation.item.name.toUpperCase();
+    for (const target of operation.targets) {
+      const key = `${target.region.toUpperCase()}:${item}`;
+      if (seen.has(key)) throw new Fault("INVALID_INPUT", `Region ${target.region} is listed twice.`, 2);
+      seen.add(key);
+      const region = ApexLangDocument.one(page.children, "region", target.region, `Page ${page.key}`);
+      const type = String(region.properties.get("type")?.value ?? "");
+      if (!FAMILIES.has(type))
+        throw new Fault(
+          "OPERATION_UNSUPPORTED",
+          `addFilter supports interactive and classic reports, cards and charts, not ${type || "this region"} (${target.region}). Add the item with insert and edit the region in source.`,
+          2
+        );
+      const sources = [];
+      if (type === "chart") {
+        if (target.sql || target.columns)
+          throw new Fault("INVALID_INPUT", `Chart ${target.region}: give replacement SQL per series.`, 2);
+        const series = region.children.filter((child) => child.kind === "series");
+        if (!series.length)
+          throw new Fault("OPERATION_UNSUPPORTED", `Chart ${target.region} has no series to filter.`, 2);
+        for (const given of target.series ?? [])
+          if (!series.some((entry) => entry.key.toUpperCase() === given.id.toUpperCase()))
+            throw new Fault("TARGET_NOT_FOUND", `Chart ${target.region} has no series ${given.id}.`, 2);
+        for (const entry of series) {
+          const replacement = target.series?.find(
+            (given) => given.id.toUpperCase() === entry.key.toUpperCase()
+          );
+          if (replacement) edits.push(setFencedText(doc, entry, "source.sqlQuery", replacement.sql));
+          sources.push({
+            owner: entry,
+            label: `${target.region} series ${entry.key}`,
+            sql: replacement?.sql ?? fenced(doc, entry),
+            find: (parsed) => parsed.children.find((c) => c.type === "region" && c.id.toUpperCase() === region.key.toUpperCase())?.children.find((c) => c.type === "series" && c.id.toUpperCase() === entry.key.toUpperCase())
+          });
+        }
+      } else {
+        if (target.series) throw new Fault("INVALID_INPUT", `${target.region} is not a chart.`, 2);
+        if (target.sql !== void 0) {
+          if (REPORTS.has(type))
+            edits.push(
+              ...queryEdits(
+                doc,
+                region,
+                {
+                  target: `region:${region.key}`,
+                  property: "query",
+                  value: target.sql,
+                  columns: target.columns
+                },
+                snapshot.release
+              )
+            );
+          else {
+            if (target.columns) throw new Fault("INVALID_INPUT", "columns apply to reports only.", 2);
+            edits.push(setFencedText(doc, region, "source.sqlQuery", target.sql));
+          }
+        }
+        sources.push({
+          owner: region,
+          label: target.region,
+          sql: target.sql ?? fenced(doc, region),
+          find: (parsed) => parsed.children.find(
+            (c) => c.type === "region" && c.id.toUpperCase() === region.key.toUpperCase()
+          )
+        });
+      }
+      for (const source of sources) {
+        if (!bind(item).test(source.sql))
+          throw new Fault(
+            "FILTER_NOT_BOUND",
+            `The ${source.label} query does not reference :${item}. Pass complete replacement SQL that filters on it; predicates are not rewritten.`,
+            2
+          );
+        const edit = submitEdit(doc, source.owner, item);
+        if (edit) edits.push(edit);
+        checks.push({ source, item });
+      }
+    }
+  }
+  const verify = (after) => {
+    for (const { source, item } of checks) {
+      const component = source.find(after);
+      const items = submitted(component && readProperty(component, "source.pageItemsToSubmit"));
+      const sql = String((component && readProperty(component, "source.sqlQuery")) ?? "");
+      if (!items.some((name) => name.toUpperCase() === item) || !bind(item).test(sql))
+        throw new Fault("TRANSFORM_INVALID", `${source.label} does not submit and bind ${item}.`, 5);
+    }
+  };
+  return {
+    edits,
+    verify,
+    targets: operations.flatMap((operation) => operation.targets.map((target) => `region:${target.region}`))
+  };
+}
+function fenced(doc, node2) {
+  const property = node2.properties.get("source.sqlQuery");
+  if (!property?.fence || property.fence.close < 0)
+    throw new Fault(
+      "OPERATION_UNSUPPORTED",
+      `${node2.kind} ${node2.key} has no SQL query literal; pass complete replacement SQL.`,
+      2
+    );
+  return doc.lines.slice(property.fence.open + 1, property.fence.close).map((line) => line.text).join("\n");
+}
+
+// packages/core/src/edit/dialog.ts
+var ID = /^[a-z][a-z0-9_-]{0,254}$/iu;
+var ITEM = /^P\d{1,5}_[A-Z0-9_$#]{1,120}$/iu;
+var DML = /formAutomaticRowProcessing|nativeFormDml|formDml|interactiveGridAutomaticRowProcessing|plsqlCode|executeCode/u;
+var refOf2 = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : String(value ?? "").replace(/^@/u, "");
+var dialogDependencies = (operations) => operations.map((operation) => `page:${operation.target.page}`);
+function targetText(target) {
+  const items = Object.entries(target.items ?? {});
+  return group(
+    "target:",
+    [
+      `page: ${target.page}`,
+      items.length ? group(
+        "items:",
+        items.map(([key, value]) => `${key.toUpperCase()}: ${JSON.stringify(value)}`).join("\n")
+      ) : "",
+      target.clearCache?.length ? `clearCache: ${target.clearCache.join(",")}` : ""
+    ].filter(Boolean).join("\n")
+  );
+}
+function replaceGroup(doc, owner, name, text2) {
+  const existing = owner.groups.get(name);
+  const body = indent(text2, owner.indent + 4).split("\n").join(doc.eol) + doc.eol;
+  if (existing) {
+    const open = doc.lines[existing.open];
+    const close = doc.lines[existing.close];
+    return { start: open.offset, end: close.offset + close.text.length + close.eol.length, content: body };
+  }
+  const before = doc.lines[owner.children[0]?.open ?? owner.close];
+  return { start: before.offset, end: before.offset, content: body };
+}
+function planDialogs(snapshot, operations) {
+  const { doc, node: page, parsed, release, related } = snapshot;
+  const edits = [];
+  const warnings = [];
+  const checks = [];
+  const targets = [];
+  const buttons = new Set(page.children.filter((c) => c.kind === "button").map((c) => c.key.toUpperCase()));
+  const actions = new Set(
+    page.children.filter((c) => c.kind === "dynamicAction").map((c) => c.key.toUpperCase())
+  );
+  let appended = "";
+  for (const operation of operations) {
+    if (Boolean(operation.button) === Boolean(operation.link))
+      throw new Fault("INVALID_INPUT", "addDialogAction needs either button or link.", 2);
+    const modal = related.get(`page:${operation.target.page}`);
+    if (!modal)
+      throw new Fault("TARGET_NOT_FOUND", `No page file declares page ${operation.target.page}.`, 2);
+    if (operation.expectedTargetDigest && operation.expectedTargetDigest !== modal.digest)
+      throw new Fault(
+        "TRANSFORM_CONFLICT",
+        `${modal.file} changed since it was read; read it again and retry.`,
+        5,
+        "conflict",
+        {
+          file: modal.file,
+          currentDigest: modal.digest
+        }
+      );
+    if (readProperty(modal.parsed, "appearance.pageMode") !== "modalDialog")
+      throw new Fault("TARGET_NOT_MODAL", `Page ${operation.target.page} is not a modal dialog page.`, 2);
+    const modalItems = new Set(
+      modal.parsed.children.filter((c) => c.type === "pageItem").map((c) => c.id.toUpperCase())
+    );
+    for (const name of Object.keys(operation.target.items ?? {})) {
+      if (!ITEM.test(name)) throw new Fault("INVALID_INPUT", `${name} is not a page item name.`, 2);
+      if (!modalItems.has(name.toUpperCase()))
+        throw new Fault("TARGET_NOT_FOUND", `Page ${operation.target.page} has no item ${name}.`, 2);
+    }
+    if (!readProperty(modal.parsed, "security.authorizationScheme") && modal.parsed.children.some(
+      (c) => c.type === "process" && DML.test(String(readProperty(c, "type") ?? ""))
+    ))
+      warnings.push(
+        `Page ${operation.target.page} runs processes without a page authorization scheme; review its authorization (none was added).`
+      );
+    const target = targetText(operation.target);
+    let refreshRegion = operation.refresh;
+    let when;
+    if (operation.button) {
+      const button = operation.button;
+      if (!ID.test(button.id)) throw new Fault("INVALID_INPUT", `${button.id} is not a valid button id.`, 2);
+      if (buttons.has(button.id.toUpperCase()))
+        throw new Fault("TARGET_EXISTS", `Button ${button.id} already exists.`, 5);
+      buttons.add(button.id.toUpperCase());
+      ApexLangDocument.one(page.children, "region", button.region, `Page ${page.key}`);
+      if (!refreshRegion)
+        throw new Fault("INVALID_INPUT", "A dialog button needs refresh: the region to update.", 2);
+      const sequence = Math.max(
+        0,
+        ...parsed.children.filter((c) => c.type === "button" && refOf2(readProperty(c, "layout.region")) === button.region).map((c) => Number(readProperty(c, "layout.sequence")) || 0)
+      ) + 10;
+      appended += node("button", button.id, [
+        `buttonName: ${button.id.replaceAll("-", "_").toUpperCase()}`,
+        `label: ${scalarText(button.label)}`,
+        group(
+          "layout",
+          `sequence: ${sequence}
+region: @${button.region}
+slot: ${release === "26.1" ? "next" : "NEXT"}`
+        ),
+        group("appearance", "buttonTemplate: @/text\ntemplateOptions: #DEFAULT#"),
+        group("behavior", `action: redirectThisApp
+${target}`)
+      ]);
+      when = `event: apexafterclosedialog
+selectionType: button
+button: @${button.id}`;
+      targets.push(`button:${button.id}`);
+      checks.push((after) => {
+        if (!after.children.some((c) => c.type === "button" && c.id === button.id))
+          throw new Fault("TRANSFORM_INVALID", `Button ${button.id} did not read back.`, 5);
+      });
+    } else {
+      const link = operation.link;
+      const region = ApexLangDocument.one(page.children, "region", link.region, `Page ${page.key}`);
+      const type = reportRegion(region, "A row link");
+      const rowColumns = new Set(
+        region.children.filter((c) => c.kind === "column").map((c) => c.key.toUpperCase())
+      );
+      for (const value of Object.values(operation.target.items ?? {}))
+        for (const [, column] of value.matchAll(/#([A-Z0-9_$]+)#/giu))
+          if (!rowColumns.has(column.toUpperCase()))
+            throw new Fault("TARGET_NOT_FOUND", `${region.key} has no column ${column} for #${column}#.`, 2);
+      if (type === "interactiveReport") {
+        if (link.column)
+          throw new Fault("INVALID_INPUT", "Interactive reports link the whole row; omit column.", 2);
+        edits.push(replaceGroup(doc, region, "link", group("link", `linkColumn: customTarget
+${target}`)));
+      } else {
+        if (!link.column)
+          throw new Fault("INVALID_INPUT", "Classic report links need the column to link.", 2);
+        const column = ApexLangDocument.one(region.children, "column", link.column, `Region ${region.key}`);
+        edits.push(setProperty(doc, column, "type", "link"));
+        edits.push(
+          replaceGroup(
+            doc,
+            column,
+            "link",
+            group(
+              "link",
+              `linkText: ${scalarText(link.linkText ?? `#${column.key.toUpperCase()}#`)}
+${target}`
+            )
+          )
+        );
+      }
+      refreshRegion ??= region.key;
+      when = `event: apexafterclosedialog
+selectionType: region
+region: @${region.key}`;
+      targets.push(`region:${region.key}`);
+      checks.push((after) => {
+        const parsedRegion = after.children.find((c) => c.type === "region" && c.id === region.key);
+        const owner = type === "interactiveReport" ? parsedRegion : parsedRegion?.children.find(
+          (c) => c.type === "column" && c.id.toUpperCase() === link.column.toUpperCase()
+        );
+        const page2 = owner && readProperty(owner, "link.target")?.page;
+        if (String(page2) !== String(operation.target.page))
+          throw new Fault("TRANSFORM_INVALID", `${link.region} link did not read back.`, 5);
+      });
+    }
+    ApexLangDocument.one(page.children, "region", refreshRegion, `Page ${page.key}`);
+    const reused = parsed.children.some(
+      (c) => c.type === "dynamicAction" && readProperty(c, "when.event") === "apexafterclosedialog" && (operation.button ? refOf2(readProperty(c, "when.button")) === operation.button.id : refOf2(readProperty(c, "when.region")) === operation.link.region) && c.children.some(
+        (action) => readProperty(action, "action") === "refresh" && readProperty(action, "affectedElements.region")?.ref === refreshRegion
+      )
+    );
+    if (!reused) {
+      let name = `dialog-closed-${refreshRegion}`;
+      for (let n = 2; actions.has(name.toUpperCase()); n++) name = `dialog-closed-${refreshRegion}-${n}`;
+      actions.add(name.toUpperCase());
+      appended += node("dynamicAction", name, [
+        `name: ${JSON.stringify(`Refresh ${refreshRegion} after dialog`)}`,
+        group("execution", "sequence: 10"),
+        group("when", when),
+        refreshAction("refresh", refreshRegion, 10)
+      ]);
+      targets.push(`dynamicAction:${name}`);
+    }
+  }
+  if (appended)
+    edits.push(appendChild(doc, page, indent(appended.trimEnd()).split("\n").join(doc.eol) + doc.eol));
+  return {
+    edits,
+    verify: (after) => checks.forEach((check) => check(after)),
+    targets,
+    warnings: [...new Set(warnings)]
+  };
+}
+
+// packages/core/src/edit/bind-lov.ts
+var LIST_ITEMS = /* @__PURE__ */ new Set([
+  "selectList",
+  "radioGroup",
+  "popupLov",
+  "checkboxGroup",
+  "shuttle",
+  "selectOne",
+  "selectMany",
+  "combobox",
+  "listManager"
+]);
+var SOURCE = /* @__PURE__ */ new Set([
+  "type",
+  "lov",
+  "staticValues",
+  "sqlQuery",
+  "plsqlFunctionBody",
+  "javaScriptFunctionBody",
+  "language",
+  "location",
+  "tableName",
+  "tableOwner",
+  "whereClause",
+  "orderByClause",
+  "displayColumn",
+  "returnColumn",
+  "remoteServer",
+  "restSource"
+]);
+var SETTINGS = /* @__PURE__ */ new Set(["displayNullValue", "nullDisplayValue", "nullReturnValue", "displayExtraValues"]);
+var bindLovDependencies = (operations) => operations.map((operation) => `lov:${operation.lov}`);
+var refOf3 = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : String(value ?? "").replace(/^@/u, "");
+function groupLines(doc, owner, name) {
+  const range = owner.groups.get(name);
+  if (!range) return [];
+  const lines = [];
+  for (const [path3, property] of owner.properties) {
+    if (!path3.startsWith(name + ".")) continue;
+    const key = path3.slice(name.length + 1);
+    if (key.includes("."))
+      throw new Fault(
+        "TRANSFORM_UNSUPPORTED",
+        `${owner.key} ${name}.${key} is nested; edit it in source.`,
+        5
+      );
+    if (property.opaque && !SOURCE.has(key))
+      throw new Fault(
+        "TRANSFORM_UNSUPPORTED",
+        `${owner.key} ${path3} holds a multi-line value; edit it in source.`,
+        5
+      );
+    lines.push({ key, text: doc.lines[property.line].text.trim() });
+  }
+  return lines;
+}
+function replaceGroup2(doc, owner, name, text2) {
+  const existing = owner.groups.get(name);
+  const body = text2 ? indent(text2, owner.indent + 4).split("\n").join(doc.eol) + doc.eol : "";
+  if (existing) {
+    const open = doc.lines[existing.open];
+    const close = doc.lines[existing.close];
+    return { start: open.offset, end: close.offset + close.text.length + close.eol.length, content: body };
+  }
+  if (!body) return void 0;
+  const before = doc.lines[owner.children[0]?.open ?? owner.close];
+  return { start: before.offset, end: before.offset, content: body };
+}
+function planBindLov(snapshot, operations) {
+  const { doc, node: page, parsed, release, related } = snapshot;
+  if (release !== "26.2")
+    throw new Fault(
+      "OPERATION_UNSUPPORTED",
+      "bindLov is qualified for 26.2 sources; edit 26.1 items in source.",
+      2
+    );
+  const edits = [];
+  const checks = [];
+  const items = new Set(parsed.children.filter((c) => c.type === "pageItem").map((c) => c.id.toUpperCase()));
+  const seen = /* @__PURE__ */ new Set();
+  for (const operation of operations) {
+    const item = ApexLangDocument.one(page.children, "pageItem", operation.item, `Page ${page.key}`);
+    if (seen.has(item.key.toUpperCase()))
+      throw new Fault("TRANSFORM_CONFLICT", `${item.key} is bound twice.`, 5);
+    seen.add(item.key.toUpperCase());
+    const type = String(item.properties.get("type")?.value ?? "");
+    if (!LIST_ITEMS.has(type))
+      throw new Fault(
+        "OPERATION_UNSUPPORTED",
+        `${item.key} is a ${type || "item without a type"}, not a list item.`,
+        2
+      );
+    const lov = related.get(`lov:${operation.lov}`);
+    if (!lov) throw new Fault("TARGET_NOT_FOUND", `No shared LOV ${operation.lov}.`, 2);
+    if (operation.expectedLovDigest && operation.expectedLovDigest !== lov.digest)
+      throw new Fault(
+        "TRANSFORM_CONFLICT",
+        `${lov.file} changed since it was read; read it again and retry.`,
+        5,
+        "conflict",
+        {
+          file: lov.file,
+          currentDigest: lov.digest
+        }
+      );
+    const id = lov.parsed.id;
+    const kept = groupLines(doc, item, "lov").filter((line) => !SOURCE.has(line.key));
+    const settings = new Map(kept.map((line) => [line.key, line.text]));
+    if (operation.nullValue === false) {
+      for (const key of ["displayNullValue", "nullDisplayValue", "nullReturnValue"]) settings.delete(key);
+      settings.set("displayNullValue", "displayNullValue: false");
+    } else if (operation.nullValue) {
+      settings.set("displayNullValue", "displayNullValue: true");
+      settings.set("nullDisplayValue", `nullDisplayValue: ${scalarText(operation.nullValue.display)}`);
+      if (operation.nullValue.return !== void 0)
+        settings.set("nullReturnValue", `nullReturnValue: ${scalarText(operation.nullValue.return)}`);
+      else settings.delete("nullReturnValue");
+    }
+    if (operation.displayExtraValues !== void 0)
+      settings.set("displayExtraValues", `displayExtraValues: ${operation.displayExtraValues}`);
+    const ordered = [
+      ...[...SETTINGS].filter((key) => settings.has(key)).map((key) => settings.get(key)),
+      ...[...settings].filter(([key]) => !SETTINGS.has(key)).map(([, text2]) => text2)
+    ];
+    edits.push(
+      replaceGroup2(
+        doc,
+        item,
+        "lov",
+        group("lov", ["type: sharedComponent", `lov: @${id}`, ...ordered].join("\n"))
+      )
+    );
+    if (operation.cascade !== void 0) {
+      if (operation.cascade === null) {
+        const removal = replaceGroup2(doc, item, "cascadingLov", "");
+        if (removal) edits.push(removal);
+      } else {
+        const parents = operation.cascade.parentItems.map((name) => name.toUpperCase());
+        const submitted2 = (operation.cascade.itemsToSubmit ?? []).map((name) => name.toUpperCase());
+        if (!parents.length) throw new Fault("INVALID_INPUT", "cascade needs parentItems.", 2);
+        for (const name of [...parents, ...submitted2]) {
+          if (name === item.key.toUpperCase())
+            throw new Fault("INVALID_INPUT", `${item.key} cannot cascade from itself.`, 2);
+          if (!items.has(name))
+            throw new Fault("TARGET_NOT_FOUND", `Page ${page.key} has no item ${name}.`, 2);
+        }
+        edits.push(
+          replaceGroup2(
+            doc,
+            item,
+            "cascadingLov",
+            group(
+              "cascadingLov",
+              [
+                `parentItems: ${parents.join(",")}`,
+                submitted2.length ? `itemsToSubmit: ${submitted2.join(",")}` : "",
+                operation.cascade.parentRequired !== void 0 ? `parentRequired: ${operation.cascade.parentRequired}` : ""
+              ].filter(Boolean).join("\n")
+            )
+          )
+        );
+      }
+    }
+    checks.push((after) => {
+      const component = after.children.find(
+        (c) => c.type === "pageItem" && c.id.toUpperCase() === item.key.toUpperCase()
+      );
+      if (!component || readProperty(component, "lov.type") !== "sharedComponent" || refOf3(readProperty(component, "lov.lov")) !== id)
+        throw new Fault("TRANSFORM_INVALID", `${item.key} LOV binding did not read back.`, 5);
+    });
+  }
+  return {
+    edits,
+    verify: (after) => checks.forEach((check) => check(after)),
+    targets: operations.map((operation) => `item:${operation.item.toUpperCase()}`)
+  };
+}
+
+// packages/core/src/edit/move.ts
+var ITEM_SLOTS = ["regionBody", "body", "contentBody"];
+var BUTTON_SLOTS = [
+  "next",
+  "previous",
+  "edit",
+  "create",
+  "close",
+  "change",
+  "delete",
+  "copy",
+  "up",
+  "regionBody",
+  "belowBox",
+  "top",
+  "bottom"
+];
+var SUB_REGION_SLOTS = ["subRegions", "regionBody", "body"];
+var PAGE_SLOTS = {
+  normal: ["body", "breadcrumbBar", "leftColumn", "rightSideColumn"],
+  modal: ["contentBody", "dialogFooter"]
+};
+var KINDS2 = { item: "pageItem", button: "button", region: "region" };
+var refOf4 = (value) => value && typeof value === "object" && "ref" in value ? String(value.ref) : value === void 0 ? void 0 : String(value).replace(/^@/u, "");
+function planMoves(snapshot, operations) {
+  const { doc, node: page, parsed } = snapshot;
+  const modal = readProperty(parsed, "appearance.pageMode") === "modalDialog";
+  const edits = [];
+  const checks = [];
+  const seen = /* @__PURE__ */ new Set();
+  const regions = page.children.filter((child) => child.kind === "region");
+  for (const operation of operations) {
+    const at = operation.component.indexOf(":");
+    const kind = KINDS2[operation.component.slice(0, at)];
+    const id = operation.component.slice(at + 1);
+    if (at < 1 || !kind || !id)
+      throw new Fault("INVALID_INPUT", "component is item:NAME, button:ID or region:ID.", 2);
+    const node2 = ApexLangDocument.one(page.children, kind, id, `Page ${page.key}`);
+    if (seen.has(`${kind}:${node2.key.toUpperCase()}`))
+      throw new Fault("TRANSFORM_CONFLICT", `${operation.component} is moved twice.`, 5);
+    seen.add(`${kind}:${node2.key.toUpperCase()}`);
+    const { region: destination, slot, sequence } = operation.to;
+    const parentPath = kind === "region" ? "layout.parentRegion" : "layout.region";
+    let target;
+    if (destination !== void 0) {
+      target = ApexLangDocument.one(regions, "region", destination, `Page ${page.key}`);
+      if (kind === "region") {
+        for (let current = target; current; ) {
+          if (current === node2)
+            throw new Fault("INVALID_INPUT", `${node2.key} cannot move into itself or a sub-region.`, 2);
+          const parent = refOf4(current.properties.get("layout.parentRegion")?.value);
+          current = parent ? regions.find((region) => region.key.toUpperCase() === parent.toUpperCase()) : void 0;
+        }
+      }
+    } else if (kind !== "region")
+      throw new Fault("INVALID_INPUT", `${operation.component} needs a destination region.`, 2);
+    const targetType = target ? String(target.properties.get("type")?.value ?? "") : "";
+    const allowed = kind === "pageItem" ? ITEM_SLOTS : kind === "button" ? [
+      ...BUTTON_SLOTS,
+      ...targetType === "interactiveReport" ? ["rightOfInteractiveReportSearchBar"] : []
+    ] : target ? SUB_REGION_SLOTS : PAGE_SLOTS[modal ? "modal" : "normal"];
+    if (!allowed.includes(slot))
+      throw new Fault(
+        "OPERATION_UNSUPPORTED",
+        `Slot ${slot} is not supported for this move; use one of ${allowed.join(", ")} or edit the source.`,
+        2
+      );
+    if (sequence !== void 0 && !(Number.isInteger(sequence) && sequence > 0 && sequence < 1e9))
+      throw new Fault("INVALID_INPUT", "sequence must be a positive integer.", 2);
+    const currentParent = refOf4(node2.properties.get(parentPath)?.value);
+    if (!node2.groups.has("layout")) {
+      const lines = [
+        target ? `${parentPath.slice("layout.".length)}: ${referenceText(target.key)}` : "",
+        `slot: ${slot}`,
+        sequence !== void 0 ? `sequence: ${sequence}` : ""
+      ].filter(Boolean);
+      const indent2 = " ".repeat(node2.indent + 4);
+      const before = doc.lines[node2.children[0]?.open ?? node2.close];
+      edits.push({
+        start: before.offset,
+        end: before.offset,
+        content: [`${indent2}layout {`, ...lines.map((line) => `${indent2}    ${line}`), `${indent2}}`].join(doc.eol) + doc.eol
+      });
+    } else {
+      if (target) {
+        if (currentParent?.toUpperCase() !== target.key.toUpperCase())
+          edits.push(setPropertyText(doc, node2, parentPath, referenceText(target.key)));
+      } else if (currentParent !== void 0) {
+        const removal = removeProperty(doc, node2, parentPath);
+        if (removal) edits.push(removal);
+      }
+      if (String(node2.properties.get("layout.slot")?.value ?? "") !== slot)
+        edits.push(setPropertyText(doc, node2, "layout.slot", slot));
+      if (sequence !== void 0 && Number(node2.properties.get("layout.sequence")?.value) !== sequence)
+        edits.push(setPropertyText(doc, node2, "layout.sequence", String(sequence)));
+    }
+    checks.push((after) => {
+      const type = kind;
+      const moved = after.children.find(
+        (c) => c.type === type && c.id.toUpperCase() === node2.key.toUpperCase()
+      );
+      const parent = moved && refOf4(readProperty(moved, parentPath));
+      if (!moved || readProperty(moved, "layout.slot") !== slot || (target ? parent?.toUpperCase() !== target.key.toUpperCase() : parent !== void 0) || after.children.filter((c) => c.type === type && c.id.toUpperCase() === node2.key.toUpperCase()).length !== 1)
+        throw new Fault(
+          "TRANSFORM_INVALID",
+          `${operation.component} did not read back at its destination.`,
+          5
+        );
+    });
+  }
+  return {
+    edits,
+    verify: (after) => checks.forEach((check) => check(after)),
+    targets: operations.map((operation) => operation.component)
+  };
+}
+
+// packages/core/src/edit/page-edit.ts
+function editGroups(operations) {
+  const sets = [];
+  const inserts = [];
+  const filters = [];
+  const columns = [];
+  const dialogs = [];
+  const bindings = [];
+  const moves = [];
+  for (const operation of operations) {
+    if (operation.op === "moveComponent") {
+      moves.push(operation);
+      continue;
+    }
+    if (operation.op === "bindLov") {
+      bindings.push(operation);
+      continue;
+    }
+    if (operation.op === "addDialogAction") {
+      dialogs.push(operation);
+      continue;
+    }
+    if (operation.op === "addColumn" || operation.op === "orderColumns") {
+      columns.push(operation);
+      continue;
+    }
+    if (operation.op === "addFilter") {
+      inserts.push(filterFragment(operation));
+      filters.push(operation);
+      continue;
+    }
+    if (operation.op === "set") {
+      const { op: _op, ...set } = operation;
+      sets.push(set);
+    } else if (operation.op === "insert") inserts.push(operation.components);
+    else throw new Fault("INVALID_INPUT", `Unknown edit op ${operation.op}.`, 2);
+  }
+  const groups = [];
+  if (sets.length) groups.push((snapshot) => planSets(snapshot, sets));
+  if (inserts.length) groups.push((snapshot) => planInsert(snapshot, inserts));
+  if (filters.length) groups.push((snapshot) => planFilters(snapshot, filters));
+  if (columns.length) groups.push((snapshot) => planColumns(snapshot, columns));
+  if (dialogs.length) groups.push((snapshot) => planDialogs(snapshot, dialogs));
+  if (bindings.length) groups.push((snapshot) => planBindLov(snapshot, bindings));
+  if (moves.length) groups.push((snapshot) => planMoves(snapshot, moves));
+  return groups;
+}
+async function editPage(ctx, input) {
+  const { result: _text, ...outcome } = await runPageTransaction(
+    ctx,
+    input,
+    editGroups,
+    (operations) => [
+      ...dialogDependencies(
+        operations.filter(
+          (operation) => operation.op === "addDialogAction"
+        )
+      ),
+      ...bindLovDependencies(
+        operations.filter((operation) => operation.op === "bindLov")
+      )
+    ]
+  );
+  return outcome;
+}
+
 export {
   APEX_FULL_VERSION,
   APEX_DOWNLOAD_URL,
@@ -1318,8 +2149,8 @@ export {
   fill,
   templateOptions,
   PATCH_PROPERTIES,
-  planSets,
-  queryEdits,
   pageContext,
-  patchPage
+  patchPage,
+  insertComponents,
+  editPage
 };

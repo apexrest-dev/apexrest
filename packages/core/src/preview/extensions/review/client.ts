@@ -43,6 +43,10 @@ html.apex-local-review-picking,html.apex-local-review-picking *{cursor:crosshair
 .apex-local-review-batch button{margin-left:6px;font-size:11px}
 .apex-local-review-options{display:grid;gap:4px;max-height:180px;overflow:auto;margin:4px 0;font-size:12px}
 .apex-local-review-options label{display:flex;gap:6px;align-items:center}
+.apex-local-review-columns{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0}
+.apex-local-review-columns td{padding:2px 4px;border-bottom:1px solid rgba(255,255,255,.08)}
+.apex-local-review-columns tr.is-error td{color:#ffb4a8}
+.apex-local-review-columns input[type=text]{width:100%}
 .apex-local-review-banner{position:fixed;z-index:2147483000;top:8px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:16px;background:#7c4dff;color:#fff;font:600 12px/16px system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none}
 `;
 
@@ -246,7 +250,9 @@ export const REVIEW_JS = String.raw`
       '<textarea name="text" maxlength="4000" placeholder="What should change? e.g. Rename this column to “Amount, EUR” and move it after Status">' + esc(existing ? existing.text : "") + "</textarea></div>" +
       '<div data-mode-pane="edit" hidden><select name="property" aria-label="Property"></select><span data-value-control><input name="value" aria-label="New value" maxlength="4000"></span><p class="apex-local-review-where" data-edit-where></p>' +
       (config.layoutUnavailable ? '<p class="apex-local-review-where">' + esc(config.layoutUnavailable) + "</p>" : "") +
-      '<button type="button" class="apex-local-action" data-batch-add title="Collect this change and pick another component or property">Add to changes</button><ol class="apex-local-review-batch" data-batch aria-label="Proposed changes"></ol></div>' +
+      '<button type="button" class="apex-local-action" data-batch-add title="Collect this change and pick another component or property">Add to changes</button>' +
+      '<button type="button" class="apex-local-action" data-columns hidden title="Show, hide, rename, format and order this report\'s columns">Columns…</button>' +
+      '<ol class="apex-local-review-batch" data-batch aria-label="Proposed changes"></ol><div data-column-editor hidden></div></div>' +
       '<p class="apex-local-review-error" hidden></p><p class="apex-local-review-ok" hidden></p>' +
       '<div class="apex-local-review-row"><span>Ctrl+Enter to save</span><button type="button" class="apex-local-action" data-cancel>Cancel</button><button type="submit" class="apex-local-action is-primary">Save</button></div>';
     document.body.appendChild(composer);
@@ -335,6 +341,7 @@ export const REVIEW_JS = String.raw`
     function current() { return editableOf(options[targetSelect ? Number(targetSelect.value) : selected]); }
     function fillProperties() {
       var editable = current(), properties = editProperties(editable);
+      if (typeof updateColumnsButton === "function" && columnsButton) updateColumnsButton();
       propertySelect.innerHTML = properties.map(function (name) { return '<option value="' + esc(name) + '">' + esc(name) + "</option>"; }).join("");
       var editButton = composer.querySelector('[data-mode="edit"]');
       if (editButton) editButton.disabled = !properties.length;
@@ -387,6 +394,95 @@ export const REVIEW_JS = String.raw`
       renderBatch();
     });
     composer.querySelector("[data-batch-add]").addEventListener("click", function () { addToBatch(); });
+    // Column editor: every column of a report from its source (also columns without rows), saved
+    // as one batch of column order with visibility plus heading and format changes.
+    var columnsButton = composer.querySelector("[data-columns]"), columnEditor = composer.querySelector("[data-column-editor]"), columnState = null;
+    function reportOf(editable) {
+      if (!editable) return null;
+      if (editable.kind === "column") return { region: editable.patch.slice(7).split(".")[0], page: editable.page };
+      if (editable.kind === "region") return { region: editable.patch.slice(7), page: editable.page };
+      return null;
+    }
+    function updateColumnsButton() {
+      var report = reportOf(current()), entry = report && (config.map || []).filter(function (candidate) { return candidate.kind === "column" && candidate.patch.indexOf("column:" + report.region + ".") === 0; })[0];
+      columnsButton.hidden = !entry;
+    }
+    function renderColumns(failed) {
+      var state = columnState;
+      columnEditor.innerHTML = '<table class="apex-local-review-columns"><thead><tr><td></td><td>Column</td><td>Shown</td><td>Heading</td><td>Format</td></tr></thead><tbody>' +
+        state.order.map(function (name, index) {
+          var column = state.byName[name];
+          return '<tr data-column="' + esc(name) + '"' + (failed === name ? ' class="is-error"' : "") + ">" +
+            '<td><button type="button" class="apex-local-action" data-move="-1" aria-label="Move up"' + (index ? "" : " disabled") + '>↑</button><button type="button" class="apex-local-action" data-move="1" aria-label="Move down"' + (index < state.order.length - 1 ? "" : " disabled") + ">↓</button></td>" +
+            "<td>" + esc(name) + "</td>" +
+            '<td><input type="checkbox" data-field="visible"' + (column.visible ? " checked" : "") + ' aria-label="Shown"></td>' +
+            '<td><input type="text" data-field="heading" value="' + esc(column.heading) + '" aria-label="Heading" maxlength="4000"></td>' +
+            '<td><input type="text" data-field="format" value="' + esc(column.format) + '" aria-label="Format" maxlength="4000"></td></tr>';
+        }).join("") + '</tbody></table><button type="button" class="apex-local-action is-primary" data-columns-save>Save columns</button>';
+    }
+    function openColumns() {
+      var report = reportOf(current()), message = composer.querySelector(".apex-local-review-error");
+      if (!report) return;
+      message.hidden = true;
+      fetch(route + "?columns=" + encodeURIComponent(report.region) + "&page=" + encodeURIComponent(report.page), { credentials: "same-origin" })
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+          if (data.error) throw new Error(data.error);
+          var byName = {};
+          data.columns.forEach(function (column) { byName[column.name] = { heading: column.heading, format: column.format, visible: column.visible, original: column }; });
+          columnState = { page: report.page, region: data.region, file: data.file, digest: data.digest, order: data.order.slice(), original: data.order.slice(), byName: byName };
+          columnEditor.hidden = false;
+          renderColumns();
+        })
+        .catch(function (error) { message.hidden = false; message.textContent = error.message; });
+    }
+    columnsButton.addEventListener("click", openColumns);
+    columnEditor.addEventListener("click", function (event) {
+      var move = event.target.closest("[data-move]");
+      if (move) {
+        var name = move.closest("tr").getAttribute("data-column"), from = columnState.order.indexOf(name), to = from + Number(move.getAttribute("data-move"));
+        columnState.order.splice(from, 1);
+        columnState.order.splice(to, 0, name);
+        renderColumns();
+        return;
+      }
+      if (!event.target.closest("[data-columns-save]")) return;
+      var state = columnState, message = composer.querySelector(".apex-local-review-error"), operations = [], setFor = [], visible = {};
+      state.order.forEach(function (name) {
+        var column = state.byName[name], original = column.original;
+        if (column.visible !== original.visible) visible[name] = column.visible;
+        if (column.heading !== original.heading) { operations.push({ target: "column:" + state.region + "." + name, property: "heading", value: column.heading }); setFor.push(name); }
+        if (column.format !== original.format) { operations.push({ target: "column:" + state.region + "." + name, property: "format", value: column.format }); setFor.push(name); }
+      });
+      var reordered = state.order.join(",") !== state.original.join(",");
+      if (reordered || Object.keys(visible).length) operations.push({ op: "orderColumns", region: state.region, order: state.order, visible: visible });
+      if (!operations.length) { message.hidden = false; message.textContent = "Nothing changed yet."; return; }
+      saving = true;
+      send({ op: "patch", page: state.page, digest: state.digest, operations: operations }).then(function (data) {
+        config.digests[state.file] = data.result.afterDigest;
+        var ok = composer.querySelector(".apex-local-review-ok");
+        ok.hidden = false;
+        ok.textContent = "Saved the columns to " + data.result.file + " in one edit. The preview reloads with them; validate or ship to deploy them.";
+      }, function (error) {
+        // The editor keeps every proposed value; a failing column is marked.
+        saving = false;
+        renderColumns(typeof error.operation === "number" ? setFor[error.operation] : undefined);
+        message.hidden = false;
+        message.textContent = error.status === 409
+          ? "The source file changed since the columns were read. Your changes are kept: reload the page and save them on the newer version."
+          : error.message;
+      });
+    });
+    columnEditor.addEventListener("input", function (event) {
+      var field = event.target.getAttribute("data-field"), row = event.target.closest("tr");
+      if (!field || !row) return;
+      var column = columnState.byName[row.getAttribute("data-column")];
+      column[field] = field === "visible" ? event.target.checked : event.target.value;
+    });
+    columnEditor.addEventListener("change", function (event) {
+      if (event.target.getAttribute("data-field") !== "visible") return;
+      columnState.byName[event.target.closest("tr").getAttribute("data-column")].visible = event.target.checked;
+    });
     if (!existing) {
       composer.querySelectorAll("[data-mode]").forEach(function (button) { button.addEventListener("click", function () { setMode(button.getAttribute("data-mode")); }); });
       if (targetSelect) targetSelect.addEventListener("change", fillProperties);

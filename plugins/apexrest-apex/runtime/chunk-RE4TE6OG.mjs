@@ -3566,11 +3566,73 @@ function planColumns(snapshot, operations) {
         );
       const nodes = order2.map((name2) => columns[find(name2)]);
       edits.push(...placeInOrder(doc, nodes, "layout.sequence", 10).edits);
+      const visible = Object.fromEntries(
+        Object.entries(operation.visible ?? {}).map(([name2, value]) => [key(name2), value])
+      );
+      for (const name2 of Object.keys(visible))
+        if (!declared.includes(name2))
+          throw new Fault("TARGET_NOT_FOUND", `No column ${name2} in ${region.key}.`, 2);
       const primary = type === "interactiveReport" ? primaryReport(region) : void 0;
+      if (type === "classicReport" && Object.keys(visible).length)
+        edits.push(
+          ...visibilityEdits(
+            doc,
+            region,
+            Object.entries(visible).map(([name2, value]) => ({
+              column: nodes[order2.indexOf(name2)],
+              visible: value
+            }))
+          )
+        );
+      if (type === "interactiveReport" && Object.keys(visible).length && !primary)
+        throw new Fault(
+          "OPERATION_UNSUPPORTED",
+          `${region.key} has no default saved report; its displayed columns are not declared in source.`,
+          2
+        );
       if (primary) {
+        for (const [name2, value] of Object.entries(visible))
+          if (value && String(nodes[order2.indexOf(name2)].properties.get("type")?.value ?? "") === "hidden")
+            throw new Fault(
+              "OPERATION_UNSUPPORTED",
+              `${region.key}.${name2} is declared type hidden, so users cannot show it; change its type in source.`,
+              2
+            );
         const displayed = primary.children.filter((child) => child.kind === "displayColumn");
-        const shown = order2.map((name2) => displayed.find((child) => child.key.toUpperCase() === name2)).filter((node) => Boolean(node));
-        edits.push(...placeInOrder(doc, shown, "sequence", 1).edits);
+        for (const node of displayed)
+          if (visible[node.key.toUpperCase()] === false) edits.push(removeComponent(doc, node));
+        const shown = order2.filter(
+          (name2) => visible[name2] === void 0 ? displayed.some((node) => node.key.toUpperCase() === name2) : visible[name2]
+        );
+        const existing = (name2) => displayed.find((child) => child.key.toUpperCase() === name2);
+        const added = shown.filter((name2) => !existing(name2));
+        if (!added.length) {
+          edits.push(
+            ...placeInOrder(
+              doc,
+              shown.map((name2) => existing(name2)),
+              "sequence",
+              1
+            ).edits
+          );
+        } else {
+          shown.forEach((name2, index2) => {
+            const node = existing(name2);
+            if (node && sequenceOf(node, "sequence") !== index2 + 1)
+              edits.push(setProperty(doc, node, "sequence", String(index2 + 1)));
+          });
+          const indent = " ".repeat(primary.indent + 4);
+          const last = displayed.at(-1);
+          const anchor2 = doc.lines[last ? last.close : primary.close];
+          const at2 = last ? anchor2.offset + anchor2.text.length + anchor2.eol.length : anchor2.offset;
+          edits.push({
+            start: at2,
+            end: at2,
+            content: added.map(
+              (name2) => [`displayColumn ${name2} (`, `    sequence: ${shown.indexOf(name2) + 1}`, ")"].map((line) => indent + line).join(doc.eol) + doc.eol
+            ).join("")
+          });
+        }
       }
       checks.push((after) => {
         const parsed = after.children.find(
@@ -3908,7 +3970,7 @@ async function loadRelated(ctx, key) {
   const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   let file;
   if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
-  else if (kind === "lov") file = await (await import("./chunk-LFH3NAET.mjs")).lovFile(ctx, id).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-3YY4QZIF.mjs")).lovFile(ctx, id).catch(() => void 0);
   if (!file) return void 0;
   const text2 = await readFile4(file, "utf8");
   const parsed = parseApexLang(text2, "related").find(

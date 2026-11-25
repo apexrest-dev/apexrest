@@ -610,3 +610,79 @@ test('template and grid pickers: offered for 26.2 sources with current values an
   assert.doesNotMatch(after, /template: @\/standard/u);
   void root;
 });
+
+test('the column editor reads every report column from source and saves order, visibility and headings at once', async (t) => {
+  const { call, post, pageFile } = await project(t);
+  // A default saved report that shows TITLE only; TASK_ID is a declared column without a display entry.
+  const withReport = (await readFile(pageFile, 'utf8')).replace(
+    '            heading {\n                heading: Title\n            }\n        )\n    )',
+    '            heading {\n                heading: Title\n            }\n        )\n        savedReport 1 (\n            visibility: primaryDefault\n            displayColumn TITLE (\n                sequence: 1\n            )\n        )\n    )',
+  );
+  await writeFile(pageFile, withReport);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const read = async () => (await call('/r/demo/__apex/x/review?columns=orders&page=3')).json();
+  const before = await read();
+  assert.equal(before.digest, sha(withReport));
+  assert.deepEqual(
+    before.columns.map((c: { name: string; visible: boolean; heading: string }) => [
+      c.name,
+      c.visible,
+      c.heading,
+    ]),
+    [
+      ['TASK_ID', false, 'Number'],
+      ['TITLE', true, 'Title'],
+    ],
+  );
+  const saved = await post({
+    op: 'patch',
+    page: '3',
+    digest: before.digest,
+    operations: [
+      { target: 'column:orders.TASK_ID', property: 'heading', value: 'No.' },
+      { op: 'orderColumns', region: 'orders', order: ['TITLE', 'TASK_ID'], visible: { TASK_ID: true } },
+    ],
+  });
+  assert.equal(saved.status, 200, await saved.clone().text());
+  const after = await read();
+  assert.deepEqual(after.order, ['TITLE', 'TASK_ID']);
+  assert.deepEqual(
+    after.columns.map((c: { name: string; visible: boolean; heading: string }) => [
+      c.name,
+      c.visible,
+      c.heading,
+    ]),
+    [
+      ['TASK_ID', true, 'No.'],
+      ['TITLE', true, 'Title'],
+    ],
+  );
+  const text = await readFile(pageFile, 'utf8');
+  assert.match(text, /select task_id, title from tasks/u);
+  assert.match(
+    text,
+    /displayColumn TITLE \(\n {16}sequence: 1[\s\S]*displayColumn TASK_ID \(\n {16}sequence: 2/u,
+  );
+
+  // An invalid order is named and nothing changes; a stale digest keeps the file.
+  const invalid = await post({
+    op: 'patch',
+    page: '3',
+    digest: after.digest,
+    operations: [
+      { target: 'column:orders.TITLE', property: 'heading', value: 'Task' },
+      { op: 'orderColumns', region: 'orders', order: ['TITLE'] },
+    ],
+  });
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).operation, 1);
+  const stale = await post({
+    op: 'patch',
+    page: '3',
+    digest: before.digest,
+    operations: [{ op: 'orderColumns', region: 'orders', order: ['TASK_ID', 'TITLE'] }],
+  });
+  assert.equal(stale.status, 409);
+  assert.equal(await readFile(pageFile, 'utf8'), text);
+  assert.equal((await call('/r/demo/__apex/x/review?columns=nope&page=3')).status, 404);
+});

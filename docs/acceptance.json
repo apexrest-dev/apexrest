@@ -1220,6 +1220,20 @@
         "docs/local-preview.md"
       ],
       "blocker": "Route and configuration tests pass and the client script parses; the pickers have not been observed in a browser."
+    },
+    {
+      "id": "FASTDEV-V04",
+      "criterion": "A report column editor lists every source column with stable identifiers, visibility, heading, format and order, saves their changes as one digest-bound batch without touching SQL or data types, keeps proposed edits on invalid orders and conflicts, and reads back the committed order and default-report visibility",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/preview/extensions/review.ts",
+        "packages/core/src/preview/extensions/review/client.ts",
+        "packages/core/src/edit/columns.ts",
+        "tests/unit/preview-review.test.ts",
+        "docs/local-preview.md"
+      ],
+      "blocker": "Route and planner tests pass and the client script parses; the editor has not been observed in a browser. After a save the preview reloads rather than keeping report filter and sort state."
     }
   ]
 }
