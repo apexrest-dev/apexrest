@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { loadApplication, type ApxParseCache } from '../../packages/core/src/preview/apexlang.ts';
 import { affectedPages, apxSignatures, changedFiles } from '../../packages/core/src/preview/source-index.ts';
@@ -139,4 +139,37 @@ test('only in-place edits of allowlisted regions are replaced without a page rel
     undefined,
   );
   assert.equal(replaceableRegions(before, before, dom), undefined);
+});
+
+test('cached loads equal clean loads after adding, renaming and rewriting files with older timestamps', async (t) => {
+  const { app } = await workspace(t, {
+    'shared-components/lovs/statuses.apx': LOV,
+    'pages/p00003-third.apx': PAGE3,
+  });
+  const cache: ApxParseCache = new Map();
+  loadApplication(app, 'default', cache);
+  const third = path.join(app, 'pages/p00003-third.apx');
+  // A rename and a new file in one step; then a same-size rewrite stamped with an older time.
+  const content = await readFile(third, 'utf8');
+  await rm(third);
+  await writeFile(path.join(app, 'pages/p00003-renamed.apx'), content);
+  await writeFile(
+    path.join(app, 'pages/p00004-fourth.apx'),
+    PAGE3.replace('page 3 (', 'page 4 (').replace('alias: THIRD', 'alias: FOURTH'),
+  );
+  let cached = loadApplication(app, 'default', cache);
+  assert.deepEqual(strip({ ...cached, files: [] }), strip({ ...loadApplication(app), files: [] }));
+  assert.deepEqual(
+    [...cache.keys()].sort(),
+    cached.files.map((file) => path.relative(app, file).split(path.sep).join('/')).sort(),
+  );
+  const renamed = path.join(app, 'pages/p00003-renamed.apx');
+  const same = content.replace('name: Notes', 'name: Notez');
+  assert.equal(same.length, content.length);
+  await writeFile(renamed, same);
+  const old = new Date(Date.now() - 86400000);
+  await utimes(renamed, old, old);
+  cached = loadApplication(app, 'default', cache);
+  assert.deepEqual(strip({ ...cached, files: [] }), strip({ ...loadApplication(app), files: [] }));
+  assert.match(JSON.stringify(cached.pages.get('3')), /Notez/u);
 });

@@ -1885,6 +1885,20 @@
       ],
       "evidence": ["page file digests", "sanitized result codes"],
       "budgetMs": 5000
+    },
+    {
+      "id": "A261-091",
+      "title": "Preview parse-cache scaling",
+      "acceptance": ["FASTDEV-V07"],
+      "execution": "manual",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": ["Run node --experimental-strip-types scripts/bench/preview-cache-scaling.ts --out <file>."],
+      "expected": [
+        "Cleanup cost grows linearly with the file count and is reported separately from cached reloads and clean parses, with dataset and host."
+      ],
+      "evidence": ["measurement report"],
+      "budgetMs": 120000
     }
   ],
   "metrics": "quality-performance.json"

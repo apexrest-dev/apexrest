@@ -321,9 +321,12 @@ export function loadApplication(root: string, deployment = 'default', cache?: Ap
   const pages = new Map<string, ApxComponent>();
   const shared: ApxComponent[] = [];
   let app: ApxComponent | undefined;
-  for (const file of files) {
-    // Component files use '/' on every platform; diagnostics and lint messages print them.
-    const relative = path.relative(root, file).split(path.sep).join('/');
+  // Component files use '/' on every platform; diagnostics and lint messages print them. Each
+  // relative path is computed once and kept in a set, so cache cleanup is linear in the file count.
+  const relatives = files.map((file) => path.relative(root, file).split(path.sep).join('/'));
+  const present = new Set(relatives);
+  for (const [index, file] of files.entries()) {
+    const relative = relatives[index]!;
     const info = cache ? fs.statSync(file) : undefined;
     const key = info ? `${info.size}:${info.mtimeMs}:${JSON.stringify(substitutions)}` : '';
     const cached = cache?.get(relative);
@@ -336,10 +339,7 @@ export function loadApplication(root: string, deployment = 'default', cache?: Ap
       else shared.push(component);
     }
   }
-  if (cache)
-    for (const relative of [...cache.keys()])
-      if (!files.some((file) => path.relative(root, file).split(path.sep).join('/') === relative))
-        cache.delete(relative);
+  if (cache) for (const relative of [...cache.keys()]) if (!present.has(relative)) cache.delete(relative);
   if (!app) throw new Error(`${appFile} does not declare an app component`);
   // Oracle also permits pages directly inside the app. Keep their original AST ownership;
   // index them once, after root pages so existing root-page precedence is unchanged.

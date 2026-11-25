@@ -401,8 +401,10 @@ function loadApplication(root, deployment = "default", cache) {
   const pages = /* @__PURE__ */ new Map();
   const shared = [];
   let app;
-  for (const file of files) {
-    const relative = path.relative(root, file).split(path.sep).join("/");
+  const relatives = files.map((file) => path.relative(root, file).split(path.sep).join("/"));
+  const present = new Set(relatives);
+  for (const [index, file] of files.entries()) {
+    const relative = relatives[index];
     const info = cache ? fs.statSync(file) : void 0;
     const key = info ? `${info.size}:${info.mtimeMs}:${JSON.stringify(substitutions)}` : "";
     const cached = cache?.get(relative);
@@ -415,9 +417,7 @@ function loadApplication(root, deployment = "default", cache) {
     }
   }
   if (cache) {
-    for (const relative of [...cache.keys()])
-      if (!files.some((file) => path.relative(root, file).split(path.sep).join("/") === relative))
-        cache.delete(relative);
+    for (const relative of [...cache.keys()]) if (!present.has(relative)) cache.delete(relative);
   }
   if (!app) throw new Error(`${appFile} does not declare an app component`);
   for (const child of app.children)

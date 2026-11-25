@@ -1260,6 +1260,19 @@
         "tests/unit/preview-review.test.ts"
       ],
       "blocker": "Local repository tests. The Review panel buttons have not been observed in a browser."
+    },
+    {
+      "id": "FASTDEV-V07",
+      "criterion": "Preview parse-cache eviction uses constant-time membership per cached entry with paths computed once, cached and clean loads stay equivalent across modify, add, rename, delete and older timestamps, and a manually invoked synthetic measurement reports cleanup scaling separately from parsing",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/preview/apexlang.ts",
+        "tests/unit/preview-source-index.test.ts",
+        "scripts/bench/preview-cache-scaling.ts",
+        "docs/evidence/fast-dev/preview-cache-scaling-2026-11-25.json"
+      ],
+      "blocker": "Measured on one synthetic dataset and host (Linux, Node 26.12); no general speedup is claimed. Windows paths are covered by the unchanged normalization, not by a Windows run."
     }
   ]
 }

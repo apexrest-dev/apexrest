@@ -5,13 +5,13 @@ import {
   renderProcess,
   scaffoldSchema,
   validateSpec
-} from "./chunk-2ZCBZPPJ.mjs";
+} from "./chunk-WSDMLCUV.mjs";
 import {
   declarations,
   editSpans,
   get,
   parseApexLang
-} from "./chunk-J7SOVXCF.mjs";
+} from "./chunk-7NEUIVN5.mjs";
 import {
   resourceRoot,
   sourceRelease

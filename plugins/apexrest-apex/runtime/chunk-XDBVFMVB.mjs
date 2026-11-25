@@ -2,10 +2,10 @@ import { createRequire as __createRequire } from 'node:module'; const require = 
 import {
   deploymentBinding,
   verifyDeploymentPredicates
-} from "./chunk-VN3PQCGH.mjs";
+} from "./chunk-QREGOPY7.mjs";
 import {
   parseApexLang
-} from "./chunk-J7SOVXCF.mjs";
+} from "./chunk-7NEUIVN5.mjs";
 import {
   APEXLANG_EQUIVALENCE_POLICY,
   LocalDeploymentControl,
@@ -4105,7 +4105,7 @@ async function loadRelated(ctx, key) {
   const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   let file;
   if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
-  else if (kind === "lov") file = await (await import("./chunk-DM64WJOW.mjs")).lovFile(ctx, id).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-LFYLWQME.mjs")).lovFile(ctx, id).catch(() => void 0);
   if (!file) return void 0;
   const text2 = await readFile5(file, "utf8");
   const parsed = parseApexLang(text2, "related").find(

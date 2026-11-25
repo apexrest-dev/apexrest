@@ -4,10 +4,10 @@ import {
   insertComponents,
   pageContext,
   patchPage
-} from "./chunk-YTZIT5VI.mjs";
+} from "./chunk-UZOTVD46.mjs";
 import {
   schemas
-} from "./chunk-DVIG3GUA.mjs";
+} from "./chunk-73RSGHB4.mjs";
 import {
   browserPreferences
 } from "./chunk-O7MNIZXK.mjs";
@@ -29,7 +29,7 @@ import {
   lovContext,
   lovEdit,
   lovFile
-} from "./chunk-6ZXILPSY.mjs";
+} from "./chunk-HWAIRICD.mjs";
 import {
   DeploymentService,
   deployPlanSchema,
@@ -42,7 +42,7 @@ import {
   sourceInventory,
   sourceRevision,
   undoEdit
-} from "./chunk-IUSD7CWG.mjs";
+} from "./chunk-XDBVFMVB.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -52,13 +52,13 @@ import {
   metadataRead,
   oracleType,
   readMetadataBatch
-} from "./chunk-VN3PQCGH.mjs";
+} from "./chunk-QREGOPY7.mjs";
 import {
   scaffoldSpec
-} from "./chunk-L7WGGCLG.mjs";
+} from "./chunk-WCK2TJYC.mjs";
 import {
   scaffoldSchema
-} from "./chunk-2ZCBZPPJ.mjs";
+} from "./chunk-WSDMLCUV.mjs";
 import {
   CODE_LIMIT,
   LocalDeploymentControl,
@@ -4335,7 +4335,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-PJUL4H3T.mjs");
+      const { previewDispatch } = await import("./chunk-CVZGN3D2.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4377,17 +4377,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-X4E2PHZC.mjs");
+        const { setup } = await import("./chunk-X7MQSHS7.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-X4E2PHZC.mjs");
+        const { validateNative } = await import("./chunk-X7MQSHS7.mjs");
         data = await validateNative(text2("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-X4E2PHZC.mjs");
+        const { uninstallNative } = await import("./chunk-X7MQSHS7.mjs");
         data = await uninstallNative(text2("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text2("codex") ? { codex: text2("codex") } : {}
         });
@@ -4401,7 +4401,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
         );
         break;
       case "project.scaffold": {
-        const { scaffold } = await import("./chunk-NZTI2FFR.mjs");
+        const { scaffold } = await import("./chunk-XYCHTG7X.mjs");
         data = await scaffold(await loadProject(root), text2("specFile"), text2("env"));
         break;
       }
