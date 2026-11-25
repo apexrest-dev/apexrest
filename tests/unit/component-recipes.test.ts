@@ -22,78 +22,105 @@ async function files(directory: string, prefix = ''): Promise<string[]> {
   }
   return output.sort();
 }
-async function load() {
+async function load(root = path.resolve('resources/components')) {
   return {
     registry: JSON.parse(await readFile(path.join(root, 'recipes/registry.json'), 'utf8')),
     evidence: JSON.parse(await readFile(path.join(root, 'recipes/compiler-evidence.json'), 'utf8')),
   };
 }
 
-test('every ready component recipe is bound to real, warning-free compiler evidence and its complete current inputs', async () => {
-  const { registry, evidence } = await load();
-  assert.equal(evidence.mock, false);
-  assert.equal(evidence.mmdVersion, registry.mmdVersion);
-  assert.equal(registry.compilerVersion, 'SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620');
-  assert.equal(evidence.compiler, registry.compilerVersion);
-  const scaffold: Record<string, string> = {};
-  for (const file of await files(path.join(root, registry.scaffold.directory)))
-    scaffold[file] = sha(await readFile(path.join(root, registry.scaffold.directory, file)));
-  assert.deepEqual(evidence.scaffoldFiles, sorted(scaffold));
-  assert.equal(evidence.scaffoldSha256, sha(JSON.stringify(sorted(scaffold))));
-  const ids = new Set<string>();
-  for (const recipe of registry.recipes) {
-    assert.equal(ids.has(recipe.id), false, recipe.id);
-    ids.add(recipe.id);
-    if (recipe.provenance) {
-      assert.deepEqual(recipe.sourcePageIds, [], `${recipe.id}: external sources are not captured UT pages`);
-      assert.match(recipe.provenance.sourceSha256, /^[a-f0-9]{64}$/);
-    } else assert.ok(recipe.sourcePageIds.length, recipe.id);
-    for (const kind of ['sql', 'import', 'browser'])
-      assert.equal(recipe.verification[kind], 'not-run', `${recipe.id}: compiler cannot assert ${kind}`);
-    if (recipe.readiness !== 'ready') {
-      assert.ok(recipe.reason?.length > 20, `${recipe.id}: unresolved needs a concrete reason`);
-      continue;
+for (const catalog of ['resources/components', 'resources/components-26.2'])
+  test(`every ready ${catalog} recipe is bound to real, warning-free compiler evidence and its complete current inputs`, async () => {
+    const root = path.resolve(catalog);
+    const { registry, evidence } = await load(root);
+    if (catalog.endsWith('26.2')) {
+      // 26.2 recipes carry 26.2 evidence only, from the pinned upstream reference application.
+      assert.equal(registry.apexVersion, '26.2');
+      assert.match(registry.mmdVersion, /^26\.2\./);
+      assert.equal(registry.upstream.commit, 'fbe095e4c6e783b3fa930ffae927e4826e549190');
+      assert.equal(registry.upstream.license, 'UPL-1.0');
+      for (const recipe of registry.recipes) {
+        const provenance = recipe.provenance;
+        assert.deepEqual(recipe.sourcePageIds, [], recipe.id);
+        assert.equal(provenance.repository, 'https://github.com/oracle/apex', recipe.id);
+        assert.equal(
+          provenance.sourceUrl,
+          `${provenance.repository}/blob/${provenance.commit}/${provenance.path}`,
+        );
+        assert.match(provenance.sourceSha256, /^[a-f0-9]{64}$/);
+        assert.equal(provenance.license, 'UPL-1.0', recipe.id);
+        assert.ok(provenance.derivation.length > 10, recipe.id);
+        assert.equal(recipe.provenance.commit, registry.upstream.commit, recipe.id);
+        assert.equal(recipe.readiness, 'ready', recipe.id);
+      }
     }
-    assert.equal(recipe.verification.compiler.status, 'passed', recipe.id);
-    const run = evidence.runs.find((entry: any) => entry.recipeId === recipe.id);
-    assert.ok(run, recipe.id);
-    assert.equal(run.passed, true, recipe.id);
-    assert.equal(run.exitCode, 0, recipe.id);
-    assert.equal(run.inputUnchanged, true, recipe.id);
-    assert.match(run.output, /Validation successful/);
-    assert.doesNotMatch(run.output, /\b(?:Warning|Error):|ORA-\d{5}/i);
-    const current = { ...scaffold };
-    const directory = path.join(root, recipe.directory);
-    assert.deepEqual(
-      await files(directory),
-      [...recipe.files].sort(),
-      `${recipe.id}: all shipped overlay files must be declared`,
-    );
-    for (const file of recipe.files) {
-      assert.equal(path.isAbsolute(file), false);
-      assert.equal(file.split('/').includes('..'), false);
-      current[file] = sha(await readFile(path.join(directory, file)));
+    assert.equal(evidence.mock, false);
+    assert.equal(evidence.mmdVersion, registry.mmdVersion);
+    assert.equal(registry.compilerVersion, 'SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620');
+    assert.equal(evidence.compiler, registry.compilerVersion);
+    const scaffold: Record<string, string> = {};
+    for (const file of await files(path.join(root, registry.scaffold.directory)))
+      scaffold[file] = sha(await readFile(path.join(root, registry.scaffold.directory, file)));
+    assert.deepEqual(evidence.scaffoldFiles, sorted(scaffold));
+    assert.equal(evidence.scaffoldSha256, sha(JSON.stringify(sorted(scaffold))));
+    const ids = new Set<string>();
+    for (const recipe of registry.recipes) {
+      assert.equal(ids.has(recipe.id), false, recipe.id);
+      ids.add(recipe.id);
+      if (recipe.provenance) {
+        assert.deepEqual(
+          recipe.sourcePageIds,
+          [],
+          `${recipe.id}: external sources are not captured UT pages`,
+        );
+        assert.match(recipe.provenance.sourceSha256, /^[a-f0-9]{64}$/);
+      } else assert.ok(recipe.sourcePageIds.length, recipe.id);
+      for (const kind of ['sql', 'import', 'browser'])
+        assert.equal(recipe.verification[kind], 'not-run', `${recipe.id}: compiler cannot assert ${kind}`);
+      if (recipe.readiness !== 'ready') {
+        assert.ok(recipe.reason?.length > 20, `${recipe.id}: unresolved needs a concrete reason`);
+        continue;
+      }
+      assert.equal(recipe.verification.compiler.status, 'passed', recipe.id);
+      const run = evidence.runs.find((entry: any) => entry.recipeId === recipe.id);
+      assert.ok(run, recipe.id);
+      assert.equal(run.passed, true, recipe.id);
+      assert.equal(run.exitCode, 0, recipe.id);
+      assert.equal(run.inputUnchanged, true, recipe.id);
+      assert.match(run.output, /Validation successful/);
+      assert.doesNotMatch(run.output, /\b(?:Warning|Error):|ORA-\d{5}/i);
+      const current = { ...scaffold };
+      const directory = path.join(root, recipe.directory);
+      assert.deepEqual(
+        await files(directory),
+        [...recipe.files].sort(),
+        `${recipe.id}: all shipped overlay files must be declared`,
+      );
+      for (const file of recipe.files) {
+        assert.equal(path.isAbsolute(file), false);
+        assert.equal(file.split('/').includes('..'), false);
+        current[file] = sha(await readFile(path.join(directory, file)));
+      }
+      assert.deepEqual(run.inputFiles, sorted(current), recipe.id);
+      const digest = sha(JSON.stringify(sorted(current)));
+      assert.equal(run.sourceSha256, digest, recipe.id);
+      assert.equal(recipe.verification.compiler.sourceSha256, digest, recipe.id);
+      assert.equal(
+        reusableCompilerRun({
+          recipe,
+          evidence,
+          run,
+          inputFiles: current,
+          scaffoldFiles: scaffold,
+          scaffoldSha256: evidence.scaffoldSha256,
+          compilerVersion: registry.compilerVersion,
+          mmdVersion: registry.mmdVersion,
+        }),
+        true,
+        recipe.id,
+      );
     }
-    assert.deepEqual(run.inputFiles, sorted(current), recipe.id);
-    const digest = sha(JSON.stringify(sorted(current)));
-    assert.equal(run.sourceSha256, digest, recipe.id);
-    assert.equal(recipe.verification.compiler.sourceSha256, digest, recipe.id);
-    assert.equal(
-      reusableCompilerRun({
-        recipe,
-        evidence,
-        run,
-        inputFiles: current,
-        scaffoldFiles: scaffold,
-        scaffoldSha256: evidence.scaffoldSha256,
-        compilerVersion: registry.compilerVersion,
-        mmdVersion: registry.mmdVersion,
-      }),
-      true,
-      recipe.id,
-    );
-  }
-});
+  });
 
 test('changed-only compilation rejects stale, malformed or warning-bearing cached evidence', async () => {
   const { registry, evidence } = await load();

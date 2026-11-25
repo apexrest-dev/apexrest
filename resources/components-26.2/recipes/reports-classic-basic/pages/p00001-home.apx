@@ -1,0 +1,122 @@
+page 1 (
+    name: Home
+    alias: HOME
+    title: Home
+    appearance {
+        pageTemplate: @/standard
+        templateOptions: #DEFAULT#
+    }
+
+    region app-name (
+        name: Home
+        title: &APP_TITLE.
+        type: staticContent
+        layout {
+            sequence: 10
+            slot: breadcrumbBar
+        }
+        appearance {
+            template: @/hero
+            templateOptions: #DEFAULT#
+        }
+        image {
+            fileUrl: #APP_FILES#icons/app-icon-512.png
+        }
+    )
+
+    region demo (
+        name: Demo
+        type: classicReport
+        source {
+            location: localDatabase
+            type: sqlQuery
+            sqlQuery:
+                ```sql
+                select 'Design review' as task_name, date '2026-01-05' as start_date, 'Open' as status, 'Ada' as assigned_to from dual
+                union all select 'Ship release', date '2026-02-10', 'Closed', 'Grace' from dual
+                union all select 'Write guide', date '2026-03-02', 'Pending', 'Linus' from dual
+                ```
+        }
+        layout {
+            sequence: 20
+            slot: body
+            columnSpan: 8
+        }
+        appearance {
+            template: @/content-block
+            templateOptions: [
+                #DEFAULT#
+                t-ContentBlock--h2
+                js-headingLevel-2
+            ]
+        }
+        advanced {
+            htmlDomId: Demo1
+            regionDisplaySelector: true
+        }
+        reportLayout {
+            numberOfRows: 6
+        }
+        componentAppearance {
+            template: @/standard
+            templateOptions: [
+                t-Report--stretch
+                #DEFAULT#
+                t-Report--altRowsDefault
+                t-Report--rowHighlight
+            ]
+            cssClasses: dm-TemplateOption-previewTarget
+            showNullValuesAs: -
+        }
+        pagination {
+            type: showAll
+            partialPageRefresh: false
+        }
+
+        column ASSIGNED_TO (
+            reportColumnQueryId: 4
+            derivedColumn: N
+            heading {
+                heading: Assigned to
+            }
+            layout {
+                sequence: 4
+            }
+        )
+
+        column START_DATE (
+            reportColumnQueryId: 2
+            derivedColumn: N
+            heading {
+                heading: Start date
+            }
+            layout {
+                sequence: 2
+            }
+        )
+
+        column STATUS (
+            reportColumnQueryId: 3
+            derivedColumn: N
+            heading {
+                heading: Status
+            }
+            layout {
+                sequence: 3
+            }
+        )
+
+        column TASK_NAME (
+            reportColumnQueryId: 1
+            derivedColumn: N
+            heading {
+                heading: Task name
+            }
+            layout {
+                sequence: 1
+            }
+        )
+
+    )
+
+)

@@ -1,0 +1,335 @@
+{
+  "schemaVersion": 1,
+  "apexVersion": "26.2",
+  "mmdVersion": "26.2.0+3479",
+  "compilerVersion": "SQLcl: Release 26.3.0.0 Production Build: 26.3.0.260.1620",
+  "scaffold": {
+    "directory": "recipes/_scaffold",
+    "source": "apexrest project init --template blank-app (26.2 profile)",
+    "scope": "Compilation fixture only; never replace an existing application authentication with this scaffold."
+  },
+  "upstream": {
+    "repository": "https://github.com/oracle/apex",
+    "branch": "26.2",
+    "commit": "fbe095e4c6e783b3fa930ffae927e4826e549190",
+    "path": "sample-apps/universal-theme-reference/apexlang/ut",
+    "license": "UPL-1.0"
+  },
+  "recipes": [
+    {
+      "id": "component:regions/content-block/recipes/regions-content-block-basic",
+      "componentId": "component:regions/content-block",
+      "title": "Content Block Region",
+      "aliases": [
+        "Content Block Region"
+      ],
+      "family": "regions",
+      "sourcePageIds": [],
+      "description": "Content Block Region from the Universal Theme 26.2 Reference application.",
+      "directory": "recipes/regions-content-block-basic",
+      "files": [
+        "pages/p00001-home.apx"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "static",
+        "tables": [],
+        "bindings": [],
+        "submittedItems": []
+      },
+      "adaptation": [
+        "Choose a free page number and keep the region id unique on the target page.",
+        "Preserve the target application authentication and authorization.",
+        "Replace the synthetic query with authorized project SQL that projects the same column names and types."
+      ],
+      "provenance": {
+        "sourceUrl": "https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01201-standard-region.apx",
+        "repository": "https://github.com/oracle/apex",
+        "commit": "fbe095e4c6e783b3fa930ffae927e4826e549190",
+        "path": "sample-apps/universal-theme-reference/apexlang/ut/pages/p01201-standard-region.apx",
+        "sourceSha256": "94d090ebc0eea668a843163d7dc542d4481e84803f5ae6e5d4815940786f243a",
+        "license": "UPL-1.0",
+        "derivation": "Region block copied unchanged."
+      },
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "df0d9fd19f30b9de57d30b1a833fe90960a8d19ce8b7bc7c4d197b1e9ba0e173",
+          "scaffoldSha256": "fba8bd6270f9d5a301f9c4dd4b4c4a89e52338e598fdb67b70d9f62b0dda041e",
+          "mmdVersion": "26.2.0+3479"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      }
+    },
+    {
+      "id": "component:regions/alert/recipes/regions-alert-basic",
+      "componentId": "component:regions/alert",
+      "title": "Alert Region",
+      "aliases": [
+        "Alert Region"
+      ],
+      "family": "regions",
+      "sourcePageIds": [],
+      "description": "Alert Region from the Universal Theme 26.2 Reference application.",
+      "directory": "recipes/regions-alert-basic",
+      "files": [
+        "pages/p00001-home.apx"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "static",
+        "tables": [],
+        "bindings": [],
+        "submittedItems": []
+      },
+      "adaptation": [
+        "Choose a free page number and keep the region id unique on the target page.",
+        "Preserve the target application authentication and authorization.",
+        "Replace the synthetic query with authorized project SQL that projects the same column names and types."
+      ],
+      "provenance": {
+        "sourceUrl": "https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01202-alert-region.apx",
+        "repository": "https://github.com/oracle/apex",
+        "commit": "fbe095e4c6e783b3fa930ffae927e4826e549190",
+        "path": "sample-apps/universal-theme-reference/apexlang/ut/pages/p01202-alert-region.apx",
+        "sourceSha256": "9318c569ea67506705425b092de4f346e741df41c396e2cc387e067e5db199f1",
+        "license": "UPL-1.0",
+        "derivation": "Moved from its upstream parent region to page level."
+      },
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "d4e309ccb9140a1dc1fac4a58483e375ca30343b6d9d1b99df19daf2634e4ab5",
+          "scaffoldSha256": "fba8bd6270f9d5a301f9c4dd4b4c4a89e52338e598fdb67b70d9f62b0dda041e",
+          "mmdVersion": "26.2.0+3479"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      }
+    },
+    {
+      "id": "component:reports/classic-report/recipes/reports-classic-basic",
+      "componentId": "component:reports/classic-report",
+      "title": "Classic Report",
+      "aliases": [
+        "Classic Report"
+      ],
+      "family": "reports",
+      "sourcePageIds": [],
+      "description": "Classic Report from the Universal Theme 26.2 Reference application.",
+      "directory": "recipes/reports-classic-basic",
+      "files": [
+        "pages/p00001-home.apx"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "synthetic",
+        "tables": [],
+        "bindings": [],
+        "submittedItems": [],
+        "columns": [
+          "TASK_NAME",
+          "START_DATE",
+          "STATUS",
+          "ASSIGNED_TO"
+        ]
+      },
+      "adaptation": [
+        "Choose a free page number and keep the region id unique on the target page.",
+        "Preserve the target application authentication and authorization.",
+        "Replace the synthetic query with authorized project SQL that projects the same column names and types."
+      ],
+      "provenance": {
+        "sourceUrl": "https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01401-standard-reports.apx",
+        "repository": "https://github.com/oracle/apex",
+        "commit": "fbe095e4c6e783b3fa930ffae927e4826e549190",
+        "path": "sample-apps/universal-theme-reference/apexlang/ut/pages/p01401-standard-reports.apx",
+        "sourceSha256": "313570a6d93c479edc47c37033a6890c555c7855170073542b17ff5220de9e6e",
+        "license": "UPL-1.0",
+        "derivation": "Replaced the query on reference-app demo tables with self-contained synthetic SQL projecting the same columns."
+      },
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "da5d55d0d5f537d0ab192b194d8f4d8315f8250f0c0ed8b0b06be8443c6dd953",
+          "scaffoldSha256": "fba8bd6270f9d5a301f9c4dd4b4c4a89e52338e598fdb67b70d9f62b0dda041e",
+          "mmdVersion": "26.2.0+3479"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      }
+    },
+    {
+      "id": "component:reports/interactive-report/recipes/reports-interactive-basic",
+      "componentId": "component:reports/interactive-report",
+      "title": "Interactive Report",
+      "aliases": [
+        "Interactive Report"
+      ],
+      "family": "reports",
+      "sourcePageIds": [],
+      "description": "Interactive Report from the Universal Theme 26.2 Reference application.",
+      "directory": "recipes/reports-interactive-basic",
+      "files": [
+        "pages/p00001-home.apx"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "synthetic",
+        "tables": [],
+        "bindings": [],
+        "submittedItems": [],
+        "columns": [
+          "TASK_NAME",
+          "START_DATE",
+          "STATUS",
+          "ASSIGNED_TO"
+        ]
+      },
+      "adaptation": [
+        "Choose a free page number and keep the region id unique on the target page.",
+        "Preserve the target application authentication and authorization.",
+        "Replace the synthetic query with authorized project SQL that projects the same column names and types."
+      ],
+      "provenance": {
+        "sourceUrl": "https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01402-interactive-report.apx",
+        "repository": "https://github.com/oracle/apex",
+        "commit": "fbe095e4c6e783b3fa930ffae927e4826e549190",
+        "path": "sample-apps/universal-theme-reference/apexlang/ut/pages/p01402-interactive-report.apx",
+        "sourceSha256": "82bb3699256630f4587e4ff56fc987f7725528623dab4857f6014cd185180802",
+        "license": "UPL-1.0",
+        "derivation": "Replaced the query on reference-app demo tables with self-contained synthetic SQL projecting the same columns. Moved from its upstream parent region to page level."
+      },
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "cc1d54311376da5711a200f2f1224d54bb3e24a7334b8b4975e2b3c4a97a63a5",
+          "scaffoldSha256": "fba8bd6270f9d5a301f9c4dd4b4c4a89e52338e598fdb67b70d9f62b0dda041e",
+          "mmdVersion": "26.2.0+3479"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      }
+    },
+    {
+      "id": "component:regions/cards/recipes/regions-cards-badges",
+      "componentId": "component:regions/cards",
+      "title": "Cards Region with Badges",
+      "aliases": [
+        "Cards Region with Badges"
+      ],
+      "family": "regions",
+      "sourcePageIds": [],
+      "description": "Cards Region with Badges from the Universal Theme 26.2 Reference application.",
+      "directory": "recipes/regions-cards-badges",
+      "files": [
+        "pages/p00001-home.apx"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "synthetic",
+        "tables": [],
+        "bindings": [],
+        "submittedItems": [],
+        "columns": [
+          "ID",
+          "TITLE",
+          "SUBTITLE",
+          "BODY",
+          "SECONDARY_BODY",
+          "ICON_CLASS",
+          "BADGE"
+        ]
+      },
+      "adaptation": [
+        "Choose a free page number and keep the region id unique on the target page.",
+        "Preserve the target application authentication and authorization.",
+        "Replace the synthetic query with authorized project SQL that projects the same column names and types."
+      ],
+      "provenance": {
+        "sourceUrl": "https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p03110-card-regions.apx",
+        "repository": "https://github.com/oracle/apex",
+        "commit": "fbe095e4c6e783b3fa930ffae927e4826e549190",
+        "path": "sample-apps/universal-theme-reference/apexlang/ut/pages/p03110-card-regions.apx",
+        "sourceSha256": "a9699149abd0844a8e41fb0542504ae72dc405de867735c2151ba380c3f5f085",
+        "license": "UPL-1.0",
+        "derivation": "Replaced the query on reference-app demo tables with self-contained synthetic SQL projecting the same columns. Moved from its upstream parent region to page level."
+      },
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "bf19fbfb250de14431b22bce560cabb8ba21692aa15b9f67b91a94b004eb61fc",
+          "scaffoldSha256": "fba8bd6270f9d5a301f9c4dd4b4c4a89e52338e598fdb67b70d9f62b0dda041e",
+          "mmdVersion": "26.2.0+3479"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      }
+    },
+    {
+      "id": "component:regions/chart/recipes/charts-bar-basic",
+      "componentId": "component:regions/chart",
+      "title": "Bar Chart",
+      "aliases": [
+        "Bar Chart"
+      ],
+      "family": "regions",
+      "sourcePageIds": [],
+      "description": "Bar Chart from the Universal Theme 26.2 Reference application.",
+      "directory": "recipes/charts-bar-basic",
+      "files": [
+        "pages/p00001-home.apx"
+      ],
+      "requires": [],
+      "dataContract": {
+        "source": "static",
+        "tables": [],
+        "bindings": [],
+        "submittedItems": []
+      },
+      "adaptation": [
+        "Choose a free page number and keep the region id unique on the target page.",
+        "Preserve the target application authentication and authorization.",
+        "Replace the synthetic query with authorized project SQL that projects the same column names and types."
+      ],
+      "provenance": {
+        "sourceUrl": "https://github.com/oracle/apex/blob/fbe095e4c6e783b3fa930ffae927e4826e549190/sample-apps/universal-theme-reference/apexlang/ut/pages/p01902-charts.apx",
+        "repository": "https://github.com/oracle/apex",
+        "commit": "fbe095e4c6e783b3fa930ffae927e4826e549190",
+        "path": "sample-apps/universal-theme-reference/apexlang/ut/pages/p01902-charts.apx",
+        "sourceSha256": "55e3a0e76868a00aea8a5e8991a40d5b2e56553aab62b46213cd60d15be54dfa",
+        "license": "UPL-1.0",
+        "derivation": "Moved from its upstream parent region to page level."
+      },
+      "readiness": "ready",
+      "verification": {
+        "compiler": {
+          "status": "passed",
+          "evidence": "recipes/compiler-evidence.json",
+          "sourceSha256": "2ef17311518cc8dd87c4b2c9d04186c7072103ce64a801c0ce11f1dd8bf972b3",
+          "scaffoldSha256": "fba8bd6270f9d5a301f9c4dd4b4c4a89e52338e598fdb67b70d9f62b0dda041e",
+          "mmdVersion": "26.2.0+3479"
+        },
+        "sql": "not-run",
+        "import": "not-run",
+        "browser": "not-run"
+      }
+    }
+  ]
+}

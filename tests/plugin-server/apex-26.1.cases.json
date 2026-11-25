@@ -1740,6 +1740,22 @@
       ],
       "evidence": ["sanitized result code", "specification digest", "compiler diagnostics count"],
       "budgetMs": 30000
+    },
+    {
+      "id": "A261-083",
+      "title": "Qualified 26.2 component recipes",
+      "acceptance": ["FASTDEV-A12"],
+      "execution": "harness",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run scripts/verify-component-recipes.mjs --catalog=resources/components-26.2 with the pinned SQLcl."
+      ],
+      "expected": [
+        "Every 26.2 recipe passes without warnings; evidence binds recipe and scaffold bytes, compiler and 26.2 MMD; provenance pins the upstream commit."
+      ],
+      "evidence": ["compiler-evidence.json", "registry provenance"],
+      "budgetMs": 120000
     }
   ],
   "metrics": "quality-performance.json"

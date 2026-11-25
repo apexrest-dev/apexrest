@@ -1154,6 +1154,19 @@
         "docs/evidence/fast-dev/recipes-compiler-2026-11-25.json"
       ],
       "blocker": "Repository tests and the offline Oracle compiler (26.2) pass for report-form and filtered-dashboard; repetition is byte-stable. Native import and browser behaviour are not yet observed."
+    },
+    {
+      "id": "FASTDEV-A12",
+      "criterion": "A bounded APEX 26.2 component recipe catalog adapted from the pinned Universal Theme 26.2 Reference application records provenance, digests, license and dependencies, and every recipe compiles warning-free in a complete 26.2 application with the pinned toolchain, without reusing 26.1 evidence",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "resources/components-26.2/recipes/registry.json",
+        "resources/components-26.2/recipes/compiler-evidence.json",
+        "scripts/intake-component-recipes-262.mjs",
+        "tests/unit/component-recipes.test.ts"
+      ],
+      "blocker": "Six recipes are compiler-qualified for 26.2. Native import and browser behaviour are not observed, and forms, items, buttons and lists are not yet in the 26.2 set."
     }
   ]
 }

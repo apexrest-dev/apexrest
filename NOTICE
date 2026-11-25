@@ -43,6 +43,10 @@ The full notice is retained at resources/components/recipes/internet-error-shiel
 The SLA monitor recipe is an original adaptation of
 akashkataria766/Public-Grievance-Redressal-System, Copyright (c) 2026 Aakash, MIT.
 The full notice is retained at resources/components/recipes/internet-sla-monitor/LICENSE.txt.
+APEX 26.2 component recipes in resources/components-26.2 are adapted from Oracle's
+Universal Theme 26.2 Reference application (github.com/oracle/apex, commit
+fbe095e4c6e783b3fa930ffae927e4826e549190). Copyright (c) 2025 Oracle, UPL-1.0.
+The full license is retained at resources/components-26.2/LICENSE.txt.
 Referenced Oracle documents retain their own notices; raw reference-app exports,
 private deployment configuration and the Oracle compiler bundle are not included.
 Oracle-generated blank-app files retain their original headers and MMD metadata.
