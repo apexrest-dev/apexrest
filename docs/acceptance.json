@@ -1302,6 +1302,19 @@
         "docs/evidence/fast-dev/preview-load-phases-2026-11-25.json"
       ],
       "blocker": "Measured on one dataset and host. Application lint, the shared-component file check and renderer setup stay global."
+    },
+    {
+      "id": "FASTDEV-V10",
+      "criterion": "Asset-only preview changes reach the browser: live events carry an event sequence separate from the source revision, so JavaScript and image edits reload, CSS swaps in place, duplicates and late events are ignored, reconnects converge and unsaved work stays protected",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/preview/server.ts",
+        "packages/core/src/preview/live.ts",
+        "packages/core/src/preview/extensions/live.ts",
+        "tests/unit/preview-live.test.ts"
+      ],
+      "blocker": "Defect reproduced in repository protocol fixtures and fixed. No real-browser qualification was run."
     }
   ]
 }

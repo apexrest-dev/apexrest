@@ -1932,6 +1932,22 @@
       ],
       "evidence": ["measurement report"],
       "budgetMs": 300000
+    },
+    {
+      "id": "A261-094",
+      "title": "Asset-only live updates",
+      "acceptance": ["FASTDEV-V10"],
+      "execution": "harness",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Open a preview page and edit a JavaScript file, an image, a stylesheet, and a JavaScript file together with a page source."
+      ],
+      "expected": [
+        "Each change reaches the open page without an unrelated APEXlang edit: reload for JavaScript, images and source, an in-place stylesheet swap for CSS; repeated events change nothing and unsaved forms are not reloaded."
+      ],
+      "evidence": ["live event payloads", "browser-visible result"],
+      "budgetMs": 30000
     }
   ],
   "metrics": "quality-performance.json"

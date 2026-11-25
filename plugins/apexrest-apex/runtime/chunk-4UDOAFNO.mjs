@@ -4814,6 +4814,7 @@ var LiveHub = class {
   #onSource;
   #onDirty;
   #revision;
+  #sequence;
   /**
    * `onDirty` runs on every relevant file event, before the debounce, so a request in between
    * re-reads the sources. `onSource` re-reads them after the burst and returns the message to send
@@ -4825,6 +4826,7 @@ var LiveHub = class {
     this.#onSource = options3.onSource;
     this.#onDirty = options3.onDirty ?? (() => void 0);
     this.#revision = options3.revision ?? (() => 0);
+    this.#sequence = options3.sequence ?? (() => 0);
   }
   /** Whether file events are being received; without them requests rescan the sources. */
   get watching() {
@@ -4858,7 +4860,12 @@ var LiveHub = class {
     client = { connection, session, page: page2, tab };
     this.#clients.add(client);
     this.#watch();
-    connection.send({ type: "hello", data: this.data, revision: this.#revision() });
+    connection.send({
+      type: "hello",
+      data: this.data,
+      revision: this.#revision(),
+      sequence: this.#sequence()
+    });
     this.#presence();
   }
   /** Tells every page which tables changed; returns the tables that were sent. */
@@ -17764,12 +17771,12 @@ function page(renderer, ctx) {
   ctx.onload.push(`apexLocal.live.start(${JSON.stringify(config).replaceAll("<", "\\u003c")});`);
 }
 var toolbar = () => '<button type="button" class="apex-local-tb-button apex-local-live" data-apex-local-live title="Live updates over WebSocket: connecting"><span class="apex-local-live-dot is-wait" aria-hidden="true"></span><span class="apex-local-tb-label">Live</span><span class="apex-local-badge is-info apex-local-live-count" hidden></span></button>';
-var CLIENT3 = String.raw`
+var LIVE_CLIENT = String.raw`
 apexLocal.live = (function ($) {
   "use strict";
   var KEY = "apexLocal.live", SCROLL = "apexLocal.live.scroll", GAP = 800;
   var state = { on: true, socket: null, connected: false, wasConnected: false, retry: 0, timer: 0,
-    data: true, expired: false, page: "", regions: {}, viewers: 0, sessions: 0, users: [], revision: -1 };
+    data: true, expired: false, page: "", regions: {}, viewers: 0, sessions: 0, users: [], revision: -1, sequence: -1 };
   var queue = {};
   // Requests of this tab carry its id, so its own changes are told apart from other tabs'.
   var TAB = Math.random().toString(36).slice(2, 10);
@@ -17925,9 +17932,16 @@ apexLocal.live = (function ($) {
     location.reload();
   }
 
-  // Source notifications carry the server's source revision: an older or repeated one is ignored,
-  // and a reload reaches only the pages it affects ("all" when the scope is uncertain).
+  // Source notifications carry an event sequence (and the source revision, which an asset-only
+  // change keeps): an older or repeated event is ignored, and a reload reaches only the pages it
+  // affects ("all" when the scope is uncertain). Servers without a sequence use the revision.
   function newer(message) {
+    if (typeof message.sequence === "number") {
+      if (message.sequence <= state.sequence) return false;
+      state.sequence = message.sequence;
+      if (typeof message.revision === "number") state.revision = Math.max(state.revision, message.revision);
+      return true;
+    }
     if (typeof message.revision !== "number") return true;
     if (message.revision <= state.revision) return false;
     state.revision = message.revision;
@@ -17951,6 +17965,7 @@ apexLocal.live = (function ($) {
     else reload();
   }
   function stylesheetChanged(message) {
+    if (!newer(message)) return;
     var name = String(message.file || "");
     var links = Array.prototype.filter.call(document.querySelectorAll('link[rel="stylesheet"]'), function (link) {
       try { return name && new URL(link.href).pathname.slice(-name.length - 1) === "/" + name; } catch (e) { return false; }
@@ -17972,12 +17987,16 @@ apexLocal.live = (function ($) {
     try { message = JSON.parse(event.data); } catch (e) { return; }
     if (message.type === "hello") {
       state.data = !!message.data;
-      // A page rendered before a reconnect learns the server's revision now; a newer one means
-      // it missed a source change while disconnected.
-      if (typeof message.revision === "number") {
+      // A page rendered before a reconnect learns the server's event sequence now; a newer one means
+      // it missed a source or asset change while disconnected.
+      if (typeof message.sequence === "number") {
+        if (state.wasConnected && message.sequence > state.sequence) { state.sequence = message.sequence - 1; sourceChanged({ sequence: message.sequence, pages: "all" }); }
+        state.sequence = Math.max(state.sequence, message.sequence);
+      } else if (typeof message.revision === "number") {
         if (state.wasConnected && message.revision > state.revision) { state.revision = message.revision - 1; sourceChanged({ revision: message.revision, pages: "all" }); }
         state.revision = Math.max(state.revision, message.revision);
       }
+      if (typeof message.revision === "number") state.revision = Math.max(state.revision, message.revision);
       // Changes made while the socket was down were missed: bring every followed region up to date.
       // Only after hello, which a server that no longer knows this session never sends.
       if (state.wasConnected && state.data) Object.keys(state.regions).forEach(function (id) {
@@ -18079,7 +18098,7 @@ var CSS2 = `
 @media (prefers-reduced-motion:reduce){.apex-local-live-dot.is-live,.apex-local-live-flash,.apex-local-live-toast{animation:none}}
 @media print{.apex-local-live-toasts{display:none}}
 `;
-registerExtension({ name: "live", page, toolbar, client: CLIENT3, css: CSS2 });
+registerExtension({ name: "live", page, toolbar, client: LIVE_CLIENT, css: CSS2 });
 
 // packages/core/src/preview/extensions/platform/store.ts
 var WORKSPACE = "PREVIEW";
@@ -28236,7 +28255,7 @@ registerStubs({
     fn: (_args, rt) => rt ? text10(ajaxForms.get(rt.ctx)?.get("p_widget_name")) : null
   }
 });
-var CLIENT4 = String.raw`
+var CLIENT3 = String.raw`
 (function ($) {
   "use strict";
   var base = location.pathname.replace(/\/[^/]*$/, "");
@@ -28254,7 +28273,7 @@ registerExtension({
   regions: { plugin: (renderer, ctx, region) => renderRegion(renderer, ctx, region) },
   items: { plugin: (renderer, ctx, item2, name, value2) => renderItem(renderer, ctx, item2, name, value2) },
   routes: { "plugins.ajax": ajax2 },
-  client: CLIENT4
+  client: CLIENT3
 });
 
 // packages/core/src/preview/extensions/server.ts
@@ -33337,6 +33356,8 @@ var PreviewServer = class {
   /** Set by the watcher before its debounce; a request then re-reads the sources. */
   #dirty = false;
   #lastScan = 0;
+  /** Live reload/stylesheet event sequence (see `#sourceMessage`). */
+  #sequence = 0;
   /** Phase timings of the last successful load. */
   loadTimings;
   #loadError;
@@ -33364,6 +33385,7 @@ var PreviewServer = class {
         sourceDir: this.options.sourceDir,
         data: !options3.oracle && this.db.trackWrites(),
         revision: () => this.#revision,
+        sequence: () => this.#sequence,
         onDirty: () => {
           this.#dirty = true;
         },
@@ -33506,17 +33528,34 @@ var PreviewServer = class {
       return { files, pages: "all" };
     }
   }
-  /** The live message for a watched change: reload affected pages, swap a stylesheet, or an error. */
+  /**
+   * The live message for a watched change: reload affected pages, swap a stylesheet, or an error.
+   * `revision` is the parsed-source revision; `sequence` numbers every reload or stylesheet event,
+   * so an asset-only change (JavaScript, images: the source revision stays the same) is still newer
+   * to the browser, while a repeated or older event is ignored.
+   */
   #sourceMessage(file) {
     const result = this.#refresh();
     if (this.#loadError)
       return { type: "source-error", message: this.#loadError, revision: this.#revision, stale: true };
-    if (result) return { type: "reload", revision: this.#revision, ...result };
+    if (result) return { type: "reload", revision: this.#revision, sequence: ++this.#sequence, ...result };
     const parts = file.split(path15.sep);
     const index = parts.indexOf("static-files");
     if (index >= 0 && file.endsWith(".css"))
-      return { type: "stylesheet", file: parts.slice(index + 1).join("/"), revision: this.#revision };
-    if (index >= 0) return { type: "reload", revision: this.#revision, files: [file], pages: "all" };
+      return {
+        type: "stylesheet",
+        file: parts.slice(index + 1).join("/"),
+        revision: this.#revision,
+        sequence: ++this.#sequence
+      };
+    if (index >= 0)
+      return {
+        type: "reload",
+        revision: this.#revision,
+        sequence: ++this.#sequence,
+        files: [file],
+        pages: "all"
+      };
     return void 0;
   }
   /** Source revision of the current renderer (successful loads since start). */

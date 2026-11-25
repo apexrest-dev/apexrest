@@ -217,6 +217,8 @@ export class PreviewServer {
   /** Set by the watcher before its debounce; a request then re-reads the sources. */
   #dirty = false;
   #lastScan = 0;
+  /** Live reload/stylesheet event sequence (see `#sourceMessage`). */
+  #sequence = 0;
   /** Phase timings of the last successful load. */
   loadTimings: LoadTimings | undefined;
   #loadError?: string | undefined;
@@ -251,6 +253,7 @@ export class PreviewServer {
         sourceDir: this.options.sourceDir,
         data: !options.oracle && this.db.trackWrites(),
         revision: () => this.#revision,
+        sequence: () => this.#sequence,
         onDirty: () => {
           this.#dirty = true;
         },
@@ -410,17 +413,34 @@ export class PreviewServer {
     }
   }
 
-  /** The live message for a watched change: reload affected pages, swap a stylesheet, or an error. */
+  /**
+   * The live message for a watched change: reload affected pages, swap a stylesheet, or an error.
+   * `revision` is the parsed-source revision; `sequence` numbers every reload or stylesheet event,
+   * so an asset-only change (JavaScript, images: the source revision stays the same) is still newer
+   * to the browser, while a repeated or older event is ignored.
+   */
   #sourceMessage(file: string): Record<string, unknown> | undefined {
     const result = this.#refresh();
     if (this.#loadError)
       return { type: 'source-error', message: this.#loadError, revision: this.#revision, stale: true };
-    if (result) return { type: 'reload', revision: this.#revision, ...result };
+    if (result) return { type: 'reload', revision: this.#revision, sequence: ++this.#sequence, ...result };
     const parts = file.split(path.sep);
     const index = parts.indexOf('static-files');
     if (index >= 0 && file.endsWith('.css'))
-      return { type: 'stylesheet', file: parts.slice(index + 1).join('/'), revision: this.#revision };
-    if (index >= 0) return { type: 'reload', revision: this.#revision, files: [file], pages: 'all' };
+      return {
+        type: 'stylesheet',
+        file: parts.slice(index + 1).join('/'),
+        revision: this.#revision,
+        sequence: ++this.#sequence,
+      };
+    if (index >= 0)
+      return {
+        type: 'reload',
+        revision: this.#revision,
+        sequence: ++this.#sequence,
+        files: [file],
+        pages: 'all',
+      };
     return undefined;
   }
 

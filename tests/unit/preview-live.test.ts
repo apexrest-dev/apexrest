@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import vm from 'node:vm';
 import http from 'node:http';
 import path from 'node:path';
 import { PreviewServer } from '../../packages/core/src/preview/server.ts';
 import { acceptKey, encodeFrame, FrameReader } from '../../packages/core/src/preview/websocket.ts';
+import { LIVE_CLIENT } from '../../packages/core/src/preview/extensions/live.ts';
 import { serverRefs, withActions, workspace } from '../fixtures/preview.ts';
 
 const SEED = `create table tasks (
@@ -184,7 +186,7 @@ test('live preview maps regions to tables and pushes writes, presence and source
   const mine = socket(live, cookie, server.url);
   assert.equal(await mine.opened, true);
   t.after(() => mine.ws.close());
-  assert.deepEqual(await mine.next('hello'), { type: 'hello', data: true, revision: 0 });
+  assert.deepEqual(await mine.next('hello'), { type: 'hello', data: true, revision: 0, sequence: 0 });
   assert.equal((await mine.next('presence')).viewers, 1);
 
   // A second user in another session sees the first one's changes as someone else's.
@@ -272,4 +274,225 @@ test('connected mode keeps source reloads but pushes no data changes', async (t)
   assert.deepEqual(server.live.changed({ tables: ['sqlite_master', 'apex_local_sequences'], user: 'X' }), []);
   hub.close();
   server.db.close();
+});
+
+/** Runs the real live client against a fake socket: what a browser tab does with each message. */
+function liveTab(options: { dirty?: boolean; stylesheets?: string[] } = {}) {
+  const element = (): Record<string, unknown> => {
+    const node: Record<string, unknown> = {
+      classList: { add() {}, remove() {}, toggle() {} },
+      style: {},
+      children: [],
+      removeChild() {},
+      appendChild: (child: unknown) => child,
+      append() {},
+      addEventListener() {},
+      setAttribute() {},
+      remove() {},
+      querySelector: () => element(),
+    };
+    return node;
+  };
+  const swapped: string[] = [];
+  const links = (options.stylesheets ?? []).map((href) => ({
+    href: `http://preview.test/r/demo/files/static/v1/${href}`,
+    cloneNode() {
+      const next = { href: '', addEventListener() {}, remove() {} };
+      return next;
+    },
+    after(next: { href: string }) {
+      swapped.push(next.href);
+    },
+    remove() {},
+  }));
+  const toasts: string[] = [];
+  let reloads = 0;
+  const sockets: {
+    onmessage?: (event: { data: string }) => void;
+    onopen?: () => void;
+    onclose?: () => void;
+  }[] = [];
+  const document = {
+    body: element(),
+    querySelector: () => null,
+    querySelectorAll: () => links,
+    getElementById: () => null,
+    createElement: () => {
+      const node = element();
+      Object.defineProperty(node, 'textContent', { set: (text: string) => toasts.push(text), get: () => '' });
+      return node;
+    },
+  };
+  const jq = Object.assign(() => ({ on() {} }), { ajaxPrefilter() {} });
+  const window: Record<string, unknown> = {
+    fetch: async () => undefined,
+    localStorage: { getItem: () => null, setItem() {} },
+    sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    addEventListener() {},
+    scrollTo() {},
+    WebSocket: class {
+      constructor() {
+        sockets.push(this as never);
+      }
+      close() {}
+    },
+  };
+  const context = vm.createContext({
+    window,
+    document,
+    location: {
+      href: 'http://preview.test/r/demo/board',
+      pathname: '/r/demo/board',
+      host: 'preview.test',
+      protocol: 'http:',
+      reload: () => reloads++,
+    },
+    apex: {
+      jQuery: jq,
+      page: { isChanged: () => options.dirty ?? false },
+      region: { isRegion: () => false },
+    },
+    apexLocal: {},
+    WebSocket: window.WebSocket,
+    URL,
+    Headers,
+    Request,
+    Promise,
+    setTimeout,
+    clearTimeout,
+    Math,
+    JSON,
+  });
+  vm.runInContext(LIVE_CLIENT, context);
+  vm.runInContext('apexLocal.live.start({ page: "7", regions: {} })', context);
+  const send = (message: Record<string, unknown>) =>
+    sockets.at(-1)!.onmessage!({ data: JSON.stringify(message) });
+  const reconnect = () => {
+    sockets.at(-1)!.onclose?.();
+    vm.runInContext('void 0', context);
+  };
+  return { send, reconnect, sockets, swapped, toasts, reloads: () => reloads };
+}
+
+test('asset-only changes reach the browser: event payloads per kind of change', async (t) => {
+  const { app, assets } = await workspace(t, { 'pages/p00007-board.apx': withActions(PAGE, ADD_TASK) });
+  const files = path.join(app, 'shared-components', 'static-files');
+  await mkdir(path.join(files, 'img'), { recursive: true });
+  await writeFile(path.join(files, 'app.js'), 'window.a = 1;\n');
+  await writeFile(path.join(files, 'app.css'), 'body{color:red}\n');
+  await writeFile(path.join(files, 'img', 'logo.png'), 'png-1');
+  const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await server.start();
+  t.after(() => server.stop());
+  const first = await fetch(`${server.url}/r/demo/board`);
+  const cookie = first.headers.get('set-cookie')!.split(';')[0]!;
+  await first.text();
+  const mine = socket(`${server.url.replace('http', 'ws')}/r/demo/__apex/live?page=7`, cookie, server.url);
+  const hello = await mine.next('hello');
+  assert.equal(hello.sequence, 0);
+  const tab = liveTab({ stylesheets: ['app.css'] });
+  tab.send(hello);
+  const pick = (message: Record<string, unknown>) => ({
+    type: message.type,
+    revision: message.revision,
+    sequence: message.sequence,
+    pages: message.pages,
+  });
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 400));
+
+  // JavaScript only: no APEXlang change, so the source revision stays 0, but the sequence advances.
+  await writeFile(path.join(files, 'app.js'), 'window.a = 2;\n');
+  const js = await mine.next('reload', 5000);
+  assert.deepEqual(pick(js), { type: 'reload', revision: 0, sequence: 1, pages: 'all' });
+  // Reproduction of the defect: the same event as the server sent it before (no sequence) is
+  // dropped, because its revision is not newer than the one the tab already has.
+  const before = liveTab();
+  before.send({ type: 'hello', data: true, revision: 0 });
+  before.send({ ...js, sequence: undefined });
+  assert.equal(before.reloads(), 0, 'before the fix a JavaScript-only change was ignored');
+  tab.send(js);
+  assert.equal(tab.reloads(), 1, 'a JavaScript-only change reloads the page');
+  // The reload fetches the changed asset: static files are revalidated, never cached for a day.
+  const served = await fetch(`${server.url}/r/demo/files/static/v1/app.js`);
+  assert.equal(served.headers.get('cache-control'), 'no-cache');
+  assert.equal(await served.text(), 'window.a = 2;\n');
+  // A repeated (duplicate) notification is harmless.
+  tab.send(js);
+  assert.equal(tab.reloads(), 1);
+  await settle();
+
+  // Image only.
+  await writeFile(path.join(files, 'img', 'logo.png'), 'png-2');
+  const image = await mine.next('reload', 5000);
+  assert.deepEqual(pick(image), { type: 'reload', revision: 0, sequence: 2, pages: 'all' });
+  tab.send(image);
+  assert.equal(tab.reloads(), 2, 'an image-only change reloads the page');
+  assert.equal(await (await fetch(`${server.url}/r/demo/files/static/v1/img/logo.png`)).text(), 'png-2');
+  await settle();
+
+  // CSS only: the stylesheet is swapped in place with a cache-busting query, no reload.
+  await writeFile(path.join(files, 'app.css'), 'body{color:blue}\n');
+  const css = await mine.next('stylesheet', 5000);
+  assert.deepEqual(pick(css), { type: 'stylesheet', revision: 0, sequence: 3, pages: undefined });
+  tab.send(css);
+  assert.equal(tab.reloads(), 2);
+  assert.equal(tab.swapped.length, 1);
+  assert.match(tab.swapped[0]!, /app\.css\?apexLocalCss=\d+/u);
+  tab.send(css);
+  assert.equal(tab.swapped.length, 1, 'a repeated stylesheet event is ignored');
+  await settle();
+
+  // Asset and source together: the source revision and the sequence both advance.
+  await writeFile(path.join(files, 'app.js'), 'window.a = 3;\n');
+  await writeFile(
+    path.join(app, 'pages', 'p00007-board.apx'),
+    withActions(PAGE, ADD_TASK).replace('Open tasks', 'Open work'),
+  );
+  let combined = await mine.next('reload', 5000);
+  // The burst may arrive as one or two events; the last one carries the new source revision.
+  await settle();
+  while (mine.queue.some((message) => message.type === 'reload')) combined = await mine.next('reload');
+  assert.equal(combined.revision, 1);
+  assert.ok((combined.sequence as number) >= 4);
+  tab.send(combined);
+  assert.equal(tab.reloads(), 3);
+  // An older event arriving late is ignored.
+  tab.send(image);
+  assert.equal(tab.reloads(), 3);
+});
+
+test('a tab that reconnects converges on missed asset changes; unsaved work is protected', () => {
+  // Reconnect after missing an asset-only change: hello's sequence is newer, so the page reloads.
+  const tab = liveTab();
+  tab.send({ type: 'hello', data: true, revision: 0, sequence: 0 });
+  tab.reconnect();
+  const socketCount = tab.sockets.length;
+  assert.ok(socketCount >= 1);
+  tab.send({ type: 'hello', data: true, revision: 0, sequence: 0 });
+  assert.equal(tab.reloads(), 0, 'nothing missed: no reload');
+  tab.send({ type: 'hello', data: true, revision: 0, sequence: 2 });
+  assert.equal(tab.reloads(), 1, 'a missed asset-only change reloads on reconnect');
+  tab.send({ type: 'reload', revision: 0, sequence: 2, pages: 'all' });
+  assert.equal(tab.reloads(), 1, 'the event that was missed is not applied twice');
+
+  // A form with unsaved changes is not reloaded: a toast offers the reload instead.
+  const dirty = liveTab({ dirty: true });
+  dirty.send({ type: 'hello', data: true, revision: 0, sequence: 0 });
+  dirty.send({
+    type: 'reload',
+    revision: 0,
+    sequence: 1,
+    files: ['shared-components/static-files/app.js'],
+    pages: 'all',
+  });
+  assert.equal(dirty.reloads(), 0);
+  assert.ok(dirty.toasts.some((text) => /Application source changed/u.test(text)));
+
+  // An older server without a sequence keeps the revision rule.
+  const legacy = liveTab();
+  legacy.send({ type: 'hello', data: true, revision: 1 });
+  legacy.send({ type: 'reload', revision: 1, pages: 'all' });
+  assert.equal(legacy.reloads(), 0);
+  legacy.send({ type: 'reload', revision: 2, pages: 'all' });
+  assert.equal(legacy.reloads(), 1);
 });

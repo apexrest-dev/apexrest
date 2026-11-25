@@ -1,4 +1,4 @@
-// Manually invoked: node --experimental-strip-types scripts/bench/preview-load-phases.ts --app <26.2 APEXlang folder> [--page p00010-customers.apx] [--out FILE]
+// Manually invoked: node scripts/bench/run.mjs scripts/bench/preview-load-phases.ts --app <26.2 APEXlang folder> [--page p00010-customers.apx] [--out FILE]
 //
 // Times the preview's load phases (parse, renderer with the shared theme index, setup, property
 // checks, lint) on a small and a large copy of an application: the given page file is copied to

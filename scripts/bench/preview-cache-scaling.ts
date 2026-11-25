@@ -1,4 +1,4 @@
-// Manually invoked: node --experimental-strip-types scripts/bench/preview-cache-scaling.ts [--out FILE]
+// Manually invoked: node scripts/bench/run.mjs scripts/bench/preview-cache-scaling.ts [--out FILE]
 //
 // Measures the preview's parsed-file cache on synthetic applications of increasing size. Cleanup is
 // timed on its own — the previous per-entry rescan against the current set lookup — and separately

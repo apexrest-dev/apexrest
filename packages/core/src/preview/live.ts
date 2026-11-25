@@ -45,6 +45,7 @@ export class LiveHub {
   #onSource: (file: string) => Record<string, unknown> | undefined;
   #onDirty: () => void;
   #revision: () => number;
+  #sequence: () => number;
 
   /**
    * `onDirty` runs on every relevant file event, before the debounce, so a request in between
@@ -57,12 +58,14 @@ export class LiveHub {
     onSource: (file: string) => Record<string, unknown> | undefined;
     onDirty?: () => void;
     revision?: () => number;
+    sequence?: () => number;
   }) {
     this.#sourceDir = options.sourceDir;
     this.data = options.data;
     this.#onSource = options.onSource;
     this.#onDirty = options.onDirty ?? (() => undefined);
     this.#revision = options.revision ?? (() => 0);
+    this.#sequence = options.sequence ?? (() => 0);
   }
 
   /** Whether file events are being received; without them requests rescan the sources. */
@@ -102,7 +105,12 @@ export class LiveHub {
     client = { connection, session, page, tab };
     this.#clients.add(client);
     this.#watch();
-    connection.send({ type: 'hello', data: this.data, revision: this.#revision() });
+    connection.send({
+      type: 'hello',
+      data: this.data,
+      revision: this.#revision(),
+      sequence: this.#sequence(),
+    });
     this.#presence();
   }
 
