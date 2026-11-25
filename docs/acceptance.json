@@ -1358,6 +1358,14 @@
         "tests/unit/ship-coalesce.test.ts"
       ],
       "blocker": "Repository fixtures with an in-process broker."
+    },
+    {
+      "id": "FASTDEV-D04",
+      "criterion": "Ship intents plan only after earlier ships of the environment have a known outcome, bind the latest confirmed checkpoint with their own revision and grant, and are blocked, with ownership retained, by an interrupted write or an unknown predecessor outcome",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": ["packages/core/src/ship-intent.ts", "tests/unit/ship-intent.test.ts"],
+      "blocker": "Repository fixtures."
     }
   ]
 }

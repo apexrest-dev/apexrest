@@ -5,29 +5,29 @@ import {
 } from "./chunk-JSJXHH5F.mjs";
 import {
   dispatch
-} from "./chunk-PNVN64LK.mjs";
-import "./chunk-SIHBA2TI.mjs";
-import "./chunk-MXVSS6BM.mjs";
+} from "./chunk-K7JSLO4Q.mjs";
+import "./chunk-2GRMYPN5.mjs";
+import "./chunk-72JHEBTX.mjs";
 import "./chunk-BBZ43UIE.mjs";
 import {
   internalOperations,
   schemas,
   toolCatalog
-} from "./chunk-35W6PSBY.mjs";
+} from "./chunk-JWL4KF5G.mjs";
 import "./chunk-S4NYTED6.mjs";
-import "./chunk-6DN7RAI6.mjs";
-import "./chunk-BA27RM6L.mjs";
-import "./chunk-WOTS34EX.mjs";
+import "./chunk-6YEZFXV7.mjs";
+import "./chunk-N35GIEYW.mjs";
+import "./chunk-SIDKH5GG.mjs";
 import {
   executeJob,
   failQueuedJob
-} from "./chunk-C34O3ZFO.mjs";
-import "./chunk-GVY42Y3Q.mjs";
-import "./chunk-GGQUNOC5.mjs";
-import "./chunk-NCCQWHXP.mjs";
-import "./chunk-DOWWSLS6.mjs";
+} from "./chunk-C2BKJMP2.mjs";
+import "./chunk-6LQAKUZL.mjs";
+import "./chunk-JQKZZLZF.mjs";
+import "./chunk-HSLUPXT4.mjs";
+import "./chunk-LZPDQQEA.mjs";
 import "./chunk-C66KGFY2.mjs";
-import "./chunk-JI42DR2Q.mjs";
+import "./chunk-ZJMQHNNS.mjs";
 import "./chunk-QLJHOYUI.mjs";
 import "./chunk-7SGTFDEC.mjs";
 import "./chunk-V3NFRVGE.mjs";
@@ -322,12 +322,12 @@ try {
     }
   } else if (argv[0] === "--broker") {
     if (argv.length !== 2) throw new Fault("INVALID_INPUT", "Invalid internal broker request.", 2);
-    const { runBroker } = await import("./chunk-WINIWYAU.mjs");
+    const { runBroker } = await import("./chunk-NVYEBCWA.mjs");
     await runBroker(await loadProject(argv[1]), dispatch);
     await new Promise(() => void 0);
   } else if (argv[0] === "mcp") {
     if (argv.length !== 1) throw new Fault("INVALID_INPUT", "mcp accepts no arguments.", 2);
-    const { startMcp } = await import("./chunk-W7X6QW6J.mjs");
+    const { startMcp } = await import("./chunk-FZDH4QJJ.mjs");
     await startMcp();
   } else {
     const selectedOp = argv[0] === "--version" ? { op: "version", start: 1 } : selected;

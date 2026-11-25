@@ -1,13 +1,13 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   sourceInventory
-} from "./chunk-NCCQWHXP.mjs";
+} from "./chunk-HSLUPXT4.mjs";
 import {
   parseApexLang
 } from "./chunk-C66KGFY2.mjs";
 import {
   sourceRelease
-} from "./chunk-JI42DR2Q.mjs";
+} from "./chunk-ZJMQHNNS.mjs";
 import {
   sourceChange
 } from "./chunk-V3NFRVGE.mjs";
@@ -1040,7 +1040,7 @@ async function loadRelated(ctx, key) {
   const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   let file;
   if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
-  else if (kind === "lov") file = await (await import("./chunk-IXSBB7PV.mjs")).lovFile(ctx, id).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-SX34A4YD.mjs")).lovFile(ctx, id).catch(() => void 0);
   if (!file) return void 0;
   const text2 = await readFile3(file, "utf8");
   const parsed = parseApexLang(text2, "related").find(

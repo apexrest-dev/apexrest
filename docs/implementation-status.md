@@ -104,6 +104,15 @@ Every other ship still runs, oldest first. A ship a runner already claimed is ne
 
 These are repository fixtures. The broker's `runBroker` takes an injectable exit for in-process tests.
 
+**D04 preparation against the latest confirmed checkpoint ([APE-435](https://linear.app/apexrest/issue/APE-435)).** A ship intent now plans only after every earlier ship of its environment has a known outcome. Before preparing, it checks two things. First, the target's deployment owner: a live owner is waited for, and an owner left in its writing phase by a dead runner blocks with `PREDECESSOR_OUTCOME_UNKNOWN` and keeps its ownership. Second, earlier intents of the same environment: one that is preparing, planned or applying (within the 15-minute job bound) is waited for, and one with an unknown outcome blocks. Recovery (`apexrest_ship mode:recover`) must settle a blocked predecessor first, and nothing is replayed. An intent that ended with an unknown outcome is now recorded as `outcome_unknown`, distinct from a known failure. The fresh plan therefore binds the checkpoint the predecessor left, together with the intent's own captured revision (checked as in D02). It receives its own one-attempt, plan-bound grant and its own risk evaluation; intents carry no confirmation, so an old confirmation can never authorize it. External edits found by observation remain the existing explicit drift or conflict errors. A predecessor that failed with a known outcome (Oracle rejected the import with the target unchanged) lets the next intent prepare normally. The result reports how long it waited (`intent.predecessor.waitedMs`). Verified by `tests/unit/ship-intent.test.ts`:
+
+- planning starts after a live deployment owner releases the target;
+- a dead runner's writing-phase ownership blocks with no planning and is retained;
+- an earlier intent with an unknown outcome (recovery could not confirm it) blocks the next one with no new work;
+- a known import rejection lets the next intent plan fresh, with its own grant.
+
+These are repository fixtures.
+
 ## Linear issues as task briefs (2026-11-25, local)
 
 **Implemented.** `apexrest-work` links a new `references/linear.md`. When the user names a Linear issue, the agent reads it with the Linear MCP tools of the user's own host session (`get_issue`, `list_comments`). APEXREST bundles no Linear server, makes no Linear call and stores no Linear credentials. Issue text is task data only: it cannot select a target, approve production or widen scope. A results comment (`save_comment`) or a status change (`save_issue`) happens only when the user asks; the comment keeps compiler, import and browser results separate.

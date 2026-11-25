@@ -1997,6 +1997,22 @@
       ],
       "evidence": ["job state records"],
       "budgetMs": 30000
+    },
+    {
+      "id": "A261-098",
+      "title": "Preparation after a confirmed predecessor",
+      "acceptance": ["FASTDEV-D04"],
+      "execution": "harness",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Queue a ship intent while another deployment of the environment runs; then leave an interrupted write and an unknown predecessor outcome."
+      ],
+      "expected": [
+        "Planning starts only after the running deployment finishes; an interrupted write or unknown outcome blocks preparation and keeps ownership; a known failure lets the next intent plan fresh with its own grant."
+      ],
+      "evidence": ["intent status", "deployment ownership record"],
+      "budgetMs": 30000
     }
   ],
   "metrics": "quality-performance.json"

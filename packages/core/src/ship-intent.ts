@@ -1,4 +1,6 @@
 import path from 'node:path';
+import { hostname } from 'node:os';
+import { LocalDeploymentControl } from './deployment-control.ts';
 import { randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { environment, refuseProductionDeployment, targetDigest, type ProjectContext } from './config.ts';
@@ -39,7 +41,7 @@ export interface ShipIntent {
   digest: string;
 }
 export type IntentStatus =
-  'queued' | 'preparing' | 'planned' | 'applying' | 'superseded' | 'succeeded' | 'failed';
+  'queued' | 'preparing' | 'planned' | 'applying' | 'superseded' | 'succeeded' | 'failed' | 'outcome_unknown';
 
 const intentPath = (ctx: ProjectContext, id: string) => contained(ctx.root, `.apexrest/intents/${id}.json`);
 const statePath = (ctx: ProjectContext, id: string) =>
@@ -132,7 +134,7 @@ async function setIntentStatus(ctx: ProjectContext, id: string, status: IntentSt
 export async function shipIntentStatus(ctx: ProjectContext, id: string) {
   const file = await statePath(ctx, id);
   return (await exists(file))
-    ? ((await readJson(file)) as { status: IntentStatus; detail?: string })
+    ? ((await readJson(file)) as { status: IntentStatus; detail?: string; at: string })
     : undefined;
 }
 
@@ -164,6 +166,9 @@ export async function runShipIntent(
     const { revision, configuration } = sourceRevision(current, ctx.config);
     if (revision !== intent.revision || configuration !== intent.configuration)
       throw superseded(intent, 'the project sources changed after it was queued (a newer revision).');
+    // Plan only against a confirmed checkpoint: after every earlier ship of this environment has
+    // a known outcome. The fresh plan then binds the checkpoint that predecessor left.
+    const predecessor = await awaitConfirmedPredecessor(ctx, intent, signal);
     await setIntentStatus(ctx, id, 'preparing');
     const planned = await shipPlan(ctx, intent.env, deployment, parseDiagnostics, progress, {
       importMode: intent.importMode,
@@ -183,17 +188,93 @@ export async function runShipIntent(
       ...applied,
       planPath: planned.planPath,
       phases: [...planned.phases, ...applied.phases],
-      intent: { id, revision: intent.revision, status: 'succeeded' as const },
+      intent: { id, revision: intent.revision, status: 'succeeded' as const, predecessor },
       plan: { planPath: planned.planPath, ...planned.preview },
     };
   } catch (error) {
     const status: IntentStatus =
-      error instanceof Fault && error.code === 'SHIP_INTENT_SUPERSEDED' ? 'superseded' : 'failed';
+      error instanceof Fault && error.code === 'SHIP_INTENT_SUPERSEDED'
+        ? 'superseded'
+        : error instanceof Fault && error.status === 'outcome_unknown'
+          ? 'outcome_unknown'
+          : 'failed';
     await setIntentStatus(ctx, id, status, error instanceof Fault ? error.code : undefined).catch(
       () => undefined,
     );
     throw error;
   }
+}
+
+/** How long an earlier intent in flight is waited for; a job never runs longer (jobs.ts). */
+const IN_FLIGHT_MS = 900_000;
+
+/**
+ * Waits until no earlier ship of this environment is in flight: no live deployment owner and no
+ * earlier intent preparing, planned or applying. An interrupted write (an owner left in its
+ * writing phase) or an earlier intent with an unknown outcome blocks: recovery
+ * (`apexrest_ship mode:recover`) must establish what happened first, and nothing is replayed.
+ */
+async function awaitConfirmedPredecessor(ctx: ProjectContext, intent: ShipIntent, signal?: AbortSignal) {
+  const started = Date.now();
+  const control = new LocalDeploymentControl(environment(ctx, intent.env));
+  for (;;) {
+    if (signal?.aborted) throw new Fault('CANCELLED', 'Ship intent cancelled while waiting.', 6, 'cancelled');
+    const owner = await control.owner();
+    let alive = false;
+    if (owner && owner.hostname === hostname())
+      try {
+        process.kill(owner.pid, 0);
+        alive = true;
+      } catch (error) {
+        alive = (error as NodeJS.ErrnoException).code !== 'ESRCH';
+      }
+    else if (owner) alive = true; // Another host's owner cannot be probed: treat it as running.
+    if (owner?.phase === 'writing' && !alive)
+      throw new Fault(
+        'PREDECESSOR_OUTCOME_UNKNOWN',
+        `Deployment run ${owner.runId} stopped while writing; its outcome must be reconciled before another ship of ${intent.env} is prepared. Run apexrest_ship mode:recover for that run.`,
+        5,
+        'blocked',
+        { deploymentRunId: owner.runId, intentId: intent.id },
+      );
+    let waitingFor: string | undefined = owner && alive ? `deployment run ${owner.runId}` : undefined;
+    if (!waitingFor)
+      for (const earlier of await earlierIntents(ctx, intent)) {
+        const state = await shipIntentStatus(ctx, earlier.id);
+        if (state?.status === 'outcome_unknown')
+          throw new Fault(
+            'PREDECESSOR_OUTCOME_UNKNOWN',
+            `Ship intent ${earlier.id} ended with an unknown outcome; reconcile it (apexrest_ship mode:recover) before another ship of ${intent.env} is prepared.`,
+            5,
+            'blocked',
+            { intentId: intent.id, predecessorIntentId: earlier.id },
+          );
+        if (
+          state &&
+          ['preparing', 'planned', 'applying'].includes(state.status) &&
+          Date.now() - Date.parse(state.at) < IN_FLIGHT_MS
+        ) {
+          waitingFor = `ship intent ${earlier.id}`;
+          break;
+        }
+      }
+    if (!waitingFor) return { waitedMs: Date.now() - started };
+    if (Date.now() - started > IN_FLIGHT_MS)
+      throw new Fault('PREDECESSOR_TIMEOUT', `Still waiting for ${waitingFor} to finish.`, 6, 'blocked');
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+async function earlierIntents(ctx: ProjectContext, intent: ShipIntent) {
+  const dir = await contained(ctx.root, '.apexrest/intents');
+  const found: ShipIntent[] = [];
+  for (const name of await readdir(dir)) {
+    if (!name.endsWith('.json') || name.endsWith('.state.json')) continue;
+    const other = await readShipIntent(ctx, name.slice(0, -5)).catch(() => undefined);
+    if (other && other.id !== intent.id && other.env === intent.env && other.createdAt <= intent.createdAt)
+      found.push(other);
+  }
+  return found;
 }
 
 /** An intent whose job the broker replaced by a newer one before it started. */

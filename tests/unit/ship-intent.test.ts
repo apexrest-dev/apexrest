@@ -55,7 +55,10 @@ test('a captured intent is prepared and applied in one run and deploys exactly i
     (phase) => phases.push(phase),
   );
   assert.equal(result.status, 'succeeded');
-  assert.deepEqual(result.intent, { id: intent.id, revision: intent.revision, status: 'succeeded' });
+  assert.deepEqual(
+    { ...result.intent, predecessor: undefined },
+    { id: intent.id, revision: intent.revision, status: 'succeeded', predecessor: undefined },
+  );
   assert.ok(expensive(f.calls).includes('validate') && f.calls.includes('import'));
   assert.deepEqual(phases.slice(0, 3), ['validating', 'planned', 'backing_up']);
   assert.equal((await shipIntentStatus(f.ctx, intent.id))?.status, 'succeeded');
@@ -158,4 +161,104 @@ test('an explicit saved plan is still applied exactly, without an intent', async
   const result = await shipApply(f.ctx, planned.plan, 'Deploy the customers page to dev', f.service);
   assert.equal(result.planDigest, planned.plan.digest);
   assert.equal('intent' in result, false);
+});
+
+test('an intent is planned only after the running deployment of its environment finishes', async (t) => {
+  const { f, capture } = await intentFixture(t);
+  const { environment } = await import('../../packages/core/src/config.ts');
+  const { LocalDeploymentControl } = await import('../../packages/core/src/deployment-control.ts');
+  const control = new LocalDeploymentControl(environment(f.ctx, 'dev'));
+  // A live runner (this process) owns the target: the next intent waits for its outcome.
+  await control.acquire('predecessor-run');
+  const intent = await capture();
+  let releasedAt = 0;
+  setTimeout(() => {
+    releasedAt = Date.now();
+    void control.release('predecessor-run');
+  }, 400);
+  const original = f.oracle.validate.bind(f.oracle);
+  let validatedAt = 0;
+  f.oracle.validate = async (...args: Parameters<typeof original>) => {
+    validatedAt ||= Date.now();
+    return original(...args);
+  };
+  const result = await runShipIntent(f.ctx, intent.id, f.service, fallbackCompilerDiagnostics);
+  assert.equal(result.status, 'succeeded');
+  assert.ok(releasedAt > 0 && validatedAt >= releasedAt, 'planning started after the predecessor finished');
+  assert.ok(result.intent.predecessor.waitedMs >= 350);
+});
+
+test('an interrupted write or an unknown predecessor outcome blocks preparation; nothing is replayed', async (t) => {
+  const { f, capture } = await intentFixture(t);
+  const { environment } = await import('../../packages/core/src/config.ts');
+  const { LocalDeploymentControl } = await import('../../packages/core/src/deployment-control.ts');
+  const { writeJson } = await import('../../packages/core/src/fs.ts');
+  const { hostname } = await import('node:os');
+  const control = new LocalDeploymentControl(environment(f.ctx, 'dev'));
+  await control.acquire('interrupted-run');
+  // The runner died in its writing phase: its outcome is unknown and its ownership is kept.
+  const active = path.join(control.directory, 'active.json');
+  const stale = {
+    runId: 'interrupted-run',
+    pid: 2 ** 22 + 12345,
+    hostname: hostname(),
+    phase: 'writing',
+    createdAt: new Date().toISOString(),
+  };
+  await writeJson(active, stale);
+  const intent = await capture();
+  await assert.rejects(runShipIntent(f.ctx, intent.id, f.service, fallbackCompilerDiagnostics), {
+    code: 'PREDECESSOR_OUTCOME_UNKNOWN',
+    status: 'blocked',
+  });
+  assert.deepEqual(expensive(f.calls), [], 'no planning, export or import');
+  assert.deepEqual(JSON.parse(await readFile(active, 'utf8')), stale, 'ownership retained');
+  await rm(active);
+  // An earlier intent that ended with an unknown outcome blocks the same way.
+  const unknown = await capture();
+  f.oracle.importApplication = async () => {
+    const { Fault } = await import('../../packages/core/src/result.ts');
+    throw new Fault('OUTCOME_UNKNOWN', 'SQLcl stopped.', 6, 'outcome_unknown', { cause: 'TIMEOUT' });
+  };
+  // Automatic server readback cannot settle it either: the outcome stays unknown.
+  f.service.recover = async () => {
+    const { Fault } = await import('../../packages/core/src/result.ts');
+    throw new Fault('RECOVERY_INCOMPLETE', 'The server state could not be confirmed.', 6, 'outcome_unknown');
+  };
+  await assert.rejects(
+    runShipIntent(f.ctx, unknown.id, f.service, fallbackCompilerDiagnostics),
+    { status: 'outcome_unknown' },
+    'the injected unknown import',
+  );
+  assert.equal((await shipIntentStatus(f.ctx, unknown.id))?.status, 'outcome_unknown');
+  await rm(path.join(control.directory, 'active.json'), { force: true });
+  const next = await capture();
+  const calls = f.calls.length;
+  await assert.rejects(runShipIntent(f.ctx, next.id, f.service, fallbackCompilerDiagnostics), {
+    code: 'PREDECESSOR_OUTCOME_UNKNOWN',
+  });
+  assert.equal(f.calls.length, calls, 'no new work after an unknown predecessor');
+});
+
+test('a predecessor that failed before submission lets the next intent prepare a fresh plan', async (t) => {
+  const { f, capture } = await intentFixture(t);
+  const first = await capture();
+  // Oracle rejects the import and a fresh read shows the target unchanged: a known failure.
+  const importApplication = f.oracle.importApplication.bind(f.oracle);
+  f.oracle.importApplication = async () => {
+    const { Fault } = await import('../../packages/core/src/result.ts');
+    throw new Fault('ORACLE_COMMAND_FAILED', 'ORA-20987: compiler error', 1);
+  };
+  await assert.rejects(runShipIntent(f.ctx, first.id, f.service, fallbackCompilerDiagnostics), {
+    code: 'IMPORT_REJECTED',
+  });
+  const recorded = (await shipIntentStatus(f.ctx, first.id))?.status;
+  assert.ok(recorded === 'failed', `known outcome recorded (${recorded})`);
+  f.oracle.importApplication = importApplication;
+  const second = await capture();
+  const result = await runShipIntent(f.ctx, second.id, f.service, fallbackCompilerDiagnostics);
+  assert.equal(result.status, 'succeeded');
+  // Its own exact plan and its own grant, never the predecessor's.
+  assert.notEqual(result.planPath, undefined);
+  assert.equal(result.grant.planDigest, result.planDigest);
 });

@@ -47,14 +47,6 @@ import {
   external_exports
 } from "./chunk-HRRL6FHO.mjs";
 
-// packages/core/src/partial-import.ts
-import path4 from "node:path";
-import { cp as cp2, mkdir as mkdir3, rename as rename2, rm as rm2 } from "node:fs/promises";
-
-// packages/core/src/sync.ts
-import path2 from "node:path";
-import { lstat, mkdir as mkdir2, readdir as readdir2, realpath, open, cp, chmod } from "node:fs/promises";
-
 // packages/core/src/deployment-control.ts
 import path from "node:path";
 import { hostname } from "node:os";
@@ -431,7 +423,13 @@ var LocalDeploymentControl = class {
   }
 };
 
+// packages/core/src/partial-import.ts
+import path4 from "node:path";
+import { cp as cp2, mkdir as mkdir3, rename as rename2, rm as rm2 } from "node:fs/promises";
+
 // packages/core/src/sync.ts
+import path2 from "node:path";
+import { lstat, mkdir as mkdir2, readdir as readdir2, realpath, open, cp, chmod } from "node:fs/promises";
 var digest = external_exports.string().regex(/^[a-f0-9]{64}$/);
 var snapshotSchema = external_exports.strictObject({
   directory: relativePath,
