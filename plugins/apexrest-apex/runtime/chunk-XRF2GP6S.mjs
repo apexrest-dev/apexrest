@@ -24,15 +24,15 @@ import {
   escapeJs,
   escapeValue,
   fill,
-  indexTheme,
   loadAssets,
   pageContext,
   patchPage,
   registerNamedTemplates,
   setupAssets,
+  sharedThemeIndex,
   templateOptions,
   text
-} from "./chunk-NT3UQSEU.mjs";
+} from "./chunk-4QBKHSVA.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -4180,6 +4180,7 @@ async function connectOracle(root, name, link, options3 = {}) {
 }
 
 // packages/core/src/preview/server.ts
+import { performance as performance2 } from "node:perf_hooks";
 import { randomBytes as randomBytes2, randomUUID } from "node:crypto";
 import fs14 from "node:fs";
 import http from "node:http";
@@ -30441,7 +30442,7 @@ var ApexRenderer = class {
     this.oracle = options3.oracle;
     this.reviewFile = options3.reviewFile;
     this.data = options3.oracle?.data ?? db2;
-    this.theme = indexTheme(assets.theme);
+    this.theme = sharedThemeIndex(assets.theme);
     this.alias = slug(app.app.id || "app").toLowerCase();
     this.appId = app.substitutions.APP_ID ?? "100";
     this.options = {
@@ -33310,6 +33311,7 @@ function previewRequestRefusal(headers2, port, bindHost) {
     return "Cross-site requests are not accepted. Open the preview URL directly in a browser tab";
   return void 0;
 }
+var propertyFindings = /* @__PURE__ */ new WeakMap();
 var IncoherentLoad = class extends Error {
   constructor(file) {
     super(`${file} changed while the preview loaded it.`);
@@ -33335,6 +33337,8 @@ var PreviewServer = class {
   /** Set by the watcher before its debounce; a request then re-reads the sources. */
   #dirty = false;
   #lastScan = 0;
+  /** Phase timings of the last successful load. */
+  loadTimings;
   #loadError;
   constructor(options3) {
     this.options = { ...options3, sourceDir: path15.resolve(options3.sourceDir) };
@@ -33381,7 +33385,28 @@ var PreviewServer = class {
   #load(snapshot2) {
     this.#lastScan = Date.now();
     this.#dirty = false;
+    const started2 = performance2.now();
+    let last = started2;
+    const mark = () => {
+      const now2 = performance2.now();
+      const elapsed = now2 - last;
+      last = now2;
+      return elapsed;
+    };
+    const timings = {
+      parseMs: 0,
+      rendererMs: 0,
+      setupMs: 0,
+      propertiesMs: 0,
+      lintMs: 0,
+      totalMs: 0,
+      parsedFiles: 0,
+      propertyPagesChecked: 0,
+      propertyPagesReused: 0
+    };
     const app = loadApplication(this.options.sourceDir, "default", this.#cache, snapshot2);
+    timings.parseMs = mark();
+    timings.parsedFiles = app.parsedFiles?.length ?? 0;
     for (const relative of app.parsedFiles ?? []) {
       let current3;
       try {
@@ -33402,16 +33427,30 @@ var PreviewServer = class {
       ...this.options.oracle ? { oracle: this.options.oracle } : {},
       ...this.options.reviewFile ? { reviewFile: this.options.reviewFile } : {}
     });
+    timings.rendererMs = mark();
     for (const problem of this.seedProblems) renderer.diagnose("warning", `Seed script: ${problem}`);
     setUpRenderer(renderer);
     for (const warning of this.options.oracle?.warnings ?? [])
       renderer.diagnose("warning", `Connected preview: ${warning}`);
     for (const finding of checkSharedComponentFiles(renderer.app.root, renderer.app.files))
       renderer.diagnose("warning", finding);
+    timings.setupMs = mark();
     const mmdVersion = applicationMmdVersion(this.options.sourceDir);
-    for (const [id, page2] of renderer.app.pages)
-      for (const finding of checkComponentProperties([page2], id, void 0, mmdVersion ? { mmdVersion } : {}))
+    for (const [id, page2] of renderer.app.pages) {
+      let entry = propertyFindings.get(page2);
+      if (!entry || entry.mmdVersion !== mmdVersion || entry.page !== id) {
+        entry = {
+          mmdVersion,
+          page: id,
+          findings: checkComponentProperties([page2], id, void 0, mmdVersion ? { mmdVersion } : {})
+        };
+        propertyFindings.set(page2, entry);
+        timings.propertyPagesChecked += 1;
+      } else timings.propertyPagesReused += 1;
+      for (const finding of entry.findings)
         renderer.diagnose("warning", finding.message, finding.page, finding.component);
+    }
+    timings.propertiesMs = mark();
     for (const finding of lintApplication(renderer.app, {
       regionSlots: (region) => renderer.regionSlots(region)
     }))
@@ -33422,6 +33461,9 @@ var PreviewServer = class {
         finding.component,
         finding.code
       );
+    timings.lintMs = mark();
+    timings.totalMs = performance2.now() - started2;
+    this.loadTimings = timings;
     return renderer;
   }
   /**

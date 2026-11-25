@@ -1916,6 +1916,22 @@
       ],
       "evidence": ["revision records", "request timings"],
       "budgetMs": 30000
+    },
+    {
+      "id": "A261-093",
+      "title": "Preview load phases and reused diagnostics",
+      "acceptance": ["FASTDEV-V09"],
+      "execution": "manual",
+      "surface": "cli",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Run node scripts/bench/run.mjs scripts/bench/preview-load-phases.ts --app <26.2 app> --out <file> with APEXREST_RESOURCES set."
+      ],
+      "expected": [
+        "Theme indexing, property checks and lint are timed separately for a small and a large application; after a one-page edit one page is checked and the others reused; lint stays global."
+      ],
+      "evidence": ["measurement report"],
+      "budgetMs": 300000
     }
   ],
   "metrics": "quality-performance.json"

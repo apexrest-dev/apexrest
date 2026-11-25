@@ -33,6 +33,18 @@ const KIND_TO_MAP = {
   theme_style: 'styles',
 } as const;
 
+/**
+ * One index per loaded theme export: the index is never mutated, so renderers built from the same
+ * asset calls share it. New assets (another installation or version) are another array, so they
+ * get their own index.
+ */
+const indexes = new WeakMap<ThemeCall[], ThemeIndex>();
+export function sharedThemeIndex(calls: ThemeCall[]): ThemeIndex {
+  let index = indexes.get(calls);
+  if (!index) indexes.set(calls, (index = indexTheme(calls)));
+  return index;
+}
+
 export function indexTheme(calls: ThemeCall[]): ThemeIndex {
   const index: ThemeIndex = {
     theme: {},

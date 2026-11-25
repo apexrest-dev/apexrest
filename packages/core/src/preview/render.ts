@@ -62,6 +62,7 @@ import {
   escapeJs,
   fill,
   indexTheme,
+  sharedThemeIndex,
   templateOptions,
   text,
   type TemplateParams,
@@ -404,7 +405,7 @@ export class ApexRenderer {
     this.oracle = options.oracle;
     this.reviewFile = options.reviewFile;
     this.data = options.oracle?.data ?? db;
-    this.theme = indexTheme(assets.theme);
+    this.theme = sharedThemeIndex(assets.theme);
     this.alias = slug(app.app.id || 'app').toLowerCase();
     this.appId = app.substitutions.APP_ID ?? '100';
     this.options = {

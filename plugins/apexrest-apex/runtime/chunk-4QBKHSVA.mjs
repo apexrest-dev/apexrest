@@ -774,6 +774,12 @@ var KIND_TO_MAP = {
   menu_template: "breadcrumbs",
   theme_style: "styles"
 };
+var indexes = /* @__PURE__ */ new WeakMap();
+function sharedThemeIndex(calls) {
+  let index = indexes.get(calls);
+  if (!index) indexes.set(calls, index = indexTheme(calls));
+  return index;
+}
 function indexTheme(calls) {
   const index = {
     theme: {},
@@ -2140,7 +2146,7 @@ export {
   registerNamedTemplates,
   escapeValue,
   applyTemplate,
-  indexTheme,
+  sharedThemeIndex,
   text,
   defaultStaticId,
   escapeHtml,

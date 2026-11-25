@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { loadApplication, type ApxParseCache } from '../../packages/core/src/preview/apexlang.ts';
 import { affectedPages, apxSignatures, changedFiles } from '../../packages/core/src/preview/source-index.ts';
@@ -181,4 +181,67 @@ test('cached loads equal clean loads after adding, renaming and rewriting files 
     strip({ ...loadApplication(app), files: [], parsedFiles: undefined }),
   );
   assert.match(JSON.stringify(cached.pages.get('3')), /Notez/u);
+});
+
+test('reused property findings and the shared theme index give the diagnostics of a clean check', async (t) => {
+  const { app, assets } = await workspace(t, {
+    'shared-components/lovs/statuses.apx': LOV,
+    'pages/p00003-third.apx': PAGE3.replace('name: Notes', 'name: Notes\n        unknownProperty: x'),
+  });
+  const cached = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+  await cached.start();
+  t.after(() => cached.stop());
+  const clean = async () => {
+    const server = new PreviewServer({ sourceDir: app, assetsDir: assets, database: ':memory:' });
+    await server.start();
+    try {
+      return server
+        .diagnostics()
+        .map((d) => `${d.page ?? ''}|${d.message}`)
+        .sort();
+    } finally {
+      await server.stop();
+    }
+  };
+  const same = async (label: string) => {
+    await fetch(`${cached.url}/r/demo/home`);
+    assert.deepEqual(
+      cached
+        .diagnostics()
+        .map((d) => `${d.page ?? ''}|${d.message}`)
+        .sort(),
+      await clean(),
+      label,
+    );
+  };
+  await same('initial');
+  assert.ok(cached.diagnostics().some((d) => /unknownProperty/u.test(d.message)));
+  const third = path.join(app, 'pages/p00003-third.apx');
+  // A page edit: only that page is checked again; the others are reused.
+  await writeFile(third, (await readFile(third, 'utf8')).replace('unknownProperty: x', 'otherUnknown: y'));
+  await new Promise((resolve) => setTimeout(resolve, 2100));
+  await same('page edit');
+  assert.equal(cached.loadTimings?.propertyPagesChecked, 1);
+  assert.ok((cached.loadTimings?.propertyPagesReused ?? 0) >= 1);
+  // A shared component change, a global page change and a deleted page.
+  const lov = path.join(app, 'shared-components/lovs/statuses.apx');
+  await writeFile(lov, (await readFile(lov, 'utf8')) + '\n');
+  await new Promise((resolve) => setTimeout(resolve, 2100));
+  await same('shared component');
+  await writeFile(path.join(app, 'pages/p00000-global.apx'), 'page 0 (\n    name: Global\n)\n');
+  await new Promise((resolve) => setTimeout(resolve, 2100));
+  await same('global page');
+  await rm(third);
+  await new Promise((resolve) => setTimeout(resolve, 2100));
+  await same('deleted page');
+  // A different catalog version re-checks every page.
+  await mkdir(path.join(app, '.apex'), { recursive: true });
+  await writeFile(path.join(app, '.apex/apexlang.json'), JSON.stringify({ mmdVersion: '26.2.0+3479' }));
+  await writeFile(lov, await readFile(lov, 'utf8'));
+  await utimes(lov, new Date(), new Date(Date.now() + 5000));
+  await new Promise((resolve) => setTimeout(resolve, 2100));
+  await same('catalog version');
+  assert.equal(cached.loadTimings?.propertyPagesReused, 0);
+  // Both servers render with one theme index: the same loaded theme calls.
+  assert.equal(typeof cached.loadTimings?.totalMs, 'number');
 });

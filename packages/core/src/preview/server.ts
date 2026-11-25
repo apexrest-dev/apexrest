@@ -1,3 +1,4 @@
+import { performance } from 'node:perf_hooks';
 import { randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -169,6 +170,28 @@ export function previewRequestRefusal(
 }
 
 /** Local, database-free runtime for APEXlang sources: Universal Theme 26.2 assets plus SQLite. */
+/**
+ * Phase timings of one preview load (milliseconds): parsing (cache misses only), renderer
+ * construction (the theme index is shared), setup with the shared-component file check, property checks
+ * (pages checked versus reused) and application lint, which stays global.
+ */
+export interface LoadTimings {
+  parseMs: number;
+  rendererMs: number;
+  setupMs: number;
+  propertiesMs: number;
+  lintMs: number;
+  totalMs: number;
+  parsedFiles: number;
+  propertyPagesChecked: number;
+  propertyPagesReused: number;
+}
+/** Property findings per parsed page component (reused while the component object is reused). */
+const propertyFindings = new WeakMap<
+  ApxComponent,
+  { mmdVersion: string | undefined; page: string; findings: ReturnType<typeof checkComponentProperties> }
+>();
+
 /** A source file changed while a load read it; the load is discarded and retried. */
 class IncoherentLoad extends Error {
   constructor(readonly file: string) {
@@ -194,6 +217,8 @@ export class PreviewServer {
   /** Set by the watcher before its debounce; a request then re-reads the sources. */
   #dirty = false;
   #lastScan = 0;
+  /** Phase timings of the last successful load. */
+  loadTimings: LoadTimings | undefined;
   #loadError?: string | undefined;
 
   constructor(options: PreviewOptions) {
@@ -248,7 +273,28 @@ export class PreviewServer {
   #load(snapshot: Signatures): ApexRenderer {
     this.#lastScan = Date.now();
     this.#dirty = false;
+    const started = performance.now();
+    let last = started;
+    const mark = () => {
+      const now = performance.now();
+      const elapsed = now - last;
+      last = now;
+      return elapsed;
+    };
+    const timings: LoadTimings = {
+      parseMs: 0,
+      rendererMs: 0,
+      setupMs: 0,
+      propertiesMs: 0,
+      lintMs: 0,
+      totalMs: 0,
+      parsedFiles: 0,
+      propertyPagesChecked: 0,
+      propertyPagesReused: 0,
+    };
     const app = loadApplication(this.options.sourceDir, 'default', this.#cache, snapshot);
+    timings.parseMs = mark();
+    timings.parsedFiles = app.parsedFiles?.length ?? 0;
     // Integrity recheck, for correctness only: a file parsed now must still have the signature the
     // snapshot recorded; otherwise it changed while this load read it and the load is not coherent.
     for (const relative of app.parsedFiles ?? []) {
@@ -271,6 +317,7 @@ export class PreviewServer {
       ...(this.options.oracle ? { oracle: this.options.oracle } : {}),
       ...(this.options.reviewFile ? { reviewFile: this.options.reviewFile } : {}),
     });
+    timings.rendererMs = mark();
     for (const problem of this.seedProblems) renderer.diagnose('warning', `Seed script: ${problem}`);
     setUpRenderer(renderer);
     for (const warning of this.options.oracle?.warnings ?? [])
@@ -279,10 +326,25 @@ export class PreviewServer {
     // shared component files the compiler never reads.
     for (const finding of checkSharedComponentFiles(renderer.app.root, renderer.app.files))
       renderer.diagnose('warning', finding);
+    timings.setupMs = mark();
+    // Property checks depend only on the page's own components and the catalog version: an
+    // unchanged page file keeps its parsed components, so its findings are reused as they are.
     const mmdVersion = applicationMmdVersion(this.options.sourceDir);
-    for (const [id, page] of renderer.app.pages)
-      for (const finding of checkComponentProperties([page], id, undefined, mmdVersion ? { mmdVersion } : {}))
+    for (const [id, page] of renderer.app.pages) {
+      let entry = propertyFindings.get(page);
+      if (!entry || entry.mmdVersion !== mmdVersion || entry.page !== id) {
+        entry = {
+          mmdVersion,
+          page: id,
+          findings: checkComponentProperties([page], id, undefined, mmdVersion ? { mmdVersion } : {}),
+        };
+        propertyFindings.set(page, entry);
+        timings.propertyPagesChecked += 1;
+      } else timings.propertyPagesReused += 1;
+      for (const finding of entry.findings)
         renderer.diagnose('warning', finding.message, finding.page, finding.component);
+    }
+    timings.propertiesMs = mark();
     // Faults the compiler accepts and the rendering hides: slots, item references, duplicate ids,
     // and the APEX Advisor accessibility rules.
     for (const finding of lintApplication(renderer.app, {
@@ -295,6 +357,9 @@ export class PreviewServer {
         finding.component,
         finding.code,
       );
+    timings.lintMs = mark();
+    timings.totalMs = performance.now() - started;
+    this.loadTimings = timings;
     return renderer;
   }
 

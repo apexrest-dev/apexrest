@@ -1287,6 +1287,21 @@
         "tests/unit/preview-source-index.test.ts"
       ],
       "blocker": "Local repository tests. Timing of the saved inventory work on large projects is part of FASTDEV-V09/V12 measurements."
+    },
+    {
+      "id": "FASTDEV-V09",
+      "criterion": "Preview loads report phase timings for theme indexing, property checks and lint, share one immutable theme index per loaded theme, reuse property findings of unchanged pages with diagnostics equal to a clean check, and document which checks remain global",
+      "implementation": "implemented",
+      "verification": "passed",
+      "evidence": [
+        "packages/core/src/preview/server.ts",
+        "packages/core/src/preview/theme.ts",
+        "packages/core/src/preview/render.ts",
+        "tests/unit/preview-source-index.test.ts",
+        "scripts/bench/preview-load-phases.ts",
+        "docs/evidence/fast-dev/preview-load-phases-2026-11-25.json"
+      ],
+      "blocker": "Measured on one dataset and host. Application lint, the shared-component file check and renderer setup stay global."
     }
   ]
 }
