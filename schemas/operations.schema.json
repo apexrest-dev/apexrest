@@ -674,7 +674,8 @@
                 "heading",
                 "format",
                 "sequence",
-                "query"
+                "query",
+                "visible"
               ]
             },
             "value": {
@@ -788,7 +789,8 @@
                     "heading",
                     "format",
                     "sequence",
-                    "query"
+                    "query",
+                    "visible"
                   ]
                 },
                 "value": {

@@ -12,6 +12,8 @@ import {
   queryNames,
   reportRegion,
   savedReportEdits,
+  columnVisible,
+  visibilityEdits,
   type Release,
 } from './columns.ts';
 import { contextOf, type ContextDelta, type PageContext } from './context.ts';
@@ -42,7 +44,15 @@ import {
  * nothing about preview, compiler or import results.
  */
 
-export const PATCH_PROPERTIES = ['title', 'label', 'heading', 'format', 'sequence', 'query'] as const;
+export const PATCH_PROPERTIES = [
+  'title',
+  'label',
+  'heading',
+  'format',
+  'sequence',
+  'query',
+  'visible',
+] as const;
 export type PatchProperty = (typeof PATCH_PROPERTIES)[number];
 export interface PatchOperation {
   /** `page`, `region:ID`, `item:NAME`, `button:ID` or `column:REGION.COLUMN`. */
@@ -64,7 +74,12 @@ const PATHS: Record<string, Partial<Record<PatchProperty, string>>> = {
   region: { title: 'name', sequence: 'layout.sequence', query: 'source.sqlQuery' },
   pageItem: { label: 'label.label', sequence: 'layout.sequence' },
   button: { label: 'label', sequence: 'layout.sequence' },
-  column: { heading: 'heading.heading', format: 'appearance.formatMask', sequence: 'layout.sequence' },
+  column: {
+    heading: 'heading.heading',
+    format: 'appearance.formatMask',
+    sequence: 'layout.sequence',
+    visible: 'visible',
+  },
 };
 const KINDS: Record<string, string> = {
   region: 'region',
@@ -123,6 +138,8 @@ function resolve(page: ComponentNode, operation: PatchOperation): Resolved {
     );
   if (operation.property === 'sequence' && !/^[1-9]\d{0,8}$/u.test(operation.value))
     throw new Fault('INVALID_INPUT', 'sequence must be a positive integer.', 2);
+  if (operation.property === 'visible' && !['true', 'false'].includes(operation.value))
+    throw new Fault('INVALID_INPUT', 'visible is "true" or "false".', 2);
   return { node, path: pathFor, find };
 }
 
@@ -140,16 +157,33 @@ export function planSets(snapshot: PageSnapshot, operations: PatchOperation[]): 
     seen.add(key);
   }
   const edits: TextEdit[] = [];
+  // Visibility changes of one report are planned together.
+  const visibility = new Map<ComponentNode, { column: ComponentNode; visible: boolean }[]>();
   for (const entry of resolved) {
     if (entry.operation.property === 'query')
       edits.push(...queryEdits(doc, entry.node, entry.operation, snapshot.release));
-    else edits.push(setProperty(doc, entry.node, entry.path, entry.operation.value));
+    else if (entry.operation.property === 'visible') {
+      const region = entry.node.parent!;
+      visibility.set(region, [
+        ...(visibility.get(region) ?? []),
+        { column: entry.node, visible: entry.operation.value === 'true' },
+      ]);
+    } else edits.push(setProperty(doc, entry.node, entry.path, entry.operation.value));
   }
+  for (const [region, changes] of visibility) edits.push(...visibilityEdits(doc, region, changes));
   // Validation: every target reads the new value from the parsed result.
   const verify = (parsedPage: ReturnType<typeof parseApexLang>[number]) => {
     for (const entry of resolved) {
       const component = entry.find(parsedPage);
       const value = component && readProperty(component, entry.path);
+      if (entry.operation.property === 'visible') {
+        const region = parsedPage.children.find(
+          (c) => c.type === 'region' && c.id.toUpperCase() === entry.node.parent!.key.toUpperCase(),
+        );
+        if (!region || columnVisible(region, entry.node.key) !== (entry.operation.value === 'true'))
+          throw new Fault('TRANSFORM_INVALID', `${entry.operation.target} visibility did not read back.`, 5);
+        continue;
+      }
       if (entry.operation.property === 'query') {
         const names = component?.children
           .filter((child) => child.type === 'column')

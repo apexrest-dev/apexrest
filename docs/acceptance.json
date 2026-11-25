@@ -1111,6 +1111,20 @@
         "docs/evidence/fast-dev/move-compiler-2026-11-25.json"
       ],
       "blocker": "Repository tests and the offline Oracle compiler (26.2) pass. Template-specific slots are left to the preview lint; native import and rendered placement are not yet observed."
+    },
+    {
+      "id": "FASTDEV-A14",
+      "criterion": "A typed visible property shows or hides supported interactive and classic report columns by default through an explicit release-specific source mapping, round-trips through page context, combines atomically with heading, format and sequence changes and refuses structural cases",
+      "implementation": "implemented",
+      "verification": "partial",
+      "evidence": [
+        "packages/core/src/edit/columns.ts",
+        "packages/core/src/edit/patch.ts",
+        "packages/core/src/edit/context.ts",
+        "tests/unit/source-edit-visibility.test.ts",
+        "docs/evidence/fast-dev/visibility-compiler-2026-11-25.json"
+      ],
+      "blocker": "Repository tests, the local preview render and the offline Oracle compiler (26.2) pass. Native import and 26.1 are not yet observed."
     }
   ]
 }

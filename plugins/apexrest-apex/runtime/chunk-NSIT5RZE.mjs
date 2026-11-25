@@ -218,10 +218,10 @@ function sqlTokens(sql) {
       tokens.push({ value, start, end: i });
       continue;
     }
-    const word = /^[A-Za-z][\w$#]*/.exec(sql.slice(i));
-    if (word) {
-      i += word[0].length;
-      tokens.push({ value: word[0].toUpperCase(), start, end: i });
+    const word2 = /^[A-Za-z][\w$#]*/.exec(sql.slice(i));
+    if (word2) {
+      i += word2[0].length;
+      tokens.push({ value: word2[0].toUpperCase(), start, end: i });
     } else {
       const value = sql[i++];
       tokens.push({ value, start, end: i });
@@ -339,9 +339,9 @@ function inspectSql(sql, depth = 0) {
   let anonymousBlock = false;
   let inspectedQuery = false;
   for (let i = 0; i < tokens.length; i++) {
-    const word = at(i);
-    if (word === ";") inspectedQuery = false;
-    if (word === "EXECUTE" && at(i + 1) === "IMMEDIATE") {
+    const word2 = at(i);
+    if (word2 === ";") inspectedQuery = false;
+    if (word2 === "EXECUTE" && at(i + 1) === "IMMEDIATE") {
       const literal = tokens[i + 2];
       if (literal?.literal && at(i + 3) !== "|" && depth < 4)
         operations.push(...inspectSql(literal.value, depth + 1));
@@ -352,16 +352,16 @@ function inspectSql(sql, depth = 0) {
           true,
           "Dynamic SQL cannot be resolved statically; review the complete script."
         );
-    } else if ((word === "EXEC" || word === "EXECUTE") && statementStart(i)) {
+    } else if ((word2 === "EXEC" || word2 === "EXECUTE") && statementStart(i)) {
       add(
         "plsql-block",
         null,
         true,
         "Executes a database block or routine; review its data and schema effects."
       );
-    } else if ((word === "DECLARE" || word === "BEGIN") && statementStart(i)) {
+    } else if ((word2 === "DECLARE" || word2 === "BEGIN") && statementStart(i)) {
       anonymousBlock = true;
-    } else if (word === "DROP") {
+    } else if (word2 === "DROP") {
       const found = kindAt(i + 1);
       add(
         "drop-" + (found?.kind.toLowerCase() ?? "object"),
@@ -369,14 +369,14 @@ function inspectSql(sql, depth = 0) {
         true,
         "Removes the database object; dependent code can become invalid. Dropping a table removes its data and constraints."
       );
-    } else if (word === "TRUNCATE" && ["TABLE", "CLUSTER"].includes(at(i + 1))) {
+    } else if (word2 === "TRUNCATE" && ["TABLE", "CLUSTER"].includes(at(i + 1))) {
       add(
         "truncate-" + at(i + 1).toLowerCase(),
         objectAt(i + 2),
         true,
         "Removes all table rows with DDL commit semantics; application metadata backup does not restore data."
       );
-    } else if (word === "ALTER" && at(i + 1) === "TABLE") {
+    } else if (word2 === "ALTER" && at(i + 1) === "TABLE") {
       const object = objectAt(i + 2), cursor = at(i + 3) === "." ? i + 5 : i + 3;
       if (at(cursor) === "RENAME" && at(cursor + 1) === "COLUMN")
         add(
@@ -393,7 +393,7 @@ function inspectSql(sql, depth = 0) {
           true,
           "Changes the table definition; inspect constraints, stored data and dependent application queries."
         );
-    } else if (word === "RENAME") {
+    } else if (word2 === "RENAME") {
       if (at(i - 1) !== "TABLE" && at(i + 1) !== "COLUMN")
         add(
           "rename-object",
@@ -401,23 +401,23 @@ function inspectSql(sql, depth = 0) {
           true,
           "Renames an object; dependent references require review."
         );
-    } else if (["INSERT", "UPDATE", "DELETE", "MERGE"].includes(word) && // Not DML: a foreign key's ON DELETE CASCADE/SET NULL clause and a SELECT ... FOR UPDATE lock.
-    !(at(i - 1) === "ON" && word === "DELETE") && !(at(i - 1) === "FOR" && word === "UPDATE")) {
+    } else if (["INSERT", "UPDATE", "DELETE", "MERGE"].includes(word2) && // Not DML: a foreign key's ON DELETE CASCADE/SET NULL clause and a SELECT ... FOR UPDATE lock.
+    !(at(i - 1) === "ON" && word2 === "DELETE") && !(at(i - 1) === "FOR" && word2 === "UPDATE")) {
       const cursor = ["INTO", "FROM"].includes(at(i + 1)) ? i + 2 : i + 1;
       add(
-        word.toLowerCase(),
+        word2.toLowerCase(),
         objectAt(cursor),
         true,
         "Mutates business data; an APEX application backup does not restore affected rows."
       );
-    } else if (["GRANT", "REVOKE", "AUDIT", "NOAUDIT", "ADMINISTER"].includes(word) || word === "ALTER" && ["USER", "SYSTEM", "DATABASE", "SESSION", "PROFILE", "ROLE"].includes(at(i + 1))) {
+    } else if (["GRANT", "REVOKE", "AUDIT", "NOAUDIT", "ADMINISTER"].includes(word2) || word2 === "ALTER" && ["USER", "SYSTEM", "DATABASE", "SESSION", "PROFILE", "ROLE"].includes(at(i + 1))) {
       add(
         "privileged-sql",
         null,
         true,
         "Changes database privileges, session context or administration settings."
       );
-    } else if (word === "ALTER" && statementStart(i)) {
+    } else if (word2 === "ALTER" && statementStart(i)) {
       const found = kindAt(i + 1);
       add(
         "alter-" + (found?.kind.toLowerCase() ?? "object"),
@@ -425,14 +425,14 @@ function inspectSql(sql, depth = 0) {
         true,
         "Changes an existing database object; dependent code, triggers or constraints can change behavior."
       );
-    } else if (["PURGE", "FLASHBACK"].includes(word) && statementStart(i)) {
+    } else if (["PURGE", "FLASHBACK"].includes(word2) && statementStart(i)) {
       add(
-        word.toLowerCase(),
+        word2.toLowerCase(),
         null,
         true,
         "Permanently removes or rewinds database objects; review the affected data."
       );
-    } else if (word === "CREATE" && statementStart(i)) {
+    } else if (word2 === "CREATE" && statementStart(i)) {
       const found = kindAt(i + 1);
       const replaces = at(i + 1) === "OR" && at(i + 2) === "REPLACE";
       if (!found) continue;
@@ -466,7 +466,7 @@ function inspectSql(sql, depth = 0) {
           true,
           "Creates a privileged or executable database object (users, roles, links, jobs, directories, contexts); review its scope."
         );
-    } else if (word === "SELECT" && !inspectedQuery) {
+    } else if (word2 === "SELECT" && !inspectedQuery) {
       inspectQuery(i);
       inspectedQuery = true;
     }
@@ -780,15 +780,15 @@ function sqlclControlLines(sql) {
       found.push(index + 1);
       return;
     }
-    const word = /^[A-Za-z][A-Za-z0-9_$#]*/.exec(line)?.[0].toLowerCase();
-    if (!word) return;
-    const rest = line.slice(word.length).trimStart();
-    if (word.length >= 3 && "remark".startsWith(word)) return;
+    const word2 = /^[A-Za-z][A-Za-z0-9_$#]*/.exec(line)?.[0].toLowerCase();
+    if (!word2) return;
+    const rest = line.slice(word2.length).trimStart();
+    if (word2.length >= 3 && "remark".startsWith(word2)) return;
     if (plsqlBlockStart.test(line)) block = true;
-    if ("start".startsWith(word) && word.length >= 3 && /^with\b/i.test(rest)) return;
-    if ("connect".startsWith(word) && word.length >= 4 && /^by\b/i.test(rest)) return;
-    if (block && word === "exit") return;
-    if (word === "whenever" && /\bcontinue\b/i.test(rest) || word === "set" && /^(?:logsource|editfile)\b/i.test(rest) || clientCommands.some(([name, min]) => word.length >= min && name.startsWith(word)))
+    if ("start".startsWith(word2) && word2.length >= 3 && /^with\b/i.test(rest)) return;
+    if ("connect".startsWith(word2) && word2.length >= 4 && /^by\b/i.test(rest)) return;
+    if (block && word2 === "exit") return;
+    if (word2 === "whenever" && /\bcontinue\b/i.test(rest) || word2 === "set" && /^(?:logsource|editfile)\b/i.test(rest) || clientCommands.some(([name, min]) => word2.length >= min && name.startsWith(word2)))
       found.push(index + 1);
   });
   return found;
@@ -3385,8 +3385,354 @@ async function pageFile(ctx, page) {
   return matches[0];
 }
 
-// packages/core/src/edit/context.ts
+// packages/core/src/edit/columns.ts
 var REPORTS = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
+var NAME = /^[A-Z][A-Z0-9_$#]{0,127}$/u;
+var DATA_TYPES_261 = {
+  varchar2: "STRING",
+  number: "NUMBER",
+  date: "DATE",
+  timestamp: "TIMESTAMP"
+};
+var word = (name) => new RegExp(`(^|[^A-Z0-9_$#])${name.replace(/[$#]/gu, "\\$&")}([^A-Z0-9_$#]|$)`, "iu");
+var sequenceOf = (node, path6) => Number(node.properties.get(path6)?.value) || 0;
+var bySequence = (nodes, path6) => [...nodes].sort((a, b) => sequenceOf(a, path6) - sequenceOf(b, path6) || a.open - b.open);
+function reportRegion(region, operation) {
+  const type = String(region.properties.get("type")?.value ?? "");
+  if (!REPORTS.has(type))
+    throw new Fault(
+      "OPERATION_UNSUPPORTED",
+      `${operation} is supported on interactive and classic reports, not ${type || "this region"}.`,
+      2
+    );
+  return type;
+}
+var columnsOf = (region) => region.children.filter((child) => child.kind === "column");
+var savedReports = (region) => region.children.filter((child) => child.kind === "savedReport");
+function primaryReport(region) {
+  const reports = savedReports(region);
+  return reports.find(
+    (report) => String(report.properties.get("visibility")?.value ?? "").startsWith("primary")
+  ) ?? reports[0];
+}
+function queryNames(sql, names) {
+  const missing = names.filter((name) => !word(name).test(sql));
+  if (missing.length)
+    throw new Fault("COLUMN_NOT_IN_QUERY", `The query does not name ${missing.join(", ")}.`, 2);
+}
+function checkNames(names) {
+  if (names.some((name) => !NAME.test(name)) || new Set(names).size !== names.length)
+    throw new Fault("INVALID_INPUT", "Column names must be unique Oracle identifiers.", 2);
+}
+function columnText(doc, region, column, sequence, release) {
+  const dataType = column.dataType && (release === "26.1" ? DATA_TYPES_261[column.dataType] : column.dataType);
+  const lines = [
+    `column ${column.name.toUpperCase()} (`,
+    "    type: plainText",
+    "    heading {",
+    `        heading: ${scalarText(column.heading ?? column.name)}`,
+    "    }",
+    "    layout {",
+    `        sequence: ${sequence}`,
+    "    }",
+    ...column.format ? ["    appearance {", `        formatMask: ${scalarText(column.format)}`, "    }"] : [],
+    ...dataType ? ["    source {", `        dataType: ${dataType}`, "    }"] : [],
+    ")"
+  ];
+  const indent = " ".repeat(region.indent + 4);
+  return lines.map((line) => indent + line).join(doc.eol) + doc.eol;
+}
+function afterColumns(doc, region, text2) {
+  const last = columnsOf(region).at(-1);
+  if (!last) {
+    const line2 = doc.lines[savedReports(region)[0]?.open ?? region.close];
+    return { start: line2.offset, end: line2.offset, content: text2 };
+  }
+  const line = doc.lines[last.close];
+  const at = line.offset + line.text.length + line.eol.length;
+  return { start: at, end: at, content: text2 };
+}
+function placeInOrder(doc, order, path6, step) {
+  const current = order.map((node) => node ? sequenceOf(node, path6) : void 0);
+  const index = current.indexOf(void 0);
+  const existing = current.filter((value) => value !== void 0);
+  const increasing = existing.every((value, i) => i === 0 || value > existing[i - 1]);
+  if (increasing && existing.every((value) => value > 0)) {
+    if (index === -1) return { edits: [], sequence: 0 };
+    const previous = index > 0 ? current[index - 1] : 0;
+    const next2 = index < current.length - 1 ? current[index + 1] : void 0;
+    if (next2 === void 0) return { edits: [], sequence: previous + step };
+    if (next2 - previous >= 2) return { edits: [], sequence: Math.floor((previous + next2) / 2) };
+  }
+  const edits = [];
+  let sequence = 0;
+  order.forEach((node, i) => {
+    const value = (i + 1) * step;
+    if (!node) sequence = value;
+    else if (sequenceOf(node, path6) !== value) edits.push(setProperty(doc, node, path6, String(value)));
+  });
+  return { edits, sequence };
+}
+function references(doc, report, name) {
+  const found = [];
+  for (const child of report.children) {
+    if (child.kind === "displayColumn") continue;
+    for (let line = child.open; line <= child.close; line++)
+      if (word(name).test(doc.lines[line].text)) {
+        found.push(`${child.kind} ${child.key}`.trim());
+        break;
+      }
+  }
+  return found;
+}
+function savedReportEdits(doc, region, dropped, added) {
+  const edits = [];
+  for (const report of savedReports(region))
+    for (const name of dropped) {
+      const used = references(doc, report, name);
+      if (used.length)
+        throw new Fault(
+          "COLUMN_REFERENCED",
+          `Saved report ${report.key} still uses ${name} in ${used.join(", ")}. Remove that use in source first.`,
+          5
+        );
+      for (const display of report.children.filter(
+        (child) => child.kind === "displayColumn" && child.key.toUpperCase() === name
+      ))
+        edits.push(removeComponent(doc, display));
+    }
+  const primary = primaryReport(region);
+  if (!primary || !added.length) return edits;
+  const displayed = bySequence(
+    primary.children.filter(
+      (child) => child.kind === "displayColumn" && !dropped.includes(child.key.toUpperCase())
+    ),
+    "sequence"
+  );
+  let order = [...displayed];
+  const news = [];
+  for (const column of added) {
+    const at2 = column.before ? order.findIndex((node) => node?.key.toUpperCase() === column.before) : column.after ? order.findIndex((node) => node?.key.toUpperCase() === column.after) + 1 : order.length;
+    order.splice(at2 < 0 ? order.length : at2, 0, void 0);
+    news.push(column.name);
+  }
+  const holes = order.filter((node) => !node).length;
+  let sequences;
+  if (holes === 1) {
+    const placed = placeInOrder(doc, order, "sequence", 1);
+    edits.push(...placed.edits);
+    sequences = [placed.sequence];
+  } else {
+    sequences = [];
+    order.forEach((node, i) => {
+      if (!node) sequences.push(i + 1);
+      else if (sequenceOf(node, "sequence") !== i + 1)
+        edits.push(setProperty(doc, node, "sequence", String(i + 1)));
+    });
+  }
+  const indent = " ".repeat(primary.indent + 4);
+  const text2 = news.map(
+    (name, i) => [`displayColumn ${name} (`, `    sequence: ${sequences[i]}`, ")"].map((line) => indent + line).join(doc.eol) + doc.eol
+  ).join("");
+  const last = primary.children.filter((child) => child.kind === "displayColumn").at(-1);
+  const anchor = last ? doc.lines[last.close] : doc.lines[primary.close];
+  const at = last ? anchor.offset + anchor.text.length + anchor.eol.length : anchor.offset;
+  edits.push({ start: at, end: at, content: text2 });
+  return edits;
+}
+function planColumns(snapshot, operations) {
+  const { doc, node: page, release } = snapshot;
+  const edits = [];
+  const checks = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const operation of operations) {
+    const region = ApexLangDocument.one(page.children, "region", operation.region, `Page ${page.key}`);
+    if (seen.has(region.key.toUpperCase()))
+      throw new Fault("TRANSFORM_CONFLICT", `Two column operations change region ${operation.region}.`, 5);
+    seen.add(region.key.toUpperCase());
+    const type = reportRegion(region, operation.op);
+    const columns = bySequence(columnsOf(region), "layout.sequence");
+    const key = (name2) => name2.toUpperCase();
+    const find = (name2) => name2 === void 0 ? void 0 : columns.findIndex((column) => column.key.toUpperCase() === key(name2));
+    if (operation.op === "orderColumns") {
+      const order2 = operation.order.map(key);
+      checkNames(order2);
+      const declared = columns.map((column) => column.key.toUpperCase());
+      if (order2.length !== declared.length || order2.some((name2) => !declared.includes(name2)))
+        throw new Fault(
+          "INVALID_INPUT",
+          `order must list every column of ${region.key} once: ${declared.join(", ")}.`,
+          2
+        );
+      const nodes = order2.map((name2) => columns[find(name2)]);
+      edits.push(...placeInOrder(doc, nodes, "layout.sequence", 10).edits);
+      const primary = type === "interactiveReport" ? primaryReport(region) : void 0;
+      if (primary) {
+        const displayed = primary.children.filter((child) => child.kind === "displayColumn");
+        const shown = order2.map((name2) => displayed.find((child) => child.key.toUpperCase() === name2)).filter((node) => Boolean(node));
+        edits.push(...placeInOrder(doc, shown, "sequence", 1).edits);
+      }
+      checks.push((after) => {
+        const parsed = after.children.find(
+          (c) => c.type === "region" && c.id.toUpperCase() === region.key.toUpperCase()
+        );
+        const now = (parsed?.children ?? []).filter((c) => c.type === "column").sort(
+          (a, b) => Number(readProperty(a, "layout.sequence")) - Number(readProperty(b, "layout.sequence"))
+        ).map((c) => c.id.toUpperCase());
+        if (JSON.stringify(now) !== JSON.stringify(order2))
+          throw new Fault(
+            "TRANSFORM_INVALID",
+            `${region.key} columns did not read back in the requested order.`,
+            5
+          );
+      });
+      continue;
+    }
+    const name = key(operation.column.name);
+    checkNames([name]);
+    if (find(name) !== -1)
+      throw new Fault("TARGET_EXISTS", `Column ${name} already exists in ${region.key}.`, 5);
+    if (operation.after && operation.before)
+      throw new Fault("INVALID_INPUT", "Give after or before, not both.", 2);
+    const anchor = operation.after ?? operation.before;
+    const at = find(anchor);
+    if (anchor !== void 0 && at === -1)
+      throw new Fault("TARGET_NOT_FOUND", `No column ${anchor} in ${region.key}.`, 2);
+    queryNames(operation.sql, [...columns.map((column) => column.key.toUpperCase()), name]);
+    const index = at === void 0 ? columns.length : operation.after ? at + 1 : at;
+    const order = [...columns];
+    order.splice(index, 0, void 0);
+    const placed = placeInOrder(doc, order, "layout.sequence", 10);
+    edits.push(setFencedText(doc, region, "source.sqlQuery", operation.sql), ...placed.edits);
+    edits.push(
+      afterColumns(doc, region, columnText(doc, region, operation.column, placed.sequence, release))
+    );
+    if (type === "interactiveReport") {
+      const primary = primaryReport(region);
+      const displayed = new Set(
+        (primary?.children ?? []).filter((c) => c.kind === "displayColumn").map((c) => c.key.toUpperCase())
+      );
+      const before = columns.slice(0, index).reverse().find((column) => displayed.has(column.key.toUpperCase()));
+      const next2 = columns.slice(index).find((column) => displayed.has(column.key.toUpperCase()));
+      edits.push(
+        ...savedReportEdits(
+          doc,
+          region,
+          [],
+          [before ? { name, after: before.key.toUpperCase() } : { name, before: next2?.key.toUpperCase() }]
+        )
+      );
+    }
+    const expected = order.map((node) => node ? node.key.toUpperCase() : name);
+    checks.push((after) => {
+      const parsed = after.children.find(
+        (c) => c.type === "region" && c.id.toUpperCase() === region.key.toUpperCase()
+      );
+      const now = (parsed?.children ?? []).filter((c) => c.type === "column").sort(
+        (a, b) => Number(readProperty(a, "layout.sequence")) - Number(readProperty(b, "layout.sequence"))
+      ).map((c) => c.id.toUpperCase());
+      if (JSON.stringify(now) !== JSON.stringify(expected) || String(readProperty(parsed, "source.sqlQuery") ?? "").trim() !== operation.sql.trim())
+        throw new Fault("TRANSFORM_INVALID", `${region.key} query or column order did not read back.`, 5);
+    });
+  }
+  return {
+    edits,
+    verify: (after) => checks.forEach((check) => check(after)),
+    targets: operations.map((operation) => `region:${operation.region}`)
+  };
+}
+function columnVisible(region, column) {
+  const declared = region.children.find(
+    (c) => c.type === "column" && c.id.toUpperCase() === column.toUpperCase()
+  );
+  if (!declared || declared.props.type === "hidden") return false;
+  if (region.props.type !== "interactiveReport") return true;
+  const reports = region.children.filter((c) => c.type === "savedReport");
+  const primary = reports.find((report) => String(report.props.visibility ?? "").startsWith("primary")) ?? reports[0];
+  if (!primary) return true;
+  return primary.children.some(
+    (c) => c.type === "displayColumn" && c.id.toUpperCase() === column.toUpperCase()
+  );
+}
+function visibilityEdits(doc, region, changes) {
+  const type = reportRegion(region, "visible");
+  const edits = [];
+  if (type === "classicReport") {
+    for (const { column, visible } of changes) {
+      const columnType = String(column.properties.get("type")?.value ?? "");
+      if (visible) {
+        if (columnType === "hidden") edits.push(setProperty(doc, column, "type", "plainText"));
+        continue;
+      }
+      if (columnType === "hidden") continue;
+      if (columnType && columnType !== "plainText")
+        throw new Fault(
+          "OPERATION_UNSUPPORTED",
+          `${region.key}.${column.key} is a ${columnType} column; hiding it would drop that type. Edit it in source.`,
+          2
+        );
+      edits.push(setProperty(doc, column, "type", "hidden"));
+    }
+    return edits;
+  }
+  for (const { column } of changes)
+    if (String(column.properties.get("type")?.value ?? "") === "hidden")
+      throw new Fault(
+        "OPERATION_UNSUPPORTED",
+        `${region.key}.${column.key} is declared type hidden, so users cannot show it; change its type in source.`,
+        2
+      );
+  const primary = primaryReport(region);
+  if (!primary)
+    throw new Fault(
+      "OPERATION_UNSUPPORTED",
+      `${region.key} has no default saved report; its displayed columns are not declared in source.`,
+      2
+    );
+  const hide = new Set(changes.filter((c) => !c.visible).map((c) => c.column.key.toUpperCase()));
+  const displayed = bySequence(
+    primary.children.filter((c) => c.kind === "displayColumn"),
+    "sequence"
+  );
+  for (const node of displayed) if (hide.has(node.key.toUpperCase())) edits.push(removeComponent(doc, node));
+  const order = displayed.filter((node) => !hide.has(node.key.toUpperCase()));
+  const has = (name) => order.some((entry) => (typeof entry === "string" ? entry : entry.key.toUpperCase()) === name);
+  const columns = bySequence(columnsOf(region), "layout.sequence").map((c) => c.key.toUpperCase());
+  for (const { column, visible } of changes) {
+    const name = column.key.toUpperCase();
+    if (!visible || has(name)) continue;
+    const index = columns.indexOf(name);
+    const before = columns.slice(0, index).reverse().find(has);
+    const at2 = before ? order.findIndex((entry) => (typeof entry === "string" ? entry : entry.key.toUpperCase()) === before) + 1 : 0;
+    order.splice(at2, 0, name);
+  }
+  const news = order.filter((entry) => typeof entry === "string");
+  if (!news.length) return edits;
+  const sequences = /* @__PURE__ */ new Map();
+  const kept = order.map((entry) => typeof entry === "string" ? void 0 : entry);
+  if (news.length === 1) {
+    const placed = placeInOrder(doc, kept, "sequence", 1);
+    edits.push(...placed.edits);
+    sequences.set(news[0], placed.sequence);
+  } else
+    order.forEach((entry, i) => {
+      if (typeof entry === "string") sequences.set(entry, i + 1);
+      else if (sequenceOf(entry, "sequence") !== i + 1)
+        edits.push(setProperty(doc, entry, "sequence", String(i + 1)));
+    });
+  const indent = " ".repeat(primary.indent + 4);
+  const text2 = news.map(
+    (name) => [`displayColumn ${name} (`, `    sequence: ${sequences.get(name)}`, ")"].map((line) => indent + line).join(doc.eol) + doc.eol
+  ).join("");
+  const last = primary.children.filter((child) => child.kind === "displayColumn").at(-1);
+  const anchor = doc.lines[last ? last.close : primary.close];
+  const at = last ? anchor.offset + anchor.text.length + anchor.eol.length : anchor.offset;
+  edits.push({ start: at, end: at, content: text2 });
+  return edits;
+}
+
+// packages/core/src/edit/context.ts
+var REPORTS2 = /* @__PURE__ */ new Set(["interactiveReport", "classicReport"]);
 var DELTA_QUERY_CHARS = 2e3;
 var DELTA_ENTRIES = 40;
 var text = (component, dotted) => {
@@ -3395,14 +3741,15 @@ var text = (component, dotted) => {
 };
 var compact = (value) => Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== void 0 && entry !== ""));
 function columnEntries(region) {
-  return region.children.filter((c) => c.type === "column").map(
-    (column) => compact({
+  return region.children.filter((c) => c.type === "column").map((column) => ({
+    ...compact({
       target: `column:${region.id}.${column.id}`,
       heading: text(column, "heading.heading"),
       format: text(column, "appearance.formatMask"),
       sequence: text(column, "layout.sequence")
-    })
-  );
+    }),
+    visible: columnVisible(region, column.id)
+  }));
 }
 function contextOf(source, file) {
   const parsed = parseApexLang(source, file).find((c) => c.type === "page");
@@ -3418,7 +3765,7 @@ function contextOf(source, file) {
         title: text(region, "name"),
         sequence: text(region, "layout.sequence"),
         line: region.line,
-        query: REPORTS.has(String(text(region, "type"))) ? text(region, "source.sqlQuery") : void 0,
+        query: REPORTS2.has(String(text(region, "type"))) ? text(region, "source.sqlQuery") : void 0,
         columns: columnEntries(region)
       })
     ),
@@ -3561,7 +3908,7 @@ async function loadRelated(ctx, key) {
   const [kind, id = ""] = [key.slice(0, key.indexOf(":")), key.slice(key.indexOf(":") + 1)];
   let file;
   if (kind === "page") file = await pageFile(ctx, String(Number(id))).catch(() => void 0);
-  else if (kind === "lov") file = await (await import("./chunk-7UK3WOW2.mjs")).lovFile(ctx, id).catch(() => void 0);
+  else if (kind === "lov") file = await (await import("./chunk-5WAXDMMN.mjs")).lovFile(ctx, id).catch(() => void 0);
   if (!file) return void 0;
   const text2 = await readFile4(file, "utf8");
   const parsed = parseApexLang(text2, "related").find(
@@ -3623,6 +3970,16 @@ export {
   removeComponent,
   appendChild,
   readProperty,
+  reportRegion,
+  columnsOf,
+  queryNames,
+  checkNames,
+  columnText,
+  afterColumns,
+  savedReportEdits,
+  planColumns,
+  columnVisible,
+  visibilityEdits,
   contextOf,
   runPageTransaction,
   guardedEdit

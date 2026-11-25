@@ -1668,6 +1668,24 @@
       ],
       "evidence": ["sanitized result code", "compiler diagnostics count", "preview slot findings"],
       "budgetMs": 10000
+    },
+    {
+      "id": "A261-079",
+      "title": "Show and hide report columns",
+      "acceptance": ["FASTDEV-A14"],
+      "execution": "harness",
+      "surface": "stdio-MCP",
+      "authorization": "read-only-or-local",
+      "steps": [
+        "Hide one interactive-report column and change its heading in one patch.",
+        "Show it again.",
+        "Validate after each step."
+      ],
+      "expected": [
+        "The default report's displayed columns follow the change; the query and column declarations are unchanged; the compiler passes."
+      ],
+      "evidence": ["sanitized result code", "context visible flags", "compiler diagnostics count"],
+      "budgetMs": 10000
     }
   ],
   "metrics": "quality-performance.json"

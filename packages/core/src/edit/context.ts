@@ -1,5 +1,6 @@
 import { Fault } from '../result.ts';
 import { digestOf, parseApexLang, readProperty } from './apexlang-edit.ts';
+import { columnVisible } from './columns.ts';
 
 /**
  * The compact, digest-bound context of one page (`project action:context`) and the delta between
@@ -30,14 +31,15 @@ const compact = <T extends Record<string, unknown>>(value: T) =>
 function columnEntries(region: Parsed): ContextEntry[] {
   return region.children
     .filter((c) => c.type === 'column')
-    .map((column) =>
-      compact({
+    .map((column) => ({
+      ...compact({
         target: `column:${region.id}.${column.id}`,
         heading: text(column, 'heading.heading'),
         format: text(column, 'appearance.formatMask'),
         sequence: text(column, 'layout.sequence'),
       }),
-    );
+      visible: columnVisible(region, column.id),
+    }));
 }
 
 export function contextOf(source: string, file: string) {

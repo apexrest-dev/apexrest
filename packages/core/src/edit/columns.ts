@@ -383,3 +383,123 @@ export function planColumns(
     targets: operations.map((operation) => `region:${operation.region}`),
   };
 }
+
+/**
+ * Whether a column shows by default. Interactive reports: a column not declared `type: hidden`
+ * that the primary default saved report lists as a `displayColumn` (every such column when the
+ * report has no saved report). Classic reports: any column type other than `hidden`.
+ */
+export function columnVisible(region: ApxComponent, column: string): boolean {
+  const declared = region.children.find(
+    (c) => c.type === 'column' && c.id.toUpperCase() === column.toUpperCase(),
+  );
+  if (!declared || declared.props.type === 'hidden') return false;
+  if (region.props.type !== 'interactiveReport') return true;
+  const reports = region.children.filter((c) => c.type === 'savedReport');
+  const primary =
+    reports.find((report) => String(report.props.visibility ?? '').startsWith('primary')) ?? reports[0];
+  if (!primary) return true;
+  return primary.children.some(
+    (c) => c.type === 'displayColumn' && c.id.toUpperCase() === column.toUpperCase(),
+  );
+}
+
+/**
+ * Edits that show or hide columns of one report by default, planned together so several changes
+ * do not touch the same lines. Interactive reports change only the primary default saved report's
+ * `displayColumn` list (a shown column takes its place by column order); classic reports switch
+ * `type` between `plainText` and `hidden`. Structural cases are refused: an interactive-report
+ * column declared `type: hidden`, a report without a default saved report, and hiding a classic
+ * column whose type (a link, an LOV display) would be lost.
+ */
+export function visibilityEdits(
+  doc: ApexLangDocument,
+  region: ComponentNode,
+  changes: { column: ComponentNode; visible: boolean }[],
+): TextEdit[] {
+  const type = reportRegion(region, 'visible');
+  const edits: TextEdit[] = [];
+  if (type === 'classicReport') {
+    for (const { column, visible } of changes) {
+      const columnType = String(column.properties.get('type')?.value ?? '');
+      if (visible) {
+        if (columnType === 'hidden') edits.push(setProperty(doc, column, 'type', 'plainText'));
+        continue;
+      }
+      if (columnType === 'hidden') continue;
+      if (columnType && columnType !== 'plainText')
+        throw new Fault(
+          'OPERATION_UNSUPPORTED',
+          `${region.key}.${column.key} is a ${columnType} column; hiding it would drop that type. Edit it in source.`,
+          2,
+        );
+      edits.push(setProperty(doc, column, 'type', 'hidden'));
+    }
+    return edits;
+  }
+  for (const { column } of changes)
+    if (String(column.properties.get('type')?.value ?? '') === 'hidden')
+      throw new Fault(
+        'OPERATION_UNSUPPORTED',
+        `${region.key}.${column.key} is declared type hidden, so users cannot show it; change its type in source.`,
+        2,
+      );
+  const primary = primaryReport(region);
+  if (!primary)
+    throw new Fault(
+      'OPERATION_UNSUPPORTED',
+      `${region.key} has no default saved report; its displayed columns are not declared in source.`,
+      2,
+    );
+  const hide = new Set(changes.filter((c) => !c.visible).map((c) => c.column.key.toUpperCase()));
+  const displayed = bySequence(
+    primary.children.filter((c) => c.kind === 'displayColumn'),
+    'sequence',
+  );
+  for (const node of displayed) if (hide.has(node.key.toUpperCase())) edits.push(removeComponent(doc, node));
+  const order: (ComponentNode | string)[] = displayed.filter((node) => !hide.has(node.key.toUpperCase()));
+  const has = (name: string) =>
+    order.some((entry) => (typeof entry === 'string' ? entry : entry.key.toUpperCase()) === name);
+  const columns = bySequence(columnsOf(region), 'layout.sequence').map((c) => c.key.toUpperCase());
+  for (const { column, visible } of changes) {
+    const name = column.key.toUpperCase();
+    if (!visible || has(name)) continue;
+    // After the nearest shown column that precedes it in column order, else first.
+    const index = columns.indexOf(name);
+    const before = columns.slice(0, index).reverse().find(has);
+    const at = before
+      ? order.findIndex((entry) => (typeof entry === 'string' ? entry : entry.key.toUpperCase()) === before) +
+        1
+      : 0;
+    order.splice(at, 0, name);
+  }
+  const news = order.filter((entry): entry is string => typeof entry === 'string');
+  if (!news.length) return edits;
+  // Existing display columns keep their sequence when a single new one fits a gap; else 1..n.
+  const sequences = new Map<string, number>();
+  const kept = order.map((entry) => (typeof entry === 'string' ? undefined : entry));
+  if (news.length === 1) {
+    const placed = placeInOrder(doc, kept, 'sequence', 1);
+    edits.push(...placed.edits);
+    sequences.set(news[0]!, placed.sequence);
+  } else
+    order.forEach((entry, i) => {
+      if (typeof entry === 'string') sequences.set(entry, i + 1);
+      else if (sequenceOf(entry, 'sequence') !== i + 1)
+        edits.push(setProperty(doc, entry, 'sequence', String(i + 1)));
+    });
+  const indent = ' '.repeat(primary.indent + 4);
+  const text = news
+    .map(
+      (name) =>
+        [`displayColumn ${name} (`, `    sequence: ${sequences.get(name)}`, ')']
+          .map((line) => indent + line)
+          .join(doc.eol) + doc.eol,
+    )
+    .join('');
+  const last = primary.children.filter((child) => child.kind === 'displayColumn').at(-1);
+  const anchor = doc.lines[last ? last.close : primary.close]!;
+  const at = last ? anchor.offset + anchor.text.length + anchor.eol.length : anchor.offset;
+  edits.push({ start: at, end: at, content: text });
+  return edits;
+}

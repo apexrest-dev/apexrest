@@ -10,7 +10,7 @@ import {
   PATCH_PROPERTIES,
   pageContext,
   patchPage
-} from "./chunk-QFWCODEX.mjs";
+} from "./chunk-G3M7LGF5.mjs";
 import {
   DBMS_OUTPUT_BLOCK,
   HTP_BIND,
@@ -39,7 +39,7 @@ import {
   recordRevision,
   revisionOf,
   sourceInventory
-} from "./chunk-7SOP6TER.mjs";
+} from "./chunk-NSIT5RZE.mjs";
 import "./chunk-Y2XCPATG.mjs";
 import {
   bool,

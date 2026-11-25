@@ -1,7 +1,7 @@
 import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);
 import {
   schemas
-} from "./chunk-YTJ445C7.mjs";
+} from "./chunk-WKE6XXG3.mjs";
 import {
   renderPageBody,
   renderRegion,
@@ -27,25 +27,25 @@ import {
 import {
   lovContext,
   lovEdit
-} from "./chunk-CQPDDY7A.mjs";
+} from "./chunk-R2AMBWDG.mjs";
 import {
   pageContext,
   patchPage,
-  planColumns,
   planSets,
-  queryEdits,
-  reportRegion
-} from "./chunk-QFWCODEX.mjs";
+  queryEdits
+} from "./chunk-G3M7LGF5.mjs";
 import {
   ApexLangDocument,
   DeploymentService,
   appendChild,
   deployPlanSchema,
+  planColumns,
   planDigest,
   readProperty,
   recordRevision,
   referenceText,
   removeProperty,
+  reportRegion,
   revisionOf,
   revisionStatus,
   runPageTransaction,
@@ -55,7 +55,7 @@ import {
   setPropertyText,
   sourceInventory,
   sourceRevision
-} from "./chunk-7SOP6TER.mjs";
+} from "./chunk-NSIT5RZE.mjs";
 import {
   ArtifactService,
   catalogRead,
@@ -4380,7 +4380,7 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       return { ...result, operation };
     }
     if (operation === "preview" || operation.startsWith("preview.")) {
-      const { previewDispatch } = await import("./chunk-YHOC6JUC.mjs");
+      const { previewDispatch } = await import("./chunk-3RYH7HFF.mjs");
       return success(operation, await previewDispatch(operation, parsed, root));
     }
     const oracle = await sharedOracle();
@@ -4422,17 +4422,17 @@ async function dispatchObserved(operation, input = {}, signal, progress) {
       case "setup":
       case "plugin.install":
       case "plugin.update": {
-        const { setup } = await import("./chunk-RH53IJWI.mjs");
+        const { setup } = await import("./chunk-FWCLKGGY.mjs");
         data = await setup(parsed);
         break;
       }
       case "plugin.validate": {
-        const { validateNative } = await import("./chunk-RH53IJWI.mjs");
+        const { validateNative } = await import("./chunk-FWCLKGGY.mjs");
         data = await validateNative(text("from"));
         break;
       }
       case "plugin.uninstall": {
-        const { uninstallNative } = await import("./chunk-RH53IJWI.mjs");
+        const { uninstallNative } = await import("./chunk-FWCLKGGY.mjs");
         data = await uninstallNative(text("home") ?? managedHome(), Boolean(parsed.keepRuntime), {
           ...text("codex") ? { codex: text("codex") } : {}
         });

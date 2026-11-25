@@ -2,13 +2,13 @@
 
 Use `apexrest_project action:patch` for small property changes on an existing page instead of editing `.apx` text by hand. It replaces only the value bytes of the named property. Comments, ``` literals, Oracle metadata, ids and every other component keep their bytes. A missing property or group is inserted with the file's own indentation and line endings.
 
-| Target              | Properties                      | APEXlang path                                                 |
-| ------------------- | ------------------------------- | ------------------------------------------------------------- |
-| `page`              | `title`                         | `title`                                                       |
-| `region:ID`         | `title`, `sequence`             | `name`, `layout.sequence`                                     |
-| `item:NAME`         | `label`, `sequence`             | `label.label`, `layout.sequence`                              |
-| `button:ID`         | `label`, `sequence`             | `label`, `layout.sequence`                                    |
-| `column:REGION.COL` | `heading`, `format`, `sequence` | `heading.heading`, `appearance.formatMask`, `layout.sequence` |
+| Target              | Properties                                 | APEXlang path                                                            |
+| ------------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
+| `page`              | `title`                                    | `title`                                                                  |
+| `region:ID`         | `title`, `sequence`                        | `name`, `layout.sequence`                                                |
+| `item:NAME`         | `label`, `sequence`                        | `label.label`, `layout.sequence`                                         |
+| `button:ID`         | `label`, `sequence`                        | `label`, `layout.sequence`                                               |
+| `column:REGION.COL` | `heading`, `format`, `sequence`, `visible` | `heading.heading`, `appearance.formatMask`, `layout.sequence`, see below |
 
 0. `apexrest_project action:context page:"10"` returns the page's targets with their current values, report SQL and columns, and the `digest` to patch with. Read it instead of the whole page file.
 1. Without `expectedDigest` it changes nothing and returns the current page-file digest (`currentDigest`); `action:context` gives it too. (CLI: `--dry-run` shows the result without writing.)
@@ -81,3 +81,7 @@ Bind an existing list item to a shared LOV in `action:edit`: `{"op":"bindLov", "
 ## Move a component on the page
 
 `{"op":"moveComponent", "component":"item:P10_NAME"|"button:ID"|"region:ID", "to":{region?, slot, sequence?}}` moves an item or button into another region, or a region under another region or (without `region`) to page level. Only its layout region/parent, slot and sequence change. Slots: items `regionBody`, `body`, `contentBody`; buttons `next`, `previous`, `create`, `edit`, `close`, `change`, `delete`, `copy`, `up`, `regionBody`, `belowBox`, `top`, `bottom` (and `rightOfInteractiveReportSearchBar` in an interactive report); sub-regions `subRegions`, `regionBody`, `body`; page-level regions `body`, `breadcrumbBar`, `leftColumn`, `rightSideColumn` (modal pages: `contentBody`, `dialogFooter`). Run `apexrest_preview action:check` afterwards: it checks the region template's own slots. For order only, use a `sequence` patch. Moves to another page are not supported.
+
+## Show or hide report columns
+
+`{"target":"column:orders.AMOUNT","property":"visible","value":"false"}` (or `"true"`) changes whether a column shows by default; context lists `visible` for every column. Interactive reports: the column joins or leaves the default saved report's displayed columns (a shown column takes its place by column order); the column and the query are unchanged, and users can still add it. Classic reports: `type` switches between `plainText` and `hidden`. Refused: an interactive-report column declared `type: hidden`, a report without a default saved report, and hiding a classic link or LOV column. Several visibility, heading, format and sequence changes combine in one patch or edit.

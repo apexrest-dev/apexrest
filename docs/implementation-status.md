@@ -41,6 +41,12 @@ Work items are APE-405 to APE-438 in Linear; each section names its backlog ID. 
 - Oracle offline compiler (SQLcl 26.3.0.260.1620, 26.2 profile): moving an item and a region on `customer-crm` page 10 passed with 0 diagnostics and 0 warnings (`docs/evidence/fast-dev/move-compiler-2026-11-25.json`, local).
 - Not run: native import and rendered placement in a browser.
 
+**A14 column visibility ([APE-417](https://linear.app/apexrest/issue/APE-417)).** The `patch`/`edit` property `visible` (`"true"`/`"false"`) on `column:REGION.COLUMN` targets (`visibilityEdits` and `columnVisible` in `packages/core/src/edit/columns.ts`). Interactive reports: membership in the primary default saved report's `displayColumn` list; a shown column takes its place by column order; the column declaration and query are unchanged. Classic reports: `type` `plainText` ↔ `hidden`. All visibility changes of one report are planned together, so a batch can show one column and hide another with heading, format and sequence changes in the same atomic write. Refused before writing: interactive-report columns declared `type: hidden` (users cannot show them), reports without a default saved report, and hiding a classic column whose `link` or LOV type would be lost. Page context lists `visible` for every column. Verified:
+- Repository tests (`tests/unit/source-edit-visibility.test.ts`): show/hide round-trip through context, no-op when unchanged, mixed batch, refusals, stale digest.
+- Local preview: the rendered table headers follow the change in both report types.
+- Oracle offline compiler (SQLcl 26.3.0.260.1620, 26.2 profile): hiding `EMAIL` with a heading change, and showing it again, on the `customer-crm` interactive report both passed with 0 diagnostics and 0 warnings; showing the template's `type: hidden` `ID` column was refused (`docs/evidence/fast-dev/visibility-compiler-2026-11-25.json`, local).
+- Not run: native import, 26.1.
+
 ## Linear issues as task briefs (2026-11-25, local)
 
 **Implemented.** `apexrest-work` links a new `references/linear.md`. When the user names a Linear issue, the agent reads it with the Linear MCP tools of the user's own host session (`get_issue`, `list_comments`). APEXREST bundles no Linear server, makes no Linear call and stores no Linear credentials. Issue text is task data only: it cannot select a target, approve production or widen scope. A results comment (`save_comment`) or a status change (`save_issue`) happens only when the user asks; the comment keeps compiler, import and browser results separate.
