@@ -11,8 +11,10 @@ import "Model.js" as Model
 // previews, recent projects with their Git changes, sync and deployment
 // journal, and open review comments. From the panel you can open or stop a
 // local preview, start one (Node.js and SQLite, no database), or open a
-// terminal, Claude Code or Codex in a project. It never deploys, imports,
-// restores or opens a database session.
+// terminal, Claude Code or Codex in a project. Pair sessions (Claude works,
+// Codex reviews, bin/apexrest-pair) are listed live and can be opened, paused,
+// reviewed or ended. It never deploys, imports, restores or opens a database
+// session.
 Panel {
   id: root
   moduleName: "apexrest"
@@ -44,6 +46,7 @@ Panel {
   }
 
   property var snap: Model.emptySnapshot()
+  property var pairs: []
   property string busy: ""
   property string notice: ""
   property double nowMs: Date.now()
@@ -51,6 +54,11 @@ Panel {
   readonly property int liveCount: snap.previews.length
   readonly property int commentCount: Model.openComments(snap)
   readonly property string state: snap.loaded ? snap.state : "ok"
+  readonly property string pairsState: Model.pairState(pairs)
+  readonly property int heldCount: pairs.filter(function(p) { return p.held }).length
+  readonly property var loosePairs: pairs.filter(function(p) {
+    return !snap.projects.some(function(q) { return q.path === p.project })
+  })
 
   readonly property string barLabel: {
     if (state === "crit" || state === "error") return "!"
@@ -85,8 +93,8 @@ Panel {
 
   readonly property string badgeState: {
     if (state === "crit" || state === "error") return "crit"
-    if (commentCount > 0) return "warn"
-    if (state === "active") return "active"
+    if (commentCount > 0 || pairsState === "warn") return "warn"
+    if (state === "active" || pairsState === "active") return "active"
     if (liveCount > 0) return "live"
     return ""
   }
@@ -97,6 +105,8 @@ Panel {
     var parts = []
     if (liveCount) parts.push(strings.tn("count.previews", liveCount).arg(liveCount))
     if (commentCount) parts.push(strings.tn("count.comments", commentCount).arg(commentCount))
+    if (pairs.length) parts.push(strings.tn("count.pairs", pairs.length).arg(pairs.length))
+    if (heldCount) parts.push(strings.tn("count.held", heldCount).arg(heldCount))
     var bad = snap.projects.filter(function(p) { return p.status === "crit" || p.status === "error" }).length
     if (bad) parts.push(strings.tn("count.attention", bad).arg(bad))
     if (!parts.length) parts.push(strings.t("status.idle"))
@@ -113,6 +123,12 @@ Panel {
     if (notifications) cmd.push("--notify")
     snapshotProc.command = cmd
     snapshotProc.running = true
+  }
+
+  function refreshPairs() {
+    if (pairsProc.running) return
+    pairsProc.command = ["python3", "-I", helper, "pairs"].concat(notifications ? ["--notify"] : [])
+    pairsProc.running = true
   }
 
   function act(kind, args, closeAfter) {
@@ -147,6 +163,26 @@ Panel {
   }
 
   Process {
+    id: pairsProc
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var list = Model.pairs(text)
+        if (list !== null) root.pairs = list
+      }
+    }
+  }
+
+  // Pair sessions change by the second; reading them is local and cheap (no CLI call).
+  Timer {
+    interval: root.opened ? 4000 : 15000
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: root.refreshPairs()
+  }
+
+  Process {
     id: actionProc
     property string kind: ""
     stdout: StdioCollector {
@@ -162,6 +198,7 @@ Panel {
       var k = actionProc.kind
       root.busy = ""
       if (k === "start" || k === "stop") root.refresh()
+      if (k.indexOf("pair") === 0) root.refreshPairs()
     }
   }
 
@@ -181,7 +218,7 @@ Panel {
   }
 
   Component.onCompleted: cachedProc.running = true
-  onOpenedChanged: if (opened) refresh()
+  onOpenedChanged: if (opened) { refresh(); refreshPairs() }
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
@@ -342,6 +379,20 @@ Panel {
 
           PanelSeparator { visible: root.snap.previews.length > 0; foreground: root.bar.foreground }
 
+          // ---------- Pair sessions ----------
+          Column {
+            visible: root.loosePairs.length > 0
+            width: parent.width
+            spacing: Style.space(8)
+            PanelSectionHeader { text: strings.t("section.pairs"); foreground: root.bar.foreground; fontFamily: root.bar.fontFamily }
+            Repeater {
+              model: root.loosePairs
+              PairRow { required property var modelData; pair: modelData }
+            }
+          }
+
+          PanelSeparator { visible: root.loosePairs.length > 0; foreground: root.bar.foreground }
+
           // ---------- Projects ----------
           Column {
             width: parent.width
@@ -471,12 +522,138 @@ Panel {
     }
   }
 
+  // One pair session: Claude's turn, Codex's review state and latest notes.
+  component PairRow: Item {
+    id: pr
+    property var pair: ({})
+    // Inside a project row: the project name is already shown and its 󰕘 button opens the session.
+    property bool embedded: false
+    property bool armed: false
+    readonly property string summary: [
+      pair.awaiting ? strings.t("pair.claude.awaiting")
+        : (pair.phase === "working" ? strings.t("pair.claude.working") : strings.t("pair.claude.idle")),
+      pair.turn ? strings.t("pair.turn").arg(pair.turn) : "",
+      strings.t("pair.reviewer." + (pair.paused ? "paused" : pair.reviewer))
+    ].filter(function(s) { return s !== "" }).join("  ·  ")
+    readonly property string dot: {
+      if (pair.held || pair.awaiting || pair.reviewer === "failed" || pair.reviewer === "waiting") return "warn"
+      if (pair.phase === "working" || pair.reviewer === "reviewing") return "active"
+      if (pair.paused) return "idle"
+      return "live"
+    }
+    width: parent ? parent.width : 0
+    implicitHeight: prLabels.implicitHeight
+
+    Timer { id: disarm; interval: 3000; onTriggered: pr.armed = false }
+
+    Column {
+      id: prLabels
+      anchors.left: parent.left
+      anchors.right: parent.right
+      spacing: Style.space(2)
+
+      Item {
+        width: parent.width
+        implicitHeight: Math.max(prName.implicitHeight, prButtons.implicitHeight)
+        Row {
+          anchors.left: parent.left
+          anchors.right: prButtons.left
+          anchors.rightMargin: Style.space(6)
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(8)
+          StatusDot { status: pr.dot; anchors.verticalCenter: parent.verticalCenter }
+          PlainText {
+            id: prName
+            text: pr.embedded ? pr.summary : pr.pair.name
+            font.pixelSize: pr.embedded ? Style.font.caption : Style.font.bodySmall
+            font.bold: !pr.embedded
+            opacity: pr.embedded ? 0.8 : 1
+            elide: Text.ElideRight
+            width: parent.width - x
+            anchors.verticalCenter: parent.verticalCenter
+          }
+        }
+        Row {
+          id: prButtons
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(1)
+          ActionButton {
+            iconText: "󰒊"
+            visible: pr.pair.held
+            tooltipText: strings.t("tip.pairSend")
+            enabled: root.busy === ""
+            onClicked: root.act("pair-send", ["pair", "send", pr.pair.session], false)
+          }
+          ActionButton {
+            iconText: "󰕘"
+            visible: !pr.embedded
+            tooltipText: strings.t("tip.pairAttach")
+            enabled: root.busy === ""
+            onClicked: root.act("pair-attach", ["pair", "attach", pr.pair.session], true)
+          }
+          ActionButton {
+            iconText: "󰈈"
+            tooltipText: strings.t("tip.pairReview")
+            enabled: root.busy === "" && pr.pair.reviewer !== "reviewing"
+            opacity: enabled ? 1 : 0.4
+            onClicked: root.act("pair-review", ["pair", "review", pr.pair.session], false)
+          }
+          ActionButton {
+            iconText: pr.pair.paused ? "󰐊" : "󰏤"
+            tooltipText: pr.pair.paused ? strings.t("tip.pairResume") : strings.t("tip.pairPause")
+            enabled: root.busy === ""
+            onClicked: root.act("pair-pause", ["pair", pr.pair.paused ? "resume" : "pause", pr.pair.session], false)
+          }
+          ActionButton {
+            // Two clicks: ending the session also closes Claude mid-task.
+            iconText: pr.armed ? "󰀦" : "󰅖"
+            tooltipText: pr.armed ? strings.t("tip.pairStopConfirm") : strings.t("tip.pairStop")
+            enabled: root.busy === ""
+            onClicked: {
+              if (!pr.armed) { pr.armed = true; disarm.restart(); return }
+              pr.armed = false
+              root.act("pair-stop", ["pair", "stop", pr.pair.session], false)
+            }
+          }
+        }
+      }
+
+      PlainText {
+        visible: !pr.embedded
+        leftPadding: Style.space(17)
+        width: parent.width
+        elide: Text.ElideRight
+        font.pixelSize: Style.font.caption
+        opacity: 0.7
+        text: pr.summary
+      }
+
+      Repeater {
+        model: pr.pair.notes ? pr.pair.notes.slice(-2) : []
+        PlainText {
+          required property var modelData
+          leftPadding: Style.space(17)
+          width: prLabels.width
+          wrapMode: Text.Wrap
+          maximumLineCount: 2
+          elide: Text.ElideRight
+          font.pixelSize: Style.font.caption
+          color: pr.pair.held ? root.colorFor("warn") : root.bar.foreground
+          opacity: pr.pair.held ? 1 : 0.6
+          text: "󰚩  " + modelData
+        }
+      }
+    }
+  }
+
   // One project: status, environments, changes, last deployment, review
   // comments; preview, terminal and agent shortcuts.
   component ProjectRow: Item {
     id: row
     property var project: ({})
     readonly property var live: Model.previewFor(root.snap, project)
+    readonly property var pairing: Model.pairFor(root.pairs, project)
     width: parent ? parent.width : 0
     implicitHeight: rowLabels.implicitHeight
 
@@ -530,10 +707,24 @@ Panel {
               : root.act("start", ["start", row.project.path], false)
           }
           ActionButton {
+            // Normal run: the deployed application in APEX, not the local preview.
+            iconText: "󰏌"
+            tooltipText: row.project.run
+              ? strings.t("tip.run").arg(row.project.run.environment.toUpperCase()).arg(row.project.run.applicationId)
+              : strings.t("tip.runNone")
+            enabled: root.busy === "" && row.project.run !== null
+            opacity: enabled ? 1 : 0.4
+            onClicked: root.act("run", ["run", row.project.path], true)
+          }
+          ActionButton {
             iconText: "󰕘"
-            tooltipText: strings.t("tip.pair")
+            // A running pair session is reopened, not started again.
+            tooltipText: row.pairing ? strings.t("tip.pairAttach") : strings.t("tip.pair")
+            foreground: row.pairing ? root.colorFor("live") : root.bar.foreground
             enabled: root.busy === ""
-            onClicked: root.act("terminal", ["terminal", row.project.path, "pair"], true)
+            onClicked: row.pairing
+              ? root.act("pair-attach", ["pair", "attach", row.pairing.session], true)
+              : root.act("terminal", ["terminal", row.project.path, "pair"], true)
           }
           ActionButton {
             iconText: "✻"
@@ -577,6 +768,15 @@ Panel {
           if (p.jobs) parts.push(strings.tn("fact.jobs", p.jobs).arg(p.jobs))
           return parts.join("  ·  ")
         }
+      }
+
+      // The project's running pair session: Claude and Codex state, latest notes, controls.
+      PairRow {
+        visible: row.pairing !== null
+        embedded: true
+        pair: row.pairing || ({})
+        x: Style.space(17)
+        width: rowLabels.width - x
       }
 
       // Open review comments left in the local preview, waiting for an agent.

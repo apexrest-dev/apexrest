@@ -76,6 +76,14 @@ function preview(raw) {
   }
 }
 
+// The deployed app's run URL (<ORDS base>/f?p=<app id>); http(s) only.
+function runTarget(raw) {
+  var r = obj(raw)
+  var url = r ? text(r.url, 300) : ""
+  if (!r || !/^https?:\/\/[^\s\/?#]+[^\s]*\/f\?p=\d+$/.test(url)) return null
+  return { environment: text(r.environment, 24), applicationId: int(r.applicationId), url: url }
+}
+
 function project(raw) {
   var p = obj(raw)
   if (!p || typeof p.path !== "string" || p.path.charAt(0) !== "/") return null
@@ -98,6 +106,7 @@ function project(raw) {
       return { page: text(c.page, 16), text: text(c.text, 140) }
     }),
     previews: arr(p.previews, 8).map(int).filter(function(n) { return n !== null }),
+    run: runTarget(p.run),
     deployment: dep ? { status: text(dep.status, 32), state: state(dep.state === "active" ? "active" : dep.state), at: text(dep.at, 40) } : null
   }
 }
@@ -132,6 +141,49 @@ function previewFor(snap, proj) {
   for (var i = 0; i < snap.previews.length; i++) {
     if (proj.previews.indexOf(snap.previews[i].port) >= 0) return snap.previews[i]
   }
+  return null
+}
+
+// Live pair sessions (Claude works, Codex reviews) from `apexrest-omarchy pairs`.
+var MAX_PAIRS = 8
+var REVIEWER_KINDS = ["watching", "reviewing", "waiting", "ok", "notes", "held", "paused", "failed", "stopped"]
+
+function pair(raw) {
+  var p = obj(raw)
+  if (!p || typeof p.session !== "string" || !/^pair-[A-Za-z0-9_-]{1,64}$/.test(p.session)) return null
+  return {
+    session: p.session,
+    project: text(p.project, 400),
+    name: text(p.name, 64) || p.session,
+    turn: int(p.turn) || 0,
+    phase: p.phase === "working" ? "working" : "idle",
+    awaiting: p.awaiting === true,
+    paused: p.paused === true,
+    held: p.held === true,
+    reviewer: REVIEWER_KINDS.indexOf(p.reviewer) >= 0 ? p.reviewer : "watching",
+    notes: arr(p.notes, 3).map(function(n) { return text(n, 260) }).filter(function(n) { return n !== "" })
+  }
+}
+
+function pairs(raw) {
+  var r = parseJson(raw)
+  if (!r || r.ok === false) return null
+  return arr(r.pairs, MAX_PAIRS).map(pair).filter(function(x) { return x !== null })
+}
+
+// Bar state contributed by pair sessions: "warn" when you need to act, "active" while working.
+function pairState(list) {
+  var st = ""
+  for (var i = 0; i < list.length; i++) {
+    var p = list[i]
+    if (p.held || p.awaiting || p.reviewer === "failed" || p.reviewer === "waiting") return "warn"
+    if (p.phase === "working" || p.reviewer === "reviewing") st = "active"
+  }
+  return st
+}
+
+function pairFor(list, proj) {
+  for (var i = 0; i < list.length; i++) if (list[i].project === proj.path) return list[i]
   return null
 }
 

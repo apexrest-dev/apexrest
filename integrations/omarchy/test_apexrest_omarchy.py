@@ -42,7 +42,9 @@ elif cmd == "panel status":
         out("panel exploded", ok=False)
     else:
         out({"version": "9.9.9", "configuration": {"projectId": "<b>demo</b>",
-             "environments": {"dev": {"kind": "dev", "applicationId": 100}}},
+             "environments": {"dev": {"kind": "dev", "applicationId": 100, "baseUrl": "http://localhost:8080/ords/"},
+                              "prod": {"kind": "production", "applicationId": 200, "baseUrl": "https://p.example/ords"},
+                              "bad": {"kind": "test", "applicationId": 300, "baseUrl": "javascript:alert(1)"}}},
              "changes": {"status": "available", "files": [" M a", " M b"]},
              "jobs": [], "sync": [{"environment": "dev", "blocked": False}],
              "deployments": [{"id": "d1", "status": os.environ.get("FAKE_DEPLOY", "succeeded"),
@@ -99,6 +101,9 @@ class HelperTest(unittest.TestCase):
         self.assertEqual(demo["comments"], 2)
         self.assertEqual(demo["status"], "warn")
         self.assertEqual(demo["previews"], [4100])
+        # DEV is preferred over other environments; a non-http base URL is never offered.
+        self.assertEqual(demo["run"], {"environment": "dev", "applicationId": 100,
+                                       "url": "http://localhost:8080/ords/f?p=100"})
         self.assertEqual(s["previews"][0]["project"], demo["name"])
         self.assertEqual(broken["status"], "error")
         self.assertEqual(s["state"], "error")
@@ -132,6 +137,9 @@ class HelperTest(unittest.TestCase):
         self.assertFalse(self.run_helper("terminal", self.project, "rm")["ok"])
         self.assertFalse(self.run_helper("terminal", "/etc", "pair")["ok"])
         self.assertFalse(self.run_helper("stop", "9999")["ok"])
+        self.assertFalse(self.run_helper("run", "/etc")["ok"])
+        self.assertFalse(self.run_helper("run", self.project, "bad")["ok"])
+        self.assertFalse(self.run_helper("run", self.project, "nope")["ok"])
         self.assertFalse(self.run_helper("bogus")["ok"])
 
 
@@ -142,7 +150,7 @@ import json, os, sys
 args = sys.argv[1:]
 prompt = sys.stdin.read()
 with open(os.environ["FAKE_PROMPTS"], "a") as fh:
-    fh.write(prompt + "\n=====\n")
+    fh.write(" ".join(args) + "\n" + prompt + "\n=====\n")
 verdict = os.environ.get("FAKE_VERDICT", "comment")
 notes = ["app.js:3 divides by zero\nwhen the list is empty"] if verdict == "comment" else []
 with open(args[args.index("-o") + 1], "w") as fh:
@@ -312,6 +320,7 @@ class PairTest(unittest.TestCase):
             prompt = fh.read()
         self.assertIn("USER: add an average function", prompt)
         self.assertIn("Claude finished turn 1", prompt)
+        self.assertIn('exec -m gpt-6.2-sol -c model_reasoning_effort="high" -s read-only', prompt)
         # Claude answers the Codex message: that turn is reviewed, but with rounds=1 the note is held.
         self.hook("prompt", prompt="[Codex review] (1) app.js:3 divides by zero")
         self.hook("stop")
@@ -352,14 +361,120 @@ class PairTest(unittest.TestCase):
             self.assertFalse(ok)
             self.assertIn("dialog", why)
             self.assertFalse(mod.can_type(self.pane, {"awaiting": True})[0])
+            self.assertFalse(mod.deliver(self.state, self.pane, "[Codex review] x", wait=2)[0])
+            with open(os.path.join(self.state, "status"), encoding="utf-8") as fh:
+                self.assertIn("notes wait: a menu or dialog is open", fh.read())
         finally:
             del os.environ["APEXREST_PAIR_STATE"]
+
+    def test_start_will_not_reattach_a_busy_older_session(self):
+        if not (shutil.which("claude") and shutil.which("codex")):
+            self.skipTest("claude and codex are needed for start's checks")
+        project = os.path.join(self.tmp, "legacyproj%d" % os.getpid())
+        os.makedirs(project)
+        legacy = "pair-" + os.path.basename(project)
+        subprocess.run(["tmux", "new-session", "-d", "-s", legacy, "sleep 60"], check=True)
+        try:
+            env = dict(self.env, XDG_STATE_HOME=os.path.join(self.tmp, "xdg"))
+            env.pop("APEXREST_PAIR_STATE")
+            p = subprocess.run([sys.executable, "-I", PAIR, "start", "--detach", project], capture_output=True,
+                               text=True, env=env, timeout=30, stdin=subprocess.DEVNULL)
+            self.assertEqual(p.returncode, 1)
+            self.assertIn("older pair mode", p.stderr)
+            self.assertIn("sleep", p.stderr)
+        finally:
+            subprocess.run(["tmux", "kill-session", "-t", "=" + legacy], capture_output=True)
+
+    def test_session_shows_both_agents_and_codex_state(self):
+        mod = load_pair()
+        mod.style_session(self.session, self.state)
+        opts = subprocess.run(["tmux", "show-options", "-t", self.session], capture_output=True, text=True).stdout
+        self.assertIn("Claude works", opts)
+        self.assertIn(os.path.join(self.state, "status"), opts)
+        wopts = subprocess.run(["tmux", "show-options", "-w", "-t", self.pane], capture_output=True, text=True).stdout
+        self.assertRegex(wopts, r"window-status-format (''|\"\")")
+
+    def test_log_command(self):
+        self.env["FAKE_VERDICT"] = "ok"
+        self.start_loop()
+        self.hook("prompt", prompt="hi")
+        self.hook("stop")
+        self.assertTrue(self.wait_for(lambda: "no notes" in self.pair("log").stdout))
 
     def test_reviewer_stops_when_claude_is_gone(self):
         subprocess.run(["tmux", "kill-session", "-t", self.session], capture_output=True)
         self.start_loop()
         out, _ = self.loop.communicate(timeout=20)
         self.assertIn("reviewer stopped", out)
+
+
+class WidgetPairTest(unittest.TestCase):
+    """The widget helper lists live pair sessions and controls them."""
+
+    def setUp(self):
+        if not shutil.which("tmux"):
+            self.skipTest("tmux not installed")
+        self.tmp = tempfile.mkdtemp(prefix="apexrest-widget-pair-")
+        self.session = "pair-widgettest%d" % os.getpid()
+        self.state = os.path.join(self.tmp, "state", "apexrest-omarchy", "pair", self.session)
+        os.makedirs(self.state)
+        subprocess.run(["tmux", "new-session", "-d", "-s", self.session, "-x", "100", "-y", "20", "cat >/dev/null"],
+                       check=True)
+        pane = subprocess.run(["tmux", "display-message", "-p", "-t", "=%s:" % self.session, "#{pane_id}"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+        write(os.path.join(self.state, "config.json"), json.dumps(
+            {"project": "/work/demo", "pane": pane, "session": self.session}))
+        write(os.path.join(self.state, "state.json"), json.dumps(
+            {"turn": 3, "phase": "working", "history": ["a<b> note\nsplit"]}))
+        write(os.path.join(self.state, "reviewer.json"), json.dumps({"kind": "held", "text": "x"}))
+        write(os.path.join(self.state, "pending.txt"), "[Codex review] (1) a")
+        # A dead session's state is ignored.
+        os.makedirs(os.path.join(self.tmp, "state", "apexrest-omarchy", "pair", "pair-gone"))
+        write(os.path.join(self.tmp, "state", "apexrest-omarchy", "pair", "pair-gone", "config.json"),
+              json.dumps({"project": "/x", "pane": "%999", "session": "pair-gone"}))
+        self.env = dict(os.environ, XDG_STATE_HOME=os.path.join(self.tmp, "state"))
+
+    def tearDown(self):
+        subprocess.run(["tmux", "kill-session", "-t", "=" + self.session], capture_output=True)
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def helper(self, *args):
+        p = subprocess.run([sys.executable, "-I", HELPER] + list(args), capture_output=True, text=True,
+                           env=self.env, timeout=60)
+        return json.loads(p.stdout.strip().splitlines()[-1])
+
+    def test_lists_and_controls_a_live_session(self):
+        rows = self.helper("pairs")["pairs"]
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual((row["session"], row["name"], row["turn"], row["phase"], row["held"], row["reviewer"]),
+                         (self.session, "demo", 3, "working", True, "held"))
+        self.assertEqual(row["notes"], ["a<b> note split"])
+        self.assertTrue(self.helper("pair", "pause", self.session)["ok"])
+        with open(os.path.join(self.state, "state.json"), encoding="utf-8") as fh:
+            self.assertTrue(json.load(fh)["paused"])
+        self.assertTrue(self.helper("pairs")["pairs"][0]["paused"])
+        self.assertTrue(self.helper("pair", "review", self.session)["ok"])
+        self.assertFalse(self.helper("pair", "bogus", self.session)["ok"])
+        self.assertFalse(self.helper("pair", "pause", "pair-gone")["ok"])
+        self.assertFalse(self.helper("pair", "stop", "not-a-pair")["ok"])
+        self.assertTrue(self.helper("pair", "stop", self.session)["ok"])
+        self.assertEqual(self.helper("pairs")["pairs"], [])
+
+    def test_notifies_only_new_held_or_failed_reviews(self):
+        import importlib.machinery
+        import importlib.util
+        sys.dont_write_bytecode = True
+        loader = importlib.machinery.SourceFileLoader("apexrest_omarchy", HELPER)
+        mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("apexrest_omarchy", loader))
+        loader.exec_module(mod)
+        sent = []
+        mod.notify = lambda title, body, urgency="normal": sent.append(title)
+        row = {"session": "pair-a", "name": "demo", "held": True, "reviewer": "held", "notes": ["n"]}
+        mod.notify_pairs([], [row])
+        mod.notify_pairs([row], [row])
+        mod.notify_pairs([row], [dict(row, held=False, reviewer="failed")])
+        self.assertEqual(sent, ["demo · Codex review held", "demo · Codex review failed"])
 
 
 class ModelTest(unittest.TestCase):
@@ -394,12 +509,33 @@ class ModelTest(unittest.TestCase):
         self.assertLessEqual(len(s["projects"][0]["name"]), 64)
         self.assertNotIn("\u0000", s["projects"][0]["commentItems"][0]["text"])
 
+    def test_run_target(self):
+        self.assertEqual(self.run_model('runTarget({environment: "dev", applicationId: 100, url: "http://h:8080/ords/f?p=100"})')["url"],
+                         "http://h:8080/ords/f?p=100")
+        self.assertIsNone(self.run_model('runTarget({url: "javascript:alert(1)//f?p=1"})'))
+        self.assertIsNone(self.run_model('runTarget({url: "http://h/ords/f?p=1&x=<b>"})'))
+        self.assertIsNone(self.run_model('runTarget(null)'))
+
     def test_no_markup(self):
         self.assertNotIn("<", self.run_model('noMarkup("<b>APEX</b>")'))
 
     def test_local_url(self):
         self.assertEqual(self.run_model('localUrl("http://127.0.0.1:4100/f?p=1")'), "http://127.0.0.1:4100/f?p=1")
         self.assertEqual(self.run_model('localUrl("http://127.0.0.1.evil.com/")'), "")
+
+    def test_pairs(self):
+        raw = json.dumps({"ok": True, "pairs": [
+            {"session": "pair-demo", "name": "demo", "phase": "working", "reviewer": "evil", "turn": 2,
+             "notes": ["a", "", "b\u0000c", "d"], "held": "yes"},
+            {"session": "../etc"}, {"session": "pair-x y"}]})
+        p = self.run_model("pairs(%s)" % json.dumps(raw))
+        self.assertEqual([x["session"] for x in p], ["pair-demo"])
+        self.assertEqual((p[0]["reviewer"], p[0]["held"], p[0]["turn"]), ("watching", False, 2))
+        self.assertNotIn("\u0000", "".join(p[0]["notes"]))
+        self.assertEqual(self.run_model('pairState([{phase: "working"}])'), "active")
+        self.assertEqual(self.run_model('pairState([{phase: "working"}, {held: true}])'), "warn")
+        self.assertEqual(self.run_model('pairState([])'), "")
+        self.assertIsNone(self.run_model('pairs("nope")'))
 
     def test_garbage(self):
         s = self.run_model('snapshot("not json")')

@@ -12,16 +12,21 @@ both see it and Claude answers it.
 
 Inside the session (from Claude's composer prefix them with "!"):
   apexrest-pair status            Reviewer state and the last review
+  apexrest-pair log               Codex's review log (also in the session's codex-review window)
   apexrest-pair review            Ask Codex to review the latest turn now
   apexrest-pair pause | resume    Stop or restart automatic reviews
   apexrest-pair send              Pass on a review that was held back
   apexrest-pair say <text>        Type a line into Claude's console
+  apexrest-pair stop              End the session (Claude and the reviewer)
+  apexrest-pair sessions          Live pair sessions as JSON (used by the bar widget)
 
 Internal: `hook <prompt|tool|notify|stop>` (Claude Code hooks), `review-loop`.
 Settings (environment, read by `start`):
   APEXREST_PAIR_EVERY=150   seconds between mid-turn checkpoint reviews while Claude edits
   APEXREST_PAIR_ROUNDS=2    automatic Codex messages per prompt of yours
   APEXREST_PAIR_REVIEW=all  review every turn, or "changes" for turns that edited files
+  APEXREST_PAIR_MODEL=gpt-6.2-sol    Codex model for reviews
+  APEXREST_PAIR_EFFORT=high          Codex reasoning effort for reviews
 """
 
 import fcntl
@@ -40,6 +45,8 @@ ASSETS = os.path.normpath(os.path.join(HERE, "..", "assets"))
 MAIN_PROMPT = os.path.join(ASSETS, "pair-main.md")
 REVIEW_PROMPT = os.path.join(ASSETS, "pair-reviewer.md")
 TAG = "[Codex review]"
+DEFAULT_MODEL = "gpt-6.2-sol"
+DEFAULT_EFFORT = "high"
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 # A dialog in Claude's console: typing there could pick an option.
 DIALOG = re.compile(r"do you want to|don't ask again|would you like to|\[y/n\]|enter to confirm|esc to cancel", re.I)
@@ -60,8 +67,18 @@ def die(msg):
     sys.exit(1)
 
 
+LOG_FILE = None
+
+
 def log(msg):
-    print(time.strftime("%H:%M:%S ") + msg, flush=True)
+    line = time.strftime("%H:%M:%S ") + msg
+    print(line, flush=True)
+    if LOG_FILE:
+        try:
+            with open(LOG_FILE, "a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+        except OSError:
+            pass
 
 
 # ---- state -------------------------------------------------------------------------------------
@@ -114,10 +131,15 @@ def config(d):
     return read_json(os.path.join(d, "config.json"), {})
 
 
-def set_status(d, text):
+REVIEWER_KINDS = ("watching", "reviewing", "waiting", "ok", "notes", "held", "paused", "failed", "stopped")
+
+
+def set_status(d, kind, text):
+    """The tmux status line text, plus the same state as JSON for the Omarchy widget."""
     try:
         with open(os.path.join(d, "status"), "w", encoding="utf-8") as fh:
-            fh.write(text)
+            fh.write("Codex " + text)
+        write_json(os.path.join(d, "reviewer.json"), {"kind": kind, "text": text, "at": time.time()})
     except OSError:
         pass
 
@@ -223,7 +245,7 @@ def can_type(pane, s):
     screen = tmux("capture-pane", "-p", "-J", "-t", pane).stdout
     tail = "\n".join([ln for ln in screen.splitlines() if ln.strip()][-14:])
     if DIALOG.search(tail):
-        return False, "a dialog is open in Claude's console"
+        return False, "a menu or dialog is open in Claude's console"
     session = tmux("display-message", "-p", "-t", pane, "#{session_name}").stdout.strip()
     activity = [int(x) for x in tmux("list-clients", "-t", session, "-F", "#{client_activity}").stdout.split() if x.isdigit()]
     if activity and time.time() - max(activity) < QUIET_SECONDS:
@@ -240,7 +262,7 @@ def type_line(pane, text):
 def deliver(d, pane, text, wait=180):
     """Type a review into Claude's console once nothing else is going on there."""
     deadline = time.time() + wait
-    reason = ""
+    reason = shown = ""
     while time.time() < deadline:
         if not pane_alive(pane):
             return False, "Claude's console is gone"
@@ -248,6 +270,11 @@ def deliver(d, pane, text, wait=180):
         if ok:
             type_line(pane, text)
             return True, ""
+        if reason != shown:
+            # Say why the notes have not appeared yet, in the status line and the log.
+            set_status(d, "waiting", "✎ notes wait: %s" % reason)
+            log("waiting to type: %s" % reason)
+            shown = reason
         time.sleep(1)
     return False, reason
 
@@ -306,7 +333,7 @@ def cmd_hook(args):
 # ---- reviewing ---------------------------------------------------------------------------------
 
 
-def run_codex(d, project, prompt, timeout=420):
+def run_codex(d, project, prompt, timeout=420, model=DEFAULT_MODEL, effort=DEFAULT_EFFORT):
     codex = os.environ.get("APEXREST_PAIR_CODEX") or shutil.which("codex")
     if not codex:
         raise RuntimeError("codex is not installed")
@@ -314,7 +341,8 @@ def run_codex(d, project, prompt, timeout=420):
     write_json(schema, SCHEMA)
     if os.path.exists(out):
         os.remove(out)
-    cmd = [codex, "exec", "-s", "read-only", "-C", project, "--skip-git-repo-check", "--ephemeral",
+    cmd = [codex, "exec", "-m", model, "-c", 'model_reasoning_effort="%s"' % effort,
+           "-s", "read-only", "-C", project, "--skip-git-repo-check", "--ephemeral",
            "--color", "never", "--output-schema", schema, "-o", out, "-"]
     p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=timeout)
     raw = read_json(out, {})
@@ -361,17 +389,18 @@ def review(d, cfg, kind):
     if not text:
         log("turn %d: nothing to review yet (no transcript)" % turn)
         return
-    set_status(d, "codex ⟳ reviewing turn %d" % turn)
+    set_status(d, "reviewing", "⟳ reviewing turn %d" % turn)
     log("reviewing turn %d (%s)…" % (turn, kind))
     try:
-        verdict, notes = run_codex(d, cfg["project"], build_prompt(kind, turn, text, s.get("history", [])))
+        verdict, notes = run_codex(d, cfg["project"], build_prompt(kind, turn, text, s.get("history", [])),
+                                   model=cfg.get("model") or DEFAULT_MODEL, effort=cfg.get("effort") or DEFAULT_EFFORT)
     except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
         log("review failed: %s" % clean(exc, 400))
-        set_status(d, "codex ✗ review failed")
+        set_status(d, "failed", "✗ review failed")
         return
     if verdict == "ok":
         log("turn %d: no notes" % turn)
-        set_status(d, "codex ✓ turn %d" % turn)
+        set_status(d, "ok", "✓ turn %d" % turn)
         return
     msg = review_message(notes)
     for n in notes:
@@ -383,13 +412,13 @@ def review(d, cfg, kind):
     ok, why = deliver(d, cfg["pane"], msg)
     if ok:
         log("sent to Claude")
-        set_status(d, "codex ✎ %d note%s turn %d" % (len(notes), "" if len(notes) == 1 else "s", turn))
+        set_status(d, "notes", "✎ %d note%s turn %d" % (len(notes), "" if len(notes) == 1 else "s", turn))
     else:
         hold(d, msg, len(notes), why)
 
 
 def hold(d, msg, count, why):
-    set_status(d, "codex ✎ %d held (send)" % count)
+    set_status(d, "held", "✎ %d held (send)" % count)
     log("held: %s; `!apexrest-pair send` passes it on" % why)
     with open(os.path.join(d, "pending.txt"), "w", encoding="utf-8") as fh:
         fh.write(msg)
@@ -412,19 +441,30 @@ def cmd_review_loop(_args):
     cfg = config(d)
     if not cfg.get("pane") or not cfg.get("project"):
         die("missing config.json in " + d)
+    global LOG_FILE
+    LOG_FILE = os.path.join(d, "review.log")
     log("Codex reviews Claude's turns for %s" % cfg["project"])
+    log("Codex %s, %s effort" % (cfg.get("model") or DEFAULT_MODEL, cfg.get("effort") or DEFAULT_EFFORT))
     log("every turn%s, checkpoints every %ds while Claude edits, at most %d automatic messages per prompt"
         % (" with file changes" if cfg.get("mode") == "changes" else "", cfg.get("every", 150), cfg.get("rounds", 2)))
-    set_status(d, "codex ◉ watching")
+    set_status(d, "watching", "◉ watching")
+    paused = False
     while True:
         if not pane_alive(cfg["pane"]):
             log("Claude's console is gone; reviewer stopped")
-            set_status(d, "codex ■ stopped")
+            set_status(d, "stopped", "■ stopped")
             return 0
         s = load(d)
         if s.get("paused") and not s.get("requested"):
-            set_status(d, "codex ⏸ paused")
+            if not paused:
+                log("paused")
+                set_status(d, "paused", "⏸ paused")
+            paused = True
         else:
+            if paused:
+                log("resumed")
+                set_status(d, "watching", "◉ watching")
+            paused = False
             kind = due(s, cfg, time.time())
             if kind:
                 review(d, cfg, kind)
@@ -470,6 +510,7 @@ def cmd_send(_args):
     if not msg:
         die("no held review")
     os.remove(path)
+    set_status(d, "notes", "✎ held review sent")
     # Typed from Claude's own composer ("!apexrest-pair send"), so it waits for the next idle moment.
     subprocess.Popen([sys.executable, "-I", SELF, "_type", config(d)["pane"], msg],
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -491,6 +532,70 @@ def cmd_say(args):
     return 0
 
 
+def sessions():
+    """Live pair sessions with their Claude and Codex state (for the Omarchy widget)."""
+    root = state_root()
+    if not shutil.which("tmux") or not os.path.isdir(root):
+        return []
+    live = set(tmux("list-sessions", "-F", "#{session_name}").stdout.split())
+    out = []
+    for name in sorted(os.listdir(root)):
+        d = os.path.join(root, name)
+        cfg = config(d)
+        if name not in live or not cfg.get("pane") or cfg.get("session") != name:
+            continue
+        s = load(d)
+        rev = read_json(os.path.join(d, "reviewer.json"), {})
+        out.append({"session": name, "project": cfg.get("project", ""), "state": d,
+                    "turn": s.get("turn", 0), "phase": s.get("phase", "idle"),
+                    "awaiting": bool(s.get("awaiting")), "paused": bool(s.get("paused")),
+                    "held": os.path.exists(os.path.join(d, "pending.txt")),
+                    "reviewer": rev.get("kind") if rev.get("kind") in REVIEWER_KINDS else "watching",
+                    "reviewerText": clean(rev.get("text", ""), 80), "reviewerAt": rev.get("at", 0),
+                    "notes": [clean(n, 260) for n in s.get("history", [])[-3:]]})
+    return out
+
+
+def cmd_sessions(_args):
+    print(json.dumps({"ok": True, "sessions": sessions()}))
+    return 0
+
+
+def cmd_stop(_args):
+    d = state_dir()
+    session = config(d).get("session", "")
+    if not session:
+        die("missing config.json in " + d)
+    tmux("kill-session", "-t", "=" + session)
+    print("pair session %s ended" % session)
+    return 0
+
+
+def style_session(session, d):
+    """One console look: no window list, who does what on the left, Codex's live state on the right.
+    (set-option rejects the "=name" target form, so the plain session name is used.)"""
+    status = shlex.quote(os.path.join(d, "status"))
+    for opt, val in (("status-left", " ✻ Claude works · 󰚩 Codex reviews "), ("status-left-length", "40"),
+                     ("status-right", " #(cat %s 2>/dev/null || echo Codex starting) " % status),
+                     ("status-right-length", "70"), ("status-interval", "2"), ("mouse", "on")):
+        tmux("set-option", "-t", session, opt, val, check=True)
+    # Window options: hide the window list so it reads as one console (the log window stays at prefix+w).
+    for win in tmux("list-windows", "-t", session, "-F", "#{window_id}").stdout.split():
+        for opt in ("window-status-format", "window-status-current-format"):
+            tmux("set-option", "-w", "-t", win, opt, "")
+
+
+def cmd_log(args):
+    d = state_dir(required=False) or os.path.join(state_root(), args[0] if args else "")
+    try:
+        with open(os.path.join(d, "review.log"), encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+    except OSError:
+        die("no review log yet")
+    print("\n".join(lines[-40:]))
+    return 0
+
+
 def cmd_start(args):
     detach = "--detach" in args
     args = [a for a in args if a != "--detach"]
@@ -505,15 +610,27 @@ def cmd_start(args):
     name = re.sub(r"[^A-Za-z0-9_-]", "-", os.path.basename(project)).strip("-") or "project"
     session = "pair-" + name
     attach = ["tmux", "switch-client" if os.environ.get("TMUX") else "attach-session", "-t", "=" + session]
+    d = os.path.join(state_root(), session)
+    if tmux("has-session", "-t", "=" + session).returncode == 0 and config(d).get("session") != session:
+        # Left over from an older pair mode (Codex left, Claude right): replace it rather than
+        # reattach, unless an agent is still running in it.
+        busy = [c for c in tmux("list-panes", "-s", "-t", "=" + session, "-F", "#{pane_current_command}").stdout.split()
+                if c not in ("bash", "zsh", "fish", "sh", "dash")]
+        if busy:
+            print("apexrest-pair: %s is a session from an older pair mode and is still running %s.\n"
+                  "Close it with: tmux kill-session -t %s" % (session, ", ".join(busy), session), file=sys.stderr)
+            if not detach and sys.stdin.isatty():
+                input("Press Enter to close.")
+            return 1
+        tmux("kill-session", "-t", "=" + session)
     if tmux("has-session", "-t", "=" + session).returncode == 0:
         if detach:
             print(session)
             return 0
         os.execvp("tmux", attach)
 
-    d = os.path.join(state_root(), session)
     os.makedirs(d, exist_ok=True)
-    for f in ("state.json", "pending.txt", "last-review.json", "status"):
+    for f in ("state.json", "pending.txt", "last-review.json", "status", "reviewer.json", "review.log"):
         if os.path.exists(os.path.join(d, f)):
             os.remove(os.path.join(d, f))
     hook = lambda ev: "python3 -I %s hook %s" % (shlex.quote(SELF), ev)
@@ -541,14 +658,14 @@ def cmd_start(args):
     write_json(os.path.join(d, "config.json"), {
         "project": project, "pane": pane, "session": session,
         "every": max(30, num("APEXREST_PAIR_EVERY", 150)), "rounds": num("APEXREST_PAIR_ROUNDS", 2),
-        "mode": "changes" if os.environ.get("APEXREST_PAIR_REVIEW") == "changes" else "all"})
+        "mode": "changes" if os.environ.get("APEXREST_PAIR_REVIEW") == "changes" else "all",
+        "model": clean(os.environ.get("APEXREST_PAIR_MODEL") or DEFAULT_MODEL, 64),
+        "effort": os.environ.get("APEXREST_PAIR_EFFORT") if os.environ.get("APEXREST_PAIR_EFFORT") in
+        ("minimal", "low", "medium", "high", "xhigh") else DEFAULT_EFFORT})
     tmux("new-window", "-d", "-t", "=%s:" % session, "-n", "codex-review", "-c", project,
          "-e", "APEXREST_PAIR_STATE=" + d,
          "python3 -I %s review-loop; echo; echo 'Reviewer stopped.'; exec %s" % (shlex.quote(SELF), shell), check=True)
-    status = shlex.quote(os.path.join(d, "status"))
-    for opt, val in (("status-right", " #(cat %s 2>/dev/null) " % status), ("status-right-length", "60"),
-                     ("status-interval", "2"), ("mouse", "on")):
-        tmux("set-option", "-t", "=" + session, opt, val)
+    style_session(session, d)
     tmux("select-window", "-t", "=%s:claude" % session)
     if detach:
         print(session)
@@ -560,6 +677,7 @@ COMMANDS = {
     "start": cmd_start, "hook": cmd_hook, "review-loop": cmd_review_loop, "status": cmd_status,
     "review": lambda a: cmd_flag("requested", True), "pause": lambda a: cmd_flag("paused", True),
     "resume": lambda a: cmd_flag("paused", False), "send": cmd_send, "say": cmd_say, "_type": cmd_type,
+    "sessions": cmd_sessions, "stop": cmd_stop, "log": cmd_log,
 }
 
 

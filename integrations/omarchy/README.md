@@ -14,26 +14,29 @@ It needs Python 3 and the APEXREST CLI. The helper uses `$APEXREST_CLI` if it is
 
 ## The bar icon
 
-| Looks like           | Means                                                                                                                   |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Dimmed mark          | Nothing running and nothing waiting                                                                                     |
-| Green badge, number  | Local previews running                                                                                                  |
-| Yellow badge, number | Open review comments in a preview, waiting for an agent                                                                 |
-| Blue badge           | A job or deployment is running                                                                                          |
-| Red badge, `!`       | Last deployment failed or has an unknown outcome, sync is blocked, an import was interrupted, or the CLI is unavailable |
+| Looks like           | Means                                                                                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Dimmed mark          | Nothing running and nothing waiting                                                                                           |
+| Green badge, number  | Local previews running                                                                                                        |
+| Yellow badge, number | Open review comments in a preview, waiting for an agent, or a pair session needs you (held review, permission, failed review) |
+| Blue badge           | A job or deployment is running, or Claude or Codex is working in a pair session                                               |
+| Red badge, `!`       | Last deployment failed or has an unknown outcome, sync is blocked, an import was interrupted, or the CLI is unavailable       |
 
 Click to open the panel. Middle-click to refresh. Key bindings can use `omarchy-shell apexrest toggle` and `omarchy-shell apexrest refresh`.
 
 ## The panel
 
 - **Live previews** lists every running preview from `apexrest preview status`: project, port, local SQLite or connected environment, and whether a terminal or an agent session owns it. You can open it in the browser. Previews started from a terminal can also be stopped here. A preview owned by an agent session is stopped from that session.
-- **Projects** shows pinned projects first, then the most recently used ones from `~/.apexrest/recent-projects.json`. Each row lists its environments and application IDs, changed files in Git, the last deployment and its age, running jobs, and up to five open review comments. It also shows sync problems such as a blocked sync or an interrupted import. Each project has five shortcuts:
+- **Projects** shows pinned projects first, then the most recently used ones from `~/.apexrest/recent-projects.json`. Each row lists its environments and application IDs, changed files in Git, the last deployment and its age, running jobs, and up to five open review comments. It also shows sync problems such as a blocked sync or an interrupted import. Each project has seven shortcuts:
   - start a local preview, or open it if one is already running
+  - 󰏌 run the deployed application in APEX, in your browser (`<ORDS base>/f?p=<app id>` of the DEV environment, else TEST, else QA). It only opens the URL: no deploy, no database call
+  - 󰕘 pair mode: start it, or reopen the running session (the icon turns green)
   - ✻ Claude Code
   - Codex
   - a terminal
   - the project folder
-- **Notifications** report new review comments, finished deployments and failed deployments. A failed deployment tells you to run `deploy status` and reconcile rather than replay the import.
+- **Pair sessions** are shown inside their project's row, so a project is never listed twice. A session for a folder that is not in the project list gets its own **Pair sessions** section. It shows whether Claude is working, idle or waiting for your permission, the turn number, Codex's review state and its latest notes. The buttons send a held review to Claude (󰒊, shown only when one is held), open the session (in a project row, the project's green 󰕘 button does this), ask Codex to review now, pause or resume reviews, and end the session. Ending takes two clicks, because it also closes Claude. The list refreshes every 4 s while the panel is open and every 15 s otherwise. It reads local state files only and makes no CLI call.
+- **Notifications** report new review comments, finished deployments and failed deployments. A failed deployment tells you to run `deploy status` and reconcile rather than replay the import. In pair mode they also report a Codex review that is held for you and a Codex review that failed.
 
 ## Pair mode: Claude works, Codex reviews
 
@@ -47,17 +50,19 @@ A Codex note is never permission. Claude's role prompt ([`assets/pair-main.md`](
 
 The reviewer never types while Claude is asking for your permission or shows a dialog, or within 6 s of your last key press. It sends at most two automatic messages per prompt of yours, so Claude and Codex cannot argue in a loop. After that, or when it could not type, the note is held and the status line says `held (send)`.
 
-The tmux status line shows the reviewer's state: `◉ watching`, `⟳ reviewing`, `✓` no notes, `✎` notes sent, `⏸` paused. The `codex-review` window shows its log. Run the commands from Claude's composer with a `!` prefix, for example `!apexrest-pair pause`:
+The bar widget lists the session with the same controls (see [The panel](#the-panel)). The session looks like one console: the tmux status line says `✻ Claude works · 󰚩 Codex reviews` on the left and shows Codex's state on the right: `◉ watching`, `⟳ reviewing`, `✓` no notes, `✎` notes sent, `✎ notes wait: <reason>` (for example while a Claude menu is open), `⏸` paused. Codex runs only while it reviews, so there is no Codex window to look at. The reviewer's log is in a hidden `codex-review` window (prefix + `w`), or run `!apexrest-pair log`. Run the commands from Claude's composer with a `!` prefix, for example `!apexrest-pair pause`:
 
 | Command                    | Does                                       |
 | -------------------------- | ------------------------------------------ |
 | `apexrest-pair status`     | Reviewer state, last notes, held review    |
+| `apexrest-pair log`        | Codex's review log                         |
 | `apexrest-pair review`     | Ask Codex to review the latest turn now    |
 | `apexrest-pair pause`      | Stop automatic reviews (`resume` restarts) |
 | `apexrest-pair send`       | Pass a held review on to Claude            |
 | `apexrest-pair say <text>` | Type a line into Claude's console          |
+| `apexrest-pair stop`       | End the session                            |
 
-`start` reads three settings from the environment: `APEXREST_PAIR_EVERY` (checkpoint seconds, default 150), `APEXREST_PAIR_ROUNDS` (automatic messages per prompt, default 2) and `APEXREST_PAIR_REVIEW=changes` (review only turns that edited files). The hooks are passed to this Claude session only, with `--settings`; your own Claude settings are not changed. Running `start` again reattaches. Close the session with `tmux kill-session -t pair-<project>`.
+`start` reads these settings from the environment: `APEXREST_PAIR_EVERY` (checkpoint seconds, default 150), `APEXREST_PAIR_ROUNDS` (automatic messages per prompt, default 2), `APEXREST_PAIR_REVIEW=changes` (review only turns that edited files), `APEXREST_PAIR_MODEL` (Codex model for reviews, default `gpt-6.2-sol`) and `APEXREST_PAIR_EFFORT` (reasoning effort, default `high`). The reviewer passes them to `codex exec` explicitly, so it does not depend on your global Codex default. The hooks are passed to this Claude session only, with `--settings`; your own Claude settings are not changed. Running `start` again reattaches. Close the session with `tmux kill-session -t pair-<project>`.
 
 ## Safety
 
