@@ -129,8 +129,56 @@ class HelperTest(unittest.TestCase):
         self.assertFalse(self.run_helper("terminal", "/etc")["ok"])
         self.assertFalse(self.run_helper("start", os.path.join(self.tmp, "work", "not-a-project"))["ok"])
         self.assertFalse(self.run_helper("terminal", self.project, "rm")["ok"])
+        self.assertFalse(self.run_helper("terminal", "/etc", "pair")["ok"])
         self.assertFalse(self.run_helper("stop", "9999")["ok"])
         self.assertFalse(self.run_helper("bogus")["ok"])
+
+
+PAIR = os.path.join(PLUGIN, "bin", "apexrest-pair")
+FAKE_CODEX = r'''#!/bin/bash
+for i in 1 2 3 4; do printf '\r• Working (%ss • esc to interrupt)' $i; sleep 1; done
+printf '\r%-40s\n' "Done"; echo "› Ask Codex to do anything"
+read -r line; echo "GOT: $line"
+printf '  Would you like to run the following command?\n  › 1. Yes, proceed   2. No\n'
+sleep 120
+'''
+
+
+class PairTest(unittest.TestCase):
+    """apexrest-pair against a fake Codex in a detached tmux pane."""
+
+    def setUp(self):
+        if not shutil.which("tmux"):
+            self.skipTest("tmux not installed")
+        self.tmp = tempfile.mkdtemp(prefix="apexrest-pair-test-")
+        fake = os.path.join(self.tmp, "fake-codex")
+        write(fake, FAKE_CODEX)
+        os.chmod(fake, 0o755)
+        self.session = "apexrest-pair-test-%d" % os.getpid()
+        subprocess.run(["tmux", "new-session", "-d", "-s", self.session, "-x", "100", "-y", "20", fake], check=True)
+        pane = subprocess.run(["tmux", "display-message", "-p", "-t", self.session + ":0.0", "#{pane_id}"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+        self.env = dict(os.environ, APEXREST_PAIR_PANE=pane)
+
+    def tearDown(self):
+        subprocess.run(["tmux", "kill-session", "-t", self.session], capture_output=True)
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def pair(self, *args):
+        return subprocess.run([PAIR] + list(args), capture_output=True, text=True, env=self.env, timeout=60).stdout
+
+    def test_turn_say_and_approval(self):
+        out = self.pair("wait", "--max", "30", "--lines", "3")
+        self.assertIn("event: turn-finished", out)
+        self.assertIn("Done", out)
+        self.assertIn("sent to Codex: fix p2", self.pair("say", "fix\np2"))
+        out = self.pair("wait", "--max", "20")
+        self.assertIn("event: needs-approval", out)
+        self.assertIn("GOT: fix p2", out)
+
+    def test_exited_pane(self):
+        subprocess.run(["tmux", "kill-session", "-t", self.session], capture_output=True)
+        self.assertIn("event: exited", self.pair("wait"))
 
 
 class ModelTest(unittest.TestCase):

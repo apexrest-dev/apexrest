@@ -5,7 +5,8 @@
 #   integrations/omarchy/install.sh --link   symlink instead (edits in the repo apply live)
 #
 # The bar placement goes through `omarchy bar put`, which edits
-# ~/.config/omarchy/shell.json. Remove with: omarchy plugin remove apexrest
+# ~/.config/omarchy/shell.json. It also links ~/.local/bin/apexrest-pair.
+# Remove with: omarchy plugin remove apexrest && rm ~/.local/bin/apexrest-pair
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,7 +31,10 @@ else
   mkdir -p "$DEST"
   (cd "$SRC" && tar --exclude='__pycache__' -cf - .) | (cd "$DEST" && tar -xf -)
 fi
-chmod +x "$DEST/bin/apexrest-omarchy"
+chmod +x "$DEST/bin/apexrest-omarchy" "$DEST/bin/apexrest-pair"
+# Pair mode: put apexrest-pair on PATH so the Claude supervisor and you can call it by name.
+mkdir -p "$HOME/.local/bin"
+ln -sfn "$DEST/bin/apexrest-pair" "$HOME/.local/bin/apexrest-pair"
 echo "Plugin installed ($MODE): $DEST"
 
 in_bar() {

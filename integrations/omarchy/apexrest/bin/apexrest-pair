@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+# Two agents, one terminal: Codex works in the left tmux pane, Claude Code
+# watches it from the right pane and can interrupt and correct it.
+#
+#   apexrest-pair start <project>     Open (or reattach) the pair session for a project
+#
+# Supervisor commands, run by Claude in the right pane (they find the Codex
+# pane through $APEXREST_PAIR_PANE):
+#   apexrest-pair wait [--max S] [--every S] [--lines N]
+#                                     Block until Codex finishes a turn, asks for
+#                                     approval, exits, or a progress checkpoint;
+#                                     then print the event and Codex's screen
+#   apexrest-pair peek [--lines N]    Print Codex's screen now
+#   apexrest-pair state               working | idle | approval | exited
+#   apexrest-pair interrupt           Press Esc in Codex (stops its current turn)
+#   apexrest-pair say <text...>       Type a message into Codex and press Enter
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+PROMPT_FILE="$HERE/../assets/pair-supervisor.md"
+
+die() { echo "apexrest-pair: $*" >&2; exit 1; }
+
+pane() {
+  local p="${APEXREST_PAIR_PANE:-}"
+  [[ -n $p ]] || die "APEXREST_PAIR_PANE is not set; run inside a pair session started with: apexrest-pair start <project>"
+  tmux display-message -p -t "$p" '#{pane_id}' >/dev/null 2>&1 || { echo "exited"; return 1; }
+  printf '%s' "$p"
+}
+
+capture() {
+  # Joined lines, recent history included, trailing blank lines dropped.
+  tmux capture-pane -p -J -S -300 -t "$1" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
+}
+
+# Visible screen only: the bottom is where Codex draws its status and prompts.
+visible() {
+  tmux capture-pane -p -J -t "$1"
+}
+
+# working | idle | approval, from the bottom lines of the visible screen. A
+# "working" marker counts only while the screen is still changing (Codex's
+# status timer ticks every second); "$2" says whether it changed recently.
+screen_state() {
+  local text="$1" fresh="${2:-1}" tail
+  tail="$(printf '%s\n' "$text" | grep -v '^[[:space:]]*$' | tail -n 8)"
+  if printf '%s\n' "$tail" | grep -qiE 'would you like to|do you want to|allow (this|command)|approve|\[y/n\]|yes, proceed|press enter to confirm'; then
+    echo approval
+  elif ((fresh)) && printf '%s\n' "$tail" | grep -qiE 'esc to interrupt|working \(|esc to cancel'; then
+    echo working
+  else
+    echo idle
+  fi
+}
+
+print_screen() {
+  local text="$1" lines="$2"
+  printf '%s\n' "$text" | cat -s | tail -n "$lines"
+}
+
+cmd_peek() {
+  local lines=60
+  while (($#)); do case $1 in --lines) lines=$2; shift 2 ;; *) die "unknown option $1" ;; esac; done
+  local p; p="$(pane)" || { echo "event: exited"; return 0; }
+  local text a b; text="$(capture "$p")"
+  a="$(visible "$p")"; sleep 1.5; b="$(visible "$p")"
+  echo "state: $(screen_state "$b" "$([[ $a != "$b" ]] && echo 1 || echo 0)")"
+  echo "----- codex (last $lines lines) -----"
+  print_screen "$text" "$lines"
+}
+
+cmd_state() {
+  local p a b; p="$(pane)" || { echo exited; return 0; }
+  a="$(visible "$p")"; sleep 1.5; b="$(visible "$p")"
+  screen_state "$b" "$([[ $a != "$b" ]] && echo 1 || echo 0)"
+}
+
+cmd_wait() {
+  local max=600 every=90 lines=60 settle=8
+  while (($#)); do
+    case $1 in
+      --max) max=$2; shift 2 ;;
+      --every) every=$2; shift 2 ;;
+      --lines) lines=$2; shift 2 ;;
+      *) die "unknown option $1" ;;
+    esac
+  done
+  local p; p="$(pane)" || { echo "event: exited"; return 0; }
+  local start=$SECONDS last_change=$SECONDS last_report=$SECONDS
+  local text prev="" state="" seen_working=0 idle_polls=0 changed=0 event="" fresh
+  prev="$(visible "$p")"
+
+  while :; do
+    sleep 2
+    if ! tmux display-message -p -t "$p" '#{pane_id}' >/dev/null 2>&1; then event=exited; break; fi
+    text="$(visible "$p")"
+    if [[ $text != "$prev" ]]; then last_change=$SECONDS; changed=1; prev="$text"; fi
+    fresh=$(( SECONDS - last_change <= 4 ? 1 : 0 ))
+    state="$(screen_state "$text" "$fresh")"
+
+    if [[ $state == approval ]]; then event=needs-approval; break; fi
+    if [[ $state == working ]]; then
+      seen_working=1; idle_polls=0
+      if (( SECONDS - last_report >= every )); then event=progress; break; fi
+    else
+      idle_polls=$((idle_polls + 1))
+      # A turn ended: Codex was working and is now idle on two polls in a row.
+      if (( seen_working && idle_polls >= 2 )); then event=turn-finished; break; fi
+      # Output changed without a visible working marker, then settled.
+      if (( changed && SECONDS - last_change >= settle )); then event=settled; break; fi
+    fi
+    if (( SECONDS - start >= max )); then event=timeout; break; fi
+  done
+
+  echo "event: $event"
+  echo "state: ${state:-exited}"
+  echo "waited: $((SECONDS - start))s"
+  if [[ $event != exited ]]; then
+    echo "----- codex (last $lines lines) -----"
+    print_screen "$(capture "$p")" "$lines"
+  fi
+}
+
+cmd_interrupt() {
+  local p; p="$(pane)" || die "Codex pane is gone"
+  tmux send-keys -t "$p" Escape
+  echo "sent Esc to Codex"
+}
+
+cmd_say() {
+  (($#)) || die "say needs a message"
+  local p; p="$(pane)" || die "Codex pane is gone"
+  # One line: a newline would submit early in the Codex composer.
+  local msg="$*"
+  msg="${msg//$'\n'/ }"
+  tmux send-keys -t "$p" -l -- "$msg"
+  sleep 0.3
+  tmux send-keys -t "$p" Enter
+  echo "sent to Codex: $msg"
+}
+
+cmd_start() {
+  local project="${1:-$PWD}"
+  project="$(cd "$project" && pwd)" || die "no such folder: $1"
+  command -v tmux >/dev/null || die "tmux is not installed (omarchy pkg add tmux)"
+  command -v codex >/dev/null || die "codex is not installed"
+  command -v claude >/dev/null || die "claude is not installed"
+  [[ -f $PROMPT_FILE ]] || die "missing $PROMPT_FILE"
+
+  local name session
+  name="$(basename "$project" | tr -c 'A-Za-z0-9_-' '-' | sed 's/-*$//')"
+  session="pair-${name:-project}"
+  if tmux has-session -t "=$session" 2>/dev/null; then
+    [[ -n ${TMUX:-} ]] && exec tmux switch-client -t "=$session"
+    exec tmux attach-session -t "=$session"
+  fi
+
+  local shell="${SHELL:-bash}"
+  tmux new-session -d -s "$session" -c "$project" -x "${COLUMNS:-200}" -y "${LINES:-50}" \
+    "codex; echo; echo 'Codex exited.'; exec $(printf '%q' "$shell")"
+  local left right
+  left="$(tmux display-message -p -t "=$session:0.0" '#{pane_id}')"
+
+  local claude_cmd
+  claude_cmd="$(printf '%q ' claude \
+    -n "Codex supervisor" \
+    --append-system-prompt-file "$PROMPT_FILE" \
+    --allowedTools "Bash(apexrest-pair:*)" "Bash(apexrest-pair *)" "Bash($HERE/apexrest-pair:*)" "Bash($HERE/apexrest-pair *)" \
+    -- "Start supervising Codex in the left pane. If apexrest-pair is not on PATH, call it as $HERE/apexrest-pair.")"
+  right="$(tmux split-window -h -P -F '#{pane_id}' -t "$left" -c "$project" -l 45% \
+    -e "APEXREST_PAIR_PANE=$left" -e "PATH=$HERE:$PATH" \
+    "$claude_cmd; exec $(printf '%q' "$shell")")"
+
+  tmux select-pane -t "$left" -T "Codex · works"
+  tmux select-pane -t "$right" -T "Claude · watches"
+  tmux set-option -t "=$session" pane-border-status top >/dev/null
+  tmux set-option -t "=$session" pane-border-format ' #{pane_title} ' >/dev/null
+  tmux set-option -t "=$session" mouse on >/dev/null
+  tmux select-pane -t "$left"
+
+  [[ -n ${TMUX:-} ]] && exec tmux switch-client -t "=$session"
+  exec tmux attach-session -t "=$session"
+}
+
+case "${1:-}" in
+  start) shift; cmd_start "$@" ;;
+  wait) shift; cmd_wait "$@" ;;
+  peek) shift; cmd_peek "$@" ;;
+  state) shift; cmd_state "$@" ;;
+  interrupt) shift; cmd_interrupt ;;
+  say) shift; cmd_say "$@" ;;
+  ""|-h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) die "unknown command: $1 (see --help)" ;;
+esac

@@ -530,6 +530,12 @@ Panel {
               : root.act("start", ["start", row.project.path], false)
           }
           ActionButton {
+            iconText: "󰕘"
+            tooltipText: strings.t("tip.pair")
+            enabled: root.busy === ""
+            onClicked: root.act("terminal", ["terminal", row.project.path, "pair"], true)
+          }
+          ActionButton {
             iconText: "✻"
             tooltipText: strings.t("tip.claude")
             enabled: root.busy === ""

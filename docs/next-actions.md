@@ -2,7 +2,7 @@
 
 ## Omarchy bar widget (2026-11-26)
 
-- Observe the review-comment and deployment notifications of `integrations/omarchy/` against real events with a 2.9 managed CLI, and check a vertical bar. Decide whether the widget ships in the release bundle or stays a repository integration.
+- Observe the review-comment and deployment notifications of `integrations/omarchy/` against real events with a 2.9 managed CLI, and check a vertical bar. Decide whether the widget ships in the release bundle or stays a repository integration. In pair mode, observe a real Codex turn being interrupted and corrected by the Claude supervisor, and re-check `apexrest-pair` state detection after Codex TUI updates.
 
 ## Linear issues (2026-11-25)
 

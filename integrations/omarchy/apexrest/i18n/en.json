@@ -3,9 +3,18 @@
   "status.error": "APEXREST unavailable",
   "status.idle": "Ready",
   "status.checked": "CLI %1 · checked %2 ago",
-  "count.previews": { "one": "%1 preview live", "other": "%1 previews live" },
-  "count.comments": { "one": "%1 review comment", "other": "%1 review comments" },
-  "count.attention": { "one": "%1 needs attention", "other": "%1 need attention" },
+  "count.previews": {
+    "one": "%1 preview live",
+    "other": "%1 previews live"
+  },
+  "count.comments": {
+    "one": "%1 review comment",
+    "other": "%1 review comments"
+  },
+  "count.attention": {
+    "one": "%1 needs attention",
+    "other": "%1 need attention"
+  },
   "section.previews": "Live previews",
   "section.projects": "Projects",
   "empty.projects": "No APEXREST projects yet. Run apexrest project init in an application folder, or ask your agent to create one.",
@@ -14,11 +23,17 @@
   "preview.connected": "%1 database, rolled back",
   "preview.cli": "terminal",
   "preview.agent": "agent session",
-  "fact.changes": { "one": "%1 changed file", "other": "%1 changed files" },
+  "fact.changes": {
+    "one": "%1 changed file",
+    "other": "%1 changed files"
+  },
   "fact.clean": "no local changes",
   "fact.deployed": "last deploy %1 %2 ago",
   "fact.neverDeployed": "never deployed",
-  "fact.jobs": { "one": "%1 job running", "other": "%1 jobs running" },
+  "fact.jobs": {
+    "one": "%1 job running",
+    "other": "%1 jobs running"
+  },
   "comment.line": "p%1: %2",
   "comment.more": "and %1 more open comments",
   "tip.refresh": "Read APEXREST state now",
@@ -26,6 +41,7 @@
   "tip.start": "Start a local preview (Node.js and SQLite, no database)",
   "tip.stop": "Stop this preview",
   "tip.stopAgent": "Started by an agent session; stop it from that session",
+  "tip.pair": "Pair: Codex works on the left, Claude watches on the right and can interrupt and correct it",
   "tip.claude": "Open Claude Code in this project",
   "tip.codex": "Open Codex in this project",
   "tip.terminal": "Open a terminal in this project",

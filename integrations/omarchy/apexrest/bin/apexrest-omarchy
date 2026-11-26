@@ -14,7 +14,8 @@ Commands:
   open <url>                 Open a running local preview in the browser
   start <project>            Start a local preview (SQLite, no database)
   stop <port>                Stop a CLI-owned preview
-  terminal <project> [shell|claude|codex]
+  terminal <project> [shell|claude|codex|pair]
+                             pair: tmux with Codex left and a Claude supervisor right
   folder <project>           Open the project folder
 """
 
@@ -438,14 +439,17 @@ def cmd_stop(args):
 def cmd_terminal(args):
     path = known_project(args[0] if args else "")
     tool = args[1] if len(args) > 1 else "shell"
-    if tool not in ("shell", "claude", "codex"):
+    if tool not in ("shell", "claude", "codex", "pair"):
         fail("Unknown tool", 2)
-    if tool != "shell" and not shutil.which(tool):
-        fail("%s is not installed" % tool, 3)
+    for need in {"shell": [], "claude": ["claude"], "codex": ["codex"], "pair": ["tmux", "codex", "claude"]}[tool]:
+        if not shutil.which(need):
+            fail("%s is not installed" % need, 3)
     if not shutil.which("xdg-terminal-exec"):
         fail("No terminal launcher found")
+    pair = os.path.join(os.path.dirname(os.path.realpath(__file__)), "apexrest-pair")
     run = {"shell": 'exec "${SHELL:-bash}"', "claude": "claude; exec \"${SHELL:-bash}\"",
-           "codex": "codex; exec \"${SHELL:-bash}\""}[tool]
+           "codex": "codex; exec \"${SHELL:-bash}\"",
+           "pair": "exec %s start %s" % (shlex.quote(pair), shlex.quote(path))}[tool]
     spawn(launcher(["xdg-terminal-exec", "--dir=" + path, "--title=apexrest-" + os.path.basename(path),
                     "-e", "bash", "-c", run]), cwd=path)
     emit({"ok": True})
