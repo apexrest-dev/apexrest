@@ -2,6 +2,14 @@
 
 The current source and bundled plugin version is **2.9.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
+## Omarchy bar widget (2026-11-26, local, branch `feat/omarchy-bar-widget`)
+
+`integrations/omarchy/` adds an optional bar widget for the Omarchy desktop (`integrations/omarchy/install.sh`). A Python helper reads `apexrest version`, `preview status`, `panel status` and `preview comments` (all read-only, no database call). The panel shows live previews, recent projects (Git changes, sync problems, last deployment, jobs, open review comments) and desktop notifications for new comments and deployment results. Its actions are open, start (local SQLite preview only, never `--env`) and stop (CLI-owned previews only) for a preview, plus a terminal, Claude Code or Codex in the project, or the project folder. It never plans, applies, restores or imports. Verified:
+
+- Repository tests: `python3 -I integrations/omarchy/test_apexrest_omarchy.py` (fake CLI): snapshot shape, scratch-project filtering, failed or unknown deployment marked critical, missing CLI, refused actions (non-local URL, unlisted project, unknown tool, unknown port), and model bounds with markup-shaped input.
+- Local desktop (Omarchy, Qt 6.12, installed CLI 2.8.0): `omarchy plugin validate` passed. The widget loaded with no QML errors. Start, live-preview display and stop were exercised on `~/Code/apexrest-test`, and the panel was checked on screenshots.
+- Not run: the review-comment and deployment notifications, against real events (the installed 2.8.0 CLI has no `preview comments`); other Omarchy versions; vertical bars.
+
 ## Fast-development follow-up backlog (2026-11-25, local, branch `feat/fast-development`)
 
 Work items are APE-405 to APE-438 in Linear; each section names its backlog ID. Implementation, repository tests, compiler evidence, native import and browser observations are reported separately.

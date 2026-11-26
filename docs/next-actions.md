@@ -1,5 +1,9 @@
 # Next actions and verification limits
 
+## Omarchy bar widget (2026-11-26)
+
+- Observe the review-comment and deployment notifications of `integrations/omarchy/` against real events with a 2.9 managed CLI, and check a vertical bar. Decide whether the widget ships in the release bundle or stays a repository integration.
+
 ## Linear issues (2026-11-25)
 
 - Run the Linear flow end to end in Claude Code and Codex with the official Linear MCP server connected: read an issue, ship to a local DEV target and post the results comment on request. Record the observations separately from the packaging test.

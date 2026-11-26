@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "id": "apexrest",
+  "name": "APEXREST",
+  "version": "1.0.0",
+  "author": "APEXREST",
+  "license": "Apache-2.0",
+  "description": "APEXREST in the Omarchy bar: live local previews, recent APEXlang projects with Git changes, sync state and the last deployment, and open review comments waiting for an agent. Start, open or stop a local preview, or open a terminal, Claude Code or Codex in a project. Never deploys or opens a database session.",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "APEXREST",
+    "description": "The APEXREST mark with a live-preview and review-comment count; the panel lists previews and projects with preview, agent and terminal shortcuts.",
+    "category": "Development",
+    "aliases": ["apexrest", "apex", "oracle", "preview", "apexlang"],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 60,
+      "notifications": true,
+      "maxProjects": 6,
+      "includeTempProjects": false,
+      "projects": []
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 15,
+        "max": 3600,
+        "step": 15,
+        "defaultValue": 60,
+        "description": "Each refresh runs the local, read-only APEXREST CLI status commands; no database or network call. Set 0 in shell.json to refresh only when the panel opens."
+      },
+      {
+        "key": "notifications",
+        "type": "boolean",
+        "label": "Desktop notifications",
+        "defaultValue": true,
+        "description": "Notify about new review comments in a local preview and about finished or failed deployments."
+      },
+      {
+        "key": "maxProjects",
+        "type": "integer",
+        "label": "Projects shown",
+        "min": 1,
+        "max": 12,
+        "step": 1,
+        "defaultValue": 6,
+        "description": "Pinned projects first, then the most recently used APEXREST projects."
+      },
+      {
+        "key": "includeTempProjects",
+        "type": "boolean",
+        "label": "Show scratch projects",
+        "defaultValue": false,
+        "description": "Also list recent projects under /tmp, such as agent scratchpads."
+      }
+    ]
+  }
+}

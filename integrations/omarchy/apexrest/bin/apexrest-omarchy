@@ -1,0 +1,487 @@
+#!/usr/bin/env python3
+"""APEXREST helper for the Omarchy bar widget.
+
+Reads local APEXREST state through the CLI's read-only JSON commands
+(`preview status`, `panel status`, `preview comments`) and launches a few
+local conveniences: open a preview, start or stop a local preview, open a
+terminal or a coding agent in a project. It never plans, applies, restores
+or imports a deployment, never opens a database session and never reads
+connection secrets.
+
+Commands:
+  snapshot [--notify] [--pin PATH]... [--max N] [--include-temp]
+  cached                     Last snapshot, without calling the CLI
+  open <url>                 Open a running local preview in the browser
+  start <project>            Start a local preview (SQLite, no database)
+  stop <port>                Stop a CLI-owned preview
+  terminal <project> [shell|claude|codex]
+  folder <project>           Open the project folder
+"""
+
+import concurrent.futures
+import json
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import time
+import urllib.parse
+
+HOME = os.path.expanduser("~")
+APEXREST_HOME = os.environ.get("APEXREST_HOME") or os.path.join(HOME, ".apexrest")
+STATE_DIR = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.join(HOME, ".local", "state"), "apexrest-omarchy")
+CACHE = os.path.join(STATE_DIR, "snapshot.json")
+MAX_PROJECTS = 12
+MAX_PREVIEWS = 16
+MAX_TEXT = 200
+CLI_TIMEOUT = 20
+TEMP_ROOTS = ("/tmp/", "/var/tmp/", "/dev/shm/")
+LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1", "[::1]")
+
+
+def text(value, limit=MAX_TEXT):
+    if value is None:
+        return ""
+    s = " ".join(str(value).split())
+    return s if len(s) <= limit else s[: limit - 1] + "…"
+
+
+def emit(value):
+    sys.stdout.write(json.dumps(value, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
+
+
+def fail(message, code=1):
+    emit({"ok": False, "error": text(message)})
+    sys.exit(code)
+
+
+# ---------- CLI ----------
+
+def cli_command():
+    """The APEXREST CLI: $APEXREST_CLI, the managed wrapper, or `apexrest` on PATH."""
+    explicit = os.environ.get("APEXREST_CLI", "").strip()
+    if explicit:
+        parts = shlex.split(explicit)
+        if parts and parts[0].endswith(".mjs"):
+            node = shutil.which("node")
+            return [node] + parts if node else None
+        return parts
+    managed = os.path.join(APEXREST_HOME, "bin", "apexrest")
+    if os.access(managed, os.X_OK):
+        return [managed]
+    found = shutil.which("apexrest")
+    return [found] if found else None
+
+
+def run_cli(args, timeout=CLI_TIMEOUT):
+    """Runs one CLI command with --json and returns its parsed result envelope."""
+    base = cli_command()
+    if not base:
+        return {"ok": False, "error": "APEXREST CLI not found"}
+    try:
+        proc = subprocess.run(base + args + ["--json"], stdin=subprocess.DEVNULL, capture_output=True,
+                              text=True, timeout=timeout, env=dict(os.environ, NO_COLOR="1"))
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "APEXREST CLI timed out"}
+    except OSError as exc:
+        return {"ok": False, "error": "Cannot run the APEXREST CLI: %s" % exc}
+    out = proc.stdout.strip()
+    if len(out) > 8 * 1024 * 1024:
+        return {"ok": False, "error": "APEXREST CLI output too large"}
+    start = out.rfind("\n{")
+    try:
+        result = json.loads(out[start + 1:] if start >= 0 else out)
+    except ValueError:
+        return {"ok": False, "error": text(proc.stderr or "Unreadable APEXREST CLI output", 160)}
+    return result if isinstance(result, dict) else {"ok": False, "error": "Unexpected APEXREST CLI output"}
+
+
+def error_of(result):
+    if result.get("error"):
+        return text(result["error"], 160)
+    diags = result.get("diagnostics") or []
+    if diags and isinstance(diags[0], dict):
+        return text(diags[0].get("message"), 160)
+    return text(result.get("summary") or "failed", 160)
+
+
+# ---------- Projects ----------
+
+def is_project(path):
+    return (isinstance(path, str) and os.path.isabs(path) and os.path.isdir(path)
+            and os.path.isfile(os.path.join(path, "apexrest.json")))
+
+
+def is_temp(path):
+    return any((path + "/").startswith(root) for root in TEMP_ROOTS)
+
+
+def recent_projects(pins, limit, include_temp):
+    seen, out = set(), []
+
+    def add(path, pinned):
+        path = os.path.realpath(path)
+        if path in seen or not is_project(path) or (is_temp(path) and not include_temp and not pinned):
+            return
+        seen.add(path)
+        out.append({"path": path, "pinned": pinned})
+
+    for p in pins:
+        add(os.path.expanduser(p), True)
+    try:
+        with open(os.path.join(APEXREST_HOME, "recent-projects.json"), encoding="utf-8") as fh:
+            data = json.load(fh)
+        rows = data.get("projects", []) if isinstance(data, dict) else []
+    except (OSError, ValueError):
+        rows = []
+    rows = [r for r in rows if isinstance(r, dict) and isinstance(r.get("path"), str)]
+    rows.sort(key=lambda r: str(r.get("at", "")), reverse=True)
+    for r in rows[: limit * 4]:
+        add(r["path"], False)
+    return out[:limit]
+
+
+def deployment_state(status):
+    s = str(status or "").lower()
+    if s in ("succeeded", "success", "completed", "planned"):
+        return "ok"
+    if s in ("running", "applying", "importing", "verifying", "queued", "pending"):
+        return "active"
+    if s in ("failed", "unknown", "interrupted", "unknown-outcome", "cancelled", "rolled-back"):
+        return "crit"
+    return "warn"
+
+
+def project_snapshot(entry):
+    path = entry["path"]
+    p = {"path": path, "name": os.path.basename(path), "pinned": entry["pinned"], "status": "ok",
+         "issues": [], "environments": [], "changes": None, "deployment": None, "jobs": 0,
+         "comments": None, "sync": []}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        f_panel = pool.submit(run_cli, ["panel", "status", "--project", path])
+        f_comments = pool.submit(run_cli, ["preview", "comments", "--project", path, "--status", "open"])
+        panel, comments = f_panel.result(), f_comments.result()
+
+    if panel.get("ok") is False or not isinstance(panel.get("data"), dict):
+        p["status"] = "error"
+        p["issues"].append(error_of(panel))
+        return p
+    d = panel["data"]
+    conf = d.get("configuration") if isinstance(d.get("configuration"), dict) else {}
+    p["name"] = text(conf.get("projectId") or p["name"], 64)
+    app = conf.get("application") if isinstance(conf.get("application"), dict) else {}
+    p["sourceDir"] = text(app.get("sourceDir"), 200)
+    envs = conf.get("environments") if isinstance(conf.get("environments"), dict) else {}
+    for name, env in list(envs.items())[:6]:
+        env = env if isinstance(env, dict) else {}
+        p["environments"].append({"name": text(name, 24), "kind": text(env.get("kind"), 12),
+                                  "applicationId": env.get("applicationId") if isinstance(env.get("applicationId"), int) else None,
+                                  "baseUrl": text(env.get("baseUrl"), 200)})
+    p["cliVersion"] = text(d.get("version"), 24)
+
+    changes = d.get("changes") if isinstance(d.get("changes"), dict) else {}
+    if changes.get("status") == "available":
+        p["changes"] = len(changes.get("files") or [])
+
+    jobs = d.get("jobs") if isinstance(d.get("jobs"), list) else []
+    p["jobs"] = sum(1 for j in jobs if isinstance(j, dict) and deployment_state(j.get("status")) == "active")
+
+    deps = [x for x in (d.get("deployments") or []) if isinstance(x, dict)]
+    deps.sort(key=lambda x: str(x.get("at", "")), reverse=True)
+    if deps:
+        last = deps[0]
+        p["deployment"] = {"id": text(last.get("id"), 64), "status": text(last.get("status"), 32),
+                           "state": deployment_state(last.get("status")), "at": text(last.get("at"), 40)}
+
+    for s in (d.get("sync") or [])[:6]:
+        if not isinstance(s, dict):
+            continue
+        row = {"environment": text(s.get("environment"), 24), "dirty": bool(s.get("dirty")),
+               "blocked": bool(s.get("blocked")), "reason": text(s.get("blockedReason"), 120),
+               "importing": bool(s.get("importingRunId"))}
+        p["sync"].append(row)
+        if row["blocked"]:
+            p["issues"].append("%s sync blocked%s" % (row["environment"], ": " + row["reason"] if row["reason"] else ""))
+        if row["importing"]:
+            p["issues"].append("%s import in progress or interrupted" % row["environment"])
+
+    if comments.get("ok") is not False and isinstance(comments.get("data"), dict):
+        cd = comments["data"]
+        items = [c for c in (cd.get("comments") or []) if isinstance(c, dict)][:50]
+        p["comments"] = cd["count"] if isinstance(cd.get("count"), int) else len(items)
+        p["commentItems"] = [{"id": text(c.get("id"), 64),
+                              "page": text((c.get("page") or {}).get("id") if isinstance(c.get("page"), dict) else "", 16),
+                              "text": text(c.get("text"), 140)} for c in items[:5]]
+
+    if p["deployment"] and p["deployment"]["state"] == "crit":
+        p["status"] = "crit"
+        p["issues"].insert(0, "Last deployment %s — run deploy status or reconcile" % p["deployment"]["status"])
+    elif any(s["blocked"] or s["importing"] for s in p["sync"]):
+        p["status"] = "crit"
+    elif p["jobs"] or (p["deployment"] and p["deployment"]["state"] == "active"):
+        p["status"] = "active"
+    elif p["comments"]:
+        p["status"] = "warn"
+    return p
+
+
+def preview_rows():
+    result = run_cli(["preview", "status"])
+    if result.get("ok") is False or not isinstance(result.get("data"), dict):
+        return [], error_of(result), False
+    d = result["data"]
+    rows = []
+    for r in (d.get("running") or [])[:MAX_PREVIEWS]:
+        if not isinstance(r, dict) or not isinstance(r.get("port"), int):
+            continue
+        rows.append({"port": r["port"], "pid": r.get("pid") if isinstance(r.get("pid"), int) else None,
+                     "url": text(r.get("url"), 200), "sourceDir": text(r.get("sourceDir"), 300),
+                     "app": text(os.path.basename(str(r.get("sourceDir") or "").rstrip("/")), 64),
+                     "owner": text(r.get("owner"), 8), "startedAt": text(r.get("startedAt"), 40),
+                     "environment": text(r.get("environment"), 24)})
+    return rows, "", bool(d.get("assetsInstalled", True))
+
+
+def link_previews(projects, previews):
+    for pv in previews:
+        pv["project"] = ""
+        for p in projects:
+            if pv["sourceDir"] == p["path"] or pv["sourceDir"].startswith(p["path"] + "/"):
+                pv["project"] = p["name"]
+                p.setdefault("previews", []).append(pv["port"])
+                break
+
+
+def overall(snap):
+    order = ["crit", "error", "warn", "active", "ok"]
+    states = [p["status"] for p in snap["projects"]]
+    if snap.get("error"):
+        states.append("error")
+    for s in order:
+        if s in states:
+            return s
+    return "ok"
+
+
+# ---------- Notifications ----------
+
+def notify(title, body, urgency="normal"):
+    if not shutil.which("notify-send"):
+        return
+    icon = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "assets", "apexrest-icon.svg")
+    subprocess.run(["notify-send", "-a", "APEXREST", "-i", icon, "-u", urgency, title, body],
+                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+
+
+def notify_changes(prev, snap):
+    if not prev or not isinstance(prev.get("projects"), list):
+        return
+    before = {p.get("path"): p for p in prev["projects"] if isinstance(p, dict)}
+    for p in snap["projects"]:
+        old = before.get(p["path"])
+        if not old:
+            continue
+        new_ids = [c["id"] for c in p.get("commentItems", [])]
+        old_ids = {c.get("id") for c in old.get("commentItems", []) if isinstance(c, dict)}
+        fresh = [c for c in p.get("commentItems", []) if c["id"] not in old_ids]
+        if fresh and new_ids:
+            first = fresh[0]
+            notify("%s · %d new review comment%s" % (p["name"], len(fresh), "" if len(fresh) == 1 else "s"),
+                   "Page %s: %s\nAsk your agent to apply the open review comments." % (first["page"], first["text"]))
+        dep, odep = p.get("deployment"), old.get("deployment") or {}
+        if dep and (dep["id"] != odep.get("id") or dep["status"] != odep.get("status")):
+            if dep["state"] == "ok":
+                notify("%s · deployed" % p["name"], "Deployment %s succeeded." % dep["id"][:8])
+            elif dep["state"] == "crit":
+                notify("%s · deployment %s" % (p["name"], dep["status"]),
+                       "Run apexrest deploy status, then reconcile. Do not replay the import.", "critical")
+
+
+# ---------- Commands ----------
+
+def load_cache():
+    try:
+        with open(CACHE, encoding="utf-8") as fh:
+            v = json.load(fh)
+        return v if isinstance(v, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def save_cache(snap):
+    os.makedirs(STATE_DIR, mode=0o700, exist_ok=True)
+    tmp = CACHE + ".%d.tmp" % os.getpid()
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(snap, fh, ensure_ascii=False)
+    os.replace(tmp, CACHE)
+
+
+def cmd_snapshot(args):
+    pins, limit, include_temp, do_notify = [], 6, False, False
+    it = iter(args)
+    for a in it:
+        if a == "--pin":
+            pins.append(next(it, ""))
+        elif a == "--max":
+            try:
+                limit = max(1, min(MAX_PROJECTS, int(next(it, "6"))))
+            except ValueError:
+                pass
+        elif a == "--include-temp":
+            include_temp = True
+        elif a == "--notify":
+            do_notify = True
+    t0 = time.monotonic()
+    snap = {"ok": True, "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "error": "",
+            "cli": " ".join(cli_command() or []), "previews": [], "projects": [], "assetsInstalled": True}
+    if not cli_command():
+        snap["error"] = "APEXREST CLI not found. Install the plugin, or set APEXREST_CLI."
+    else:
+        entries = recent_projects(pins, limit, include_temp)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(entries) + 2)) as pool:
+            f_prev = pool.submit(preview_rows)
+            f_ver = pool.submit(run_cli, ["version"])
+            futures = [pool.submit(project_snapshot, e) for e in entries]
+            snap["projects"] = [f.result() for f in futures]
+            snap["previews"], perr, snap["assetsInstalled"] = f_prev.result()
+            ver = f_ver.result()
+        if perr:
+            snap["error"] = perr
+        if isinstance(ver.get("data"), dict):
+            snap["version"] = text(ver["data"].get("version"), 24)
+        link_previews(snap["projects"], snap["previews"])
+    snap["state"] = overall(snap)
+    snap["durationMs"] = int((time.monotonic() - t0) * 1000)
+    prev = load_cache()
+    try:
+        save_cache(snap)
+    except OSError:
+        pass
+    if do_notify:
+        notify_changes(prev, snap)
+    emit(snap)
+
+
+def known_project(path):
+    snap = load_cache() or {}
+    real = os.path.realpath(path) if isinstance(path, str) else ""
+    for p in snap.get("projects", []):
+        if isinstance(p, dict) and p.get("path") == real and is_project(real):
+            return real
+    fail("Not a listed APEXREST project", 2)
+
+
+def spawn(argv, cwd=None, log=None):
+    out = open(log, "ab") if log else subprocess.DEVNULL
+    try:
+        subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=out, stderr=out, start_new_session=True)
+    finally:
+        if log:
+            out.close()
+
+
+def launcher(argv):
+    return (["uwsm-app", "--"] if shutil.which("uwsm-app") else []) + argv
+
+
+def cmd_open(args):
+    url = args[0] if args else ""
+    u = urllib.parse.urlparse(url)
+    if u.scheme not in ("http", "https") or (u.hostname or "") not in LOCAL_HOSTS:
+        fail("Only local preview URLs open from here", 2)
+    browser = shutil.which("omarchy-launch-browser") or shutil.which("xdg-open")
+    if not browser:
+        fail("No browser launcher found")
+    spawn([browser, url])
+    emit({"ok": True})
+
+
+def cmd_start(args):
+    path = known_project(args[0] if args else "")
+    base = cli_command()
+    if not base:
+        fail("APEXREST CLI not found")
+    os.makedirs(STATE_DIR, mode=0o700, exist_ok=True)
+    log = os.path.join(STATE_DIR, "preview-%s.log" % os.path.basename(path))
+    # Local preview on Node.js and SQLite: no --env, so no database is touched.
+    spawn(base + ["preview", "start", "--project", path, "--json"], cwd=path, log=log)
+    deadline = time.monotonic() + 25
+    while time.monotonic() < deadline:
+        time.sleep(0.5)
+        rows, _, _ = preview_rows()
+        for r in rows:
+            if r["sourceDir"].startswith(path + "/") or r["sourceDir"] == path:
+                emit({"ok": True, "url": r["url"], "port": r["port"]})
+                return
+    fail("Preview did not start in 25 s; see %s" % log)
+
+
+def cmd_stop(args):
+    try:
+        port = int(args[0])
+    except (IndexError, ValueError):
+        fail("Port required", 2)
+    rows, _, _ = preview_rows()
+    row = next((r for r in rows if r["port"] == port), None)
+    if not row:
+        fail("No preview on port %d" % port, 2)
+    if row["owner"] != "cli":
+        fail("This preview runs inside an agent session; stop it from that session", 2)
+    result = run_cli(["preview", "stop", "--port", str(port)])
+    if result.get("ok") is False:
+        fail(error_of(result))
+    emit({"ok": True})
+
+
+def cmd_terminal(args):
+    path = known_project(args[0] if args else "")
+    tool = args[1] if len(args) > 1 else "shell"
+    if tool not in ("shell", "claude", "codex"):
+        fail("Unknown tool", 2)
+    if tool != "shell" and not shutil.which(tool):
+        fail("%s is not installed" % tool, 3)
+    if not shutil.which("xdg-terminal-exec"):
+        fail("No terminal launcher found")
+    run = {"shell": 'exec "${SHELL:-bash}"', "claude": "claude; exec \"${SHELL:-bash}\"",
+           "codex": "codex; exec \"${SHELL:-bash}\""}[tool]
+    spawn(launcher(["xdg-terminal-exec", "--dir=" + path, "--title=apexrest-" + os.path.basename(path),
+                    "-e", "bash", "-c", run]), cwd=path)
+    emit({"ok": True})
+
+
+def cmd_folder(args):
+    path = known_project(args[0] if args else "")
+    opener = shutil.which("xdg-open")
+    if not opener:
+        fail("xdg-open not found")
+    spawn(launcher([opener, path]))
+    emit({"ok": True})
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        sys.stdout.write(__doc__)
+        return
+    cmd, args = sys.argv[1], sys.argv[2:]
+    if cmd == "snapshot":
+        cmd_snapshot(args)
+    elif cmd == "cached":
+        emit(load_cache() or {"ok": False, "error": "no snapshot yet"})
+    elif cmd == "open":
+        cmd_open(args)
+    elif cmd == "start":
+        cmd_start(args)
+    elif cmd == "stop":
+        cmd_stop(args)
+    elif cmd == "terminal":
+        cmd_terminal(args)
+    elif cmd == "folder":
+        cmd_folder(args)
+    else:
+        fail("Unknown command: %s" % cmd, 2)
+
+
+if __name__ == "__main__":
+    main()
