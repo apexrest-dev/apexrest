@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -135,50 +136,230 @@ class HelperTest(unittest.TestCase):
 
 
 PAIR = os.path.join(PLUGIN, "bin", "apexrest-pair")
-FAKE_CODEX = r'''#!/bin/bash
-for i in 1 2 3 4; do printf '\r• Working (%ss • esc to interrupt)' $i; sleep 1; done
-printf '\r%-40s\n' "Done"; echo "› Ask Codex to do anything"
-read -r line; echo "GOT: $line"
-printf '  Would you like to run the following command?\n  › 1. Yes, proceed   2. No\n'
-sleep 120
-'''
+# Stands in for `codex exec`: records the prompt, answers from $FAKE_VERDICT.
+FAKE_CODEX = r"""#!/usr/bin/env python3
+import json, os, sys
+args = sys.argv[1:]
+prompt = sys.stdin.read()
+with open(os.environ["FAKE_PROMPTS"], "a") as fh:
+    fh.write(prompt + "\n=====\n")
+verdict = os.environ.get("FAKE_VERDICT", "comment")
+notes = ["app.js:3 divides by zero\nwhen the list is empty"] if verdict == "comment" else []
+with open(args[args.index("-o") + 1], "w") as fh:
+    json.dump({"verdict": verdict, "notes": notes}, fh)
+"""
+
+
+def load_pair():
+    sys.dont_write_bytecode = True
+    import importlib.machinery
+    import importlib.util
+    loader = importlib.machinery.SourceFileLoader("apexrest_pair", PAIR)
+    mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("apexrest_pair", loader))
+    loader.exec_module(mod)
+    return mod
+
+
+def transcript_lines():
+    return [
+        {"type": "user", "message": {"role": "user", "content": "old request"}},
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": "old answer"}]}},
+        {"type": "user", "message": {"role": "user", "content": "add an average function"}},
+        {"type": "user", "isMeta": True, "message": {"content": [{"type": "text", "text": "skill body"}]}},
+        {"type": "assistant", "message": {"content": [{"type": "thinking", "thinking": "secret plan"},
+                                                     {"type": "tool_use", "name": "Edit",
+                                                      "input": {"file_path": "app.js", "new_string": "a/b"}}]}},
+        {"type": "user", "message": {"content": [{"type": "tool_result", "content": "edited"}]}},
+        {"type": "assistant", "isSidechain": True, "message": {"content": [{"type": "text", "text": "subagent"}]}},
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": "Done, average added."}]}},
+    ]
+
+
+class PairUnitTest(unittest.TestCase):
+    def setUp(self):
+        self.mod = load_pair()
+        self.tmp = tempfile.mkdtemp(prefix="apexrest-pair-unit-")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_digest_takes_the_turn_since_your_last_prompt(self):
+        path = os.path.join(self.tmp, "t.jsonl")
+        write(path, "\n".join(json.dumps(x) for x in transcript_lines()) + "\nnot json\n")
+        text = self.mod.digest(path)
+        self.assertTrue(text.startswith("USER: add an average function"))
+        self.assertIn("tool Edit:", text)
+        self.assertIn("result: edited", text)
+        self.assertIn("CLAUDE: Done, average added.", text)
+        for hidden in ("old request", "skill body", "secret plan", "subagent"):
+            self.assertNotIn(hidden, text)
+        # A Codex message does not start a new turn: the user's request stays in view.
+        extra = [{"type": "user", "message": {"content": "[Codex review] (1) check b"}},
+                 {"type": "assistant", "message": {"content": [{"type": "text", "text": "fixed"}]}}]
+        write(path, "\n".join(json.dumps(x) for x in transcript_lines() + extra))
+        text = self.mod.digest(path)
+        self.assertTrue(text.startswith("USER: add an average function"))
+        self.assertIn("CODEX REVIEW (earlier, sent to Claude): [Codex review] (1) check b", text)
+
+    def test_review_message_is_one_bounded_line(self):
+        msg = self.mod.review_message(["first\nline\x1b[31m", "", "x" * 900, "c", "d", "e"])
+        self.assertTrue(msg.startswith("[Codex review] (1) first line"))
+        self.assertNotIn("\n", msg)
+        self.assertNotIn("\x1b", msg)
+        self.assertLessEqual(len(msg), 1000)
+        self.assertEqual(self.mod.review_message([]), "")
+
+    def test_due(self):
+        due, cfg = self.mod.due, {"every": 150}
+        self.assertIsNone(due({}, cfg, 1000))
+        self.assertEqual(due({"phase": "idle", "stopped_turn": 2, "reviewed_turn": 1}, cfg, 1000), "end")
+        self.assertIsNone(due({"phase": "idle", "stopped_turn": 2, "reviewed_turn": 2}, cfg, 1000))
+        working = {"phase": "working", "edits": 1, "last_review_at": 0, "last_tool": 990}
+        self.assertEqual(due(working, cfg, 1000), "checkpoint")
+        self.assertIsNone(due(dict(working, last_tool=999), cfg, 1000))
+        self.assertIsNone(due(dict(working, edits=0), cfg, 1000))
+        self.assertEqual(due({"requested": True}, cfg, 1000), "manual")
 
 
 class PairTest(unittest.TestCase):
-    """apexrest-pair against a fake Codex in a detached tmux pane."""
+    """Hooks, reviewer loop and delivery into a real (detached) tmux pane."""
 
     def setUp(self):
         if not shutil.which("tmux"):
             self.skipTest("tmux not installed")
         self.tmp = tempfile.mkdtemp(prefix="apexrest-pair-test-")
-        fake = os.path.join(self.tmp, "fake-codex")
-        write(fake, FAKE_CODEX)
-        os.chmod(fake, 0o755)
+        self.state = os.path.join(self.tmp, "state")
+        os.makedirs(self.state)
+        codex = os.path.join(self.tmp, "fake-codex")
+        write(codex, FAKE_CODEX)
+        os.chmod(codex, 0o755)
+        self.prompts = os.path.join(self.tmp, "prompts.txt")
+        self.transcript = os.path.join(self.tmp, "t.jsonl")
+        write(self.transcript, "\n".join(json.dumps(x) for x in transcript_lines()))
         self.session = "apexrest-pair-test-%d" % os.getpid()
-        subprocess.run(["tmux", "new-session", "-d", "-s", self.session, "-x", "100", "-y", "20", fake], check=True)
-        pane = subprocess.run(["tmux", "display-message", "-p", "-t", self.session + ":0.0", "#{pane_id}"],
-                              capture_output=True, text=True, check=True).stdout.strip()
-        self.env = dict(os.environ, APEXREST_PAIR_PANE=pane)
+        # `cat >/dev/null` stands in for Claude's console: whatever is typed into it shows up on screen.
+        subprocess.run(["tmux", "new-session", "-d", "-s", self.session, "-x", "200", "-y", "20", "cat >/dev/null"], check=True)
+        self.pane = subprocess.run(["tmux", "display-message", "-p", "-t", self.session, "#{pane_id}"],
+                                   capture_output=True, text=True, check=True).stdout.strip()
+        write(os.path.join(self.state, "config.json"), json.dumps(
+            {"project": self.tmp, "pane": self.pane, "every": 150, "rounds": 1, "mode": "all"}))
+        self.env = dict(os.environ, APEXREST_PAIR_STATE=self.state, APEXREST_PAIR_CODEX=codex,
+                        FAKE_PROMPTS=self.prompts)
+        self.loop = None
 
     def tearDown(self):
+        if self.loop:
+            self.loop.kill()
+            self.loop.wait()
         subprocess.run(["tmux", "kill-session", "-t", self.session], capture_output=True)
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def pair(self, *args):
-        return subprocess.run([PAIR] + list(args), capture_output=True, text=True, env=self.env, timeout=60).stdout
+    def pair(self, *args, stdin=None, env=None):
+        return subprocess.run([sys.executable, "-I", PAIR] + list(args), input=stdin, capture_output=True,
+                              text=True, env=env or self.env, timeout=60)
 
-    def test_turn_say_and_approval(self):
-        out = self.pair("wait", "--max", "30", "--lines", "3")
-        self.assertIn("event: turn-finished", out)
-        self.assertIn("Done", out)
-        self.assertIn("sent to Codex: fix p2", self.pair("say", "fix\np2"))
-        out = self.pair("wait", "--max", "20")
-        self.assertIn("event: needs-approval", out)
-        self.assertIn("GOT: fix p2", out)
+    def hook(self, event, **data):
+        data.setdefault("transcript_path", self.transcript)
+        self.assertEqual(self.pair("hook", event, stdin=json.dumps(data)).returncode, 0)
 
-    def test_exited_pane(self):
+    def state_json(self):
+        with open(os.path.join(self.state, "state.json"), encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def screen(self):
+        return subprocess.run(["tmux", "capture-pane", "-p", "-J", "-t", self.pane],
+                              capture_output=True, text=True).stdout
+
+    def wait_for(self, check, seconds=20):
+        end = time.time() + seconds
+        while time.time() < end:
+            if check():
+                return True
+            time.sleep(0.25)
+        return False
+
+    def start_loop(self):
+        self.loop = subprocess.Popen([sys.executable, "-I", PAIR, "review-loop"], env=self.env,
+                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    def test_hooks_track_turns_and_rounds(self):
+        self.hook("prompt", prompt="add an average function")
+        self.hook("tool", tool_name="Read")
+        self.hook("tool", tool_name="Edit")
+        s = self.state_json()
+        self.assertEqual((s["turn"], s["phase"], s["source"], s["rounds"], s["edits"]), (1, "working", "user", 0, 1))
+        self.hook("notify", message="Claude needs your permission to use Bash")
+        self.assertTrue(self.state_json()["awaiting"])
+        self.hook("stop")
+        s = self.state_json()
+        self.assertEqual((s["phase"], s["stopped_turn"], s["awaiting"]), ("idle", 1, False))
+        self.hook("prompt", prompt="[Codex review] (1) fix it")
+        self.assertEqual((self.state_json()["source"], self.state_json()["rounds"]), ("codex", 1))
+        self.hook("prompt", prompt="thanks, next")
+        self.assertEqual(self.state_json()["rounds"], 0)
+        # Outside a pair session the hook does nothing and never fails Claude.
+        env = dict(self.env, APEXREST_PAIR_STATE="")
+        self.assertEqual(self.pair("hook", "stop", stdin="garbage", env=env).returncode, 0)
+
+    def test_review_is_typed_into_claudes_console_then_held_after_the_round_limit(self):
+        self.start_loop()
+        self.hook("prompt", prompt="add an average function")
+        self.hook("tool", tool_name="Edit")
+        self.hook("stop")
+        self.assertTrue(self.wait_for(lambda: "[Codex review] (1) app.js:3 divides by zero when the list is empty"
+                                      in self.screen()), self.screen())
+        with open(self.prompts, encoding="utf-8") as fh:
+            prompt = fh.read()
+        self.assertIn("USER: add an average function", prompt)
+        self.assertIn("Claude finished turn 1", prompt)
+        # Claude answers the Codex message: that turn is reviewed, but with rounds=1 the note is held.
+        self.hook("prompt", prompt="[Codex review] (1) app.js:3 divides by zero")
+        self.hook("stop")
+        pending = os.path.join(self.state, "pending.txt")
+        self.assertTrue(self.wait_for(lambda: os.path.exists(pending)))
+        self.assertIn("already sent", open(self.prompts, encoding="utf-8").read())
+        self.assertEqual(self.screen().count("[Codex review]"), 1)
+        self.assertIn("held (send)", self.pair("status").stdout)
+
+    def test_no_notes_types_nothing(self):
+        self.env["FAKE_VERDICT"] = "ok"
+        self.start_loop()
+        self.hook("prompt", prompt="what does this do?")
+        self.hook("stop")
+        self.assertTrue(self.wait_for(lambda: os.path.exists(self.prompts)))
+        self.assertTrue(self.wait_for(lambda: self.state_json().get("reviewed_turn") == 1))
+        time.sleep(1)
+        self.assertNotIn("[Codex review]", self.screen())
+
+    def test_paused_and_manual_review(self):
+        self.pair("pause")
+        self.start_loop()
+        self.hook("prompt", prompt="add an average function")
+        self.hook("stop")
+        time.sleep(3)
+        self.assertFalse(os.path.exists(self.prompts))
+        self.pair("review")
+        self.assertTrue(self.wait_for(lambda: "[Codex review]" in self.screen()), self.screen())
+
+    def test_never_types_into_a_dialog(self):
+        mod = load_pair()
+        subprocess.run(["tmux", "send-keys", "-t", self.pane, "-l", "Do you want to proceed?"], check=True)
+        subprocess.run(["tmux", "send-keys", "-t", self.pane, "Enter"], check=True)
+        self.assertTrue(self.wait_for(lambda: "proceed" in self.screen()))
+        os.environ["APEXREST_PAIR_STATE"] = self.state
+        try:
+            ok, why = mod.can_type(self.pane, {})
+            self.assertFalse(ok)
+            self.assertIn("dialog", why)
+            self.assertFalse(mod.can_type(self.pane, {"awaiting": True})[0])
+        finally:
+            del os.environ["APEXREST_PAIR_STATE"]
+
+    def test_reviewer_stops_when_claude_is_gone(self):
         subprocess.run(["tmux", "kill-session", "-t", self.session], capture_output=True)
-        self.assertIn("event: exited", self.pair("wait"))
+        self.start_loop()
+        out, _ = self.loop.communicate(timeout=20)
+        self.assertIn("reviewer stopped", out)
 
 
 class ModelTest(unittest.TestCase):

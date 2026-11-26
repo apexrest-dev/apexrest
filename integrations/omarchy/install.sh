@@ -32,7 +32,7 @@ else
   (cd "$SRC" && tar --exclude='__pycache__' -cf - .) | (cd "$DEST" && tar -xf -)
 fi
 chmod +x "$DEST/bin/apexrest-omarchy" "$DEST/bin/apexrest-pair"
-# Pair mode: put apexrest-pair on PATH so the Claude supervisor and you can call it by name.
+# Pair mode: put apexrest-pair on PATH so you can call it by name.
 mkdir -p "$HOME/.local/bin"
 ln -sfn "$DEST/bin/apexrest-pair" "$HOME/.local/bin/apexrest-pair"
 echo "Plugin installed ($MODE): $DEST"

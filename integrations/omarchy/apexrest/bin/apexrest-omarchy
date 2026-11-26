@@ -15,7 +15,7 @@ Commands:
   start <project>            Start a local preview (SQLite, no database)
   stop <port>                Stop a CLI-owned preview
   terminal <project> [shell|claude|codex|pair]
-                             pair: tmux with Codex left and a Claude supervisor right
+                             pair: Claude works, Codex reviews in the same console
   folder <project>           Open the project folder
 """
 
