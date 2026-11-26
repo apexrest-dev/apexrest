@@ -7,12 +7,18 @@ Uses a fake APEXREST CLI and a temporary APEXREST_HOME; touches no real state.
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+
+# Tests get their own tmux server, never the user's (sessions there are visible to the bar widget).
+os.environ.pop("TMUX", None)
+TMUX_DIR = tempfile.mkdtemp(prefix="apexrest-tmux-")
+os.environ["TMUX_TMPDIR"] = TMUX_DIR
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.join(HERE, "apexrest")
@@ -202,12 +208,28 @@ class PairUnitTest(unittest.TestCase):
         for hidden in ("old request", "skill body", "secret plan", "subagent"):
             self.assertNotIn(hidden, text)
         # A Codex message does not start a new turn: the user's request stays in view.
-        extra = [{"type": "user", "message": {"content": "[Codex review] (1) check b"}},
+        extra = [{"type": "user", "message": {"content": "[Request interrupted by user]"}},
+                 {"type": "user", "message": {"content": "<bash-input>git status</bash-input>"}},
+                 {"type": "user", "message": {"content": "[Codex review] (1) check b"}},
                  {"type": "assistant", "message": {"content": [{"type": "text", "text": "fixed"}]}}]
         write(path, "\n".join(json.dumps(x) for x in transcript_lines() + extra))
         text = self.mod.digest(path)
         self.assertTrue(text.startswith("USER: add an average function"))
         self.assertIn("CODEX REVIEW (earlier, sent to Claude): [Codex review] (1) check b", text)
+
+    def test_composer_text_ignores_suggestions(self):
+        rule = "\x1b[38;5;244m" + "─" * 40 + "\x1b[39m"
+        empty = [rule, "\x1b[39m❯\u00a0", rule, "  \x1b[38;5;220m⏵⏵ auto mode on\x1b[39m"]
+        ghost = [rule, "\x1b[39m❯\u00a0\x1b[2mcommit this\x1b[22m", rule]
+        grey = [rule, "\x1b[39m❯\u00a0\x1b[38;5;246mTry \"fix lint\"\x1b[39m", rule]
+        draft = [rule, "\x1b[39m❯\u00a0half a thought", "  that wraps", rule]
+        history = ["\x1b[39m❯ an old prompt", rule, "\x1b[39m❯\u00a0", rule]
+        self.assertEqual(self.mod.composer_text(empty), "")
+        self.assertEqual(self.mod.composer_text(ghost), "")
+        self.assertEqual(self.mod.composer_text(grey), "")
+        self.assertEqual(self.mod.composer_text(draft), "half a thought  that wraps")
+        self.assertEqual(self.mod.composer_text(history), "")
+        self.assertIsNone(self.mod.composer_text(["plain output"]))
 
     def test_review_message_is_one_bounded_line(self):
         msg = self.mod.review_message(["first\nline\x1b[31m", "", "x" * 900, "c", "d", "e"])
@@ -216,6 +238,8 @@ class PairUnitTest(unittest.TestCase):
         self.assertNotIn("\x1b", msg)
         self.assertLessEqual(len(msg), 1000)
         self.assertEqual(self.mod.review_message([]), "")
+        self.assertTrue(self.mod.review_message(["see @src/app.js"]).endswith("@src/app.js ."))
+        self.assertFalse(self.mod.review_message(["ends with a backslash \\"]).endswith("\\"))
 
     def test_due(self):
         due, cfg = self.mod.due, {"every": 150}
@@ -305,6 +329,12 @@ class PairTest(unittest.TestCase):
         self.assertEqual((self.state_json()["source"], self.state_json()["rounds"]), ("codex", 1))
         self.hook("prompt", prompt="thanks, next")
         self.assertEqual(self.state_json()["rounds"], 0)
+        # A queued checkpoint note reaches Claude through the next tool call, as hook context.
+        write(os.path.join(self.state, "inject.txt"), "[Codex review] (1) mid-turn note")
+        out = self.pair("hook", "tool", stdin=json.dumps({"tool_name": "Read"})).stdout
+        self.assertEqual(json.loads(out)["hookSpecificOutput"]["additionalContext"], "[Codex review] (1) mid-turn note")
+        self.assertFalse(os.path.exists(os.path.join(self.state, "inject.txt")))
+        self.assertEqual(self.pair("hook", "tool", stdin="{}").stdout, "")
         # Outside a pair session the hook does nothing and never fails Claude.
         env = dict(self.env, APEXREST_PAIR_STATE="")
         self.assertEqual(self.pair("hook", "stop", stdin="garbage", env=env).returncode, 0)
@@ -330,6 +360,29 @@ class PairTest(unittest.TestCase):
         self.assertEqual(self.screen().count("[Codex review]"), 1)
         self.assertIn("held (send)", self.pair("status").stdout)
 
+    def test_checkpoint_notes_are_queued_not_typed(self):
+        self.start_loop()
+        self.hook("prompt", prompt="add an average function")
+        self.hook("tool", tool_name="Edit")
+        old = time.time() - 400
+        with open(os.path.join(self.state, "state.lock"), "a"):
+            st = self.state_json()
+            st.update(last_review_at=0, last_tool=time.time() - 5)
+            write(os.path.join(self.state, "state.json"), json.dumps(st))
+        inject = os.path.join(self.state, "inject.txt")
+        self.assertTrue(self.wait_for(lambda: os.path.exists(inject)))
+        self.assertIn("checkpoint while Claude is still working", open(self.prompts, encoding="utf-8").read())
+        self.assertNotIn("[Codex review]", self.screen())
+        self.assertLess(old, time.time())
+
+    def test_an_interrupted_turn_does_not_stay_working(self):
+        st = {"turn": 2, "phase": "working", "awaiting": True, "last_tool": time.time() - 60,
+              "turn_started": time.time() - 90, "transcript": self.transcript}
+        write(os.path.join(self.state, "state.json"), json.dumps(st))
+        self.start_loop()
+        self.assertTrue(self.wait_for(lambda: self.state_json().get("phase") == "idle"))
+        self.assertFalse(self.state_json()["awaiting"])
+
     def test_no_notes_types_nothing(self):
         self.env["FAKE_VERDICT"] = "ok"
         self.start_loop()
@@ -350,17 +403,30 @@ class PairTest(unittest.TestCase):
         self.pair("review")
         self.assertTrue(self.wait_for(lambda: "[Codex review]" in self.screen()), self.screen())
 
+    def show(self, *lines):
+        """Replace the stand-in console with a screen that prints the given lines."""
+        script = os.path.join(self.tmp, "screen.sh")
+        write(script, "clear\n" + "".join("printf '%%s\\n' %s\n" % shlex.quote(ln) for ln in lines) + "sleep 60\n")
+        subprocess.run(["tmux", "respawn-pane", "-k", "-t", self.pane, "bash " + script], check=True)
+        self.pane = subprocess.run(["tmux", "display-message", "-p", "-t", self.session + ":", "#{pane_id}"],
+                                   capture_output=True, text=True, check=True).stdout.strip()
+        self.assertTrue(self.wait_for(lambda: lines[-1] in self.screen()))
+
+    def test_claudes_prose_is_not_a_dialog_but_working_is_not_idle(self):
+        mod = load_pair()
+        self.show("Would you like me to also add tests? Do you want to keep the old API?", "  auto mode on")
+        self.assertEqual(mod.can_type(self.pane, {}), (True, ""))
+        self.show("✻ Thinking…", "  auto mode on (shift+tab to cycle) · esc to interrupt")
+        self.assertEqual(mod.can_type(self.pane, {})[1], "Claude is working")
+
     def test_never_types_into_a_dialog(self):
         mod = load_pair()
-        subprocess.run(["tmux", "send-keys", "-t", self.pane, "-l", "Do you want to proceed?"], check=True)
-        subprocess.run(["tmux", "send-keys", "-t", self.pane, "Enter"], check=True)
-        self.assertTrue(self.wait_for(lambda: "proceed" in self.screen()))
+        self.show(" Do you want to proceed?", " ❯ 1. Yes", "   2. No", " Enter to confirm · Esc to cancel")
         os.environ["APEXREST_PAIR_STATE"] = self.state
         try:
             ok, why = mod.can_type(self.pane, {})
             self.assertFalse(ok)
             self.assertIn("dialog", why)
-            self.assertFalse(mod.can_type(self.pane, {"awaiting": True})[0])
             self.assertFalse(mod.deliver(self.state, self.pane, "[Codex review] x", wait=2)[0])
             with open(os.path.join(self.state, "status"), encoding="utf-8") as fh:
                 self.assertIn("notes wait: a menu or dialog is open", fh.read())
@@ -468,6 +534,8 @@ class WidgetPairTest(unittest.TestCase):
         loader = importlib.machinery.SourceFileLoader("apexrest_omarchy", HELPER)
         mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("apexrest_omarchy", loader))
         loader.exec_module(mod)
+        prod = {"name": "prod", "kind": "production", "applicationId": 1, "baseUrl": "https://p.example/ords/"}
+        self.assertIsNone(mod.run_target([prod]))
         sent = []
         mod.notify = lambda title, body, urgency="normal": sent.append(title)
         row = {"session": "pair-a", "name": "demo", "held": True, "reviewer": "held", "notes": ["n"]}
@@ -541,6 +609,11 @@ class ModelTest(unittest.TestCase):
         s = self.run_model('snapshot("not json")')
         self.assertTrue(s["loaded"])
         self.assertNotEqual(s["error"], "")
+
+
+def tearDownModule():
+    subprocess.run(["tmux", "kill-server"], capture_output=True)
+    shutil.rmtree(TMUX_DIR, ignore_errors=True)
 
 
 if __name__ == "__main__":

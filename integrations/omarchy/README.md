@@ -29,7 +29,7 @@ Click to open the panel. Middle-click to refresh. Key bindings can use `omarchy-
 - **Live previews** lists every running preview from `apexrest preview status`: project, port, local SQLite or connected environment, and whether a terminal or an agent session owns it. You can open it in the browser. Previews started from a terminal can also be stopped here. A preview owned by an agent session is stopped from that session.
 - **Projects** shows pinned projects first, then the most recently used ones from `~/.apexrest/recent-projects.json`. Each row lists its environments and application IDs, changed files in Git, the last deployment and its age, running jobs, and up to five open review comments. It also shows sync problems such as a blocked sync or an interrupted import. Each project has seven shortcuts:
   - start a local preview, or open it if one is already running
-  - 󰏌 run the deployed application in APEX, in your browser (`<ORDS base>/f?p=<app id>` of the DEV environment, else TEST, else QA). It only opens the URL: no deploy, no database call
+  - 󰏌 run the deployed application in APEX, in your browser (`<ORDS base>/f?p=<app id>` of the DEV environment, else TEST, else QA; never production). It only opens the URL: no deploy, no database call
   - 󰕘 pair mode: start it, or reopen the running session (the icon turns green)
   - ✻ Claude Code
   - Codex
@@ -48,7 +48,11 @@ The 󰕘 button on a project row opens one terminal with a tmux session `pair-<p
 
 A Codex note is never permission. Claude's role prompt ([`assets/pair-main.md`](apexrest/assets/pair-main.md)) says your instructions and the project rules always win. Codex's role prompt ([`assets/pair-reviewer.md`](apexrest/assets/pair-reviewer.md)) asks only for issues worth an interruption, not style nits.
 
-The reviewer never types while Claude is asking for your permission or shows a dialog, or within 6 s of your last key press. It sends at most two automatic messages per prompt of yours, so Claude and Codex cannot argue in a loop. After that, or when it could not type, the note is held and the status line says `held (send)`.
+The reviewer types into Claude's console only while Claude is idle. It does not type while Claude is working, because a permission prompt can open at any moment. It also does not type while a menu or dialog is open (it reads Claude Code's key-hint footer and numbered options, not Claude's prose), while you have an unsent message in Claude's prompt, or within 6 s of your last key press. Before pressing Enter it checks that the text landed in the prompt box unchanged.
+
+A checkpoint note found while Claude is still working is not typed: a Claude Code `PostToolUse` hook hands it to Claude as context right after its next tool call. If the turn ends first, it is typed once Claude is idle.
+
+The reviewer sends at most two automatic messages per prompt of yours, so Claude and Codex cannot argue in a loop. After that, or when it could not type, the note is held and the status line says `held (send)`. A later held note is added to the earlier one rather than replacing it, and a held note is removed only after it has been typed. When you interrupt Claude (Claude Code then runs no Stop hook), the reviewer notices that the console has gone idle and does not stay stuck on "working".
 
 The bar widget lists the session with the same controls (see [The panel](#the-panel)). The session looks like one console: the tmux status line says `✻ Claude works · 󰚩 Codex reviews` on the left and shows Codex's state on the right: `◉ watching`, `⟳ reviewing`, `✓` no notes, `✎` notes sent, `✎ notes wait: <reason>` (for example while a Claude menu is open), `⏸` paused. Codex runs only while it reviews, so there is no Codex window to look at. The reviewer's log is in a hidden `codex-review` window (prefix + `w`), or run `!apexrest-pair log`. Run the commands from Claude's composer with a `!` prefix, for example `!apexrest-pair pause`:
 
@@ -62,7 +66,7 @@ The bar widget lists the session with the same controls (see [The panel](#the-pa
 | `apexrest-pair say <text>` | Type a line into Claude's console          |
 | `apexrest-pair stop`       | End the session                            |
 
-`start` reads these settings from the environment: `APEXREST_PAIR_EVERY` (checkpoint seconds, default 150), `APEXREST_PAIR_ROUNDS` (automatic messages per prompt, default 2), `APEXREST_PAIR_REVIEW=changes` (review only turns that edited files), `APEXREST_PAIR_MODEL` (Codex model for reviews, default `gpt-6.2-sol`) and `APEXREST_PAIR_EFFORT` (reasoning effort, default `high`). The reviewer passes them to `codex exec` explicitly, so it does not depend on your global Codex default. The hooks are passed to this Claude session only, with `--settings`; your own Claude settings are not changed. Running `start` again reattaches. Close the session with `tmux kill-session -t pair-<project>`.
+`start` reads these settings from the environment: `APEXREST_PAIR_EVERY` (checkpoint seconds, default 150), `APEXREST_PAIR_ROUNDS` (automatic messages per prompt, default 2), `APEXREST_PAIR_REVIEW=changes` (review only turns that edited files), `APEXREST_PAIR_MODEL` (Codex model for reviews, default `gpt-6.2-sol`) and `APEXREST_PAIR_EFFORT` (reasoning effort, default `high`). The reviewer passes them to `codex exec` explicitly, so it does not depend on your global Codex default. The hooks are passed to this Claude session only, with `--settings`; your own Claude settings are not changed. Running `start` again reattaches. Two projects with the same folder name get separate sessions (`pair-<name>` and `pair-<name>-<hash>`). Close the session with `tmux kill-session -t pair-<project>`.
 
 ## Safety
 

@@ -30,6 +30,7 @@ Settings (environment, read by `start`):
 """
 
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -48,9 +49,17 @@ TAG = "[Codex review]"
 DEFAULT_MODEL = "gpt-6.2-sol"
 DEFAULT_EFFORT = "high"
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
-# A dialog in Claude's console: typing there could pick an option.
-DIALOG = re.compile(r"do you want to|don't ask again|would you like to|\[y/n\]|enter to confirm|esc to cancel", re.I)
+# Claude Code's own UI, read from the bottom of its screen. A dialog (permission prompt, Rewind, a
+# picker) ends with a key-hint footer or shows a numbered option list; typing there could pick an
+# option. Claude's prose ("Would you like to ...") is not matched.
+DIALOG_FOOTER = re.compile(r"(enter|tab|space) to (confirm|continue|select|submit)|esc to (cancel|go back|exit|close)", re.I)
+DIALOG_OPTION = re.compile(r"^\s*[❯>]\s*\d+\.\s")
+BUSY = re.compile(r"esc to interrupt", re.I)
+RULE = re.compile(r"^[\s─━▔▁]{20,}$")
+SGR = re.compile(r"\x1b\[([0-9;]*)m")
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 QUIET_SECONDS = 6
+STUCK_SECONDS = 20
 SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -161,16 +170,23 @@ def block_text(content):
     return ""
 
 
+NOT_PROMPTS = ("[Request interrupted", "<bash-", "<command-", "<local-command", "Caveat:")
+
+
 def prompt_text(entry):
-    """The text of a prompt typed into Claude (by you or by the reviewer), or None."""
+    """The text of a prompt typed into Claude (by you or by the reviewer), or None. Interrupt markers
+    and `!` or slash-command records are not prompts."""
     if entry.get("type") != "user":
         return None
     content = (entry.get("message") or {}).get("content")
+    text = None
     if isinstance(content, str):
-        return content
-    if isinstance(content, list) and content and all(isinstance(x, dict) and x.get("type") == "text" for x in content):
-        return block_text(content)
-    return None
+        text = content
+    elif isinstance(content, list) and content and all(isinstance(x, dict) and x.get("type") == "text" for x in content):
+        text = block_text(content)
+    if text is None or text.lstrip().startswith(NOT_PROMPTS):
+        return None
+    return text
 
 
 def digest(path, limit=16000):
@@ -223,7 +239,13 @@ def digest(path, limit=16000):
 
 def review_message(notes):
     parts = ["(%d) %s" % (i, clean(n, 260)) for i, n in enumerate(notes[:4], 1) if clean(n, 260)]
-    return clean(TAG + " " + " ".join(parts), 1000) if parts else ""
+    if not parts:
+        return ""
+    msg = clean(TAG + " " + " ".join(parts), 1000).rstrip("\\ ")
+    # A trailing @file or /command token opens a completion menu that would take the Enter.
+    if msg.split(" ")[-1][:1] in ("@", "/"):
+        msg += " ."
+    return msg
 
 
 # ---- tmux --------------------------------------------------------------------------------------
@@ -238,14 +260,66 @@ def pane_alive(pane):
     return bool(pane) and pane in tmux("list-panes", "-a", "-F", "#{pane_id}").stdout.split()
 
 
+def composer_text(styled_lines):
+    """What you have typed into Claude's prompt box, ignoring its dimmed suggestions; None when no
+    prompt box is on screen."""
+    start = None
+    for i, ln in enumerate(styled_lines):
+        plain = ANSI.sub("", ln).lstrip()
+        if plain.startswith("❯") and any(RULE.match(ANSI.sub("", x)) for x in styled_lines[i + 1:]):
+            start = i
+    if start is None:
+        return None
+    typed = []
+    for ln in styled_lines[start:]:
+        if ln is not styled_lines[start] and RULE.match(ANSI.sub("", ln)):
+            break
+        ghost, pos, out = False, 0, []
+        for m in SGR.finditer(ln + "\x1b[m"):
+            chunk = ANSI.sub("", ln[pos:m.start()])
+            if not ghost:
+                out.append(chunk)
+            pos = m.end()
+            codes = [c for c in m.group(1).split(";") if c] or ["0"]
+            i = 0
+            while i < len(codes):
+                c = codes[i]
+                if c in ("0", "22", "39"):
+                    ghost = False
+                elif c in ("2", "90"):
+                    ghost = True
+                elif c == "38" and i + 2 < len(codes) and codes[i + 1] == "5":
+                    ghost = int(codes[i + 2]) >= 236 if codes[i + 2].isdigit() else False
+                    i += 2
+                elif c == "38" and i + 4 < len(codes) and codes[i + 1] == "2":
+                    i += 4
+                i += 1
+        typed.append("".join(out))
+    text = "".join(typed).replace("\u00a0", " ").strip()
+    return text[1:].strip() if text.startswith("❯") else text
+
+
+def console(pane):
+    """Claude's console as the reviewer needs it: working, a dialog open, or a draft of yours."""
+    styled = tmux("capture-pane", "-p", "-e", "-J", "-t", pane).stdout.splitlines()
+    plain = [ANSI.sub("", ln) for ln in styled]
+    tail = [ln for ln in plain if ln.strip()][-4:]
+    return {"busy": any(BUSY.search(ln) for ln in tail),
+            "dialog": any(DIALOG_FOOTER.search(ln) for ln in tail)
+            or any(DIALOG_OPTION.match(ln) for ln in [x for x in plain if x.strip()][-12:]),
+            "draft": composer_text(styled) or ""}
+
+
 def can_type(pane, s):
-    """Whether it is safe to type into Claude's console now, and why not."""
-    if s.get("awaiting"):
-        return False, "Claude is waiting for your permission answer"
-    screen = tmux("capture-pane", "-p", "-J", "-t", pane).stdout
-    tail = "\n".join([ln for ln in screen.splitlines() if ln.strip()][-14:])
-    if DIALOG.search(tail):
+    """Whether it is safe to type into Claude's console now, and why not. Only an idle Claude is typed
+    into: while it works, a permission prompt can open at any moment."""
+    c = console(pane)
+    if c["dialog"]:
         return False, "a menu or dialog is open in Claude's console"
+    if c["busy"]:
+        return False, "Claude is working"
+    if c["draft"]:
+        return False, "you have an unsent message in Claude's prompt"
     session = tmux("display-message", "-p", "-t", pane, "#{session_name}").stdout.strip()
     activity = [int(x) for x in tmux("list-clients", "-t", session, "-F", "#{client_activity}").stdout.split() if x.isdigit()]
     if activity and time.time() - max(activity) < QUIET_SECONDS:
@@ -254,9 +328,18 @@ def can_type(pane, s):
 
 
 def type_line(pane, text):
-    tmux("send-keys", "-t", pane, "-l", "--", clean(text, 1200), check=True)
-    time.sleep(0.3)
+    """Type one line; press Enter only if it landed in Claude's prompt box, unchanged."""
+    text = clean(text, 1200)
+    tmux("send-keys", "-t", pane, "-l", "--", text, check=True)
+    time.sleep(0.4)
+    c = console(pane)
+    if c["dialog"] or c["busy"]:
+        return False
+    draft = c["draft"]
+    if draft and not draft.replace(" ", "").startswith(text[:40].replace(" ", "")):
+        return False
     tmux("send-keys", "-t", pane, "Enter", check=True)
+    return True
 
 
 def deliver(d, pane, text, wait=180):
@@ -266,10 +349,14 @@ def deliver(d, pane, text, wait=180):
     while time.time() < deadline:
         if not pane_alive(pane):
             return False, "Claude's console is gone"
-        ok, reason = can_type(pane, load(d))
-        if ok:
-            type_line(pane, text)
-            return True, ""
+        # One typist at a time: the reviewer loop and a `send` must not interleave keystrokes.
+        with open(os.path.join(d, "type.lock"), "a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            ok, reason = can_type(pane, load(d))
+            if ok:
+                if type_line(pane, text):
+                    return True, ""
+                return False, "the text did not land in Claude's prompt box (left there unsent)"
         if reason != shown:
             # Say why the notes have not appeared yet, in the status line and the log.
             set_status(d, "waiting", "✎ notes wait: %s" % reason)
@@ -294,6 +381,7 @@ def cmd_hook(args):
     if not isinstance(data, dict):
         data = {}
     now = time.time()
+    out = {}
 
     def apply(s):
         tp = data.get("transcript_path")
@@ -313,9 +401,21 @@ def cmd_hook(args):
             s["rounds"] = s.get("rounds", 0) + 1 if from_codex else 0
             s["edits"] = 0
             s["turn_edits"] = 0
+            s["turn_started"] = now
         elif event == "tool":
             s["phase"] = "working"
             s["last_tool"] = now
+            inject = os.path.join(d, "inject.txt")
+            try:
+                with open(inject, encoding="utf-8") as fh:
+                    note = fh.read().strip()
+                os.remove(inject)
+            except OSError:
+                note = ""
+            if note:
+                # A checkpoint review reaches Claude mid-turn as hook context: nothing is typed.
+                s["injected"] = s.get("injected", 0) + 1
+                out["context"] = note
             if data.get("tool_name") in EDIT_TOOLS:
                 s["edits"] = s.get("edits", 0) + 1
                 s["turn_edits"] = s.get("turn_edits", 0) + 1
@@ -327,6 +427,9 @@ def cmd_hook(args):
         update(d, apply)
     except OSError:
         pass
+    if out.get("context"):
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse",
+                                                 "additionalContext": out["context"]}}))
     return 0
 
 
@@ -409,6 +512,11 @@ def review(d, cfg, kind):
     if rounds_left <= 0 and kind != "manual":
         hold(d, msg, len(notes), "Codex already wrote %d times since your last prompt" % cfg.get("rounds", 2))
         return
+    if kind == "checkpoint" and load(d).get("phase") == "working":
+        append_note(os.path.join(d, "inject.txt"), msg)
+        log("queued for Claude's next tool call")
+        set_status(d, "notes", "✎ %d note%s mid-turn" % (len(notes), "" if len(notes) == 1 else "s"))
+        return
     ok, why = deliver(d, cfg["pane"], msg)
     if ok:
         log("sent to Claude")
@@ -417,11 +525,45 @@ def review(d, cfg, kind):
         hold(d, msg, len(notes), why)
 
 
+def append_note(path, msg):
+    """Add a review to a queue file; an older one is kept unless both no longer fit one message."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            old = fh.read().strip()
+    except OSError:
+        old = ""
+    both = (old + " " + msg).strip()
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(both if len(both) <= 1100 else msg)
+    if old and len(both) > 1100:
+        log("an older held review was replaced by this one (it is still in this log)")
+
+
 def hold(d, msg, count, why):
     set_status(d, "held", "✎ %d held (send)" % count)
     log("held: %s; `!apexrest-pair send` passes it on" % why)
-    with open(os.path.join(d, "pending.txt"), "w", encoding="utf-8") as fh:
-        fh.write(msg)
+    append_note(os.path.join(d, "pending.txt"), msg)
+
+
+def settle(d, pane, s):
+    """Claude Code runs no Stop hook when you interrupt a turn. When its screen has been idle for a
+    while, mark it idle; a permission flag without a dialog on screen is stale too. A checkpoint note
+    that no tool call picked up is typed once Claude is idle."""
+    now = time.time()
+    if s.get("phase") != "working" and not s.get("awaiting"):
+        return
+    c = console(pane)
+    if c["busy"] or c["dialog"]:
+        return
+
+    def fix(st):
+        if st.get("awaiting"):
+            st["awaiting"] = False
+        if st.get("phase") == "working" and now - max(st.get("last_tool", 0), st.get("turn_started", 0)) > STUCK_SECONDS:
+            st["phase"] = "idle"
+            st["interrupted"] = st.get("turn", 0)
+
+    update(d, fix)
 
 
 def due(s, cfg, now):
@@ -468,6 +610,18 @@ def cmd_review_loop(_args):
             kind = due(s, cfg, time.time())
             if kind:
                 review(d, cfg, kind)
+            settle(d, cfg["pane"], load(d))
+            leftover = os.path.join(d, "inject.txt")
+            if os.path.exists(leftover) and load(d).get("phase") == "idle":
+                with open(leftover, encoding="utf-8") as fh:
+                    msg = fh.read().strip()
+                os.remove(leftover)
+                if msg:
+                    ok, why = deliver(d, cfg["pane"], msg)
+                    if ok:
+                        log("mid-turn notes sent to Claude after its turn")
+                    else:
+                        hold(d, msg, 1, why)
         time.sleep(1)
 
 
@@ -509,9 +663,8 @@ def cmd_send(_args):
         msg = ""
     if not msg:
         die("no held review")
-    os.remove(path)
-    set_status(d, "notes", "✎ held review sent")
     # Typed from Claude's own composer ("!apexrest-pair send"), so it waits for the next idle moment.
+    # The held review stays on disk until it has been typed.
     subprocess.Popen([sys.executable, "-I", SELF, "_type", config(d)["pane"], msg],
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     print("will type the held review into Claude's console in a moment")
@@ -520,7 +673,23 @@ def cmd_send(_args):
 
 def cmd_type(args):
     d = state_dir()
-    deliver(d, args[0], args[1], wait=120)
+    ok, why = deliver(d, args[0], args[1], wait=120)
+    path = os.path.join(d, "pending.txt")
+    if ok:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                rest = fh.read().strip()
+            rest = rest.replace(args[1].strip(), "", 1).strip()
+            if rest:
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write(rest)
+            else:
+                os.remove(path)
+        except OSError:
+            pass
+        set_status(d, "notes", "✎ held review sent")
+    else:
+        set_status(d, "held", "✎ held (send): %s" % why)
     return 0
 
 
@@ -607,8 +776,11 @@ def cmd_start(args):
             die("%s is not installed" % tool)
     if not os.path.isfile(MAIN_PROMPT) or not os.path.isfile(REVIEW_PROMPT):
         die("missing prompts in " + ASSETS)
-    name = re.sub(r"[^A-Za-z0-9_-]", "-", os.path.basename(project)).strip("-") or "project"
+    name = (re.sub(r"[^A-Za-z0-9_-]", "-", os.path.basename(project)).strip("-") or "project")[:40]
     session = "pair-" + name
+    if config(os.path.join(state_root(), session)).get("project") not in (None, project):
+        # Another project with the same folder name owns pair-<name>: this one gets its own session.
+        session += "-" + hashlib.sha1(project.encode()).hexdigest()[:6]
     attach = ["tmux", "switch-client" if os.environ.get("TMUX") else "attach-session", "-t", "=" + session]
     d = os.path.join(state_root(), session)
     if tmux("has-session", "-t", "=" + session).returncode == 0 and config(d).get("session") != session:
@@ -630,7 +802,7 @@ def cmd_start(args):
         os.execvp("tmux", attach)
 
     os.makedirs(d, exist_ok=True)
-    for f in ("state.json", "pending.txt", "last-review.json", "status", "reviewer.json", "review.log"):
+    for f in ("state.json", "pending.txt", "inject.txt", "last-review.json", "status", "reviewer.json", "review.log"):
         if os.path.exists(os.path.join(d, f)):
             os.remove(os.path.join(d, f))
     hook = lambda ev: "python3 -I %s hook %s" % (shlex.quote(SELF), ev)
