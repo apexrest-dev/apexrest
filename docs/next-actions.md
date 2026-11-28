@@ -19,6 +19,12 @@
 - **Largest measured native cost.** On the local target a small page ship spends about 4.8 s planning (export and compile) and 6.6 s importing, out of a 14.2 s median. P4 (warm worker) and P6 (export path) work should be measured against that split.
 - **Visual editor limits.** Template options and number/date format pickers are not in the patch service yet; the editor takes free-text formats. Edits of components declared on the global page are bound to page 0's file; that path has no test or browser check yet.
 - **Not yet covered by review mode.** Comments on interactive grid columns and on items inside dialogs are not covered. Screenshots of the selection are not stored.
+- **Resident CLI ship qualification (APE-437).** Measure cold against resident CLI ships on a native DEV target, using the `planning` span's `compilerReused` and the operation totals, before any speed claim.
+- **Shared ship read scope (APE-438, experimental).** Qualify `APEXREST_SHIP_SHARED_READS=1` on an authorized native DEV target (session reset between batches, measured read-server startup saved) before enabling it by default; otherwise keep the per-phase scopes.
+- **Export observation profile (APE-420).** Measure single-page and full APEXlang export times on an authorized native DEV target, write `.apexrest/export-profiles/<target digest>.json`, and qualify the full-export extraction choice before claiming a speedup.
+- **Visible-change qualification (APE-412).** When browser verification is requested, run `scripts/bench/visible-change.ts --browser-cdp <endpoint>` against a user-selected browser, and supply `--host-events` from a recorded agent session, to report a complete prompt-to-visible time.
+- **Scenario paint qualification (APE-436).** Combine `scripts/bench/scenarios.ts` with the browser mode of `scripts/bench/visible-change.ts` when browser verification is requested, so the ≤ 1 s and 1-3 s targets are assessed against painted results, and repeat on native APEX separately.
+- **Paired qualification (APE-421).** With explicit authorization for a DEV/QA/TEST target, run `scripts/bench/qualify.ts --env <env> --authorized-target <env>` (and `--export-profile` for D07), add a host MCP session for the warm MCP and D02 cohorts, and record the per-candidate decisions.
 
 ## Production qualification
 
@@ -209,9 +215,3 @@ Preserve functional catalog provenance, licensing and compiler bindings. Preserv
 
 - Keep tracked Pages generated from the current Markdown/site sources; rerun `site:check`, documentation checks and relevant browser review after changes.
 - After a separately authorized push to `main`, verify the live [GitHub Pages website](https://apexrest-dev.github.io/apexrest/), search, navigation and assets.
-- **Resident CLI ship qualification (APE-437).** Measure cold against resident CLI ships on a native DEV target, using the `planning` span's `compilerReused` and the operation totals, before any speed claim.
-- **Shared ship read scope (APE-438, experimental).** Qualify `APEXREST_SHIP_SHARED_READS=1` on an authorized native DEV target (session reset between batches, measured read-server startup saved) before enabling it by default; otherwise keep the per-phase scopes.
-- **Export observation profile (APE-420).** Measure single-page and full APEXlang export times on an authorized native DEV target, write `.apexrest/export-profiles/<target digest>.json`, and qualify the full-export extraction choice before claiming a speedup.
-- **Visible-change qualification (APE-412).** When browser verification is requested, run `scripts/bench/visible-change.ts --browser-cdp <endpoint>` against a user-selected browser, and supply `--host-events` from a recorded agent session, to report a complete prompt-to-visible time.
-- **Scenario paint qualification (APE-436).** Combine `scripts/bench/scenarios.ts` with the browser mode of `scripts/bench/visible-change.ts` when browser verification is requested, so the ≤ 1 s and 1-3 s targets are assessed against painted results, and repeat on native APEX separately.
-- **Paired qualification (APE-421).** With explicit authorization for a DEV/QA/TEST target, run `scripts/bench/qualify.ts --env <env> --authorized-target <env>` (and `--export-profile` for D07), add a host MCP session for the warm MCP and D02 cohorts, and record the per-candidate decisions.

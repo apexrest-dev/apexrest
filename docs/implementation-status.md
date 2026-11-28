@@ -2,7 +2,7 @@
 
 The current source and bundled plugin version is **2.9.0**. The current contract is described in [architecture](architecture.md), [testing](testing.md) and the [acceptance matrix](acceptance.json).
 
-## Omarchy bar widget (2026-11-26, local, branch `feat/omarchy-bar-widget`)
+## Omarchy bar widget (2026-11-26, local)
 
 `integrations/omarchy/` adds an optional bar widget for the Omarchy desktop (`integrations/omarchy/install.sh`). A Python helper reads `apexrest version`, `preview status`, `panel status` and `preview comments` (all read-only, no database call). The panel shows live previews, recent projects (Git changes, sync problems, last deployment, jobs, open review comments) and desktop notifications for new comments and deployment results. Its actions are open, start (local SQLite preview only, never `--env`) and stop (CLI-owned previews only) for a preview, plus a terminal, Claude Code or Codex in the project, or the project folder. It never plans, applies, restores or imports. Verified:
 
@@ -11,7 +11,7 @@ The current source and bundled plugin version is **2.9.0**. The current contract
 - Pair mode (`integrations/omarchy/apexrest/bin/apexrest-pair`, roles in `assets/pair-main.md` and `assets/pair-reviewer.md`): one tmux console where Claude Code is the main agent and Codex reviews. Claude Code hooks passed with `--settings` (UserPromptSubmit, PostToolUse, Notification, Stop) record each turn. A reviewer loop in a second tmux window sends Claude's turn, taken from its own transcript, to a read-only `codex exec --output-schema`, at the end of each turn and at checkpoints while Claude edits files. Codex notes are typed into Claude's console as one `[Codex review]` line. Before typing, the loop checks that Claude is not waiting for a permission answer, that no dialog is open, and that the user has not typed for 6 seconds. It sends at most two automatic messages per user prompt, then holds them for `send`. Repository tests cover the transcript digest, hook state, delivery into a tmux pane with a fake Codex, the round limit, pause and manual review, the dialog guard, and a vanished console. One real local run on a scratch Git repository was observed. Real Claude Code fired all four hooks. A real Codex review flagged a planted divide-by-zero in 23 seconds, and the note appeared in Claude's console. Claude checked it and kept the change the user asked for, and the next Codex review returned no notes. Not observed: a mid-turn checkpoint review on a long real task, or typing while the user is composing a message. The dialog guard depends on Claude Code's dialog wording. The bar widget shows live pair sessions inside their project row (sessions for unlisted folders get their own section), read through `apexrest-pair sessions` (local state files, no CLI call). It shows Claude's phase, the turn number, Codex's review state and its latest notes. It can reopen, review now, pause or resume, send a held review, or end a session (two clicks), and it notifies about held or failed reviews. Repository tests cover the listing against a live tmux session, the actions, the notification rules and the Model bounds. A live session was observed in the panel with its state and a real Codex note. The panel buttons were not clicked in that run; the helper actions they call are covered by the tests. After an independent review the reviewer types only into an idle Claude console: it reads Claude Code's working indicator, dialog footer or numbered options, and your unsent draft from the styled screen, and checks that the text landed in the prompt box before pressing Enter. These readings were checked against a real Claude Code session (idle, draft, cleared, working, Rewind menu). Checkpoint notes reach Claude mid-turn through `PostToolUse` `additionalContext` (checked with real Claude Code), interrupted turns no longer stay "working", held notes are kept until typed, same-named folders get separate sessions, and the tests use a private tmux server. Each project row also has a run button that opens the deployed application in the browser at `<ORDS base>/f?p=<app id>`, using the project's DEV environment, else TEST, else QA. Non-http base URLs are refused; repository tests cover the URL and the refusals, and the local DEV URL for application 100 was checked to redirect to its home page. `start` no longer reattaches a session left by the older two-pane mode. An idle one (only shells left) is replaced, and one still running an agent is refused with the command that closes it.
 - Not run: the review-comment and deployment notifications, against real events (the installed 2.8.0 CLI has no `preview comments`); other Omarchy versions; vertical bars.
 
-## Fast-development follow-up backlog (2026-11-25, local, branch `feat/fast-development`)
+## Fast-development follow-up backlog (2026-11-25, local)
 
 Work items are APE-405 to APE-438 in Linear; each section names its backlog ID. Implementation, repository tests, compiler evidence, native import and browser observations are reported separately.
 
@@ -394,7 +394,7 @@ Starting the connection costs 2.3 s and 9 round trips. That includes the schema 
 
 **Main-thread blocking ([APE-395](https://linear.app/apexrest/issue/APE-395)).** A request blocks the event loop for at most about 40 ms on these pages, and the preview serves one developer. Decision: deferred, with this measurement as evidence. Moving a whole request to a worker is reconsidered if a page blocks for a noticeable time (hundreds of milliseconds).
 
-## Compound edits and recipes, Slice F (2026-11-22, local, uncommitted)
+## Compound edits and recipes, Slice F (2026-11-22, local)
 
 **Page context ([APE-381](https://linear.app/apexrest/issue/APE-381)).** `project context` (CLI) or `apexrest_project action:context` returns, for one page:
 
@@ -500,7 +500,7 @@ Component identities stay stable:
 
 The two specification models (scaffold pages and Composer blueprints/blocks) stay separate.
 
-## Warm state and session qualification, Slice E (2026-11-22, local, uncommitted)
+## Warm state and session qualification, Slice E (2026-11-22, local)
 
 **Where import time goes.** On the local APEX 26.2.0 target, a page import spends 2.5 s on the fresh pre-write export, 0.65 s connecting and 3.1 s in Oracle's import. The prepared import server's JVM is already started off the critical path (spawn 0 ms). Each database script costs about 1.7–1.9 s in its own SQLcl process.
 
@@ -524,7 +524,7 @@ Server-mode qualification on SQLcl 26.3:
 
 On the local APEX 26.2 target, two package scripts took 2.03 and 2.13 s against 3.91 and 3.98 s with one process per script (alternating, 2 runs each); the objects stayed VALID. In a failure run the first two scripts recorded as applied after their markers. The third failed (ORA-01476) and the run became `OUTCOME_UNKNOWN` (`ORACLE_COMMAND_FAILED`), the same classification as the process path. It was released through `deploy reconcile`. Unit tests cover the fallback, reset, discard and failure rules.
 
-## Reviewed database reconciliation (2026-11-22, local, uncommitted)
+## Reviewed database reconciliation (2026-11-22, local)
 
 **[APE-403](https://linear.app/apexrest/issue/APE-403).** `apexrest deploy reconcile` releases a run held as `database-review-required` once a person has inspected the database:
 
@@ -538,7 +538,7 @@ It never connects to the database. It refuses an incomplete statement, a differe
 
 **Verified on the local APEX 26.2.** Held run `08e6e532` (`APEXREST_262_TEST`) was released after the user confirmed that both its packages were not applied. A fresh database-only ship then created `APEXREST_CUSTOMERS`, the package and its body, and the trigger, all VALID. Unit tests cover the refusals and the history updates.
 
-## Development broker, Slice D (2026-11-22, local, uncommitted)
+## Development broker, Slice D (2026-11-22, local)
 
 **Broker ([APE-361](https://linear.app/apexrest/issue/APE-361), [APE-373](https://linear.app/apexrest/issue/APE-373)).** `broker.ts` adds `apexrest dev start|status|stop`: one process per project on a private token-protected Unix socket or named pipe. It has an idle timeout, and its stop waits for running jobs. Ship apply jobs from MCP go to the broker when it runs; otherwise they use the detached worker as before.
 
@@ -557,7 +557,7 @@ It never connects to the database. It refuses an incomplete statement, a differe
 
 The broker saves about 0.25 s, within run-to-run noise. The import itself dominates, through the isolated SQLcl write session. A coalescing check on the same target queued two applies back to back: the first was `superseded` and the second `completed`.
 
-## Incremental preview, Slice C (2026-11-22, local, uncommitted)
+## Incremental preview, Slice C (2026-11-22, local)
 
 **Source index ([APE-351](https://linear.app/apexrest/issue/APE-351)).** `loadApplication` takes a per-file parse cache keyed by size, modification time and substitutions, so unchanged files keep their parsed components. `preview/source-index.ts` lists the changed files and the affected pages:
 
@@ -578,7 +578,7 @@ Verified:
 - Unit tests cover equivalence of cached and clean loads, scope, renames, stale state, region eligibility and the live message.
 - In the built-in browser with two tabs, patching the region title on page 10 replaced that region in place: the tab was not reloaded and the new text appeared. The page 1 tab was not touched.
 
-## Semantic page edits, Slice B (2026-11-22, local, uncommitted)
+## Semantic page edits, Slice B (2026-11-22, local)
 
 **Lossless editor ([APE-350](https://linear.app/apexrest/issue/APE-350)).** `edit/apexlang-edit.ts` scans one `.apx` file into components, groups and property lines with exact offsets. ``` literals, object and array values, and `//` and `/* */` comments stay opaque. An edit replaces only a property's value bytes. A missing property or group is inserted with the file's indentation and line ending. Values that would read as references, booleans or quoted text are written as JSON-quoted text. The preview parser only validates the result.
 
@@ -604,7 +604,7 @@ Results:
 - Unit tests cover CRLF, non-ASCII text, quotes, fences, comments, insertion, conflicts, ambiguity, a stale digest, the MCP route and the CLI route.
 - On the local APEX 26.2.0 (application 26220), one patch changed a region title, a column heading and a column format mask. The diff was 5 lines added and 2 removed, then `ship` imported it. The APEX dictionary shows `Customer list`, `Email` and `UPPER`.
 
-## Fast-development Slice A (2026-11-22, local, uncommitted)
+## Fast-development Slice A (2026-11-22, local)
 
 **Source revisions ([APE-345](https://linear.app/apexrest/issue/APE-345), [APE-400](https://linear.app/apexrest/issue/APE-400), [APE-401](https://linear.app/apexrest/issue/APE-401)).** `revision.ts` identifies a revision by the existing plan `sourceDigest`. These outcomes are recorded for their own revision only:
 
@@ -639,7 +639,7 @@ The native ship median phases were: planning 4.75 s, backup 2.13 s, database scr
 
 **Composer metadata snapshot ([APE-352](https://linear.app/apexrest/issue/APE-352)).** Decided against a cache across plans. A plan reads its metadata once (APE-348). A cross-plan cache would need a target DDL-state signal, which costs its own query, and it must never be evidence of fresh target state.
 
-## Preview review comments and fast-development slice (2026-11-22, local, uncommitted)
+## Preview review comments and fast-development slice (2026-11-22, local)
 
 **Review mode in the local preview ([APE-402](https://linear.app/apexrest/issue/APE-402)).** The toolbar has a **Review** button; **Alt+Shift+C** selects components. Hovering highlights the most specific component under the pointer. A click opens a form that offers every target, from the exact element up to the page, including columns of a report that has no rows. Each comment is stored with its APEXlang component, source folder, file and line in `<project>/.apexrest/review/comments.json`. Numbered pins mark commented components, and the comment list refreshes when an agent resolves comments elsewhere.
 
